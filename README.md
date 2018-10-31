@@ -1,6 +1,6 @@
 # ArrayInterface.jl
 
-Julia has only recently reach v1.0 and the AbstractArray interface is still
+Julia has only recently reached v1.0 and the AbstractArray interface is still
 quite new. The purpose of this library is to solidify extensions to the current
 AbstractArray interface which are put to use in package ecosystems like
 DifferentialEquations.jl. Since these libraries are live, this package will
