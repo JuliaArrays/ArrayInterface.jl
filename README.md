@@ -15,11 +15,11 @@ dispatching to in-place and out-of-place versions of functions.
 
 ## List of things to add
 
-https://github.com/JuliaLang/julia/issues/22216
-https://github.com/JuliaLang/julia/issues/22218
-https://github.com/JuliaLang/julia/issues/22622
-https://github.com/JuliaLang/julia/issues/25760
-https://github.com/JuliaLang/julia/issues/25107
+- https://github.com/JuliaLang/julia/issues/22216
+- https://github.com/JuliaLang/julia/issues/22218
+- https://github.com/JuliaLang/julia/issues/22622
+- https://github.com/JuliaLang/julia/issues/25760
+- https://github.com/JuliaLang/julia/issues/25107
 
 ## Array Types to Handle
 
