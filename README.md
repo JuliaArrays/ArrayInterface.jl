@@ -28,8 +28,8 @@ development.
 
 - Array
 - Various versions of sparse arrays
-- SArray (by having a separate implementation of each algorithm for immutables)
-- MArray (we have a workaround for this issue: never use out of place broadcast https://github.com/JuliaDiffEq/OrdinaryDiffEq.jl/pull/546)
+- SArray
+- MArray
 - FieldVector
 - ArrayPartition
 - VectorOfArray
