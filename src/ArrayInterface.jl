@@ -13,18 +13,18 @@ https://github.com/JuliaDiffEq/RecursiveArrayTools.jl/issues/19.
 Base.@pure ismutable(x::DataType) = x.mutable
 ismutable(x) = ismutable(typeof(x))
 
-ismutable(x::Array) = true
+ismutable(::Type{Array}) = true
 
 
 function __init__()
 
   @require StaticArrays="90137ffa-7385-5640-81b9-e52037218182" begin
-    ismutable(x::StaticArrays.StaticArray) = false
-    ismutable(x::StaticArrays.MArray) = true
+    ismutable(::Type{StaticArrays.StaticArray}) = false
+    ismutable(::Type{StaticArrays.MArray}) = true
   end
 
   @require LabelledArrays="2ee39098-c373-598a-b85f-a56591580800" begin
-    ismutable(x::LVector) = ismutable(x.__x)
+    ismutable(::Type{LArray{T,N,Syms}}) where {T,N,Syms} = ismutable(T)
   end
   
   @require Flux="587475ba-b771-5e3f-ad9e-33799f191a9c" begin
