@@ -11,6 +11,7 @@ Query whether a type is mutable or not, see
 https://github.com/JuliaDiffEq/RecursiveArrayTools.jl/issues/19.
 """
 Base.@pure ismutable(x::DataType) = x.mutable
+ismutable(x) = ismutable(typeof(x))
 
 ismutable(x::Array) = true
 
