@@ -25,7 +25,7 @@ function __init__()
   end
 
   @require LabelledArrays="2ee39098-c373-598a-b85f-a56591580800" begin
-    ismutable(::Type{LArray{T,N,Syms}}) where {T,N,Syms} = ismutable(T)
+    ismutable(::Type{LabelledArrays.LArray{T,N,Syms}}) where {T,N,Syms} = ismutable(T)
   end
   
   @require Flux="587475ba-b771-5e3f-ad9e-33799f191a9c" begin
