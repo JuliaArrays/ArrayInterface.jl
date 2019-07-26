@@ -8,29 +8,29 @@ using StaticArrays
 
 using LinearAlgebra, SparseArrays
 D=Diagonal([1,2,3,4])
-@test ArrayInterface.issparse(D)
+@test has_sparsestruct(D)
 rowind,colind=findstructralnz(D)
 @test [D[rowind[i],colind[i]] for i in 1:4]==[1,2,3,4]
 
 Bu = Bidiagonal([1,2,3,4], [7,8,9], :U)
-@test ArrayInterface.issparse(Bu)
+@test has_sparsestruct(Bu)
 rowind,colind=findstructralnz(Bu)
 @test [Bu[rowind[i],colind[i]] for i in 1:7]==[1,7,2,8,3,9,4]
 Bl = Bidiagonal([1,2,3,4], [7,8,9], :L)
-@test ArrayInterface.issparse(Bl)
+@test has_sparsestruct(Bl)
 rowind,colind=findstructralnz(Bl)
 @test [Bl[rowind[i],colind[i]] for i in 1:7]==[1,7,2,8,3,9,4]
 
 Tri=Tridiagonal([1,2,3],[1,2,3,4],[4,5,6])
-@test ArrayInterface.issparse(Tri)
+@test has_sparsestruct(Tri)
 rowind,colind=findstructralnz(Tri)
 @test [Tri[rowind[i],colind[i]] for i in 1:10]==[1,2,3,4,4,5,6,1,2,3]
 STri=SymTridiagonal([1,2,3,4],[5,6,7])
-@test ArrayInterface.issparse(STri)
+@test has_sparsestruct(STri)
 rowind,colind=findstructralnz(STri)
 @test [STri[rowind[i],colind[i]] for i in 1:10]==[1,2,3,4,5,6,7,5,6,7]
 
 Sp=sparse([1,2,3],[1,2,3],[1,2,3])
-@test ArrayInterface.issparse(Sp)
+@test has_sparsestruct(Sp)
 rowind,colind=findstructralnz(Sp)
 @test [Tri[rowind[i],colind[i]] for i in 1:3]==[1,2,3]

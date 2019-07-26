@@ -4,7 +4,7 @@ using Requires
 using LinearAlgebra
 using SparseArrays
 
-export findstructralnz
+export findstructralnz,has_sparsestruct
 
 function ismutable end
 
@@ -21,16 +21,16 @@ ismutable(::Type{<:Array}) = true
 ismutable(::Type{<:Number}) = false
 
 """
-    ArrayInterface.issparse(x::AbstractArray)
+    has_sparsestruct(x::AbstractArray)
 
 determine whether `findstructralnz` accepts the parameter `x`
 """
-ArrayInterface.issparse(x::AbstractArray)=false
-ArrayInterface.issparse(x::SparseMatrixCSC)=true
-ArrayInterface.issparse(x::Diagonal)=true
-ArrayInterface.issparse(x::Bidiagonal)=true
-ArrayInterface.issparse(x::Tridiagonal)=true
-ArrayInterface.issparse(x::SymTridiagonal)=true
+has_sparsestruct(x::AbstractArray)=false
+has_sparsestruct(x::SparseMatrixCSC)=true
+has_sparsestruct(x::Diagonal)=true
+has_sparsestruct(x::Bidiagonal)=true
+has_sparsestruct(x::Tridiagonal)=true
+has_sparsestruct(x::SymTridiagonal)=true
 
 """
     findstructralnz(x::AbstractArray)
