@@ -25,6 +25,7 @@ ismutable(::Type{<:Number}) = false
 
 determine whether `findstructralnz` accepts the parameter `x`
 """
+has_sparsestruct(x)=false
 has_sparsestruct(x::AbstractArray)=false
 has_sparsestruct(x::SparseMatrixCSC)=true
 has_sparsestruct(x::Diagonal)=true
