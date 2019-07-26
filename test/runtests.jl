@@ -6,21 +6,31 @@ using StaticArrays
 @test ArrayInterface.ismutable(@SVector [1,2,3]) == false
 @test ArrayInterface.ismutable(@MVector [1,2,3]) == true
 
-using LinearAlgebra
+using LinearAlgebra, SparseArrays
 D=Diagonal([1,2,3,4])
+@test ArrayInterface.issparse(D)
 rowind,colind=findstructralnz(D)
 @test [D[rowind[i],colind[i]] for i in 1:4]==[1,2,3,4]
 
 Bu = Bidiagonal([1,2,3,4], [7,8,9], :U)
+@test ArrayInterface.issparse(Bu)
 rowind,colind=findstructralnz(Bu)
 @test [Bu[rowind[i],colind[i]] for i in 1:7]==[1,7,2,8,3,9,4]
 Bl = Bidiagonal([1,2,3,4], [7,8,9], :L)
+@test ArrayInterface.issparse(Bl)
 rowind,colind=findstructralnz(Bl)
 @test [Bl[rowind[i],colind[i]] for i in 1:7]==[1,7,2,8,3,9,4]
 
 Tri=Tridiagonal([1,2,3],[1,2,3,4],[4,5,6])
+@test ArrayInterface.issparse(Tri)
 rowind,colind=findstructralnz(Tri)
 @test [Tri[rowind[i],colind[i]] for i in 1:10]==[1,2,3,4,4,5,6,1,2,3]
 STri=SymTridiagonal([1,2,3,4],[5,6,7])
+@test ArrayInterface.issparse(STri)
 rowind,colind=findstructralnz(STri)
 @test [STri[rowind[i],colind[i]] for i in 1:10]==[1,2,3,4,5,6,7,5,6,7]
+
+Sp=sparse([1,2,3],[1,2,3],[1,2,3])
+@test ArrayInterface.issparse(Sp)
+rowind,colind=findstructralnz(Sp)
+@test [Tri[rowind[i],colind[i]] for i in 1:3]==[1,2,3]

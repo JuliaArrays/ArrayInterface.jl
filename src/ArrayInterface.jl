@@ -21,10 +21,22 @@ ismutable(::Type{<:Array}) = true
 ismutable(::Type{<:Number}) = false
 
 """
+    ArrayInterface.issparse(x::AbstractArray)
+
+determine whether `findstructralnz` accepts the parameter `x`
+"""
+ArrayInterface.issparse(x::AbstractArray)=false
+ArrayInterface.issparse(x::SparseMatrixCSC)=true
+ArrayInterface.issparse(x::Diagonal)=true
+ArrayInterface.issparse(x::Bidiagonal)=true
+ArrayInterface.issparse(x::Tridiagonal)=true
+ArrayInterface.issparse(x::SymTridiagonal)=true
+
+"""
     findstructralnz(x::AbstractArray)
 
 Return: (I,J) #indexable objects
-Find sparsity pattern of special matrices, similar to first two elements of findnz(::SparseCSCMatrix)
+Find sparsity pattern of special matrices, similar to first two elements of findnz(::SparseMatrixCSC)
 """
 function findstructralnz(x::Diagonal)
   n=size(x,1)
@@ -81,6 +93,11 @@ function findstructralnz(x::Union{Tridiagonal,SymTridiagonal})
   n=size(x,1)
   rowind=TridiagonalIndex(n+n-1+n-1,n,true)
   colind=TridiagonalIndex(n+n-1+n-1,n,false)
+  (rowind,colind)
+end
+
+function findstructralnz(x::SparseMatrixCSC)
+  rowind,colind,_=findnz(x)
   (rowind,colind)
 end
 
