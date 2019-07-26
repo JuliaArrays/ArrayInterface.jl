@@ -58,6 +58,7 @@ end
 
 Base.firstindex(ind::MatrixIndex)=1
 Base.lastindex(ind::MatrixIndex)=ind.count
+Base.length(ind::MatrixIndex)=ind.count
 function Base.getindex(ind::BidiagonalIndex,i::Int)
   1 <= i <= ind.count || throw(BoundsError(ind, i))
   if ind.isup
