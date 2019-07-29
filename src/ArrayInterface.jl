@@ -24,6 +24,15 @@ ismutable(::Type{<:Number}) = false
 Query whether a type can use `setindex!`
 """
 can_setindex(x) = true
+can_setindex(x::AbstractArray) = can_setindex(typeof(x))
+
+"""
+    fast_scalar_indexing(x)
+
+Query whether an array type has fast scalar indexing
+"""
+fast_scalar_indexing(x) = true
+fast_scalar_indexing(x::AbstractArray) = fast_scalar_indexing(typeof(x))
 
 """
     isstructured(x::DataType)
@@ -31,6 +40,7 @@ can_setindex(x) = true
 Query whether a type is a representation of a structured matrix
 """
 isstructured(x) = false
+isstructured(x::AbstractArray) = isstructured(typeof(x))
 isstructured(::Symmetric) = true
 isstructured(::Hermitian) = true
 isstructured(::UpperTriangular) = true
@@ -45,13 +55,14 @@ isstructured(::Diagonal) = true
 
 determine whether `findstructralnz` accepts the parameter `x`
 """
-has_sparsestruct(x)=false
-has_sparsestruct(x::AbstractArray)=false
-has_sparsestruct(x::SparseMatrixCSC)=true
-has_sparsestruct(x::Diagonal)=true
-has_sparsestruct(x::Bidiagonal)=true
-has_sparsestruct(x::Tridiagonal)=true
-has_sparsestruct(x::SymTridiagonal)=true
+has_sparsestruct(x) = false
+has_sparsestruct(x::AbstractArray) = has_sparsestruct(typeof(x))
+has_sparsestruct(x::Type{<:AbstractArray}) = false
+has_sparsestruct(x::Type{<:SparseMatrixCSC}) = true
+has_sparsestruct(x::Type{<:Diagonal}) = true
+has_sparsestruct(x::Type{<:Bidiagonal}) = true
+has_sparsestruct(x::Type{<:Tridiagonal}) = true
+has_sparsestruct(x::Type{<:SymTridiagonal}) = true
 
 """
     findstructralnz(x::AbstractArray)
@@ -132,7 +143,8 @@ abstract type ColoringAlgorithm end
     colors of the matrix.
 """
 fast_matrix_colors(A) = false
-fast_matrix_colors(A::Union{Diagonal,Bidiagonal,Tridiagonal,SymTridiagonal}) = true
+fast_matrix_colors(A::AbstractArray) = fast_matrix_colors(typeof(A))
+fast_matrix_colors(A::Type{<:Union{Diagonal,Bidiagonal,Tridiagonal,SymTridiagonal}}) = true
 
 """
     matrix_colors(A::Union{Array,UpperTriangular,LowerTriangular})
@@ -170,16 +182,23 @@ function __init__()
 
   @require LabelledArrays="2ee39098-c373-598a-b85f-a56591580800" begin
     ismutable(::Type{<:LabelledArrays.LArray{T,N,Syms}}) where {T,N,Syms} = ismutable(T)
+    can_setindex(::Type{<:LabelledArrays.SLArray}) = false
   end
 
-  @require Flux="587475ba-b771-5e3f-ad9e-33799f191a9c" begin
-    ismutable(::Type{<:Flux.Tracker.TrackedArray}) = false
-    can_setindex(::Type{<:Flux.Tracker.TrackedArray}) = false
+  @require Tracker="9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c" begin
+    ismutable(::Type{<:Tracker.TrackedArray}) = false
+    can_setindex(::Type{<:Tracker.TrackedArray}) = false
+    fast_scalar_indexing(::Type{<:Tracker.TrackedArray}) = false
+  end
+
+  @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
+    fast_scalar_indexing(::Type{<:CuArrays.CuArray}) = false
   end
 
   @require BandedMatrices="aae01518-5342-5314-be14-df237901396f" begin
-    is_structured(::BandedMatrices.BandedMatrix) = true
-    fast_matrix_colors(::BandedMatrices.BandedMatrix) = true
+    is_structured(::Type{<:BandedMatrices.BandedMatrix}) = true
+    fast_matrix_colors(::Type{<:BandedMatrices.BandedMatrix}) = true
+    
     function matrix_colors(A::BandedMatrices.BandedMatrix)
         u,l=bandwidths(A)
         width=u+l+1
@@ -189,10 +208,10 @@ function __init__()
   end
 
   @require BlockBandedMatrices="aae01518-5342-5314-be14-df237901396f" begin
-    is_structured(::BandedMatrices.BlockBandedMatrix) = true
-    is_structured(::BandedMatrices.BandedBlockBandedMatrix) = true
-    fast_matrix_colors(::BlockBandedMatrices.BlockBandedMatrix) = true
-    fast_matrix_colors(::BlockBandedMatrices.BandedBlockBandedMatrix) = true
+    is_structured(::Type{<:BandedMatrices.BlockBandedMatrix}) = true
+    is_structured(::Type{<:BandedMatrices.BandedBlockBandedMatrix}) = true
+    fast_matrix_colors(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
+    fast_matrix_colors(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
 
     function matrix_colors(A::BlockBandedMatrices.BlockBandedMatrix)
         l,u=blockbandwidths(A)

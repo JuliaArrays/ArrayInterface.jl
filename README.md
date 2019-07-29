@@ -44,6 +44,10 @@ Returns an array of for the sparsity colors of a matrix type `A`. Also includes
 an abstract type `ColoringAlgorithm` for `matrix_colors(A,alg::ColoringAlgorithm)`
 of non-structured matrices.
 
+## fast_scalar_indexing(A)
+
+A trait function for whether scalar indexing is fast on a given array type.
+
 ## List of things to add
 
 - https://github.com/JuliaLang/julia/issues/22216
