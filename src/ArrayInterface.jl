@@ -123,6 +123,34 @@ function findstructralnz(x::SparseMatrixCSC)
   (rowind,colind)
 end
 
+abstract type ColoringAlgorithm end
+
+"""
+    matrix_colors(A::Union{Array,UpperTriangular,LowerTriangular})
+
+    The color vector for dense matrix and triangular matrix is simply
+    `[1,2,3,...,size(A,2)]`
+"""
+function matrix_colors(A::Union{Array,UpperTriangular,LowerTriangular})
+    eachindex(1:size(A,2)) # Vector size matches number of rows
+end
+
+function _cycle(repetend,len)
+    repeat(repetend,div(len,length(repetend))+1)[1:len]
+end
+
+function matrix_colors(A::Diagonal)
+    fill(1,size(A,2))
+end
+
+function matrix_colors(A::Bidiagonal)
+    _cycle(1:2,size(A,2))
+end
+
+function matrix_colors(A::Union{Tridiagonal,SymTridiagonal})
+    _cycle(1:3,size(A,2))
+end
+
 function __init__()
 
   @require StaticArrays="90137ffa-7385-5640-81b9-e52037218182" begin
@@ -142,11 +170,49 @@ function __init__()
 
   @require BandedMatrices="aae01518-5342-5314-be14-df237901396f" begin
     is_structured(::BandedMatrices.BandedMatrix) = true
+
+    function matrix_colors(A::BandedMatrix)
+        u,l=bandwidths(A)
+        width=u+l+1
+        _cycle(1:width,size(A,2))
+    end
+    
   end
 
   @require BlockBandedMatrices="aae01518-5342-5314-be14-df237901396f" begin
     is_structured(::BandedMatrices.BlockBandedMatrix) = true
     is_structured(::BandedMatrices.BandedBlockBandedMatrix) = true
+
+    function matrix_colors(A::BlockBandedMatrix)
+        l,u=blockbandwidths(A)
+        blockwidth=l+u+1
+        nblock=nblocks(A,2)
+        cols=[blocksize(A,(1,i))[2] for i in 1:nblock]
+        blockcolors=_cycle(1:blockwidth,nblock)
+        #the reserved number of colors of a block is the maximum length of columns of blocks with the same block color
+        ncolors=[maximum(cols[i:blockwidth:nblock]) for i in 1:blockwidth]
+        endinds=cumsum(ncolors)
+        startinds=[endinds[i]-ncolors[i]+1 for i in 1:blockwidth]
+        colors=[(startinds[blockcolors[i]]:endinds[blockcolors[i]])[1:cols[i]] for i in 1:nblock]
+        vcat(colors...)
+    end
+
+    function matrix_colors(A::BandedBlockBandedMatrix)
+        l,u=blockbandwidths(A)
+        lambda,mu=subblockbandwidths(A)
+        blockwidth=l+u+1
+        subblockwidth=lambda+mu+1
+        nblock=nblocks(A,2)
+        cols=[blocksize(A,(1,i))[2] for i in 1:nblock]
+        blockcolors=_cycle(1:blockwidth,nblock)
+        #the reserved number of colors of a block is the min of subblockwidth and the largest length of columns of blocks with the same block color
+        ncolors=[min(subblockwidth,maximum(cols[i:blockwidth:nblock])) for i in 1:min(blockwidth,nblock)]
+        endinds=cumsum(ncolors)
+        startinds=[endinds[i]-ncolors[i]+1 for i in 1:min(blockwidth,nblock)]
+        colors=[_cycle(startinds[blockcolors[i]]:endinds[blockcolors[i]],cols[i]) for i in 1:nblock]
+        vcat(colors...)
+    end
+
   end
 end
 

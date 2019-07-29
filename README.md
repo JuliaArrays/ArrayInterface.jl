@@ -1,7 +1,7 @@
+# ArrayInterface.jl
+
 [![Build Status](https://travis-ci.org/JuliaDiffEq/ArrayInterface.jl.svg?branch=master)](https://travis-ci.org/JuliaDiffEq/ArrayInterface.jl)
 [![Build status](https://ci.appveyor.com/api/projects/status/s4vnsj386dyyv655?svg=true)](https://ci.appveyor.com/project/ChrisRackauckas/arrayinterface-jl)
-
-# ArrayInterface.jl
 
 Julia has only recently reached v1.0 and the AbstractArray interface is still
 quite new. The purpose of this library is to solidify extensions to the current
@@ -31,7 +31,13 @@ Determine whether `findstructralnz` accepts the parameter `x`
 ## findstructralnz(x)
 
 Returns iterators `(I,J)` of the non-zeros in the structure of the matrix `x`.
-The same as the to first two elements of `findnz(::SparseMatrixCSC)``
+The same as the to first two elements of `findnz(::SparseMatrixCSC)`
+
+## matrix_colors(A)
+
+Returns an array of for the sparsity colors of a matrix type `A`. Also includes
+an abstract type `ColoringAlgorithm` for `matrix_colors(A,alg::ColoringAlgorithm)`
+of non-structured matrices.
 
 ## List of things to add
 
