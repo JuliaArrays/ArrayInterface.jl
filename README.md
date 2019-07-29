@@ -16,6 +16,23 @@ and exported in a future Base Julia there will be no issues with the upgrade.
 A trait function for whether `x` is a mutable or immutable array. Used for
 dispatching to in-place and out-of-place versions of functions.
 
+## isstructured(x)
+
+A trait function for whether a matrix `x` is a sparse structured matrix.
+
+## can_setindex(x)
+
+A trait function for whether an array `x` can use `setindex!`
+
+## has_sparsestruct(x)
+
+Determine whether `findstructralnz` accepts the parameter `x`
+
+## findstructralnz(x)
+
+Returns iterators `(I,J)` of the non-zeros in the structure of the matrix `x`.
+The same as the to first two elements of `findnz(::SparseMatrixCSC)``
+
 ## List of things to add
 
 - https://github.com/JuliaLang/julia/issues/22216

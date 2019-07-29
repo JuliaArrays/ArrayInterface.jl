@@ -4,8 +4,6 @@ using Requires
 using LinearAlgebra
 using SparseArrays
 
-export findstructralnz,has_sparsestruct
-
 function ismutable end
 
 """
@@ -19,6 +17,28 @@ ismutable(x) = ismutable(typeof(x))
 
 ismutable(::Type{<:Array}) = true
 ismutable(::Type{<:Number}) = false
+
+"""
+    can_setindex(x::DataType)
+
+Query whether a type can use `setindex!`
+"""
+can_setindex(x) = true
+
+"""
+    isstructured(x::DataType)
+
+Query whether a type is a representation of a structured matrix
+"""
+isstructured(x) = false
+isstructured(::Symmetric) = true
+isstructured(::Hermitian) = true
+isstructured(::UpperTriangular) = true
+isstructured(::LowerTriangular) = true
+isstructured(::Tridiagonal) = true
+isstructured(::SymTridiagonal) = true
+isstructured(::Bidiagonal) = true
+isstructured(::Diagonal) = true
 
 """
     has_sparsestruct(x::AbstractArray)
@@ -37,7 +57,7 @@ has_sparsestruct(x::SymTridiagonal)=true
     findstructralnz(x::AbstractArray)
 
 Return: (I,J) #indexable objects
-Find sparsity pattern of special matrices, similar to first two elements of findnz(::SparseMatrixCSC)
+Find sparsity pattern of special matrices, the same as the first two elements of findnz(::SparseMatrixCSC)
 """
 function findstructralnz(x::Diagonal)
   n=size(x,1)
@@ -107,15 +127,26 @@ function __init__()
 
   @require StaticArrays="90137ffa-7385-5640-81b9-e52037218182" begin
     ismutable(::Type{<:StaticArrays.StaticArray}) = false
+    can_setindex(::Type{<:StaticArrays.StaticArray}) = false
     ismutable(::Type{<:StaticArrays.MArray}) = true
   end
 
   @require LabelledArrays="2ee39098-c373-598a-b85f-a56591580800" begin
     ismutable(::Type{<:LabelledArrays.LArray{T,N,Syms}}) where {T,N,Syms} = ismutable(T)
   end
-  
+
   @require Flux="587475ba-b771-5e3f-ad9e-33799f191a9c" begin
     ismutable(::Type{<:Flux.Tracker.TrackedArray}) = false
+    can_setindex(::Type{<:Flux.Tracker.TrackedArray}) = false
+  end
+
+  @require BandedMatrices="aae01518-5342-5314-be14-df237901396f" begin
+    is_structured(::BandedMatrices.BandedMatrix) = true
+  end
+
+  @require BlockBandedMatrices="aae01518-5342-5314-be14-df237901396f" begin
+    is_structured(::BandedMatrices.BlockBandedMatrix) = true
+    is_structured(::BandedMatrices.BandedBlockBandedMatrix) = true
   end
 end
 
