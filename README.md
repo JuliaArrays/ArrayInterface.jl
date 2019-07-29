@@ -33,6 +33,11 @@ Determine whether `findstructralnz` accepts the parameter `x`
 Returns iterators `(I,J)` of the non-zeros in the structure of the matrix `x`.
 The same as the to first two elements of `findnz(::SparseMatrixCSC)`
 
+## fast_matrix_colors(A)
+
+A trait function for whether `matrix_colors(A)` is a fast algorithm or a slow
+(graphically-based) method.
+
 ## matrix_colors(A)
 
 Returns an array of for the sparsity colors of a matrix type `A`. Also includes

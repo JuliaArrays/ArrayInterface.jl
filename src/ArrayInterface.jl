@@ -126,6 +126,15 @@ end
 abstract type ColoringAlgorithm end
 
 """
+    fast_matrix_colors(A)
+
+    Query whether a matrix has a fast algorithm for getting the structural
+    colors of the matrix.
+"""
+fast_matrix_colors(A) = false
+fast_matrix_colors(A::Union{Diagonal,Bidiagonal,Tridiagonal,SymTridiagonal}) = true
+
+"""
     matrix_colors(A::Union{Array,UpperTriangular,LowerTriangular})
 
     The color vector for dense matrix and triangular matrix is simply
@@ -170,20 +179,22 @@ function __init__()
 
   @require BandedMatrices="aae01518-5342-5314-be14-df237901396f" begin
     is_structured(::BandedMatrices.BandedMatrix) = true
-
-    function matrix_colors(A::BandedMatrix)
+    fast_matrix_colors(::BandedMatrices.BandedMatrix) = true
+    function matrix_colors(A::BandedMatrices.BandedMatrix)
         u,l=bandwidths(A)
         width=u+l+1
         _cycle(1:width,size(A,2))
     end
-    
+
   end
 
   @require BlockBandedMatrices="aae01518-5342-5314-be14-df237901396f" begin
     is_structured(::BandedMatrices.BlockBandedMatrix) = true
     is_structured(::BandedMatrices.BandedBlockBandedMatrix) = true
+    fast_matrix_colors(::BlockBandedMatrices.BlockBandedMatrix) = true
+    fast_matrix_colors(::BlockBandedMatrices.BandedBlockBandedMatrix) = true
 
-    function matrix_colors(A::BlockBandedMatrix)
+    function matrix_colors(A::BlockBandedMatrices.BlockBandedMatrix)
         l,u=blockbandwidths(A)
         blockwidth=l+u+1
         nblock=nblocks(A,2)
@@ -197,7 +208,7 @@ function __init__()
         vcat(colors...)
     end
 
-    function matrix_colors(A::BandedBlockBandedMatrix)
+    function matrix_colors(A::BlockBandedMatrices.BandedBlockBandedMatrix)
         l,u=blockbandwidths(A)
         lambda,mu=subblockbandwidths(A)
         blockwidth=l+u+1
