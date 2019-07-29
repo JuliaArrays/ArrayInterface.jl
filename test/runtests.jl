@@ -1,5 +1,5 @@
 using ArrayInterface, Test
-
+import ArrayInterface: has_sparsestruct, findstructralnz
 @test ArrayInterface.ismutable(rand(3))
 
 using StaticArrays
@@ -7,6 +7,7 @@ using StaticArrays
 @test ArrayInterface.ismutable(@MVector [1,2,3]) == true
 
 using LinearAlgebra, SparseArrays
+
 D=Diagonal([1,2,3,4])
 @test has_sparsestruct(D)
 rowind,colind=findstructralnz(D)
