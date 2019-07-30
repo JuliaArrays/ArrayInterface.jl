@@ -18,4 +18,4 @@ BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
 BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
 
 [targets]
-test = ["Test", "LabelledArrays", "StaticArrays"]
+test = ["Test", "LabelledArrays", "StaticArrays","BandedMatrices","BlockBandedMatrices"]
