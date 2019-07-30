@@ -18,6 +18,13 @@ ismutable(x) = ismutable(typeof(x))
 ismutable(::Type{<:Array}) = true
 ismutable(::Type{<:Number}) = false
 
+# Piracy
+function Base.setindex(x::Array,v,i::Int)
+  _x = copy(x)
+  _x[i] = v
+  _x
+end
+
 """
     can_setindex(x::DataType)
 
@@ -33,6 +40,20 @@ Query whether an array type has fast scalar indexing
 """
 fast_scalar_indexing(x) = true
 fast_scalar_indexing(x::AbstractArray) = fast_scalar_indexing(typeof(x))
+
+"""
+    allowed_getindex(x,i...)
+
+A scalar getindex which is always allowed
+"""
+allowed_getindex(x,i...) = x[i...]
+
+"""
+    allowed_setindex!(x,v,i...)
+
+A scalar setindex! which is always allowed
+"""
+allowed_setindex!(x,v,i...) = setindex!(x,v,i...)
 
 """
     isstructured(x::DataType)
@@ -193,12 +214,20 @@ function __init__()
 
   @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
     fast_scalar_indexing(::Type{<:CuArrays.CuArray}) = false
+    @inline allowed_getindex(x::CuArrays.CuArray,i...) = CuArrays._getindex(x,i...)
+    @inline allowed_setindex!(x::CuArrays.CuArray,v,i...) = CuArrays._setindex!(x,v,i...)
+
+    function Base.setindex(x::CuArrays.CuArray,v,i::Int)
+      _x = copy(x)
+      allowed_setindex!(_x,v,i)
+      _x
+    end
   end
 
   @require BandedMatrices="aae01518-5342-5314-be14-df237901396f" begin
     is_structured(::Type{<:BandedMatrices.BandedMatrix}) = true
     fast_matrix_colors(::Type{<:BandedMatrices.BandedMatrix}) = true
-    
+
     function matrix_colors(A::BandedMatrices.BandedMatrix)
         u,l=bandwidths(A)
         width=u+l+1
