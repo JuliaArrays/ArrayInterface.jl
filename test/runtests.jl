@@ -37,3 +37,12 @@ Sp=sparse([1,2,3],[1,2,3],[1,2,3])
 @test has_sparsestruct(Sp)
 rowind,colind=findstructralnz(Sp)
 @test [Tri[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,2,3]
+
+using BandedMatrices
+
+B=BandedMatrix(Ones(5,5), (-1,2))
+B[band(1)].=[1,2,3,4]
+B[band(2)].=[5,6,7]
+@test has_sparsestruct(B)
+rowind,colind=findstructralnz(B)
+@test [B[rowind[i],colind[i]] for i in 1:length(rowind)]==[5,6,7,1,2,3,4]

@@ -104,9 +104,24 @@ struct BidiagonalIndex <: MatrixIndex
 end
 
 struct TridiagonalIndex <: MatrixIndex
-  count::Int
+  count::Int#count==nsize+nsize-1+nsize-1
   nsize::Int
   isrow::Bool
+end
+
+struct BandedMatrixIndex <: MatrixIndex
+  count::Int
+  nsize::Int
+  bandinds::Array{Int}
+  bandsizes::Array{Int}
+  isrow::Bool
+end
+
+function BandedMatrixIndex(nsize,lowerbandwidth,upperbandwidth,isrow)
+  upperbandwidth>-lowerbandwidth || throw(ErrorException("Invalid Bandwidths"))
+  bandinds=upperbandwidth:-1:-lowerbandwidth
+  bandsizes=[nsize-abs(band) for band in bandinds]
+  BandedMatrixIndex(sum(bandsizes),nsize,bandinds,bandsizes,isrow)
 end
 
 Base.firstindex(ind::MatrixIndex)=1
@@ -132,6 +147,23 @@ function Base.getindex(ind::TridiagonalIndex,i::Int)
     return i-ind.nsize+offsetu
   else
     return i-(ind.nsize+ind.nsize-1)+offsetl
+  end
+end
+
+function Base.getindex(ind::BandedMatrixIndex,i::Int)
+  1 <= i <= ind.count || throw(BoundsError(ind, i))
+  _i=i
+  p=1
+  while _i-ind.bandsizes[p]>0
+    _i-=ind.bandsizes[p]
+    p+=1
+  end
+  bandind=ind.bandinds[p]
+  startfromone=ind.isrow & (bandind>0)
+  if startfromone
+    return _i
+  else
+    return _i+abs(bandind)
   end
 end
 
@@ -225,11 +257,20 @@ function __init__()
   end
 
   @require BandedMatrices="aae01518-5342-5314-be14-df237901396f" begin
+    function findstructralnz(x::BandedMatrices.BandedMatrix)
+      l,u=BandedMatrices.bandwidths(x)
+      nsize=size(x,1)
+      rowind=BandedMatrixIndex(nsize,l,u,true)
+      colind=BandedMatrixIndex(nsize,l,u,false)
+      (rowind,colind)
+    end
+
+    has_sparsestruct(::Type{<:BandedMatrices.BandedMatrix}) = true
     is_structured(::Type{<:BandedMatrices.BandedMatrix}) = true
     fast_matrix_colors(::Type{<:BandedMatrices.BandedMatrix}) = true
 
     function matrix_colors(A::BandedMatrices.BandedMatrix)
-        u,l=bandwidths(A)
+        l,u=BandedMatrices.bandwidths(A)
         width=u+l+1
         _cycle(1:width,size(A,2))
     end
@@ -243,10 +284,10 @@ function __init__()
     fast_matrix_colors(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
 
     function matrix_colors(A::BlockBandedMatrices.BlockBandedMatrix)
-        l,u=blockbandwidths(A)
+        l,u=BlockBandedMatrices.blockbandwidths(A)
         blockwidth=l+u+1
-        nblock=nblocks(A,2)
-        cols=[blocksize(A,(1,i))[2] for i in 1:nblock]
+        nblock=BlockBandedMatrices.nblocks(A,2)
+        cols=[BlockBandedMatrices.blocksize(A,(1,i))[2] for i in 1:nblock]
         blockcolors=_cycle(1:blockwidth,nblock)
         #the reserved number of colors of a block is the maximum length of columns of blocks with the same block color
         ncolors=[maximum(cols[i:blockwidth:nblock]) for i in 1:blockwidth]
@@ -257,12 +298,12 @@ function __init__()
     end
 
     function matrix_colors(A::BlockBandedMatrices.BandedBlockBandedMatrix)
-        l,u=blockbandwidths(A)
-        lambda,mu=subblockbandwidths(A)
+        l,u=BlockBandedMatrices.blockbandwidths(A)
+        lambda,mu=BlockBandedMatrices.subblockbandwidths(A)
         blockwidth=l+u+1
         subblockwidth=lambda+mu+1
-        nblock=nblocks(A,2)
-        cols=[blocksize(A,(1,i))[2] for i in 1:nblock]
+        nblock=BlockBandedMatrices.nblocks(A,2)
+        cols=[BlockBandedMatrices.blocksize(A,(1,i))[2] for i in 1:nblock]
         blockcolors=_cycle(1:blockwidth,nblock)
         #the reserved number of colors of a block is the min of subblockwidth and the largest length of columns of blocks with the same block color
         ncolors=[min(subblockwidth,maximum(cols[i:blockwidth:nblock])) for i in 1:min(blockwidth,nblock)]
