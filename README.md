@@ -48,6 +48,14 @@ of non-structured matrices.
 
 A trait function for whether scalar indexing is fast on a given array type.
 
+## allowed_getindex(A,i...)
+
+A `getindex` which is always allowed.
+
+## allowed_setindex!(A,v,i...)
+
+A `setindex!` which is always allowed.
+
 ## List of things to add
 
 - https://github.com/JuliaLang/julia/issues/22216
