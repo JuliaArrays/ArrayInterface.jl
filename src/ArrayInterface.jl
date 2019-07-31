@@ -19,10 +19,20 @@ ismutable(::Type{<:Array}) = true
 ismutable(::Type{<:Number}) = false
 
 # Piracy
-function Base.setindex(x::AbstractArray,v,i::Int)
+function Base.setindex(x::AbstractArray,v,i::Int...)
   _x = copy(x)
   _x[i] = v
   _x
+end
+
+function Base.setindex(x::AbstractVector,v,i::Int)
+  n = length(x)
+  x .+ v .* (i .== 1:n)
+end
+
+function Base.setindex(x::AbstractMatrix,v,i::Int,j::Int)
+  n,m = size(x)
+  x .+ v .* (i .== 1:n) .* (j  .== i:m)'
 end
 
 """
