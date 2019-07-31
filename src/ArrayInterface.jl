@@ -146,8 +146,8 @@ end
 function BlockBandedMatrixIndex(nrowblock,ncolblock,rowsizes,colsizes,l,u)
   blockrowind=BandedMatrixIndex(nrowblock,ncolblock,l,u,true)
   blockcolind=BandedMatrixIndex(nrowblock,ncolblock,l,u,false)
-  sortedinds=sort([(blockrowind[i],blockcolind[i]) for i in 1:length(blockrowind)],by=x->x[2])
-  sort!(sortedinds,by=x->x[1],alg=InsertionSort)#stable sort keeps the second index in order
+  sortedinds=sort([(blockrowind[i],blockcolind[i]) for i in 1:length(blockrowind)],by=x->x[1])
+  sort!(sortedinds,by=x->x[2],alg=InsertionSort)#stable sort keeps the second index in order
   refinds=Array{Int,1}()
   refrowcoords=Array{Int,1}()
   refcolcoords=Array{Int,1}()
@@ -189,6 +189,46 @@ function BlockBandedMatrixIndex(nrowblock,ncolblock,rowsizes,colsizes,l,u)
   push!(refcolcoords,-1)
   rowindobj=BlockBandedMatrixIndex(currenti-1,refinds,refrowcoords,true)
   colindobj=BlockBandedMatrixIndex(currenti-1,refinds,refcolcoords,false)
+  rowindobj,colindobj
+end
+
+struct BandedBlockBandedMatrixIndex <: MatrixIndex
+  count::Int
+  refinds::Array{Int,1}
+  refcoords::Array{Int,1}#storing col or row inds at ref points
+  reflocalinds::Array{BandedMatrixIndex,1}
+  isrow::Bool
+end
+
+function BandedBlockBandedMatrixIndex(nrowblock,ncolblock,rowsizes,colsizes,l,u,lambda,mu)
+  blockrowind=BandedMatrixIndex(nrowblock,ncolblock,l,u,true)
+  blockcolind=BandedMatrixIndex(nrowblock,ncolblock,l,u,false)
+  sortedinds=sort([(blockrowind[i],blockcolind[i]) for i in 1:length(blockrowind)],by=x->x[1])
+  sort!(sortedinds,by=x->x[2],alg=InsertionSort)#stable sort keeps the second index in order
+  rowheights=cumsum(pushfirst!(copy(rowsizes),1))
+  colwidths=cumsum(pushfirst!(copy(colsizes),1))
+  currenti=1
+  refinds=Array{Int,1}()
+  refrowcoords=Array{Int,1}()
+  refcolcoords=Array{Int,1}()
+  reflocalrowinds=Array{BandedMatrixIndex,1}()
+  reflocalcolinds=Array{BandedMatrixIndex,1}()
+  for ind in sortedinds
+    rowind,colind=ind
+    localrowind=BandedMatrixIndex(rowsizes[rowind],colsizes[colind],lambda,mu,true)
+    localcolind=BandedMatrixIndex(rowsizes[rowind],colsizes[colind],lambda,mu,false)
+    push!(refinds,currenti)
+    push!(refrowcoords,rowheights[rowind])
+    push!(refcolcoords,colwidths[colind])
+    push!(reflocalrowinds,localrowind)
+    push!(reflocalcolinds,localcolind)
+    currenti+=localrowind.count
+  end
+  push!(refinds,currenti)
+  push!(refrowcoords,-1)
+  push!(refcolcoords,-1)
+  rowindobj=BandedBlockBandedMatrixIndex(currenti-1,refinds,refrowcoords,reflocalrowinds,true)
+  colindobj=BandedBlockBandedMatrixIndex(currenti-1,refinds,refcolcoords,reflocalcolinds,false)
   rowindobj,colindobj
 end
 
@@ -248,6 +288,17 @@ function Base.getindex(ind::BlockBandedMatrixIndex,i::Int)
   else
     return ind.refcoords[p]
   end
+end
+
+function Base.getindex(ind::BandedBlockBandedMatrixIndex,i::Int)
+  1 <= i <= ind.count || throw(BoundsError(ind, i))
+  p=1
+  while i-ind.refinds[p]>=0
+    p+=1
+  end
+  p-=1
+  _i=i-ind.refinds[p]+1
+  ind.reflocalinds[p][_i]+ind.refcoords[p]-1
 end
 
 function findstructralnz(x::Bidiagonal)
@@ -370,7 +421,18 @@ function __init__()
       BlockBandedMatrixIndex(nrowblock,ncolblock,rowsizes,colsizes,l,u)
     end
 
+    function findstructralnz(x::BlockBandedMatrices.BandedBlockBandedMatrix)
+      l,u=BlockBandedMatrices.blockbandwidths(x)
+      lambda,mu=BlockBandedMatrices.subblockbandwidths(x)
+      nrowblock=BlockBandedMatrices.nblocks(x,1)
+      ncolblock=BlockBandedMatrices.nblocks(x,2)
+      rowsizes=[BlockBandedMatrices.blocksize(x,(i,1))[1] for i in 1:nrowblock]
+      colsizes=[BlockBandedMatrices.blocksize(x,(1,i))[2] for i in 1:ncolblock]
+      BandedBlockBandedMatrixIndex(nrowblock,ncolblock,rowsizes,colsizes,l,u,lambda,mu)
+    end
+
     has_sparsestruct(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
+    has_sparsestruct(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
     is_structured(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
     is_structured(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
     fast_matrix_colors(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
