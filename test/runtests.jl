@@ -1,4 +1,5 @@
 using ArrayInterface, Test
+using Base: setindex
 import ArrayInterface: has_sparsestruct, findstructralnz
 @test ArrayInterface.ismutable(rand(3))
 
@@ -72,3 +73,49 @@ rowind,colind=findstructralnz(BBB)
 @test [BBB[rowind[i],colind[i]] for i in 1:length(rowind)]==
     [1,2,3,1,2,3,4,2,3,4,5,6,7,5,6,7,8,6,7,8,
      1,2,3,1,2,3,4,2,3,4,5,6,7,5,6,7,8,6,7,8]
+
+@testset "setindex" begin
+    @testset "$(typeof(x))" for x in [
+        zeros(3),
+        falses(3),
+        spzeros(3),
+    ]
+        y = setindex(x, true, 1)
+        @test iszero(x)  # x is not mutated
+        @test y[1] == true
+        @test iszero(x[CartesianIndices(size(x)) .== [CartesianIndex(1)]])
+
+        y2 = setindex(x, one.(x), :)
+        @test iszero(x)
+        @test all(isone, y2)
+    end
+
+    @testset "$(typeof(x))" for x in [
+        zeros(3, 3),
+        falses(3, 3),
+        spzeros(3, 3),
+    ]
+        y = setindex(x, true, 1, 1)
+        @test iszero(x)  # x is not mutated
+        @test y[1, 1] == true
+        @test iszero(x[CartesianIndices(size(x)) .== [CartesianIndex(1, 1)]])
+
+        y2 = setindex(x, one.(x), :, :)
+        @test iszero(x)
+        @test all(isone, y2)
+    end
+
+    @testset "$(typeof(x))" for x in [
+        zeros(3, 3, 3),
+        falses(3, 3, 3),
+    ]
+        y = setindex(x, true, 1, 1, 1)
+        @test iszero(x)  # x is not mutated
+        @test y[1, 1, 1] == true
+        @test iszero(x[CartesianIndices(size(x)) .== [CartesianIndex(1, 1, 1)]])
+
+        y2 = setindex(x, one.(x), :, :, :)
+        @test iszero(x)
+        @test all(isone, y2)
+    end
+end
