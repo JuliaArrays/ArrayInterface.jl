@@ -96,6 +96,18 @@ has_sparsestruct(x::Type{<:Tridiagonal}) = true
 has_sparsestruct(x::Type{<:SymTridiagonal}) = true
 
 """
+    fast_column_indexing(x::AbstractArray)
+
+determine whether indexing along columns is fast, if it is `true`
+`findstructralnz(x,col_index)` is used, otherwise `findstructralnz(x)`
+is used.
+"""
+fast_column_indexing(x) = false
+fast_column_indexing(x::AbstractArray) = fast_column_indexing(typeof(x))
+fast_column_indexing(x::Type{<:AbstractArray}) = false
+fast_column_indexing(x::Type{<:SparseMatrixCSC}) = true
+
+"""
     findstructralnz(x::AbstractArray)
 
 Return: (I,J) #indexable objects
@@ -495,6 +507,7 @@ function __init__()
       BandedBlockBandedMatrixRowIterator(col_index_local,J,blockcolrange,cumulsizes,Ref(x))
     end
 
+    fast_column_indexing(x::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
     has_sparsestruct(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
     has_sparsestruct(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
     is_structured(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
