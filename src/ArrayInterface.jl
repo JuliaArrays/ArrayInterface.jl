@@ -470,7 +470,7 @@ function __init__()
     end
 
     function Base.iterate(iter::BandedBlockBandedMatrixRowIterator,state::BandedBlockBandedMatrixRowState)
-      if state.row_index_local<lastindex(state.colrange)
+      if state.row_index_local<state.colrange[end]
         state.row_index_local+=1
         return (state.row_index_local+state.blockheight,state)
       elseif state.nblockrow<lastindex(iter.blockcolrange)

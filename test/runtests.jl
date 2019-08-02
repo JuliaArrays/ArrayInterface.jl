@@ -65,14 +65,26 @@ rowind,colind=findstructralnz(BB)
     1,1,1,1,1]
 
 dense=collect(Ones(8,8))
-for i in 1:8
+for i in 1:7
     dense[:,i].=[1,2,3,4,5,6,7,8]
 end
 BBB=BandedBlockBandedMatrix(dense, ([4, 4] ,[4, 4]), (1, 1), (1, 1))
 rowind,colind=findstructralnz(BBB)
 @test [BBB[rowind[i],colind[i]] for i in 1:length(rowind)]==
     [1,2,3,1,2,3,4,2,3,4,5,6,7,5,6,7,8,6,7,8,
-     1,2,3,1,2,3,4,2,3,4,5,6,7,5,6,7,8,6,7,8]
+     1,2,1,1,2,3,1,2,3,4,5,6,1,5,6,7,1,6,7,8]
+
+function _nzrows(A,colind)
+    rows=Array{Int,1}()
+    for i in findstructralnz(BBB,colind)
+        push!(rows,i)
+    end
+    rows
+end
+
+@test _nzrows(BBB,3)==[2,3,4,6,7,8]
+@test _nzrows(BBB,8)==[3,4,7,8]
+
 
 @testset "setindex" begin
     @testset "$(typeof(x))" for x in [
