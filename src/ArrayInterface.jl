@@ -331,6 +331,10 @@ function findstructralnz(x::SparseMatrixCSC)
   (rowind,colind)
 end
 
+function findstructralnz(x::SparseMatrixCSC,col_index::Int)
+  @view x.rowval[x.colptr[col_index]:x.colptr[col_index+1]-1]
+end
+
 abstract type ColoringAlgorithm end
 
 """
@@ -439,6 +443,56 @@ function __init__()
       rowsizes=[BlockBandedMatrices.blocksize(x,(i,1))[1] for i in 1:nrowblock]
       colsizes=[BlockBandedMatrices.blocksize(x,(1,i))[2] for i in 1:ncolblock]
       BandedBlockBandedMatrixIndex(nrowblock,ncolblock,rowsizes,colsizes,l,u,lambda,mu)
+    end
+
+    struct BandedBlockBandedMatrixRowIterator
+      col_index_local::Int
+      blockcol::Int
+      blockcolrange::BlockBandedMatrices.BlockRange
+      cumulsizes::Array
+      matrix::Ref{<:BlockBandedMatrices.BandedBlockBandedMatrix}
+    end
+
+    mutable struct BandedBlockBandedMatrixRowState
+      row_index_local::Int
+      nblockrow::Int
+      blockheight::Int
+      colrange::UnitRange
+    end
+
+    function Base.iterate(iter::BandedBlockBandedMatrixRowIterator)
+      blockrow=iter.blockcolrange[1].n[1]
+      blockview=view(iter.matrix[],BlockBandedMatrices.Block(blockrow,iter.blockcol))
+      colrange=BlockBandedMatrices.colrange(blockview,iter.col_index_local)
+      row_index_local=colrange[1]
+      blockheight=iter.cumulsizes[blockrow]-1
+      (row_index_local+blockheight,BandedBlockBandedMatrixRowState(row_index_local,1,blockheight,colrange))
+    end
+
+    function Base.iterate(iter::BandedBlockBandedMatrixRowIterator,state::BandedBlockBandedMatrixRowState)
+      if state.row_index_local<lastindex(state.colrange)
+        state.row_index_local+=1
+        return (state.row_index_local+state.blockheight,state)
+      elseif state.nblockrow<lastindex(iter.blockcolrange)
+        state.nblockrow+=1
+        blockrow=iter.blockcolrange[state.nblockrow].n[1]
+        blockview=view(iter.matrix[],BlockBandedMatrices.Block(blockrow,iter.blockcol))
+        state.colrange=BlockBandedMatrices.colrange(blockview,iter.col_index_local)
+        state.row_index_local=state.colrange[1]
+        state.blockheight=iter.cumulsizes[blockrow]-1
+        return (state.row_index_local+state.blockheight,state)
+      else
+        return nothing
+      end
+    end
+
+    function findstructralnz(x::BlockBandedMatrices.BandedBlockBandedMatrix,col_index::Int)
+      blockindex=BlockBandedMatrices.global2blockindex(x.block_sizes,(1,col_index))
+      _,col_index_local=blockindex.α
+      _,J=blockindex.I
+      blockcolrange=BlockBandedMatrices.blockcolrange(x,J)
+      cumulsizes=BlockBandedMatrices.cumulsizes(x,1)
+      BandedBlockBandedMatrixRowIterator(col_index_local,J,blockcolrange,cumulsizes,Ref(x))
     end
 
     has_sparsestruct(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
