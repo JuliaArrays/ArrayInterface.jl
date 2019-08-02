@@ -105,6 +105,7 @@ is used.
 fast_column_indexing(x) = false
 fast_column_indexing(x::AbstractArray) = fast_column_indexing(typeof(x))
 fast_column_indexing(x::Type{<:AbstractArray}) = false
+fast_column_indexing(x::Type{<:Array}) = true
 fast_column_indexing(x::Type{<:SparseMatrixCSC}) = true
 
 """
