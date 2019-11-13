@@ -1,6 +1,6 @@
 using ArrayInterface, Test
 using Base: setindex
-import ArrayInterface: has_sparsestruct, findstructralnz
+import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing
 @test ArrayInterface.ismutable(rand(3))
 
 using StaticArrays
@@ -38,6 +38,10 @@ Sp=sparse([1,2,3],[1,2,3],[1,2,3])
 @test has_sparsestruct(Sp)
 rowind,colind=findstructralnz(Sp)
 @test [Tri[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,2,3]
+
+@test !fast_scalar_indexing(qr(rand(10, 10)).Q)
+@test !fast_scalar_indexing(qr(rand(10, 10), Val(true)).Q)
+@test !fast_scalar_indexing(lq(rand(10, 10)).Q)
 
 using BandedMatrices
 
