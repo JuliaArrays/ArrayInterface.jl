@@ -50,6 +50,8 @@ Query whether an array type has fast scalar indexing
 """
 fast_scalar_indexing(x) = true
 fast_scalar_indexing(x::AbstractArray) = fast_scalar_indexing(typeof(x))
+fast_scalar_indexing(::Type{<:LinearAlgebra.AbstractQ}) = false
+fast_scalar_indexing(::Type{<:LinearAlgebra.LQPackedQ}) = false
 
 """
     allowed_getindex(x,i...)
