@@ -39,6 +39,9 @@ Sp=sparse([1,2,3],[1,2,3],[1,2,3])
 rowind,colind=findstructralnz(Sp)
 @test [Tri[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,2,3]
 
+@test ArrayInterface.ismutable(spzeros(1, 1))
+@test ArrayInterface.ismutable(spzeros(1))
+
 @test !fast_scalar_indexing(qr(rand(10, 10)).Q)
 @test !fast_scalar_indexing(qr(rand(10, 10), Val(true)).Q)
 @test !fast_scalar_indexing(lq(rand(10, 10)).Q)
