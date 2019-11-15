@@ -16,6 +16,8 @@ Base.@pure ismutable(x::DataType) = x.mutable
 ismutable(x) = ismutable(typeof(x))
 
 ismutable(::Type{<:Array}) = true
+ismutable(::Type{<:SparseMatrixCSC}) = true
+ismutable(::Type{<:SparseVector}) = true
 ismutable(::Type{<:Number}) = false
 
 # Piracy
