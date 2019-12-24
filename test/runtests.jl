@@ -6,6 +6,7 @@ import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing
 using StaticArrays
 @test ArrayInterface.ismutable(@SVector [1,2,3]) == false
 @test ArrayInterface.ismutable(@MVector [1,2,3]) == true
+@test ArrayInterface.ismutable(1:10) == false
 
 using LinearAlgebra, SparseArrays
 

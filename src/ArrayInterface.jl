@@ -16,6 +16,7 @@ ismutable(x) = ismutable(typeof(x))
 
 ismutable(::Type{<:AbstractArray}) = true
 ismutable(::Type{<:Number}) = false
+ismutable(::Type{<:AbstractRange}) = false
 
 # Piracy
 function Base.setindex(x::AbstractArray,v,i...)
@@ -41,6 +42,7 @@ Query whether a type can use `setindex!`
 """
 can_setindex(x) = true
 can_setindex(x::AbstractArray) = can_setindex(typeof(x))
+can_setindex(::Type{<:AbstractRange}) = false
 
 """
     fast_scalar_indexing(x)
