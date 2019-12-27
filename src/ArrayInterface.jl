@@ -427,20 +427,20 @@ function __init__()
   @require BlockBandedMatrices="ffab5731-97b5-5995-9138-79e8c1846df0" begin
     function findstructralnz(x::BlockBandedMatrices.BlockBandedMatrix)
       l,u=BlockBandedMatrices.blockbandwidths(x)
-      nrowblock=BlockBandedMatrices.nblocks(x,1)
-      ncolblock=BlockBandedMatrices.nblocks(x,2)
-      rowsizes=[BlockBandedMatrices.blocksize(x,(i,1))[1] for i in 1:nrowblock]
-      colsizes=[BlockBandedMatrices.blocksize(x,(1,i))[2] for i in 1:ncolblock]
+      nrowblock=BlockBandedMatrices.blocksize(x,1)
+      ncolblock=BlockBandedMatrices.blocksize(x,2)
+      rowsizes=BlockBandedMatrices.blocklengths(axes(x,1))
+      colsizes=BlockBandedMatrices.blocklengths(axes(x,2))
       BlockBandedMatrixIndex(nrowblock,ncolblock,rowsizes,colsizes,l,u)
     end
 
     function findstructralnz(x::BlockBandedMatrices.BandedBlockBandedMatrix)
       l,u=BlockBandedMatrices.blockbandwidths(x)
       lambda,mu=BlockBandedMatrices.subblockbandwidths(x)
-      nrowblock=BlockBandedMatrices.nblocks(x,1)
-      ncolblock=BlockBandedMatrices.nblocks(x,2)
-      rowsizes=[BlockBandedMatrices.blocksize(x,(i,1))[1] for i in 1:nrowblock]
-      colsizes=[BlockBandedMatrices.blocksize(x,(1,i))[2] for i in 1:ncolblock]
+      nrowblock=BlockBandedMatrices.blocksize(x,1)
+      ncolblock=BlockBandedMatrices.blocksize(x,2)
+      rowsizes=BlockBandedMatrices.blocklengths(axes(x,1))
+      colsizes=BlockBandedMatrices.blocklengths(axes(x,2))
       BandedBlockBandedMatrixIndex(nrowblock,ncolblock,rowsizes,colsizes,l,u,lambda,mu)
     end
 
@@ -454,8 +454,8 @@ function __init__()
     function matrix_colors(A::BlockBandedMatrices.BlockBandedMatrix)
         l,u=BlockBandedMatrices.blockbandwidths(A)
         blockwidth=l+u+1
-        nblock=BlockBandedMatrices.nblocks(A,2)
-        cols=[BlockBandedMatrices.blocksize(A,(1,i))[2] for i in 1:nblock]
+        nblock=BlockBandedMatrices.blocksize(A,2)
+        cols=blocklengths(axes(A,2))
         blockcolors=_cycle(1:blockwidth,nblock)
         #the reserved number of colors of a block is the maximum length of columns of blocks with the same block color
         ncolors=[maximum(cols[i:blockwidth:nblock]) for i in 1:blockwidth]
@@ -470,8 +470,8 @@ function __init__()
         lambda,mu=BlockBandedMatrices.subblockbandwidths(A)
         blockwidth=l+u+1
         subblockwidth=lambda+mu+1
-        nblock=BlockBandedMatrices.nblocks(A,2)
-        cols=[BlockBandedMatrices.blocksize(A,(1,i))[2] for i in 1:nblock]
+        nblock=BlockBandedMatrices.blocksize(A,2)
+        cols=blocklengths(axes(A,2))
         blockcolors=_cycle(1:blockwidth,nblock)
         #the reserved number of colors of a block is the min of subblockwidth and the largest length of columns of blocks with the same block color
         ncolors=[min(subblockwidth,maximum(cols[i:blockwidth:nblock])) for i in 1:min(blockwidth,nblock)]
