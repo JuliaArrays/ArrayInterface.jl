@@ -62,7 +62,7 @@ rowind,colind=findstructralnz(B)
 @test [B[rowind[i],colind[i]] for i in 1:length(rowind)]==[5,6,7,8,1,2,3,4]
 
 using BlockBandedMatrices
-BB=BlockBandedMatrix(Ones(10,10),([1,2,3,4],[4,3,2,1]),(1,0))
+BB=BlockBandedMatrix(Ones(10,10),[1,2,3,4],[4,3,2,1],(1,0))
 BB[Block(1,1)].=[1 2 3 4]
 BB[Block(2,1)].=[5 6 7 8;9 10 11 12]
 rowind,colind=findstructralnz(BB)
@@ -76,7 +76,7 @@ dense=collect(Ones(8,8))
 for i in 1:8
     dense[:,i].=[1,2,3,4,5,6,7,8]
 end
-BBB=BandedBlockBandedMatrix(dense, ([4, 4] ,[4, 4]), (1, 1), (1, 1))
+BBB=BandedBlockBandedMatrix(dense, [4, 4] ,[4, 4], (1, 1), (1, 1))
 rowind,colind=findstructralnz(BBB)
 @test [BBB[rowind[i],colind[i]] for i in 1:length(rowind)]==
     [1,2,3,1,2,3,4,2,3,4,5,6,7,5,6,7,8,6,7,8,
