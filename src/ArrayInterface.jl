@@ -425,62 +425,63 @@ function __init__()
   end
 
   @require BlockBandedMatrices="ffab5731-97b5-5995-9138-79e8c1846df0" begin
-    function findstructralnz(x::BlockBandedMatrices.BlockBandedMatrix)
-      l,u=BlockBandedMatrices.blockbandwidths(x)
-      nrowblock=BlockBandedMatrices.blocksize(x,1)
-      ncolblock=BlockBandedMatrices.blocksize(x,2)
-      rowsizes=BlockBandedMatrices.blocklengths(axes(x,1))
-      colsizes=BlockBandedMatrices.blocklengths(axes(x,2))
-      BlockBandedMatrixIndex(nrowblock,ncolblock,rowsizes,colsizes,l,u)
+    @require BlockArrays="8e7c35d0-a365-5155-bbbb-fb81a777f24e" begin
+      function findstructralnz(x::BlockBandedMatrices.BlockBandedMatrix)
+        l,u=BlockBandedMatrices.blockbandwidths(x)
+        nrowblock=BlockBandedMatrices.blocksize(x,1)
+        ncolblock=BlockBandedMatrices.blocksize(x,2)
+        rowsizes=BlockArrays.blocklengths(axes(x,1))
+        colsizes=BlockArrays.blocklengths(axes(x,2))
+        BlockBandedMatrixIndex(nrowblock,ncolblock,rowsizes,colsizes,l,u)
+      end
+
+      function findstructralnz(x::BlockBandedMatrices.BandedBlockBandedMatrix)
+        l,u=BlockBandedMatrices.blockbandwidths(x)
+        lambda,mu=BlockBandedMatrices.subblockbandwidths(x)
+        nrowblock=BlockBandedMatrices.blocksize(x,1)
+        ncolblock=BlockBandedMatrices.blocksize(x,2)
+        rowsizes=BlockArrays.blocklengths(axes(x,1))
+        colsizes=BlockArrays.blocklengths(axes(x,2))
+        BandedBlockBandedMatrixIndex(nrowblock,ncolblock,rowsizes,colsizes,l,u,lambda,mu)
+      end
+
+      has_sparsestruct(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
+      has_sparsestruct(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
+      is_structured(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
+      is_structured(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
+      fast_matrix_colors(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
+      fast_matrix_colors(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
+
+      function matrix_colors(A::BlockBandedMatrices.BlockBandedMatrix)
+          l,u=BlockBandedMatrices.blockbandwidths(A)
+          blockwidth=l+u+1
+          nblock=BlockBandedMatrices.blocksize(A,2)
+          cols=BlockArrays.blocklengths(axes(A,2))
+          blockcolors=_cycle(1:blockwidth,nblock)
+          #the reserved number of colors of a block is the maximum length of columns of blocks with the same block color
+          ncolors=[maximum(cols[i:blockwidth:nblock]) for i in 1:blockwidth]
+          endinds=cumsum(ncolors)
+          startinds=[endinds[i]-ncolors[i]+1 for i in 1:blockwidth]
+          colors=[(startinds[blockcolors[i]]:endinds[blockcolors[i]])[1:cols[i]] for i in 1:nblock]
+          vcat(colors...)
+      end
+
+      function matrix_colors(A::BlockBandedMatrices.BandedBlockBandedMatrix)
+          l,u=BlockBandedMatrices.blockbandwidths(A)
+          lambda,mu=BlockBandedMatrices.subblockbandwidths(A)
+          blockwidth=l+u+1
+          subblockwidth=lambda+mu+1
+          nblock=BlockBandedMatrices.blocksize(A,2)
+          cols=BlockArrays.blocklengths(axes(A,2))
+          blockcolors=_cycle(1:blockwidth,nblock)
+          #the reserved number of colors of a block is the min of subblockwidth and the largest length of columns of blocks with the same block color
+          ncolors=[min(subblockwidth,maximum(cols[i:blockwidth:nblock])) for i in 1:min(blockwidth,nblock)]
+          endinds=cumsum(ncolors)
+          startinds=[endinds[i]-ncolors[i]+1 for i in 1:min(blockwidth,nblock)]
+          colors=[_cycle(startinds[blockcolors[i]]:endinds[blockcolors[i]],cols[i]) for i in 1:nblock]
+          vcat(colors...)
+      end
     end
-
-    function findstructralnz(x::BlockBandedMatrices.BandedBlockBandedMatrix)
-      l,u=BlockBandedMatrices.blockbandwidths(x)
-      lambda,mu=BlockBandedMatrices.subblockbandwidths(x)
-      nrowblock=BlockBandedMatrices.blocksize(x,1)
-      ncolblock=BlockBandedMatrices.blocksize(x,2)
-      rowsizes=BlockBandedMatrices.blocklengths(axes(x,1))
-      colsizes=BlockBandedMatrices.blocklengths(axes(x,2))
-      BandedBlockBandedMatrixIndex(nrowblock,ncolblock,rowsizes,colsizes,l,u,lambda,mu)
-    end
-
-    has_sparsestruct(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
-    has_sparsestruct(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
-    is_structured(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
-    is_structured(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
-    fast_matrix_colors(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
-    fast_matrix_colors(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
-
-    function matrix_colors(A::BlockBandedMatrices.BlockBandedMatrix)
-        l,u=BlockBandedMatrices.blockbandwidths(A)
-        blockwidth=l+u+1
-        nblock=BlockBandedMatrices.blocksize(A,2)
-        cols=blocklengths(axes(A,2))
-        blockcolors=_cycle(1:blockwidth,nblock)
-        #the reserved number of colors of a block is the maximum length of columns of blocks with the same block color
-        ncolors=[maximum(cols[i:blockwidth:nblock]) for i in 1:blockwidth]
-        endinds=cumsum(ncolors)
-        startinds=[endinds[i]-ncolors[i]+1 for i in 1:blockwidth]
-        colors=[(startinds[blockcolors[i]]:endinds[blockcolors[i]])[1:cols[i]] for i in 1:nblock]
-        vcat(colors...)
-    end
-
-    function matrix_colors(A::BlockBandedMatrices.BandedBlockBandedMatrix)
-        l,u=BlockBandedMatrices.blockbandwidths(A)
-        lambda,mu=BlockBandedMatrices.subblockbandwidths(A)
-        blockwidth=l+u+1
-        subblockwidth=lambda+mu+1
-        nblock=BlockBandedMatrices.blocksize(A,2)
-        cols=blocklengths(axes(A,2))
-        blockcolors=_cycle(1:blockwidth,nblock)
-        #the reserved number of colors of a block is the min of subblockwidth and the largest length of columns of blocks with the same block color
-        ncolors=[min(subblockwidth,maximum(cols[i:blockwidth:nblock])) for i in 1:min(blockwidth,nblock)]
-        endinds=cumsum(ncolors)
-        startinds=[endinds[i]-ncolors[i]+1 for i in 1:min(blockwidth,nblock)]
-        colors=[_cycle(startinds[blockcolors[i]]:endinds[blockcolors[i]],cols[i]) for i in 1:nblock]
-        vcat(colors...)
-    end
-
   end
 end
 
