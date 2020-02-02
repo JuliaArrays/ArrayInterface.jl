@@ -396,7 +396,7 @@ function __init__()
     ismutable(::Type{<:Tracker.TrackedArray}) = false
     can_setindex(::Type{<:Tracker.TrackedArray}) = false
     fast_scalar_indexing(::Type{<:Tracker.TrackedArray}) = false
-    aos_to_soa(x::AbstractArray{<:Tracker.TrackedArray,N}) where N = Tracker.collect(x)
+    aos_to_soa(x::AbstractArray{<:Tracker.TrackedReal,N}) where N = Tracker.collect(x)
   end
 
   @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
