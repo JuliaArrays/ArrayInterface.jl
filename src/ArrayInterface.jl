@@ -379,12 +379,41 @@ function matrix_colors(A::Union{Tridiagonal,SymTridiagonal})
     _cycle(1:3,size(A,2))
 end
 
+"""
+  lu_object(A) -> lu_factorization_instance
+
+Return an instance of the lu factorization object.
+"""
+function lu_object(A::Matrix{T}) where T
+  noUnitT = typeof(zero(T))
+  luT = LinearAlgebra.lutype(noUnitT)
+  ipiv = Vector{LinearAlgebra.BlasInt}(undef, 0)
+  info = zero(LinearAlgebra.BlasInt)
+  return LU{luT}(similar(A, 0, 0), ipiv, info)
+end
+
+"""
+  lu_object(a::Number) -> a
+
+Return the number.
+"""
+lu_object(a::Number) = a
+
 function __init__()
+
+  @require SuiteSparse="4607b0f0-06f3-5cda-b6b1-a6196a1729e9" begin
+    lu_object(jac_prototype::SparseMatrixCSC) = SuiteSparse.UMFPACK.UmfpackLU(Ptr{Cvoid}(), Ptr{Cvoid}(), 1, 1,
+                                                                                      jac_prototype.colptr[1:1],
+                                                                                      jac_prototype.rowval[1:1],
+                                                                                      jac_prototype.nzval[1:1],
+                                                                                      0)
+  end
 
   @require StaticArrays="90137ffa-7385-5640-81b9-e52037218182" begin
     ismutable(::Type{<:StaticArrays.StaticArray}) = false
     can_setindex(::Type{<:StaticArrays.StaticArray}) = false
     ismutable(::Type{<:StaticArrays.MArray}) = true
+    lu_object(J::StaticArrays.StaticArray) = lu(J)
   end
 
   @require LabelledArrays="2ee39098-c373-598a-b85f-a56591580800" begin
