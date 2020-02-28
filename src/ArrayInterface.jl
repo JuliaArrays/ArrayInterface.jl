@@ -380,12 +380,12 @@ function matrix_colors(A::Union{Tridiagonal,SymTridiagonal})
 end
 
 """
-  lu_object(A) -> lu_factorization_instance
+  lu_instance(A) -> lu_factorization_instance
 
 Return an instance of the LU factorization object with the correct type
 cheaply.
 """
-function lu_object(A::Matrix{T}) where T
+function lu_instance(A::Matrix{T}) where T
   noUnitT = typeof(zero(T))
   luT = LinearAlgebra.lutype(noUnitT)
   ipiv = Vector{LinearAlgebra.BlasInt}(undef, 0)
@@ -394,16 +394,16 @@ function lu_object(A::Matrix{T}) where T
 end
 
 """
-  lu_object(a::Number) -> a
+  lu_instance(a::Number) -> a
 
 Return the number.
 """
-lu_object(a::Number) = a
+lu_instance(a::Number) = a
 
 function __init__()
 
   @require SuiteSparse="4607b0f0-06f3-5cda-b6b1-a6196a1729e9" begin
-    lu_object(jac_prototype::SparseMatrixCSC) = SuiteSparse.UMFPACK.UmfpackLU(Ptr{Cvoid}(), Ptr{Cvoid}(), 1, 1,
+    lu_instance(jac_prototype::SparseMatrixCSC) = SuiteSparse.UMFPACK.UmfpackLU(Ptr{Cvoid}(), Ptr{Cvoid}(), 1, 1,
                                                                                       jac_prototype.colptr[1:1],
                                                                                       jac_prototype.rowval[1:1],
                                                                                       jac_prototype.nzval[1:1],
@@ -414,7 +414,7 @@ function __init__()
     ismutable(::Type{<:StaticArrays.StaticArray}) = false
     can_setindex(::Type{<:StaticArrays.StaticArray}) = false
     ismutable(::Type{<:StaticArrays.MArray}) = true
-    lu_object(J::StaticArrays.StaticArray) = lu(J)
+    lu_instance(J::StaticArrays.StaticArray) = lu(J)
   end
 
   @require LabelledArrays="2ee39098-c373-598a-b85f-a56591580800" begin
