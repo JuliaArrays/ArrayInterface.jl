@@ -346,8 +346,8 @@ abstract type ColoringAlgorithm end
 """
     fast_matrix_colors(A)
 
-    Query whether a matrix has a fast algorithm for getting the structural
-    colors of the matrix.
+Query whether a matrix has a fast algorithm for getting the structural
+colors of the matrix.
 """
 fast_matrix_colors(A) = false
 fast_matrix_colors(A::AbstractArray) = fast_matrix_colors(typeof(A))
@@ -356,8 +356,8 @@ fast_matrix_colors(A::Type{<:Union{Diagonal,Bidiagonal,Tridiagonal,SymTridiagona
 """
     matrix_colors(A::Union{Array,UpperTriangular,LowerTriangular})
 
-    The color vector for dense matrix and triangular matrix is simply
-    `[1,2,3,...,size(A,2)]`
+The color vector for dense matrix and triangular matrix is simply
+`[1,2,3,...,size(A,2)]`
 """
 function matrix_colors(A::Union{Array,UpperTriangular,LowerTriangular})
     eachindex(1:size(A,2)) # Vector size matches number of rows
