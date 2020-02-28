@@ -382,7 +382,8 @@ end
 """
   lu_object(A) -> lu_factorization_instance
 
-Return an instance of the lu factorization object.
+Return an instance of the LU factorization object with the correct type
+cheaply.
 """
 function lu_object(A::Matrix{T}) where T
   noUnitT = typeof(zero(T))
