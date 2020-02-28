@@ -414,7 +414,7 @@ function __init__()
     ismutable(::Type{<:StaticArrays.StaticArray}) = false
     can_setindex(::Type{<:StaticArrays.StaticArray}) = false
     ismutable(::Type{<:StaticArrays.MArray}) = true
-    lu_instance(J::StaticArrays.StaticArray) = lu(J)
+    lu_instance(A::StaticArrays.StaticMatrix) = StaticArrays.__lu(A, Val(true))
   end
 
   @require LabelledArrays="2ee39098-c373-598a-b85f-a56591580800" begin

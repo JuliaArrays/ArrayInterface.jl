@@ -133,6 +133,7 @@ using SuiteSparse
   for A in [
     randn(5, 5),
     @SMatrix(randn(5, 5)),
+    @MMatrix(randn(5, 5)),
     sprand(50, 50, 0.1)
   ]
     @test lu_instance(A) isa typeof(lu(A))
