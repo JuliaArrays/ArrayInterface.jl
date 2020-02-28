@@ -414,7 +414,13 @@ function __init__()
     ismutable(::Type{<:StaticArrays.StaticArray}) = false
     can_setindex(::Type{<:StaticArrays.StaticArray}) = false
     ismutable(::Type{<:StaticArrays.MArray}) = true
-    lu_instance(A::StaticArrays.StaticMatrix) = StaticArrays.__lu(A, Val(true))
+    function lu_instance(_A::StaticArrays.StaticMatrix{N,N}) where {N}
+      A = StaticArrays.SArray(_A)
+      L = LowerTriangular(A)
+      U = UpperTriangular(A)
+      p = StaticArrays.SVector{N,Int}(1:N)
+      return StaticArrays.LU(L, U, p)
+    end
   end
 
   @require LabelledArrays="2ee39098-c373-598a-b85f-a56591580800" begin
