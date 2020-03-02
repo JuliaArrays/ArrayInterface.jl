@@ -346,8 +346,8 @@ abstract type ColoringAlgorithm end
 """
     fast_matrix_colors(A)
 
-    Query whether a matrix has a fast algorithm for getting the structural
-    colors of the matrix.
+Query whether a matrix has a fast algorithm for getting the structural
+colors of the matrix.
 """
 fast_matrix_colors(A) = false
 fast_matrix_colors(A::AbstractArray) = fast_matrix_colors(typeof(A))
@@ -356,8 +356,8 @@ fast_matrix_colors(A::Type{<:Union{Diagonal,Bidiagonal,Tridiagonal,SymTridiagona
 """
     matrix_colors(A::Union{Array,UpperTriangular,LowerTriangular})
 
-    The color vector for dense matrix and triangular matrix is simply
-    `[1,2,3,...,size(A,2)]`
+The color vector for dense matrix and triangular matrix is simply
+`[1,2,3,...,size(A,2)]`
 """
 function matrix_colors(A::Union{Array,UpperTriangular,LowerTriangular})
     eachindex(1:size(A,2)) # Vector size matches number of rows
@@ -379,12 +379,48 @@ function matrix_colors(A::Union{Tridiagonal,SymTridiagonal})
     _cycle(1:3,size(A,2))
 end
 
+"""
+  lu_instance(A) -> lu_factorization_instance
+
+Return an instance of the LU factorization object with the correct type
+cheaply.
+"""
+function lu_instance(A::Matrix{T}) where T
+  noUnitT = typeof(zero(T))
+  luT = LinearAlgebra.lutype(noUnitT)
+  ipiv = Vector{LinearAlgebra.BlasInt}(undef, 0)
+  info = zero(LinearAlgebra.BlasInt)
+  return LU{luT}(similar(A, 0, 0), ipiv, info)
+end
+
+"""
+  lu_instance(a::Number) -> a
+
+Return the number.
+"""
+lu_instance(a::Number) = a
+
 function __init__()
+
+  @require SuiteSparse="4607b0f0-06f3-5cda-b6b1-a6196a1729e9" begin
+    lu_instance(jac_prototype::SparseMatrixCSC) = SuiteSparse.UMFPACK.UmfpackLU(Ptr{Cvoid}(), Ptr{Cvoid}(), 1, 1,
+                                                                                      jac_prototype.colptr[1:1],
+                                                                                      jac_prototype.rowval[1:1],
+                                                                                      jac_prototype.nzval[1:1],
+                                                                                      0)
+  end
 
   @require StaticArrays="90137ffa-7385-5640-81b9-e52037218182" begin
     ismutable(::Type{<:StaticArrays.StaticArray}) = false
     can_setindex(::Type{<:StaticArrays.StaticArray}) = false
     ismutable(::Type{<:StaticArrays.MArray}) = true
+    function lu_instance(_A::StaticArrays.StaticMatrix{N,N}) where {N}
+      A = StaticArrays.SArray(_A)
+      L = LowerTriangular(A)
+      U = UpperTriangular(A)
+      p = StaticArrays.SVector{N,Int}(1:N)
+      return StaticArrays.LU(L, U, p)
+    end
   end
 
   @require LabelledArrays="2ee39098-c373-598a-b85f-a56591580800" begin

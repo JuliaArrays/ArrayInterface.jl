@@ -1,6 +1,6 @@
 using ArrayInterface, Test
 using Base: setindex
-import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing
+import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance
 @test ArrayInterface.ismutable(rand(3))
 
 using StaticArrays
@@ -126,4 +126,17 @@ rowind,colind=findstructralnz(BBB)
         @test iszero(x)
         @test all(isone, y2)
     end
+end
+
+using SuiteSparse
+@testset "lu_instance" begin
+  for A in [
+    randn(5, 5),
+    @SMatrix(randn(5, 5)),
+    @MMatrix(randn(5, 5)),
+    sprand(50, 50, 0.5)
+  ]
+    @test lu_instance(A) isa typeof(lu(A))
+  end
+  @test lu_instance(1) === 1
 end

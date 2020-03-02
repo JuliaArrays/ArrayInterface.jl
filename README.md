@@ -60,6 +60,11 @@ A `getindex` which is always allowed.
 
 A `setindex!` which is always allowed.
 
+## lu_instance(A)
+
+Return an instance of the LU factorization object with the correct type
+cheaply.
+
 ## List of things to add
 
 - https://github.com/JuliaLang/julia/issues/22216
