@@ -17,6 +17,7 @@ ismutable(x) = ismutable(typeof(x))
 ismutable(::Type{<:AbstractArray}) = true
 ismutable(::Type{<:Number}) = false
 ismutable(::Type{<:AbstractRange}) = false
+ismutable(::Type{<:Tuple}) = false
 
 # Piracy
 function Base.setindex(x::AbstractArray,v,i...)

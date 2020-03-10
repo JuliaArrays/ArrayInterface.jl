@@ -7,6 +7,7 @@ using StaticArrays
 @test ArrayInterface.ismutable(@SVector [1,2,3]) == false
 @test ArrayInterface.ismutable(@MVector [1,2,3]) == true
 @test ArrayInterface.ismutable(1:10) == false
+@test ArrayInterface.ismutable((0.1,1.0)) == false
 
 using LinearAlgebra, SparseArrays
 
