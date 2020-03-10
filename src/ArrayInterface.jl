@@ -12,11 +12,12 @@ function ismutable end
 Query whether a type is mutable or not, see
 https://github.com/JuliaDiffEq/RecursiveArrayTools.jl/issues/19.
 """
-ismutable(x) = ismutable(typeof(x))
+ismutable(x) = (@show x; ismutable(typeof(x)))
 
 ismutable(::Type{<:AbstractArray}) = true
 ismutable(::Type{<:Number}) = false
 ismutable(::Type{<:AbstractRange}) = false
+ismutable(::Type{<:Tuple}) = false
 
 # Piracy
 function Base.setindex(x::AbstractArray,v,i...)
