@@ -114,6 +114,10 @@ Determine whether a given abstract matrix is singular.
 issingular(A::Matrix) = !issuccess(lu(A, check=false))
 issingular(A::UniformScaling) = A.λ == 0
 issingular(A::Diagonal) = any(iszero,A.diag)
+issingular(A::Union{Hermitian,Symmetric}) = diaganyzero(bunchkaufman(A, check=false).LD)
+issingular(A::Union{LowerTriangular,UpperTriangular}) = diaganyzero(A.data)
+issingular(A::Union{UnitLowerTriangular,UnitUpperTriangular}) = false
+diaganyzero(A) = any(iszero, view(A, diagind(A)))
 
 """
     findstructralnz(x::AbstractArray)
