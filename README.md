@@ -67,8 +67,9 @@ cheaply.
 
 ## issingular(A)
 
-Return an instance of the LU factorization object with the correct type
-cheaply.
+Check singularity by factorization or checking zeros of structured matrices.
+
+*Warning*: `rank` is a better choice for some matrices.
 
 ## List of things to add
 
