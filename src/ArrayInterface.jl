@@ -95,7 +95,7 @@ isstructured(::Diagonal) = true
 """
     has_sparsestruct(x::AbstractArray)
 
-determine whether `findstructralnz` accepts the parameter `x`
+Determine whether `findstructralnz` accepts the parameter `x`
 """
 has_sparsestruct(x) = false
 has_sparsestruct(x::AbstractArray) = has_sparsestruct(typeof(x))
@@ -105,6 +105,15 @@ has_sparsestruct(x::Type{<:Diagonal}) = true
 has_sparsestruct(x::Type{<:Bidiagonal}) = true
 has_sparsestruct(x::Type{<:Tridiagonal}) = true
 has_sparsestruct(x::Type{<:SymTridiagonal}) = true
+
+"""
+    issingular(A::AbstractMatrix)
+
+Determine whether a given abstract matrix is singular.
+"""
+issingular(A::Matrix) = !issuccess(lu(A, check=false))
+issingular(A::UniformScaling) = A.λ == 0
+issingular(A::Diagonal) = any(iszero,A.diag)
 
 """
     findstructralnz(x::AbstractArray)
