@@ -95,7 +95,7 @@ isstructured(::Diagonal) = true
 """
     has_sparsestruct(x::AbstractArray)
 
-determine whether `findstructralnz` accepts the parameter `x`
+Determine whether `findstructralnz` accepts the parameter `x`
 """
 has_sparsestruct(x) = false
 has_sparsestruct(x::AbstractArray) = has_sparsestruct(typeof(x))
@@ -105,6 +105,24 @@ has_sparsestruct(x::Type{<:Diagonal}) = true
 has_sparsestruct(x::Type{<:Bidiagonal}) = true
 has_sparsestruct(x::Type{<:Tridiagonal}) = true
 has_sparsestruct(x::Type{<:SymTridiagonal}) = true
+
+"""
+    issingular(A::AbstractMatrix)
+
+Determine whether a given abstract matrix is singular.
+"""
+issingular(A::AbstractMatrix) = issingular(Matrix(A))
+issingular(A::AbstractSparseMatrix) = !issuccess(lu(A, check=false))
+issingular(A::Matrix) = !issuccess(lu(A, check=false))
+issingular(A::UniformScaling) = A.λ == 0
+issingular(A::Diagonal) = any(iszero,A.diag)
+issingular(B::Bidiagonal) = any(iszero, A.dv)
+issingular(S::SymTridiagonal) = diaganyzero(iszero, ldlt(S).data)
+issingular(T::Tridiagonal) = !issuccess(lu(A, check=false))
+issingular(A::Union{Hermitian,Symmetric}) = diaganyzero(bunchkaufman(A, check=false).LD)
+issingular(A::Union{LowerTriangular,UpperTriangular}) = diaganyzero(A.data)
+issingular(A::Union{UnitLowerTriangular,UnitUpperTriangular}) = false
+diaganyzero(A) = any(iszero, view(A, diagind(A)))
 
 """
     findstructralnz(x::AbstractArray)

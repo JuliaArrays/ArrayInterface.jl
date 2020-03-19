@@ -141,3 +141,21 @@ using SuiteSparse
   end
   @test lu_instance(1) === 1
 end
+
+using Random
+using ArrayInterface: issingular
+@testset "issingular" begin
+    for T in [Float64, ComplexF64]
+        R = randn(MersenneTwister(2), T, 5, 5)
+        S = Symmetric(R)
+        L = UpperTriangular(R)
+        U = LowerTriangular(R)
+        @test all(!issingular, [R, S, L, U])
+        R[:, 2] .= 0
+        @test all(issingular, [R, L, U])
+        @test !issingular(S)
+        R[2, :] .= 0
+        @test issingular(S)
+        @test all(!issingular, [UnitLowerTriangular(R), UnitUpperTriangular(R)])
+    end
+end

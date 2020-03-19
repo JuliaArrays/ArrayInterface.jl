@@ -65,6 +65,10 @@ A `setindex!` which is always allowed.
 Return an instance of the LU factorization object with the correct type
 cheaply.
 
+## issingular(A)
+
+Return an instance of the LU factorization object with the correct type cheaply.
+
 ## List of things to add
 
 - https://github.com/JuliaLang/julia/issues/22216
