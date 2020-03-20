@@ -150,12 +150,12 @@ using ArrayInterface: issingular
         S = Symmetric(R)
         L = UpperTriangular(R)
         U = LowerTriangular(R)
-        @test all(!issingular, [R, S, L, U])
+        @test all(!issingular, [R, S, L, U, U'])
         R[:, 2] .= 0
-        @test all(issingular, [R, L, U])
+        @test all(issingular, [R, L, U, U'])
         @test !issingular(S)
         R[2, :] .= 0
         @test issingular(S)
-        @test all(!issingular, [UnitLowerTriangular(R), UnitUpperTriangular(R)])
+        @test all(!issingular, [UnitLowerTriangular(R), UnitUpperTriangular(R), UnitUpperTriangular(R)'])
     end
 end
