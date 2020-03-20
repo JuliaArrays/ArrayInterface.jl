@@ -122,6 +122,7 @@ issingular(T::Tridiagonal) = !issuccess(lu(A, check=false))
 issingular(A::Union{Hermitian,Symmetric}) = diaganyzero(bunchkaufman(A, check=false).LD)
 issingular(A::Union{LowerTriangular,UpperTriangular}) = diaganyzero(A.data)
 issingular(A::Union{UnitLowerTriangular,UnitUpperTriangular}) = false
+issingular(A::Union{Adjoint,Transpose}) = issingular(parent(A))
 diaganyzero(A) = any(iszero, view(A, diagind(A)))
 
 """
