@@ -457,9 +457,9 @@ function __init__()
 
   @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
     fast_scalar_indexing(::Type{<:CuArrays.CuArray}) = false
-    @inline allowed_getindex(x::CuArrays.CuArray,i...) = CuArrays._getindex(x,i...)
-    @inline allowed_setindex!(x::CuArrays.CuArray,v,i...) = CuArrays._setindex!(x,v,i...)
-
+    @inline allowed_getindex(x::CuArrays.CuArray,i...) = @allowscalar x[i...]
+    @inline allowed_setindex!(x::CuArrays.CuArray,v,i...) = (@allowscalar x[i...] = v)
+        
     function Base.setindex(x::CuArrays.CuArray,v,i::Int)
       _x = copy(x)
       allowed_setindex!(_x,v,i)
