@@ -69,6 +69,15 @@ cheaply.
 
 Return an instance of the LU factorization object with the correct type cheaply.
 
+## zeromatrix(u::AbstractVector)
+
+Creates the zero'd matrix version of `u`. Note that this is unique because
+`similar(u,length(u),length(u))` returns a mutable type, so is not type-matching,
+while `fill(zero(eltype(u)),length(u),length(u))` doesn't match the array type,
+i.e. you'll get a CPU array from a GPU array. The generic fallback is
+`u .* u' .* false` which works on a surprising number of types, but can be broken
+with weird (recursive) broadcast overloads.
+
 ## List of things to add
 
 - https://github.com/JuliaLang/julia/issues/22216

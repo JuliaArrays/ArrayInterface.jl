@@ -420,6 +420,18 @@ Return the number.
 """
 lu_instance(a::Number) = a
 
+"""
+zeromatrix(u::AbstractVector)
+
+Creates the zero'd matrix version of `u`. Note that this is unique because
+`similar(u,length(u),length(u))` returns a mutable type, so is not type-matching,
+while `fill(zero(eltype(u)),length(u),length(u))` doesn't match the array type,
+i.e. you'll get a CPU array from a GPU array. The generic fallback is
+`u .* u' .* false` which works on a surprising number of types, but can be broken
+with weird (recursive) broadcast overloads.
+"""
+zeromatrix(u::AbstractVector) = u .* u' .* false
+
 function __init__()
 
   @require SuiteSparse="4607b0f0-06f3-5cda-b6b1-a6196a1729e9" begin
