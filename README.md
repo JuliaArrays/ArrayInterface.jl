@@ -76,7 +76,8 @@ Creates the zero'd matrix version of `u`. Note that this is unique because
 while `fill(zero(eltype(u)),length(u),length(u))` doesn't match the array type,
 i.e. you'll get a CPU array from a GPU array. The generic fallback is
 `u .* u' .* false` which works on a surprising number of types, but can be broken
-with weird (recursive) broadcast overloads.
+with weird (recursive) broadcast overloads. For higher order tensors, this
+returns the matrix linear operator type which acts on the `vec` of the array.
 
 ## List of things to add
 
