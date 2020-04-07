@@ -159,3 +159,6 @@ using ArrayInterface: issingular
         @test all(!issingular, [UnitLowerTriangular(R), UnitUpperTriangular(R), UnitUpperTriangular(R)'])
     end
 end
+
+using ArrayInterface: zeromatrix
+@test zeromatrix(rand(4,4,4)) == zeros(4*4*4,4*4*4)

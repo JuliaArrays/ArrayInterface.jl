@@ -69,6 +69,12 @@ cheaply.
 
 Return an instance of the LU factorization object with the correct type cheaply.
 
+## safevec(v)
+
+Is a form of `vec` which is safe for all values in vector spaces, i.e. if
+is already a vector, like an AbstractVector or Number, it will return said
+AbstractVector or Number.
+
 ## zeromatrix(u::AbstractVector)
 
 Creates the zero'd matrix version of `u`. Note that this is unique because

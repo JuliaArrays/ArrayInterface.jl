@@ -420,9 +420,16 @@ Return the number.
 """
 lu_instance(a::Number) = a
 
-_vec(v) = vec(v)
-_vec(v::Number) = v
-_vec(v::AbstractVector) = v
+"""
+safevec(v)
+
+Is a form of `vec` which is safe for all values in vector spaces, i.e. if
+is already a vector, like an AbstractVector or Number, it will return said
+AbstractVector or Number.
+"""
+safevec(v) = vec(v)
+safevec(v::Number) = v
+safevec(v::AbstractVector) = v
 
 """
 zeromatrix(u::AbstractVector)
@@ -436,7 +443,7 @@ with weird (recursive) broadcast overloads. For higher order tensors, this
 returns the matrix linear operator type which acts on the `vec` of the array.
 """
 function zeromatrix(u)
-  x = _vec(u)
+  x = safevec(u)
   x .* x' .* false
 end
 
