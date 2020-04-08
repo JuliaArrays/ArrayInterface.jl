@@ -489,8 +489,18 @@ function __init__()
       return StaticArrays.LU(L, U, p)
     end
 
-    function restructure(x::StaticArrays.SArray,y)
-      error("Currently not supported")
+    function restructure(x::StaticArrays.SArray,y::StaticArrays.SArray)
+      reshape(y,StaticArrays.Size(x))
+    end
+
+    function restructure(x::StaticArrays.SArray{S},y::Array) where S
+      StaticArrays.SArray{S}(y)
+    end
+
+    @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
+      function Adapt.adapt_storage(::Type{<:StaticArrays.SArray{S}},xs::Array) where S
+          StaticArrays.SArray{S}(xs)
+      end
     end
   end
 
