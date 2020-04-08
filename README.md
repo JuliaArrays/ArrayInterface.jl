@@ -75,7 +75,7 @@ Is a form of `vec` which is safe for all values in vector spaces, i.e. if
 is already a vector, like an AbstractVector or Number, it will return said
 AbstractVector or Number.
 
-## zeromatrix(u::AbstractVector)
+## zeromatrix(u)
 
 Creates the zero'd matrix version of `u`. Note that this is unique because
 `similar(u,length(u),length(u))` returns a mutable type, so is not type-matching,
@@ -85,7 +85,16 @@ i.e. you'll get a CPU array from a GPU array. The generic fallback is
 with weird (recursive) broadcast overloads. For higher order tensors, this
 returns the matrix linear operator type which acts on the `vec` of the array.
 
-## List of things to add
+## restructure(x,y)
+
+Restructures the object `y` into a shape of `x`, keeping its values intact. For
+simple objects like an `Array`, this simply amounts to a reshape. However, for
+more complex objects such as an `ArrayPartition`, not all of the structural
+information is adequately contained in the type for standard tools to work. In
+these cases, `restructure` gives a way to convert for example an `Array` into
+a matching `ArrayPartition`.
+
+# List of things to add
 
 - https://github.com/JuliaLang/julia/issues/22216
 - https://github.com/JuliaLang/julia/issues/22218
@@ -93,7 +102,7 @@ returns the matrix linear operator type which acts on the `vec` of the array.
 - https://github.com/JuliaLang/julia/issues/25760
 - https://github.com/JuliaLang/julia/issues/25107
 
-## Array Types to Handle
+# Array Types to Handle
 
 The following common array types are being understood and tested as part of this
 development.

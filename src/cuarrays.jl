@@ -7,3 +7,7 @@ function Base.setindex(x::CuArrays.CuArray,v,i::Int)
   allowed_setindex!(_x,v,i)
   _x
 end
+
+function restructure(x::CuArrays,y)
+  reshape(adapt(typeof(x),y),size(x)...)
+end

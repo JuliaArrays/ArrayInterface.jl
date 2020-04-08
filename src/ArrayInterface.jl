@@ -447,6 +447,25 @@ function zeromatrix(u)
   x .* x' .* false
 end
 
+"""
+restructure(x,y)
+
+Restructures the object `y` into a shape of `x`, keeping its values intact. For
+simple objects like an `Array`, this simply amounts to a reshape. However, for
+more complex objects such as an `ArrayPartition`, not all of the structural
+information is adequately contained in the type for standard tools to work. In
+these cases, `restructure` gives a way to convert for example an `Array` into
+a matching `ArrayPartition`.
+"""
+function restructure(x,y)
+  out = similar(x,eltype(y))
+  out .= y
+end
+
+function restructure(x::Array,y)
+  reshape(convert(Array,y),size(x)...)
+end
+
 function __init__()
 
   @require SuiteSparse="4607b0f0-06f3-5cda-b6b1-a6196a1729e9" begin
@@ -461,12 +480,17 @@ function __init__()
     ismutable(::Type{<:StaticArrays.StaticArray}) = false
     can_setindex(::Type{<:StaticArrays.StaticArray}) = false
     ismutable(::Type{<:StaticArrays.MArray}) = true
+
     function lu_instance(_A::StaticArrays.StaticMatrix{N,N}) where {N}
       A = StaticArrays.SArray(_A)
       L = LowerTriangular(A)
       U = UpperTriangular(A)
       p = StaticArrays.SVector{N,Int}(1:N)
       return StaticArrays.LU(L, U, p)
+    end
+
+    function restructure(x::StaticArrays.SArray,y)
+      error("Currently not supported")
     end
   end
 
@@ -483,7 +507,9 @@ function __init__()
   end
 
   @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-    include("cuarrays.jl")
+    @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
+      include("cuarrays.jl")
+    end
   end
 
   @require BandedMatrices="aae01518-5342-5314-be14-df237901396f" begin
