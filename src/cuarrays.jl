@@ -8,6 +8,6 @@ function Base.setindex(x::CuArrays.CuArray,v,i::Int)
   _x
 end
 
-function restructure(x::CuArrays.CuArrays,y)
+function restructure(x::CuArrays.CuArray,y)
   reshape(adapt(typeof(x),y),size(x)...)
 end
