@@ -493,7 +493,7 @@ function __init__()
       reshape(y,StaticArrays.Size(x))
     end
 
-    function restructure(x::StaticArrays.SArray{S},y::Array) where S
+    function restructure(x::StaticArrays.SArray{S},y) where S
       StaticArrays.SArray{S}(y)
     end
 
