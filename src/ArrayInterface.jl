@@ -421,6 +421,13 @@ Return the number.
 lu_instance(a::Number) = a
 
 """
+    lu_instance(a::Any) -> lu(a, check=false)
+
+Return the number.
+"""
+lu_instance(a::Any) = lu(a, check=false)
+
+"""
 safevec(v)
 
 Is a form of `vec` which is safe for all values in vector spaces, i.e. if
@@ -519,6 +526,10 @@ function __init__()
   @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
     @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
       include("cuarrays.jl")
+    end
+    @require DiffEqBase="2b5f629d-d688-5b77-993f-72d75c75574e" begin
+      # actually do QR
+      lu_instance(A::CuArrays.CuMatrix{T}) where T = CuArrays.CUSOLVER.CuQR(similar(A, 0, 0), similar(A, 0))
     end
   end
 
