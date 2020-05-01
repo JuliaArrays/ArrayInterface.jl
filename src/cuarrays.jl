@@ -9,5 +9,5 @@ function Base.setindex(x::CuArrays.CuArray,v,i::Int)
 end
 
 function restructure(x::CuArrays.CuArray,y)
-  reshape(adapt(typeof(x),y),size(x)...)
+  reshape(Adapt.adapt(parameterless_type(x),y),size(x)...)
 end

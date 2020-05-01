@@ -4,6 +4,10 @@ using Requires
 using LinearAlgebra
 using SparseArrays
 
+Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
+parameterless_type(x) = parameterless_type(typeof(x))
+parameterless_type(x::Type) = __parameterless_type(x)
+
 function ismutable end
 
 """
