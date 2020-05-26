@@ -8,6 +8,20 @@ Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
 parameterless_type(x::Type) = __parameterless_type(x)
 
+"""
+    parent_type(x)
+
+Returns the parent array that `x` wraps.
+"""
+parent_type(x) = parent_type(typeof(x))
+parent_type(::Type{<:SubArray{T,N,P}}) where {T,N,P} = P
+parent_type(::Type{<:Base.ReshapedArray{T,N,P}}) where {T,N,P} = P
+parent_type(::Type{Adjoint{T,S}}) where {T,S} = S
+parent_type(::Type{Transpose{T,S}}) where {T,S} = S
+parent_type(::Type{Symmetric{T,S}}) where {T,S} = S
+parent_type(::Type{<:AbstractTriangular{T,S}}) where {T,S} = S
+parent_type(::Type{T}) where {T} = T
+
 function ismutable end
 
 """
