@@ -162,3 +162,14 @@ end
 
 using ArrayInterface: zeromatrix
 @test zeromatrix(rand(4,4,4)) == zeros(4*4*4,4*4*4)
+
+using ArrayInterface: parent_type
+@testset "" begin
+    x = ones(4, 4)
+    @test parent_type(view(x, 1:2, 1:2)) <: typeof(x)
+    @test parent_type(reshape(x, 2, :)) <: typeof(x)
+    @test parent_type(transpose(x)) <: typeof(x)
+    @test parent_type(Symmetric(x)) <: typeof(x)
+    @test parent_type(UpperTriangular(x)) <: typeof(x)
+end
+
