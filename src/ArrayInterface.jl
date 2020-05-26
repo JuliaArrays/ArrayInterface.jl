@@ -19,7 +19,7 @@ parent_type(::Type{<:Base.ReshapedArray{T,N,P}}) where {T,N,P} = P
 parent_type(::Type{Adjoint{T,S}}) where {T,S} = S
 parent_type(::Type{Transpose{T,S}}) where {T,S} = S
 parent_type(::Type{Symmetric{T,S}}) where {T,S} = S
-parent_type(::Type{<:AbstractTriangular{T,S}}) where {T,S} = S
+parent_type(::Type{<:LinearAlgebra.AbstractTriangular{T,S}}) where {T,S} = S
 parent_type(::Type{T}) where {T} = T
 
 function ismutable end
