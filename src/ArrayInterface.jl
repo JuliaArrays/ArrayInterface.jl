@@ -551,6 +551,16 @@ function __init__()
     end
   end
 
+  @require CUDA="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
+    @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
+      include("cuarrays2.jl")
+    end
+    @require DiffEqBase="2b5f629d-d688-5b77-993f-72d75c75574e" begin
+      # actually do QR
+      lu_instance(A::CUDA.CuMatrix{T}) where T = CUDA.CUSOLVER.CuQR(similar(A, 0, 0), similar(A, 0))
+    end
+  end
+
   @require BandedMatrices="aae01518-5342-5314-be14-df237901396f" begin
     function findstructralnz(x::BandedMatrices.BandedMatrix)
       l,u=BandedMatrices.bandwidths(x)
