@@ -501,6 +501,10 @@ function __init__()
                                                                                       0)
   end
 
+  @require ComponentArrays="b0b7db55-cfe3-40fc-9ded-d10e2dbeff66" begin
+    lu_instance(jac_prototype::ComponentArrays.ComponentArray) = lu_instance(ComponentArrays.getdata(jac_prototype))
+  end
+
   @require StaticArrays="90137ffa-7385-5640-81b9-e52037218182" begin
     ismutable(::Type{<:StaticArrays.StaticArray}) = false
     can_setindex(::Type{<:StaticArrays.StaticArray}) = false
