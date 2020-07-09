@@ -551,7 +551,7 @@ function __init__()
     end
   end
 
-  @require CUDA="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
+  @require CUDA="052768ef-5323-5732-b1bb-66c8b64840ba" begin
     @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
       include("cuarrays2.jl")
     end
