@@ -1,6 +1,6 @@
 # ArrayInterface.jl
 
-[![Build Status](https://travis-ci.org/JuliaDiffEq/ArrayInterface.jl.svg?branch=master)](https://travis-ci.org/JuliaDiffEq/ArrayInterface.jl)
+[![Build Status](https://travis-ci.com/SciML/ArrayInterface.jl.svg?branch=master)](https://travis-ci.com/SciML/ArrayInterface.jl)
 [![Build status](https://ci.appveyor.com/api/projects/status/s4vnsj386dyyv655?svg=true)](https://ci.appveyor.com/project/ChrisRackauckas/arrayinterface-jl)
 
 Julia has only recently reached v1.0 and the AbstractArray interface is still
