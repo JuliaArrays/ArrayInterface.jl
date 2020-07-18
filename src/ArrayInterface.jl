@@ -491,6 +491,38 @@ function restructure(x::Array,y)
   reshape(convert(Array,y),size(x)...)
 end
 
+"""
+known_first(::Type{T})
+
+If `first` of an instance of type `T` is known at compile time, return it.
+Otherwise, return `nothing`.
+
+@test isnothing(known_first(typeof(1:4)))
+@test isone(known_first(typeof(Base.OneTo(4))))
+"""
+known_first(::Any) = nothing
+known_first(::Type{Base.OneTo{T}}) where {T} = one(T)
+"""
+known_last(::Type{T})
+
+If `last` of an instance of type `T` is known at compile time, return it.
+Otherwise, return `nothing`.
+
+@test isnothing(known_last(typeof(1:4)))
+"""
+known_last(::Any) = nothing
+"""
+known_step(::Type{T})
+
+If `step` of an instance of type `T` is known at compile time, return it.
+Otherwise, return `nothing`.
+
+@test isnothing(known_step(typeof(1:0.2:4)))
+@test isone(known_step(typeof(1:4)))
+"""
+known_step(::Any) = nothing
+known_step(::Type{<:AbstractUnitRange{T}}) where {T} = one(T)
+
 function __init__()
 
   @require SuiteSparse="4607b0f0-06f3-5cda-b6b1-a6196a1729e9" begin
