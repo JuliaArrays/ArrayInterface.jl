@@ -94,6 +94,23 @@ information is adequately contained in the type for standard tools to work. In
 these cases, `restructure` gives a way to convert for example an `Array` into
 a matching `ArrayPartition`.
 
+## known_first(::Type{T})
+
+If `first` of instances of type `T` are known at compile time, return that first
+element. Otherwise, return `nothing`. For example, `known_first(Base.OneTo{Int})`
+returns `one(Int)`.
+
+## known_last(::Type{T})
+
+If `last` of instances of type `T` are known at compile time, return that
+last element. Otherwise, return `nothing`.
+
+## known_step(::Type{T})
+
+If `step` of instances of type `T` are known at compile time, return that step.
+Otherwise, returns `nothing`. For example, `known_step(UnitRange{Int})` returns
+`one(Int)`.
+
 # List of things to add
 
 - https://github.com/JuliaLang/julia/issues/22216
