@@ -8,6 +8,8 @@ using StaticArrays
 @test ArrayInterface.ismutable(@MVector [1,2,3]) == true
 @test ArrayInterface.ismutable(1:10) == false
 @test ArrayInterface.ismutable((0.1,1.0)) == false
+@test isone(ArrayInterface.known_first(typeof(StaticArrays.SOneTo(7))))
+@test ArrayInterface.known_last(typeof(StaticArrays.SOneTo(7))) == 7
 
 using LinearAlgebra, SparseArrays
 

@@ -509,6 +509,8 @@ If `last` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
 
 @test isnothing(known_last(typeof(1:4)))
+using StaticArrays
+@test known_last(typeof(SOneTo(4))) == 4
 """
 known_last(::Any) = nothing
 """
@@ -553,6 +555,9 @@ function __init__()
     function restructure(x::StaticArrays.SArray{S},y) where S
       StaticArrays.SArray{S}(y)
     end
+
+    known_first(::Type{<:StaticArrays.SOneTo}) = 1
+    known_last(::Type{StaticArrays.SOneTo{N}}) where {N} = N
 
     @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
       function Adapt.adapt_storage(::Type{<:StaticArrays.SArray{S}},xs::Array) where S
