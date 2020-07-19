@@ -554,6 +554,9 @@ function __init__()
       StaticArrays.SArray{S}(y)
     end
 
+    known_first(::Type{<:StaticArrays.SOneTo}) = 1
+    known_last(::Type{StaticArrays.SOneTo{N}}) where {N} = N
+
     @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
       function Adapt.adapt_storage(::Type{<:StaticArrays.SArray{S}},xs::Array) where S
           StaticArrays.SArray{S}(xs)
