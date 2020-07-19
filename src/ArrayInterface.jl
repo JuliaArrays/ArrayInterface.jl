@@ -509,6 +509,8 @@ If `last` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
 
 @test isnothing(known_last(typeof(1:4)))
+using StaticArrays
+@test known_last(typeof(SOneTo(4))) == 4
 """
 known_last(::Any) = nothing
 """

@@ -103,7 +103,8 @@ returns `one(Int)`.
 ## known_last(::Type{T})
 
 If `last` of instances of type `T` are known at compile time, return that
-last element. Otherwise, return `nothing`.
+last element. Otherwise, return `nothing`. For example,
+`known_last(StaticArrays.SOneTo{4})` returns 4.
 
 ## known_step(::Type{T})
 
