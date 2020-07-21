@@ -177,11 +177,14 @@ end
 
 @testset "Range Interface" begin
     @test isnothing(ArrayInterface.known_first(typeof(1:4)))
+    @test isone(ArrayInterface.known_first(Base.OneTo(4)))
     @test isone(ArrayInterface.known_first(typeof(Base.OneTo(4))))
-    
+
+    @test isnothing(ArrayInterface.known_last(1:4))
     @test isnothing(ArrayInterface.known_last(typeof(1:4)))
     
     @test isnothing(ArrayInterface.known_step(typeof(1:0.2:4)))
+    @test isone(ArrayInterface.known_step(1:4))
     @test isone(ArrayInterface.known_step(typeof(1:4)))
 end
 

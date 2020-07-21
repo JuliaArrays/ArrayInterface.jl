@@ -500,8 +500,10 @@ Otherwise, return `nothing`.
 @test isnothing(known_first(typeof(1:4)))
 @test isone(known_first(typeof(Base.OneTo(4))))
 """
-known_first(::Any) = nothing
+known_first(x) = known_first(typeof(x))
+known_first(::Type{T}) where {T} = nothing
 known_first(::Type{Base.OneTo{T}}) where {T} = one(T)
+
 """
 known_last(::Type{T})
 
@@ -512,7 +514,9 @@ Otherwise, return `nothing`.
 using StaticArrays
 @test known_last(typeof(SOneTo(4))) == 4
 """
-known_last(::Any) = nothing
+known_last(x) = known_last(typeof(x))
+known_last(::Type{T}) where {T} = nothing
+
 """
 known_step(::Type{T})
 
@@ -522,7 +526,8 @@ Otherwise, return `nothing`.
 @test isnothing(known_step(typeof(1:0.2:4)))
 @test isone(known_step(typeof(1:4)))
 """
-known_step(::Any) = nothing
+known_step(x) = known_step(typeof(x))
+known_step(::Type{T}) where {T} = nothing
 known_step(::Type{<:AbstractUnitRange{T}}) where {T} = one(T)
 
 function __init__()
