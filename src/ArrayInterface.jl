@@ -553,7 +553,7 @@ stridelayout(::Type{T}) -> (contig, batch, striderank)
 Descrive the memory layout of a strided container of type `T`. If unknown or not strided, returns `nothing`.
 Else, it returns a tuple with elements:
  - `contig`: The axis with contiguous elements. `contig == -1` indicates no axis is contiguous. `striderank[contig]` does not necessarilly equal `1`.
- - `batch`: indicates the number of contiguous elements.
+ - `batch`: indicates the number of contiguous elements. That is, if `batch == 16`, then axis `contig` will contain batches of 16 contiguous elements interleaved with axis `findfirst(isone.(striderank))`.
  - `striderank` indicates the rank of the given stride with respect to the others. If for `A::T` we have `striderank[i] > striderank[j]`, then `stride(A,i) > stride(A,j)`.
 
 The convenience method

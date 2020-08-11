@@ -123,7 +123,7 @@ Returns a 3-tuple describing the strided layout of the memory of an instance of 
 is known, and returning `nothing` otherwise.
 The elements of the tuple include
  - `contig`: The axis with contiguous elements. `contig == -1` indicates no axis is contiguous. `striderank[contig]` does not necessarilly equal `1`.
- - `batch`: indicates the number of contiguous elements.
+ - `batch`: indicates the number of contiguous elements. That is, if `batch == 16`, then axis `contig` will contain batches of 16 contiguous elements interleaved with axis `findfirst(isone.(striderank))`.
  - `striderank` indicates the rank of the given stride with respect to the others. If for `A::T` we have `striderank[i] > striderank[j]`, then `stride(A,i) > stride(A,j)`.
 
 
