@@ -1,6 +1,6 @@
 using ArrayInterface, Test
 using Base: setindex
-import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance
+import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, is_cpu_column_major, stridelayout
 @test ArrayInterface.ismutable(rand(3))
 
 using StaticArrays
@@ -188,3 +188,25 @@ end
     @test isone(ArrayInterface.known_step(typeof(1:4)))
 end
 
+@testset "Memory Layout" begin
+    A = rand(3,4,5)
+    @test is_cpu_column_major(A)
+    @test !is_cpu_column_major((1,2,3))
+    @test is_cpu_column_major(view(A, 1, :, 2:4))
+    @test !is_cpu_column_major(view(A, 1, :, 2:4)')
+    @test !is_cpu_column_major(@SArray(rand(2,2,2)))
+    @test is_cpu_column_major(@MArray(rand(2,2,2)))
+
+    @test stridelayout(@SArray(rand(2,2,2))) == (1, 1, Base.OneTo(3))
+    @test stridelayout(A) == (1, 1, Base.OneTo(3))
+    @test stridelayout(PermutedDimsArray(A,(3,1,2))) == (2, 1, (3, 1, 2))
+    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])) == (1, 1, (1, 2))
+    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:])) == (2, 1, (3, 1, 2))
+    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])) == (-1, 1, (2, 1))
+
+    B = Array{Int8}(undef, 2,2,2,2);
+    doubleperm = PermutedDimsArray(PermutedDimsArray(B,(4,2,3,1)), (4,2,1,3));
+    @test collect(strides(B))[collect(last(stridelayout(doubleperm)))] == collect(strides(doubleperm))
+end
+
+@test ArrayInterface.canavx(ArrayInterface.canavx) == false

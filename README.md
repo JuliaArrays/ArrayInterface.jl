@@ -112,6 +112,21 @@ If `step` of instances of type `T` are known at compile time, return that step.
 Otherwise, returns `nothing`. For example, `known_step(UnitRange{Int})` returns
 `one(Int)`.
 
+## is_cpu_column_major(::Type{T})
+
+Returns `true` if instances of type `T` have a strided column-major memory layout and support
+`pointer`. Returns `false` otherwise.
+
+## stridelayout(::Type{T})
+
+Returns a 3-tuple describing the strided layout of the memory of an instance of type `T` if it
+is known, and returning `nothing` otherwise.
+The elements of the tuple include
+ - `contig`: The axis with contiguous elements. `contig == -1` indicates no axis is contiguous. `striderank[contig]` does not necessarilly equal `1`.
+ - `batch`: indicates the number of contiguous elements.
+ - `striderank` indicates the rank of the given stride with respect to the others. If for `A::T` we have `striderank[i] > striderank[j]`, then `stride(A,i) > stride(A,j)`.
+
+
 # List of things to add
 
 - https://github.com/JuliaLang/julia/issues/22216

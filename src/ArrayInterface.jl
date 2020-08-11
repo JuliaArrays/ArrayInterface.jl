@@ -530,6 +530,139 @@ known_step(x) = known_step(typeof(x))
 known_step(::Type{T}) where {T} = nothing
 known_step(::Type{<:AbstractUnitRange{T}}) where {T} = one(T)
 
+"""
+is_cpu_column_major(::Type{T})
+
+Does an Array of type `T` point to column major memory in the cpu's address space?
+If `is_cpu_column_major(typeof(A))` return `true` and the element type is a primite
+type, then the array should be compatible with `LoopVectorization.jl` as well as
+`C` and `Fortran` programs requiring pointers and assuming column major memory layout.
+
+If `is_cpu_column_major(typeof(A))` return `true`, the array supports the
+[Strided Array](https://docs.julialang.org/en/v1/manual/interfaces/#man-interface-strided-arrays-1) interface.
+
+"""
+is_cpu_column_major(x) = is_cpu_column_major(typeof(x))
+is_cpu_column_major(::Type) = false
+is_cpu_column_major(::Type{<:Array}) = true
+is_cpu_column_major(::Type{S}) where {A, S <: SubArray{<:Any,<:Any,A,<:Tuple{Vararg{Union{Int,<:AbstractRange}}}}} = is_cpu_column_major(A)
+
+"""
+stridelayout(::Type{T}) -> (contig, batch, striderank)
+
+Descrive the memory layout of a strided container of type `T`. If unknown or not strided, returns `nothing`.
+Else, it returns a tuple with elements:
+ - `contig`: The axis with contiguous elements. `contig == -1` indicates no axis is contiguous. `striderank[contig]` does not necessarilly equal `1`.
+ - `batch`: indicates the number of contiguous elements.
+ - `striderank` indicates the rank of the given stride with respect to the others. If for `A::T` we have `striderank[i] > striderank[j]`, then `stride(A,i) > stride(A,j)`.
+
+The convenience method
+```julia
+stridelayout(x) = stridelayout(typeof(x))
+```
+is also provided.
+
+```julia
+julia> A = rand(3,4,5);
+
+julia> stridelayout(A)
+ (1, 1, Base.OneTo(3))
+
+julia> stridelayout(PermutedDimsArray(A,(3,1,2)))
+ (2, 1, (3, 1, 2))
+
+julia> stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))
+ (1, 1, (1, 2))
+
+julia> stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:]))
+ (2, 1, (3, 1, 2))
+
+julia> stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))
+ (-1, 1, (2, 1))
+```
+"""
+stridelayout(x) = stridelayout(typeof(x))
+stridelayout(::Type) = nothing
+stridelayout(::Type{Array{T,N}}) where {T,N} = (1,1,Base.OneTo(N))
+stridelayout(::Type{<:Tuple}) = (1,1,Base.OneTo(1))
+function stridelayout(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractMatrix{T}}
+    ml = stridelayout(A)
+    isnothing(ml) && return nothing
+    contig, batch, rank = ml
+    new_rank = (rank[2], rank[1])
+    new_contig = congig == -1 ? -1 : 3 - contig
+    new_contig, batch, new_rank
+end
+function stridelayout(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A<:AbstractArray{T,N}}
+    ml = stridelayout(A)
+    isnothing(ml) && return nothing
+    contig, batch, rank = ml
+    new_contig = I2[contig]
+    new_rank = ntuple(n -> rank[I1[n]], Val(N))
+    new_contig, batch, new_rank
+end
+@generated function stridelayout(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}}
+    ml = stridelayout(A)
+    isnothing(ml) && return nothing
+    contig, batch, rank = ml
+    rankv = collect(rank)
+    rank_new = Int[]
+    n = 0
+    new_contig = contig
+    for np in 1:NP
+        r = rankv[np]
+        if I.parameters[np] <: AbstractUnitRange
+            n += 1
+            push!(rank_new, r)
+            if np == contig
+                new_contig = n
+            end
+        else
+            # There's definitely a smarter way to do this.
+            # When we drop a rank, we lower the others.
+            for nᵢ ∈ 1:n
+                rᵢ = rank_new[nᵢ]
+                if rᵢ > r
+                    rank_new[nᵢ] = rᵢ - 1
+                end
+            end
+            for npᵢ ∈ np+1:NP
+                rᵢ = rankv[npᵢ]
+                if rᵢ > r
+                    rankv[npᵢ] = rᵢ - 1
+                end
+            end
+            if np == contig
+                new_contig = -1
+            end
+        end
+    end
+    # If n != N, then an axis was indeced by something other than an integer or `AbstractUnitRange`, so we return `nothing`
+    n == N || return nothing
+    ranktup = Expr(:tuple); append!(ranktup.args, rank_new) # dynamic splats bad
+    Expr(:tuple, new_contig, batch, ranktup)
+end
+
+"""
+canavx(f)
+
+Returns `true` if the function `f` is guaranteed to be compatible with `LoopVectorization.@avx` for supported element and array types.
+While a return value of `false` does not indicate the function isn't supported, this allows a library to conservatively apply `@avx`
+only when it is known to be safe to do so.
+
+```julia
+function mymap!(f, y, args...)
+    if canavx(f)
+        @avx @. y = f(args...)
+    else
+        @. y = f(args...)
+    end
+end
+```
+"""
+canavx(::Any) = false
+
+
 function __init__()
 
   @require SuiteSparse="4607b0f0-06f3-5cda-b6b1-a6196a1729e9" begin
@@ -544,6 +677,7 @@ function __init__()
     ismutable(::Type{<:StaticArrays.StaticArray}) = false
     can_setindex(::Type{<:StaticArrays.StaticArray}) = false
     ismutable(::Type{<:StaticArrays.MArray}) = true
+    ismutable(::Type{<:StaticArrays.SizedArray}) = true
 
     function lu_instance(_A::StaticArrays.StaticMatrix{N,N}) where {N}
       A = StaticArrays.SArray(_A)
@@ -563,6 +697,10 @@ function __init__()
 
     known_first(::Type{<:StaticArrays.SOneTo}) = 1
     known_last(::Type{StaticArrays.SOneTo{N}}) where {N} = N
+
+    is_cpu_column_major(::Type{<:StaticArrays.MArray}) = true
+    # is_cpu_column_major(::Type{<:StaticArrays.SizedArray}) = false # Why?
+    stridelayout(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = (1,1,Base.OneTo(N))
 
     @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
       function Adapt.adapt_storage(::Type{<:StaticArrays.SArray{S}},xs::Array) where S
