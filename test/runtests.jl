@@ -182,9 +182,17 @@ end
 
     @test isnothing(ArrayInterface.known_last(1:4))
     @test isnothing(ArrayInterface.known_last(typeof(1:4)))
-    
+
     @test isnothing(ArrayInterface.known_step(typeof(1:0.2:4)))
     @test isone(ArrayInterface.known_step(1:4))
     @test isone(ArrayInterface.known_step(typeof(1:4)))
+end
+
+@testset "is_dynamic" begin
+    @test ArrayInterface.is_dynamic([1])
+    @test ArrayInterface.is_dynamic(Vector{Int})
+    @test ArrayInterface.is_dynamic(Dict{Symbol,Any})
+    @test !ArrayInterface.is_dynamic(Base.ImmutableDict{Symbol,Int64})
+    @test !ArrayInterface.is_dynamic(Tuple{})
 end
 
