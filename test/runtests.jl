@@ -188,11 +188,11 @@ end
     @test isone(ArrayInterface.known_step(typeof(1:4)))
 end
 
-@testset "is_dynamic" begin
-    @test ArrayInterface.is_dynamic([1])
-    @test ArrayInterface.is_dynamic(Vector{Int})
-    @test ArrayInterface.is_dynamic(Dict{Symbol,Any})
-    @test !ArrayInterface.is_dynamic(Base.ImmutableDict{Symbol,Int64})
-    @test !ArrayInterface.is_dynamic(Tuple{})
+@testset "can_change_size" begin
+    @test ArrayInterface.can_change_size([1])
+    @test ArrayInterface.can_change_size(Vector{Int})
+    @test ArrayInterface.can_change_size(Dict{Symbol,Any})
+    @test !ArrayInterface.can_change_size(Base.ImmutableDict{Symbol,Int64})
+    @test !ArrayInterface.can_change_size(Tuple{})
 end
 

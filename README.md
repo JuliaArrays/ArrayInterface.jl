@@ -15,9 +15,9 @@ and exported in a future Base Julia there will be no issues with the upgrade.
 
 Returns the parent array that `x` wraps.
 
-## is_dynamic(x)
+## can_change_size(x)
 
-Returns `true` if the size of `T` is dynamic. If `T` is dynamic then operations
+Returns `true` if the size of `T` can change, in which case operations
 such as `pop!` and `popfirst!` are available for collections of type `T`.
 
 ## ismutable(x)

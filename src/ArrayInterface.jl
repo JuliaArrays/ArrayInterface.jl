@@ -23,16 +23,16 @@ parent_type(::Type{<:LinearAlgebra.AbstractTriangular{T,S}}) where {T,S} = S
 parent_type(::Type{T}) where {T} = T
 
 """
-    is_dynamic(::Type{T}) -> Bool
+    can_change_size(::Type{T}) -> Bool
 
-Returns `true` if the size of `T` is dynamic. If `T` is dynamic then operations
+Returns `true` if the size of `T` can change, in which case operations
 such as `pop!` and `popfirst!` are available for collections of type `T`.
 """
-is_dynamic(x) = is_dynamic(typeof(x))
-is_dynamic(::Type{T}) where {T} = false
-is_dynamic(::Type{<:Vector}) = true
-is_dynamic(::Type{<:AbstractDict}) = true
-is_dynamic(::Type{<:Base.ImmutableDict}) = false
+can_change_size(x) = can_change_size(typeof(x))
+can_change_size(::Type{T}) where {T} = false
+can_change_size(::Type{<:Vector}) = true
+can_change_size(::Type{<:AbstractDict}) = true
+can_change_size(::Type{<:Base.ImmutableDict}) = false
 
 function ismutable end
 
