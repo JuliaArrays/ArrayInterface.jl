@@ -201,12 +201,15 @@ end
     @test stridelayout(A) == (1, 1, Base.OneTo(3))
     @test stridelayout(PermutedDimsArray(A,(3,1,2))) == (2, 1, (3, 1, 2))
     @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])) == (1, 1, (1, 2))
+    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])') == (2, 1, (2, 1))
     @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:])) == (2, 1, (3, 1, 2))
     @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])) == (-1, 1, (2, 1))
+    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])') == (-1, 1, (1, 2))
+    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])') == (1, 1, (1, 2))
 
     B = Array{Int8}(undef, 2,2,2,2);
     doubleperm = PermutedDimsArray(PermutedDimsArray(B,(4,2,3,1)), (4,2,1,3));
     @test collect(strides(B))[collect(last(stridelayout(doubleperm)))] == collect(strides(doubleperm))
 end
 
-@test ArrayInterface.canavx(ArrayInterface.canavx) == false
+@test ArrayInterface.can_avx(ArrayInterface.can_avx) == false

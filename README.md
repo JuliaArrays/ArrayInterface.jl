@@ -126,6 +126,9 @@ The elements of the tuple include
  - `batch`: indicates the number of contiguous elements. That is, if `batch == 16`, then axis `contig` will contain batches of 16 contiguous elements interleaved with axis `findfirst(isone.(striderank))`.
  - `striderank` indicates the rank of the given stride with respect to the others. If for `A::T` we have `striderank[i] > striderank[j]`, then `stride(A,i) > stride(A,j)`.
 
+## can_avx(f)
+
+Is the function `f` whitelisted for `LoopVectorization.@avx`?
 
 # List of things to add
 

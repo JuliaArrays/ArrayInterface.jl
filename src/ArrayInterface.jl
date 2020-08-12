@@ -583,14 +583,14 @@ julia> stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))
 """
 stridelayout(x) = stridelayout(typeof(x))
 stridelayout(::Type) = nothing
-stridelayout(::Type{Array{T,N}}) where {T,N} = (1,1,Base.OneTo(N))
-stridelayout(::Type{<:Tuple}) = (1,1,Base.OneTo(1))
+stridelayout(::Type{Array{T,N}}) where {T,N} = (1,1,ntuple(identity,Val(N)))
+stridelayout(::Type{<:Tuple}) = (1,1,(1,))
 function stridelayout(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractMatrix{T}}
     ml = stridelayout(A)
     isnothing(ml) && return nothing
     contig, batch, rank = ml
     new_rank = (rank[2], rank[1])
-    new_contig = congig == -1 ? -1 : 3 - contig
+    new_contig = contig == -1 ? -1 : 3 - contig
     new_contig, batch, new_rank
 end
 function stridelayout(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A<:AbstractArray{T,N}}
@@ -644,7 +644,7 @@ end
 end
 
 """
-canavx(f)
+can_avx(f)
 
 Returns `true` if the function `f` is guaranteed to be compatible with `LoopVectorization.@avx` for supported element and array types.
 While a return value of `false` does not indicate the function isn't supported, this allows a library to conservatively apply `@avx`
@@ -652,7 +652,7 @@ only when it is known to be safe to do so.
 
 ```julia
 function mymap!(f, y, args...)
-    if canavx(f)
+    if can_avx(f)
         @avx @. y = f(args...)
     else
         @. y = f(args...)
@@ -660,7 +660,7 @@ function mymap!(f, y, args...)
 end
 ```
 """
-canavx(::Any) = false
+can_avx(::Any) = false
 
 
 function __init__()
@@ -700,7 +700,7 @@ function __init__()
 
     is_cpu_column_major(::Type{<:StaticArrays.MArray}) = true
     # is_cpu_column_major(::Type{<:StaticArrays.SizedArray}) = false # Why?
-    stridelayout(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = (1,1,Base.OneTo(N))
+    stridelayout(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = (1,1,ntuple(identity,Val(N)))
 
     @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
       function Adapt.adapt_storage(::Type{<:StaticArrays.SArray{S}},xs::Array) where S
