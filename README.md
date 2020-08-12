@@ -11,6 +11,15 @@ serve as a staging ground for ideas before they merged into Base Julia. For this
 reason, no functionality is exported so that way if such functions are added
 and exported in a future Base Julia there will be no issues with the upgrade.
 
+## parent_type(x)
+
+Returns the parent array that `x` wraps.
+
+## can_change_size(x)
+
+Returns `true` if the size of `T` can change, in which case operations
+such as `pop!` and `popfirst!` are available for collections of type `T`.
+
 ## ismutable(x)
 
 A trait function for whether `x` is a mutable or immutable array. Used for

@@ -22,6 +22,18 @@ parent_type(::Type{Symmetric{T,S}}) where {T,S} = S
 parent_type(::Type{<:LinearAlgebra.AbstractTriangular{T,S}}) where {T,S} = S
 parent_type(::Type{T}) where {T} = T
 
+"""
+    can_change_size(::Type{T}) -> Bool
+
+Returns `true` if the size of `T` can change, in which case operations
+such as `pop!` and `popfirst!` are available for collections of type `T`.
+"""
+can_change_size(x) = can_change_size(typeof(x))
+can_change_size(::Type{T}) where {T} = false
+can_change_size(::Type{<:Vector}) = true
+can_change_size(::Type{<:AbstractDict}) = true
+can_change_size(::Type{<:Base.ImmutableDict}) = false
+
 function ismutable end
 
 """
