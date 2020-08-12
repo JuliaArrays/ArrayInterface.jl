@@ -182,9 +182,17 @@ end
 
     @test isnothing(ArrayInterface.known_last(1:4))
     @test isnothing(ArrayInterface.known_last(typeof(1:4)))
-    
+
     @test isnothing(ArrayInterface.known_step(typeof(1:0.2:4)))
     @test isone(ArrayInterface.known_step(1:4))
     @test isone(ArrayInterface.known_step(typeof(1:4)))
+end
+
+@testset "can_change_size" begin
+    @test ArrayInterface.can_change_size([1])
+    @test ArrayInterface.can_change_size(Vector{Int})
+    @test ArrayInterface.can_change_size(Dict{Symbol,Any})
+    @test !ArrayInterface.can_change_size(Base.ImmutableDict{Symbol,Int64})
+    @test !ArrayInterface.can_change_size(Tuple{})
 end
 
