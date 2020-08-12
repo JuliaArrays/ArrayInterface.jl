@@ -197,8 +197,8 @@ end
     @test !is_cpu_column_major(@SArray(rand(2,2,2)))
     @test is_cpu_column_major(@MArray(rand(2,2,2)))
 
-    @test stridelayout(@SArray(rand(2,2,2))) == (1, 1, Base.OneTo(3))
-    @test stridelayout(A) == (1, 1, Base.OneTo(3))
+    @test stridelayout(@SArray(rand(2,2,2))) == (1, 1, (1,2,3))
+    @test stridelayout(A) == (1, 1, (1,2,3))
     @test stridelayout(PermutedDimsArray(A,(3,1,2))) == (2, 1, (3, 1, 2))
     @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])) == (1, 1, (1, 2))
     @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])') == (2, 1, (2, 1))
