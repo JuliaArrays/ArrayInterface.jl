@@ -567,6 +567,7 @@ Else, it returns a tuple with elements:
  - `contig`: The axis with contiguous elements. `contig == -1` indicates no axis is contiguous. `striderank[contig]` does not necessarilly equal `1`.
  - `batch`: indicates the number of contiguous elements. That is, if `batch == 16`, then axis `contig` will contain batches of 16 contiguous elements interleaved with axis `findfirst(isone.(striderank))`.
  - `striderank` indicates the rank of the given stride with respect to the others. If for `A::T` we have `striderank[i] > striderank[j]`, then `stride(A,i) > stride(A,j)`.
+ - `axesdense` indicates if the given axis is dense. An axis `i` of array `A` is dense if `stride(A, i) * size(A, i) == stride(A, j)` where `striderank[i] + 1 == striderank[j]`.
 
 The convenience method
 ```julia
@@ -577,46 +578,51 @@ is also provided.
 ```julia
 julia> A = rand(3,4,5);
 
+julia> stridelayout(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')
+ (1, 1, (1, 2), (false, true))
+
 julia> stridelayout(A)
- (1, 1, Base.OneTo(3))
+ (1, 1, (1, 2, 3), (true, true, true))
 
 julia> stridelayout(PermutedDimsArray(A,(3,1,2)))
- (2, 1, (3, 1, 2))
+ (2, 1, (3, 1, 2), (true, true, true))
 
 julia> stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))
- (1, 1, (1, 2))
+ (1, 1, (1, 2), (true, false))
 
 julia> stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:]))
- (2, 1, (3, 1, 2))
+ (2, 1, (3, 1, 2), (false, false, true))
 
 julia> stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))
- (-1, 1, (2, 1))
+ (-1, 1, (2, 1), (false, false))
 ```
 """
 stridelayout(x) = stridelayout(typeof(x))
 stridelayout(::Type) = nothing
-stridelayout(::Type{Array{T,N}}) where {T,N} = (1,1,ntuple(identity,Val(N)))
-stridelayout(::Type{<:Tuple}) = (1,1,(1,))
+stridelayout(::Type{Array{T,N}}) where {T,N} = (1,1,ntuple(identity,Val(N)),ntuple(_ -> true,Val(N)))
+stridelayout(::Type{<:Tuple}) = (1,1,(1,),(true,))
 function stridelayout(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractMatrix{T}}
     ml = stridelayout(A)
     isnothing(ml) && return nothing
-    contig, batch, rank = ml
+    contig, batch, rank, dense = ml
     new_rank = (rank[2], rank[1])
+    new_dense = (dense[2], dense[1])
     new_contig = contig == -1 ? -1 : 3 - contig
-    new_contig, batch, new_rank
+    new_contig, batch, new_rank, new_dense
 end
 function stridelayout(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A<:AbstractArray{T,N}}
     ml = stridelayout(A)
     isnothing(ml) && return nothing
-    contig, batch, rank = ml
+    contig, batch, rank, dense = ml
     new_contig = I2[contig]
     new_rank = ntuple(n -> rank[I1[n]], Val(N))
-    new_contig, batch, new_rank
+    new_dense = ntuple(n -> dense[I1[n]], Val(N))
+    new_contig, batch, new_rank, new_dense
 end
 @generated function stridelayout(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}}
     ml = stridelayout(A)
     isnothing(ml) && return nothing
-    contig, batch, rank = ml
+    contig, batch, rank, dense = ml
     rankv = collect(rank)
     rank_new = Int[]
     n = 0
@@ -652,7 +658,8 @@ end
     # If n != N, then an axis was indeced by something other than an integer or `AbstractUnitRange`, so we return `nothing`
     n == N || return nothing
     ranktup = Expr(:tuple); append!(ranktup.args, rank_new) # dynamic splats bad
-    Expr(:tuple, new_contig, batch, ranktup)
+    densetup = Expr(:tuple); foreach(n -> push!(densetup.args, n == new_contig), eachindex(rank_new))
+    Expr(:tuple, new_contig, batch, ranktup, densetup)
 end
 
 """
@@ -712,7 +719,7 @@ function __init__()
 
     is_cpu_column_major(::Type{<:StaticArrays.MArray}) = true
     # is_cpu_column_major(::Type{<:StaticArrays.SizedArray}) = false # Why?
-    stridelayout(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = (1,1,ntuple(identity,Val(N)))
+    stridelayout(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = (1,1,ntuple(identity,Val(N)),ntuple(_ -> true,Val(N)))
 
     @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
       function Adapt.adapt_storage(::Type{<:StaticArrays.SArray{S}},xs::Array) where S
