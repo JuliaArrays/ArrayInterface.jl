@@ -503,85 +503,6 @@ function restructure(x::Array,y)
   reshape(convert(Array,y),size(x)...)
 end
 
-"""
-known_first(::Type{T})
-
-If `first` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `nothing`.
-
-@test isnothing(known_first(typeof(1:4)))
-@test isone(known_first(typeof(Base.OneTo(4))))
-"""
-known_first(x) = known_first(typeof(x))
-known_first(::Type{T}) where {T} = nothing
-known_first(::Type{Base.OneTo{T}}) where {T} = one(T)
-
-"""
-known_last(::Type{T})
-
-If `last` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `nothing`.
-
-@test isnothing(known_last(typeof(1:4)))
-using StaticArrays
-@test known_last(typeof(SOneTo(4))) == 4
-"""
-known_last(x) = known_last(typeof(x))
-known_last(::Type{T}) where {T} = nothing
-
-"""
-known_step(::Type{T})
-
-If `step` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `nothing`.
-
-@test isnothing(known_step(typeof(1:0.2:4)))
-@test isone(known_step(typeof(1:4)))
-"""
-known_step(x) = known_step(typeof(x))
-known_step(::Type{T}) where {T} = nothing
-known_step(::Type{<:AbstractUnitRange{T}}) where {T} = one(T)
-
-
-"""
-    indices(x[, d]) -> AbstractRange
-
-Given an array `x`, this returns the indices along dimension `d`. If `x` is a tuple
-of arrays then the indices corresponding to dimension `d` of all arrays in `x` are
-returned. If any indices are not equal along dimension `d` an error is thrown. A
-tuple may be used to specify a different dimension for each array. If `d` is not
-specified then indices for visiting each index of `x` is returned.
-"""
-@inline indices(x) = eachindex(x)
-
-indices(x, d) = indices(axes(x, d))
-
-@inline function indices(x::NTuple{N,<:Any}, dim) where {N}
-  inds = indices(first(x), dim)
-  @assert _check_indices(inds, Base.tail(x), dim) "The indices along dimension $dim are not equal for all $x"
-  return inds
-end
-
-@inline function indices(x::NTuple{N,<:Any}, dim::NTuple{N,<:Any}) where {N}
-  ind = indices(first(x), first(dim))
-  @assert _check_indices(ind, Base.tail(x), Base.tail(dim)) "The indices along dimension $dim are not equal for all $x"
-  return ind
-end
-
-@inline function _check_indices(ind, x::Tuple, dim::Tuple)
-  for (x_i, d_i) in zip(x, dim)
-    ind == indices(x_i, d_i) || return false
-  end
-  return true
-end
-
-@inline function _check_indices(ind, x::Tuple, d)
-  for x_i in x
-    ind == indices(x_i, d) || return false
-  end
-  return true
-end
-
 function __init__()
 
   @require SuiteSparse="4607b0f0-06f3-5cda-b6b1-a6196a1729e9" begin
@@ -736,5 +657,7 @@ function __init__()
     end
   end
 end
+
+include("ranges.jl")
 
 end
