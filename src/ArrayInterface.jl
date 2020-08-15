@@ -560,7 +560,7 @@ is_cpu_column_major(::Type{<:Array}) = true
 is_cpu_column_major(::Type{S}) where {A, S <: SubArray{<:Any,<:Any,A,<:Tuple{Vararg{Union{Int,<:AbstractRange}}}}} = is_cpu_column_major(A)
 
 """
-stridelayout(::Type{T}) -> (contig, batch, striderank)
+stridelayout(::Type{T}) -> (contig, batch, striderank, axesdense)
 
 Descrive the memory layout of a strided container of type `T`. If unknown or not strided, returns `nothing`.
 Else, it returns a tuple with elements:
