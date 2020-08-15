@@ -196,3 +196,12 @@ end
     @test !ArrayInterface.can_change_size(Tuple{})
 end
 
+@testset "indices" begin
+    @test @inferred(ArrayInterface.indices(ones(2, 3))) == 1:6
+    @test @inferred(ArrayInterface.indices(ones(2, 3), 1)) == 1:2
+    @test @inferred(ArrayInterface.indices((ones(2, 3), ones(3, 2)), (1, 2))) == 1:2
+    @test @inferred(ArrayInterface.indices((ones(2, 3), ones(2, 3)), 1)) == 1:2
+    @test_throws AssertionError ArrayInterface.indices((ones(2, 3), ones(3, 3)), 1)
+    @test_throws AssertionError ArrayInterface.indices((ones(2, 3), ones(3, 3)), (1, 2))
+end
+
