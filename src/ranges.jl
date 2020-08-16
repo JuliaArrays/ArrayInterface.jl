@@ -55,7 +55,7 @@ This range permits diverse representations of arrays to comunicate common inform
 about their indices. Each field may be an integer or `Val(<:Integer)` if it is known
 at compile time. An `OptionallyStaticUnitRange` is intended to be constructed internally
 from other valid indices. Therefore, users should not expect the same checks are used
-to ensure construction of a valid `OptionallyStaticUnitRange`.
+to ensure construction of a valid `OptionallyStaticUnitRange` as a `UnitRange`.
 """
 struct OptionallyStaticUnitRange{T,F,L} <: AbstractUnitRange{T}
     start::F
