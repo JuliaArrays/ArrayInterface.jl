@@ -4,6 +4,8 @@ using Requires
 using LinearAlgebra
 using SparseArrays
 
+using Base: OneTo
+
 Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
 parameterless_type(x::Type) = __parameterless_type(x)
@@ -20,7 +22,20 @@ parent_type(::Type{Adjoint{T,S}}) where {T,S} = S
 parent_type(::Type{Transpose{T,S}}) where {T,S} = S
 parent_type(::Type{Symmetric{T,S}}) where {T,S} = S
 parent_type(::Type{<:LinearAlgebra.AbstractTriangular{T,S}}) where {T,S} = S
+parent_type(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A} = A
+parent_type(::Type{Base.Slice{T}}) where {T} = T
 parent_type(::Type{T}) where {T} = T
+
+"""
+    known_length(::Type{T})
+
+If `length` of an instance of type `T` is known at compile time, return it.
+Otherwise, return `nothing`.
+"""
+known_length(x) = known_length(typeof(x))
+known_length(::Type{<:NTuple{N,<:Any}}) where {N} = N
+known_length(::Type{<:NamedTuple{L}}) where {L} = length(L)
+known_length(::Type{T}) where {T<:Base.Slice} = known_length(parent_type(T))
 
 """
     can_change_size(::Type{T}) -> Bool
@@ -536,6 +551,7 @@ function __init__()
 
     known_first(::Type{<:StaticArrays.SOneTo}) = 1
     known_last(::Type{StaticArrays.SOneTo{N}}) where {N} = N
+    known_length(::Type{StaticArrays.SOneTo{N}}) where {N} = N
 
     @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
       function Adapt.adapt_storage(::Type{<:StaticArrays.SArray{S}},xs::Array) where S
