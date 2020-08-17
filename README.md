@@ -20,6 +20,14 @@ Returns the parent array that `x` wraps.
 Returns `true` if the size of `T` can change, in which case operations
 such as `pop!` and `popfirst!` are available for collections of type `T`.
 
+## indices(x[, d])
+
+Given an array `x`, this returns the indices along dimension `d`. If `x` is a tuple
+of arrays then the indices corresponding to dimension `d` of all arrays in `x` are
+returned. If any indices are not equal along dimension `d` an error is thrown. A
+tuple may be used to specify a different dimension for each array. If `d` is not
+specified then indices for visiting each index of `x` is returned.
+
 ## ismutable(x)
 
 A trait function for whether `x` is a mutable or immutable array. Used for
