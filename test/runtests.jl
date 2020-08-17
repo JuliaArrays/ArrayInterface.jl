@@ -207,6 +207,7 @@ end
 end
 
 @testset "indices" begin
+    @test @inferred(ArrayInterface.indices((ones(2, 3), ones(3, 2)))) == 1:6
     @test @inferred(ArrayInterface.indices(ones(2, 3))) == 1:6
     @test @inferred(ArrayInterface.indices(ones(2, 3), 1)) == 1:2
     @test @inferred(ArrayInterface.indices((ones(2, 3), ones(3, 2)), (1, 2))) == 1:2

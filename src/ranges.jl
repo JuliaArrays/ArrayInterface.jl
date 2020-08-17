@@ -13,7 +13,6 @@ known_first(::Type{T}) where {T} = nothing
 known_first(::Type{Base.OneTo{T}}) where {T} = one(T)
 known_first(::Type{T}) where {T<:Base.Slice} = known_first(parent_type(T))
 
-
 """
     known_last(::Type{T})
 
@@ -76,6 +75,18 @@ struct OptionallyStaticUnitRange{T,F,L} <: AbstractUnitRange{T}
   function OptionallyStaticUnitRange(start, stop)
     T = promote_type(typeof(_get(start)), typeof(_get(stop)))
     return OptionallyStaticUnitRange{T}(start, stop)
+  end
+
+  function OptionallyStaticUnitRange(x::AbstractRange)
+    if step(x) == 1
+      fst = known_first(x)
+      fst = fst === nothing ? first(x) : Val(fst)
+      lst = known_last(x)
+      lst = lst === nothing ? last(x) : Val(lst)
+      return OptionallyStaticUnitRange(fst, lst)
+    else
+        throw(ArgumentError("step must be 1, got $(step(r))"))
+    end
   end
 end
 
@@ -183,10 +194,16 @@ specified then indices for visiting each index of `x` is returned.
 @inline function indices(x)
   inds = eachindex(x)
   if inds isa AbstractUnitRange{<:Integer}
-    return Base.Slice(inds)
+    return Base.Slice(OptionallyStaticUnitRange(inds))
   else
     return inds
   end
+end
+
+function indices(x::Tuple)
+  inds = map(eachindex, x)
+  @assert all(isequal(first(inds)), Base.tail(inds)) "Not all specified axes are equal: $inds"
+  return reduce(_pick_range, inds)
 end
 
 indices(x, d) = indices(axes(x, d))
