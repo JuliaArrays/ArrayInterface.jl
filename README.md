@@ -28,7 +28,6 @@ returned. If any indices are not equal along dimension `d` an error is thrown. A
 tuple may be used to specify a different dimension for each array. If `d` is not
 specified then indices for visiting each index of `x` is returned.
 
-
 ## ismutable(x)
 
 A trait function for whether `x` is a mutable or immutable array. Used for

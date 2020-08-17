@@ -10,6 +10,7 @@ using StaticArrays
 @test ArrayInterface.ismutable((0.1,1.0)) == false
 @test isone(ArrayInterface.known_first(typeof(StaticArrays.SOneTo(7))))
 @test ArrayInterface.known_last(typeof(StaticArrays.SOneTo(7))) == 7
+@test ArrayInterface.known_length(typeof(StaticArrays.SOneTo(7))) == 7
 
 using LinearAlgebra, SparseArrays
 
@@ -173,6 +174,8 @@ using ArrayInterface: parent_type
     @test parent_type(transpose(x)) <: typeof(x)
     @test parent_type(Symmetric(x)) <: typeof(x)
     @test parent_type(UpperTriangular(x)) <: typeof(x)
+    @test parent_type(PermutedDimsArray(x, (2,1))) <: typeof(x)
+    @test parent_type(Base.Slice(1:10)) <: UnitRange{Int}
 end
 
 @testset "Range Interface" begin
@@ -194,6 +197,13 @@ end
     @test ArrayInterface.can_change_size(Dict{Symbol,Any})
     @test !ArrayInterface.can_change_size(Base.ImmutableDict{Symbol,Int64})
     @test !ArrayInterface.can_change_size(Tuple{})
+end
+
+@testset "known_length" begin
+    @test ArrayInterface.known_length(ArrayInterface.indices(SOneTo(7))) == 7
+    @test ArrayInterface.known_length(1:2) == nothing
+    @test ArrayInterface.known_length((1,)) == 1
+    @test ArrayInterface.known_length((a=1,b=2)) == 2
 end
 
 @testset "indices" begin

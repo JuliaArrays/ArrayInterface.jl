@@ -58,25 +58,25 @@ from other valid indices. Therefore, users should not expect the same checks are
 to ensure construction of a valid `OptionallyStaticUnitRange` as a `UnitRange`.
 """
 struct OptionallyStaticUnitRange{T,F,L} <: AbstractUnitRange{T}
-    start::F
-    stop::L
+  start::F
+  stop::L
 
-    function OptionallyStaticUnitRange{T}(start, stop) where {T<:Real}
-        if _get(start) isa T
-            if _get(stop) isa T
-                return new{T,typeof(start),typeof(stop)}(start, stop)
-            else
-                return OptionallyStaticUnitRange{T}(start, _convert(T, stop))
-            end
-        else
-            return OptionallyStaticUnitRange{T}(_convert(T, start), stop)
-        end
+  function OptionallyStaticUnitRange{T}(start, stop) where {T<:Real}
+    if _get(start) isa T
+      if _get(stop) isa T
+        return new{T,typeof(start),typeof(stop)}(start, stop)
+      else
+        return OptionallyStaticUnitRange{T}(start, _convert(T, stop))
+      end
+    else
+      return OptionallyStaticUnitRange{T}(_convert(T, start), stop)
     end
+  end
 
-    function OptionallyStaticUnitRange(start, stop)
-        T = promote_type(typeof(_get(start)), typeof(_get(stop)))
-        return OptionallyStaticUnitRange{T}(start, stop)
-    end
+  function OptionallyStaticUnitRange(start, stop)
+    T = promote_type(typeof(_get(start)), typeof(_get(stop)))
+    return OptionallyStaticUnitRange{T}(start, stop)
+  end
 end
 
 Base.first(r::OptionallyStaticUnitRange{<:Any,Val{F}}) where {F} = F
@@ -92,11 +92,11 @@ known_step(::Type{<:OptionallyStaticUnitRange{T}}) where {T} = one(T)
 known_last(::Type{<:OptionallyStaticUnitRange{<:Any,<:Any,Val{L}}}) where {L} = L
 
 function Base.isempty(r::OptionallyStaticUnitRange)
-    if known_first(r) === oneunit(eltype(r))
-        return unsafe_isempty_one_to(last(r))
-    else
-        return unsafe_isempty_unit_range(first(r), last(r))
-    end
+  if known_first(r) === oneunit(eltype(r))
+    return unsafe_isempty_one_to(last(r))
+  else
+    return unsafe_isempty_unit_range(first(r), last(r))
+  end
 end
 
 unsafe_isempty_one_to(lst) = lst <= zero(lst)
@@ -108,26 +108,26 @@ unsafe_length_one_to(lst::T) where {T<:Int} = T(lst)
 unsafe_length_one_to(lst::T) where {T} = Integer(lst - zero(lst))
 
 Base.@propagate_inbounds function Base.getindex(r::OptionallyStaticUnitRange, i::Integer)
-    if known_first(r) === oneunit(r)
-        return get_index_one_to(r, i)
-    else
-        return get_index_unit_range(r, i)
-    end
+  if known_first(r) === oneunit(r)
+    return get_index_one_to(r, i)
+  else
+    return get_index_unit_range(r, i)
+  end
 end
 
 @inline function get_index_one_to(r, i)
-    @boundscheck if ((i > 0) & (i <= last(r)))
-        throw(BoundsError(r, i))
-    end
-    return convert(eltype(r), i)
+  @boundscheck if ((i > 0) & (i <= last(r)))
+    throw(BoundsError(r, i))
+  end
+  return convert(eltype(r), i)
 end
 
 @inline function get_index_unit_range(r, i)
-    val = first(r) + (i - 1)
-    @boundscheck if i > 0 && val <= last(r) && val >= first(r)
-        throw(BoundsError(r, i))
-    end
-    return convert(eltype(r), val)
+  val = first(r) + (i - 1)
+  @boundscheck if i > 0 && val <= last(r) && val >= first(r)
+    throw(BoundsError(r, i))
+  end
+  return convert(eltype(r), val)
 end
 
 _try_static(x, y) = Val(x)
@@ -141,7 +141,7 @@ _try_static(::Nothing, ::Nothing) = nothing
 @inline function known_length(::Type{T}) where {T<:AbstractUnitRange}
   fst = known_first(T)
   lst = known_last(T)
-  if stp === nothing || fst === nothing || lst === nothing
+  if fst === nothing || lst === nothing
     return nothing
   else
     if fst === oneunit(eltype(T))
@@ -153,26 +153,26 @@ _try_static(::Nothing, ::Nothing) = nothing
 end
 
 function Base.length(r::OptionallyStaticUnitRange{T}) where {T}
-    if isempty(r)
-        return zero(T)
+  if isempty(r)
+    return zero(T)
+  else
+    if known_one(r) === one(T)
+      return unsafe_length_one_to(last(r))
     else
-        if known_one(r) === one(T)
-            return unsafe_length_one_to(last(r))
-        else
-            return unsafe_length_unit_range(first(r), last(r))
-        end
+      return unsafe_length_unit_range(first(r), last(r))
     end
+  end
 end
 
 function unsafe_length_unit_range(fst::T, lst::T) where {T<:Union{Int,Int64,Int128}}
-    return Base.checked_add(Base.checked_sub(lst, fst), one(T))
+  return Base.checked_add(Base.checked_sub(lst, fst), one(T))
 end
 function unsafe_length_unit_range(fst::T, lst::T) where {T<:Union{UInt,UInt64,UInt128}}
-    return Base.checked_add(lst - fst, one(T))
+  return Base.checked_add(lst - fst, one(T))
 end
 
 """
-    indices(x[, d]) -> AbstractRange
+    indices(x[, d])
 
 Given an array `x`, this returns the indices along dimension `d`. If `x` is a tuple
 of arrays then the indices corresponding to dimension `d` of all arrays in `x` are
@@ -181,12 +181,12 @@ tuple may be used to specify a different dimension for each array. If `d` is not
 specified then indices for visiting each index of `x` is returned.
 """
 @inline function indices(x)
-    inds = eachindex(x)
-    if inds isa AbstractUnitRange{<:Integer}
-        return Base.Slice(inds)
-    else
-        return inds
-    end
+  inds = eachindex(x)
+  if inds isa AbstractUnitRange{<:Integer}
+    return Base.Slice(inds)
+  else
+    return inds
+  end
 end
 
 indices(x, d) = indices(axes(x, d))
@@ -204,11 +204,11 @@ end
 end
 
 @inline function _pick_range(x, y)
-    fst = _try_static(known_first(x), known_first(y))
-    fst = fst === nothing ? first(x) : fst
+  fst = _try_static(known_first(x), known_first(y))
+  fst = fst === nothing ? first(x) : fst
 
-    lst = _try_static(known_last(x), known_last(y))
-    lst = lst === nothing ? last(x) : lst
-    return Base.Slice(OptionallyStaticUnitRange(fst, lst))
+  lst = _try_static(known_last(x), known_last(y))
+  lst = lst === nothing ? last(x) : lst
+  return Base.Slice(OptionallyStaticUnitRange(fst, lst))
 end
 
