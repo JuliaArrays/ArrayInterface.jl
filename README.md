@@ -131,17 +131,25 @@ Otherwise, returns `nothing`. For example, `known_step(UnitRange{Int})` returns
 
 ## is_cpu_column_major(::Type{T})
 
-Returns `true` if instances of type `T` have a strided column-major memory layout and support
-`pointer`. Returns `false` otherwise.
+Returns `true` if instances of type `T` have a strided column-major memory layout
+and support `pointer`. Returns `false` otherwise, e.g. if the array memory isn't
+column-major or if it is a GPUArray. If `true`, the array should be passable to
+arbitrary `C` or `Fortran` programs assuming column-major layout, such as LAPACK.
 
 ## stridelayout(::Type{T})
 
-Returns a 3-tuple describing the strided layout of the memory of an instance of type `T` if it
-is known, and returning `nothing` otherwise.
+Returns a 3-tuple describing the strided layout of the memory of an instance of
+type `T` if it is known, and returning `nothing` otherwise.
 The elements of the tuple include
- - `contig`: The axis with contiguous elements. `contig == -1` indicates no axis is contiguous. `striderank[contig]` does not necessarilly equal `1`.
- - `batch`: indicates the number of contiguous elements. That is, if `batch == 16`, then axis `contig` will contain batches of 16 contiguous elements interleaved with axis `findfirst(isone.(striderank))`.
- - `striderank` indicates the rank of the given stride with respect to the others. If for `A::T` we have `striderank[i] > striderank[j]`, then `stride(A,i) > stride(A,j)`.
+ - `contig`: The axis with contiguous elements. `contig == -1` indicates no axis
+ is contiguous. `striderank[contig]` does not necessarilly equal `1`.
+ - `batch`: If `striderank[congig] != 1`, it indicates the number of contiguous
+ elements. For example, if `batch == 16`, then axis `contig` contains batches
+ of 16 contiguous elements interleaved with axis `findfirst(isone.(striderank))`.
+ Sentinal values of `batch == 0` and `batch == -1` indicate that
+ `isone(striderank[contig])` and `contig == -1`, respectively.
+ - `striderank` indicates the rank of the given stride with respect to the others.
+ If for `A::T` we have `striderank[i] > striderank[j]`, then `stride(A,i) > stride(A,j)`.
 
 ## can_avx(f)
 

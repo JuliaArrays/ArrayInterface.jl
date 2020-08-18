@@ -541,7 +541,7 @@ stridelayout(::Type{T}) -> (contig, batch, striderank, axesdense)
 Descrive the memory layout of a strided container of type `T`. If unknown or not strided, returns `nothing`.
 Else, it returns a tuple with elements:
  - `contig`: The axis with contiguous elements. `contig == -1` indicates no axis is contiguous. `striderank[contig]` does not necessarilly equal `1`.
- - `batch`: indicates the number of contiguous elements. That is, if `batch == 16`, then axis `contig` will contain batches of 16 contiguous elements interleaved with axis `findfirst(isone.(striderank))`.
+ - `batch`: indicates the number of contiguous elements. That is, if `batch == 16`, then axis `contig` will contain batches of 16 contiguous elements interleaved with axis `findfirst(isone.(striderank))`. `batch == 0` and `batch == -1` are sentinal values indicating that `contig == argmin(striderank)` and `contig == -1`, respectively.
  - `striderank` indicates the rank of the given stride with respect to the others. If for `A::T` we have `striderank[i] > striderank[j]`, then `stride(A,i) > stride(A,j)`.
  - `axesdense` indicates if the given axis is dense. An axis `i` of array `A` is dense if `stride(A, i) * size(A, i) == stride(A, j)` where `striderank[i] + 1 == striderank[j]`.
 
@@ -555,28 +555,28 @@ is also provided.
 julia> A = rand(3,4,5);
 
 julia> stridelayout(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')
- (1, 1, (1, 2), (false, true))
+ (1, 0, (1, 2), (false, true))
 
 julia> stridelayout(A)
- (1, 1, (1, 2, 3), (true, true, true))
+ (1, 0, (1, 2, 3), (true, true, true))
 
 julia> stridelayout(PermutedDimsArray(A,(3,1,2)))
- (2, 1, (3, 1, 2), (true, true, true))
+ (2, 0, (3, 1, 2), (true, true, true))
 
 julia> stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))
- (1, 1, (1, 2), (true, false))
+ (1, 0, (1, 2), (true, false))
 
 julia> stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:]))
- (2, 1, (3, 1, 2), (false, false, true))
+ (2, 0, (3, 1, 2), (false, false, true))
 
 julia> stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))
- (-1, 1, (2, 1), (false, false))
+ (-1, -1, (2, 1), (false, false))
 ```
 """
 stridelayout(x) = stridelayout(typeof(x))
 stridelayout(::Type) = nothing
-stridelayout(::Type{Array{T,N}}) where {T,N} = (1,1,ntuple(identity,Val(N)),ntuple(_ -> true,Val(N)))
-stridelayout(::Type{<:Tuple}) = (1,1,(1,),(true,))
+stridelayout(::Type{Array{T,N}}) where {T,N} = (1,0,ntuple(identity,Val(N)),ntuple(_ -> true,Val(N)))
+stridelayout(::Type{<:Tuple}) = (1,0,(1,),(true,))
 function stridelayout(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractMatrix{T}}
     ml = stridelayout(A)
     isnothing(ml) && return nothing
@@ -635,7 +635,7 @@ end
     n == N || return nothing
     ranktup = Expr(:tuple); append!(ranktup.args, rank_new) # dynamic splats bad
     densetup = Expr(:tuple); foreach(n -> push!(densetup.args, n == new_contig), eachindex(rank_new))
-    Expr(:tuple, new_contig, batch, ranktup, densetup)
+    Expr(:tuple, new_contig, new_contig == -1 ? -1 : batch, ranktup, densetup)
 end
 
 """
@@ -696,7 +696,7 @@ function __init__()
 
     is_cpu_column_major(::Type{<:StaticArrays.MArray}) = true
     # is_cpu_column_major(::Type{<:StaticArrays.SizedArray}) = false # Why?
-    stridelayout(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = (1,1,ntuple(identity,Val(N)),ntuple(_ -> true,Val(N)))
+    stridelayout(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = (1,0,ntuple(identity,Val(N)),ntuple(_ -> true,Val(N)))
 
     @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
       function Adapt.adapt_storage(::Type{<:StaticArrays.SArray{S}},xs::Array) where S

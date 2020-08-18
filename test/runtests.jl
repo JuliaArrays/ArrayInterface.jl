@@ -200,15 +200,15 @@ end
     @test !is_cpu_column_major(@SArray(rand(2,2,2)))
     @test is_cpu_column_major(@MArray(rand(2,2,2)))
 
-    @test stridelayout(@SArray(rand(2,2,2))) == (1, 1, (1,2,3),(true,true,true))
-    @test stridelayout(A) == (1, 1, (1,2,3),(true,true,true))
-    @test stridelayout(PermutedDimsArray(A,(3,1,2))) == (2, 1, (3, 1, 2),(true,true,true))
-    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])) == (1, 1, (1, 2),(true,false))
-    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])') == (2, 1, (2, 1),(false,true))
-    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:])) == (2, 1, (3, 1, 2),(false,true,false))
-    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])) == (-1, 1, (2, 1),(false,false))
-    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])') == (-1, 1, (1, 2),(false,false))
-    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])') == (1, 1, (1, 2),(true,false))
+    @test stridelayout(@SArray(rand(2,2,2))) == (1, 0, (1,2,3),(true,true,true))
+    @test stridelayout(A) == (1, 0, (1,2,3),(true,true,true))
+    @test stridelayout(PermutedDimsArray(A,(3,1,2))) == (2, 0, (3, 1, 2),(true,true,true))
+    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])) == (1, 0, (1, 2),(true,false))
+    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])') == (2, 0, (2, 1),(false,true))
+    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:])) == (2, 0, (3, 1, 2),(false,true,false))
+    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])) == (-1, -1, (2, 1),(false,false))
+    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])') == (-1, -1, (1, 2),(false,false))
+    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])') == (1, 0, (1, 2),(true,false))
 
     B = Array{Int8}(undef, 2,2,2,2);
     doubleperm = PermutedDimsArray(PermutedDimsArray(B,(4,2,3,1)), (4,2,1,3));
