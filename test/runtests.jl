@@ -237,9 +237,9 @@ end
     @test stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])) === (1, 2)
     @test stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])') === (2, 1)
     @test stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:])) === (3, 1, 2)
-    @test stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])) === (2, 1)
-    @test stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])') === (1, 2)
-    @test stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])') === (1, 2)
+    @test stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])) === (3, 2)
+    @test stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])') === (2, 3)
+    @test stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])') === (1, 3)
 
     @test dense_dims(@SArray(rand(2,2,2))) === (true,true,true)
     @test dense_dims(A) === (true,true,true)

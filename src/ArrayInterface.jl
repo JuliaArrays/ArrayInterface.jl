@@ -641,51 +641,36 @@ stride_rank(::Type{T}) -> NTuple{N,Int}
 
 Returns the rank of each stride.
 """
-stride_rank(x) = stride_rank(typeof(x))
-stride_rank(::Type) = nothing
-stride_rank(::Type{Array{T,N}}) where {T,N} = ntuple(identity, Val(N))
-stride_rank(::Type{<:Tuple}) = (1,)
-function stride_rank(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractMatrix{T}}
-    rank = stride_rank(A)
-    isnothing(rank) ? nothing : (rank[2], rank[1])
+is_element(x) = is_element(typeof(x))
+is_element(::Type{T}) where {T<:Number} = true
+is_element(::Type{T}) where {T<:CartesianIndex} = true
+is_element(::Type{T}) where {T} = false
+@generated is_element(::Type{T}) where {T<:Tuple} = (map(is_element, T.parameters)...,)
+
+to_parent_dim(::Type{T}, ::Val{dim}) where {T,dim} = to_parent_dim(T, dim)
+to_parent_dim(::Type{T}, dim::Integer) where {T<:AbstractArray} = dim
+to_parent_dim(::Type{T}, dim::Integer) where {T<:Union{<:Adjoint,<:Transpose}} = (2, 1)[dim]
+to_parent_dim(::Type{<:PermutedDimsArray{T,N,I}}, i::Integer) where {T,N,I} = I[i]
+function to_parent_dim(::Type{<:SubArray{T,N,A,I}}, dim::Integer) where {T,N,A,I}
+    # if a view is created with something that maps to a single value thena dimension
+    # is dropped. We add all dimensions dropped up to i
+    return dim + accumulate(+, is_element(I))[dim]
 end
-function stride_rank(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A<:AbstractArray{T,N}}
-    rank = stride_rank(A)
-    isnothing(rank) ? nothing : ntuple(n -> rank[I1[n]], Val(N))
-end
-@generated function stride_rank(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}}
-    rank = stride_rank(A)
-    isnothing(rank) && return nothing
-    rankv = collect(rank)
-    rank_new = Int[]
-    n = 0
-    for np in 1:NP
-        r = rankv[np]
-        if I.parameters[np] <: AbstractUnitRange
-            n += 1
-            push!(rank_new, r)
-        else
-            # There's definitely a smarter way to do this.
-            # When we drop a rank, we lower the others.
-            for nᵢ ∈ 1:n
-                rᵢ = rank_new[nᵢ]
-                if rᵢ > r
-                    rank_new[nᵢ] = rᵢ - 1
-                end
-            end
-            for npᵢ ∈ np+1:NP
-                rᵢ = rankv[npᵢ]
-                if rᵢ > r
-                    rankv[npᵢ] = rᵢ - 1
-                end
-            end
-        end
+
+stride_rank(::Type{T}, ::Val{dim}) where {T,dim} = stride_rank(T, dim)
+stride_rank(::Type{T}, ::Contiguous{dim}) where {T,dim} = stride_rank(T, dim)
+stride_rank(::Type{T}, dim::Integer) where {T} = nothing
+stride_rank(::Type{T}, dim::Integer) where {T<:Array} = dim
+function stride_rank(::Type{T}, dim::Integer) where {T<:AbstractArray}
+    if parent_type(T) <: T  # assume no parent
+        return nothing
+    else
+        return stride_rank(parent_type(T), to_parent_dim(T, dim))
     end
-    # If n != N, then an axis was indeced by something other than an integer or `AbstractUnitRange`, so we return `nothing`
-    n == N || return nothing
-    ranktup = Expr(:tuple); append!(ranktup.args, rank_new) # dynamic splats bad
-    ranktup
 end
+
+stride_rank(::Type{T}) where {D, T <: AbstractArray{<:Any,D}} = ntuple(d -> stride_rank(T, d), Val{D}())
+stride_rank(A) = stride_rank(typeof(A))
 
 """
 dense_dims(::Type{T}) -> NTuple{N,Bool}
