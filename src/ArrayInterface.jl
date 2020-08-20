@@ -654,7 +654,13 @@ to_parent_dim(::Type{<:PermutedDimsArray{T,N,I}}, i::Integer) where {T,N,I} = I[
 function to_parent_dim(::Type{<:SubArray{T,N,A,I}}, dim::Integer) where {T,N,A,I}
     # if a view is created with something that maps to a single value thena dimension
     # is dropped. We add all dimensions dropped up to i
-    return dim + accumulate(+, is_element(I))[dim]
+    @static if VERSION ≥ v"1.5"
+        return dim + cumsum(is_element(I))[dim]
+    else
+        ieI = is_element(I)
+        d = Ref(dim)
+        return ntuple(i -> d[] += ieI[i], length(ieI))[dim]
+    end
 end
 
 stride_rank(::Type{T}, ::Val{dim}) where {T,dim} = stride_rank(T, dim)
