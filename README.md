@@ -129,27 +129,37 @@ If `step` of instances of type `T` are known at compile time, return that step.
 Otherwise, returns `nothing`. For example, `known_step(UnitRange{Int})` returns
 `one(Int)`.
 
-## is_cpu_column_major(::Type{T})
 
-Returns `true` if instances of type `T` have a strided column-major memory layout
-and support `pointer`. Returns `false` otherwise, e.g. if the array memory isn't
-column-major or if it is a GPUArray. If `true`, the array should be passable to
-arbitrary `C` or `Fortran` programs assuming column-major layout, such as LAPACK.
+## Device(::Type{T})
 
-## stridelayout(::Type{T})
+If `pointer` is defined on instances of type `T`, it returns the device
+this object belongs to.
+Can be used for dispatching to optimized low-level
+routines.
+Returns the Device of an array of type `T` if it is known.
+Returns `ArrayInterface.CPU()` for an `Array`, and `ArrayInterface.GPU()` for GPUArrays.
 
-Returns a 3-tuple describing the strided layout of the memory of an instance of
-type `T` if it is known, and returning `nothing` otherwise.
-The elements of the tuple include
- - `contig`: The axis with contiguous elements. `contig == -1` indicates no axis
- is contiguous. `striderank[contig]` does not necessarilly equal `1`.
- - `batch`: If `striderank[congig] != 1`, it indicates the number of contiguous
- elements. For example, if `batch == 16`, then axis `contig` contains batches
- of 16 contiguous elements interleaved with axis `findfirst(isone.(striderank))`.
- Sentinal values of `batch == 0` and `batch == -1` indicate that
- `isone(striderank[contig])` and `contig == -1`, respectively.
- - `striderank` indicates the rank of the given stride with respect to the others.
- If for `A::T` we have `striderank[i] > striderank[j]`, then `stride(A,i) > stride(A,j)`.
+Returns `nothing` otherwise.
+
+## contiguous_axis(::Type{T})
+
+Returns the axis of an array of type `T` containing contiguous data.
+If no axis is contiguous, it returns `Contiguous{-1}`.
+If unknown, it returns `nothing`.
+
+## contiguous_axis_indicator(::Type{T})
+
+Returns a tuple boolean `Val`s indicating whether that axis is contiguous.
+
+## stride_rank(::Type{T})
+
+Returns the rank of each stride.
+
+## dense_dims(::Type{T})
+Returns a tuple of indicators for whether each axis is dense.
+An axis `i` of array `A` is dense if `stride(A, i) * size(A, i) == stride(A, j)` where `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
+
+
 
 ## can_avx(f)
 
