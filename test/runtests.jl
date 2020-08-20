@@ -1,6 +1,6 @@
 using ArrayInterface, Test
 using Base: setindex
-import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, is_cpu_column_major, stridelayout
+import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, Device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims
 @test ArrayInterface.ismutable(rand(3))
 
 using StaticArrays
@@ -193,26 +193,57 @@ end
 
 @testset "Memory Layout" begin
     A = rand(3,4,5)
-    @test is_cpu_column_major(A)
-    @test !is_cpu_column_major((1,2,3))
-    @test is_cpu_column_major(view(A, 1, :, 2:4))
-    @test !is_cpu_column_major(view(A, 1, :, 2:4)')
-    @test !is_cpu_column_major(@SArray(rand(2,2,2)))
-    @test is_cpu_column_major(@MArray(rand(2,2,2)))
+    @test Device(A) === ArrayInterface.CPU()
+    @test isnothing(Device((1,2,3)))
+    @test Device(PermutedDimsArray(A,(3,1,2))) === ArrayInterface.CPU()
+    @test Device(view(A, 1, :, 2:4)) === ArrayInterface.CPU()
+    @test Device(view(A, 1, :, 2:4)') === ArrayInterface.CPU()
+    @test isnothing(Device(@SArray(rand(2,2,2))))
+    @test Device(@MArray(rand(2,2,2))) === ArrayInterface.CPU()
 
-    @test stridelayout(@SArray(rand(2,2,2))) == (1, 0, (1,2,3),(true,true,true))
-    @test stridelayout(A) == (1, 0, (1,2,3),(true,true,true))
-    @test stridelayout(PermutedDimsArray(A,(3,1,2))) == (2, 0, (3, 1, 2),(true,true,true))
-    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])) == (1, 0, (1, 2),(true,false))
-    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])') == (2, 0, (2, 1),(false,true))
-    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:])) == (2, 0, (3, 1, 2),(false,true,false))
-    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])) == (-1, -1, (2, 1),(false,false))
-    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])') == (-1, -1, (1, 2),(false,false))
-    @test stridelayout(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])') == (1, 0, (1, 2),(true,false))
+    @test contiguous_axis(@SArray(rand(2,2,2))) === ArrayInterface.Contiguous(1)
+    @test contiguous_axis(A) === ArrayInterface.Contiguous(1)
+    @test contiguous_axis(PermutedDimsArray(A,(3,1,2))) === ArrayInterface.Contiguous(2)
+    @test contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])) === ArrayInterface.Contiguous(1)
+    @test contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])') === ArrayInterface.Contiguous(2)
+    @test contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:])) === ArrayInterface.Contiguous(2)
+    @test contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])) === ArrayInterface.Contiguous(-1)
+    @test contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])') === ArrayInterface.Contiguous(-1)
+    @test contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])') === ArrayInterface.Contiguous(1)
+
+    @test contiguous_batch_size(@SArray(rand(2,2,2))) === ArrayInterface.ContiguousBatch(0)
+    @test contiguous_batch_size(A) === ArrayInterface.ContiguousBatch(0)
+    @test contiguous_batch_size(PermutedDimsArray(A,(3,1,2))) === ArrayInterface.ContiguousBatch(0)
+    @test contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])) === ArrayInterface.ContiguousBatch(0)
+    @test contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])') === ArrayInterface.ContiguousBatch(0)
+    @test contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:])) === ArrayInterface.ContiguousBatch(0)
+    @test contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])) === ArrayInterface.ContiguousBatch(-1)
+    @test contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])') === ArrayInterface.ContiguousBatch(-1)
+    @test contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])') === ArrayInterface.ContiguousBatch(0)
+
+    @test stride_rank(@SArray(rand(2,2,2))) === (1, 2, 3)
+    @test stride_rank(A) === (1,2,3)
+    @test stride_rank(PermutedDimsArray(A,(3,1,2))) === (3, 1, 2)
+    @test stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])) === (1, 2)
+    @test stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])') === (2, 1)
+    @test stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:])) === (3, 1, 2)
+    @test stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])) === (2, 1)
+    @test stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])') === (1, 2)
+    @test stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])') === (1, 2)
+
+    @test dense_dims(@SArray(rand(2,2,2))) === (true,true,true)
+    @test dense_dims(A) === (true,true,true)
+    @test dense_dims(PermutedDimsArray(A,(3,1,2))) === (true,true,true)
+    @test dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])) === (false,true)
+    @test dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])') === (true,false)
+    @test dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:])) === (false,false,true)
+    @test dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])) === (false,true)
+    @test dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])') === (true,false)
+    @test dense_dims(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])') === (false,true)
 
     B = Array{Int8}(undef, 2,2,2,2);
     doubleperm = PermutedDimsArray(PermutedDimsArray(B,(4,2,3,1)), (4,2,1,3));
-    @test collect(strides(B))[collect(stridelayout(doubleperm)[3])] == collect(strides(doubleperm))
+    @test collect(strides(B))[collect(stride_rank(doubleperm))] == collect(strides(doubleperm))
 end
 
 @test ArrayInterface.can_avx(ArrayInterface.can_avx) == false
