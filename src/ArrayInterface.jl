@@ -537,13 +537,13 @@ Device(A) = Device(typeof(A))
 Device(::Type) = nothing
 # Relies on overloading for GPUArrays that have subtyped `StridedArray`.
 Device(::Type{<:StridedArray}) = CPU()
-Device(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},S <: SubArray{T,N,A}} = Device(A)
-Device(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = Device(A)
-Device(::Type{Adjoint{T,A}}) where {T,A} = Device(A)
-Device(::Type{Transpose{T,A}}) where {T,A} = Device(A)
+function Device(::Type{T}) where {T <: AbstractArray}
+    P = parent_type(T)
+    T === P ? nothing : Device(P)
+end
 
 struct Contiguous{N} end
-Base.@pure Contiguous(N::Int) = Contiguous{N}.instance
+Base.@pure Contiguous(N::Int) = Contiguous{N}()
 unwrap(::Val{N}) where {N} = N
 unwrap(::Contiguous{N}) where {N} = N
 """
@@ -555,20 +555,20 @@ If unknown, it returns `nothing`.
 """
 contiguous_axis(x) = contiguous_axis(typeof(x))
 contiguous_axis(::Type) = nothing
-contiguous_axis(::Type{<:Array}) = Contiguous(1)
-contiguous_axis(::Type{<:Tuple}) = Contiguous(1)
+contiguous_axis(::Type{<:Array}) = Contiguous{1}()
+contiguous_axis(::Type{<:Tuple}) = Contiguous{1}()
 function contiguous_axis(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractMatrix{T}}
     c = contiguous_axis(A)
     isnothing(c) && return nothing
     contig = unwrap(c)
     new_contig = contig == -1 ? -1 : 3 - contig
-    Contiguous(new_contig)
+    Contiguous{new_contig}()
 end
 function contiguous_axis(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A<:AbstractArray{T,N}}
     c = contiguous_axis(A)
     isnothing(c) && return nothing
     new_contig = I2[unwrap(c)]
-    Contiguous(new_contig)
+    Contiguous{new_contig}()
 end
 @generated function contiguous_axis(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}}
     c = contiguous_axis(A)
@@ -589,7 +589,7 @@ end
     end
     # If n != N, then an axis was indeced by something other than an integer or `AbstractUnitRange`, so we return `nothing`
     n == N || return nothing
-    Expr(:call, :Contiguous, new_contig)
+    Expr(:call, Expr(:curly, :Contiguous, new_contig))
 end
 
 """
@@ -597,21 +597,22 @@ contiguous_axis_indicator(::Type{T}) -> Tuple{Vararg{<:Val}}
 
 Returns a tuple boolean `Val`s indicating whether that axis is contiguous.
 """
-contiguous_axis_indicator(::Type{A}) where {D, A <: AbstractArray{<:Any,D}} = val_tuple(contiguous_axis(A), Val(D))
-Base.@pure contiguous_axis_indicator(::Contiguous{N}, ::Val{D}) where {N,D} = ntuple(d -> Val(d == N), Val(D))
+contiguous_axis_indicator(::Type{A}) where {D, A <: AbstractArray{<:Any,D}} = contiguous_axis_indicator(contiguous_axis(A), Val(D))
+contiguous_axis_indicator(::A) where {A <: AbstractArray} = contiguous_axis_indicator(A)
+Base.@pure contiguous_axis_indicator(::Contiguous{N}, ::Val{D}) where {N,D} = ntuple(d -> Val{d == N}(), Val(D))
 # contiguous_axis_indicator(::Contiguous{-1}, ::Val{D}) where {N,D} = ntuple(d -> Val(false), Val(D))
 
 """
 If the contiguous dimension is not the dimension with `Stride_rank{1}`
 """
 struct ContiguousBatch{N} end
-Base.@pure ContiguousBatch(N::Int) = ContiguousBatch{N}.instance
+Base.@pure ContiguousBatch(N::Int) = ContiguousBatch{N}()
 unwrap(::ContiguousBatch{N}) where {N} = N
 
 contiguous_batch_size(x) = contiguous_batch_size(typeof(x))
 contiguous_batch_size(::Type) = nothing
-contiguous_batch_size(::Type{Array{T,N}}) where {T,N} = ContiguousBatch(0)
-contiguous_batch_size(::Type{<:Tuple}) = ContiguousBatch(0)
+contiguous_batch_size(::Type{Array{T,N}}) where {T,N} = ContiguousBatch{0}()
+contiguous_batch_size(::Type{<:Tuple}) = ContiguousBatch{0}()
 contiguous_batch_size(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractMatrix{T}} = contiguous_batch_size(A)
 contiguous_batch_size(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = contiguous_batch_size(A)
 @generated function contiguous_batch_size(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}}
@@ -622,7 +623,7 @@ contiguous_batch_size(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2
     if I.parameters[unwrap(c)] <: AbstractUnitRange
         b
     else
-        Expr(:call, :ContiguousBatch, -1)
+        Expr(:call, Expr(:curly, :ContiguousBatch, -1))
     end
 end
 
@@ -686,7 +687,7 @@ An axis `i` of array `A` is dense if `stride(A, i) * size(A, i) == stride(A, j)`
 """
 dense_dims(x) = dense_dims(typeof(x))
 dense_dims(::Type) = nothing
-dense_dims(::Type{Array{T,N}}) where {T,N} = ntuple(_ -> true,Val(N))
+dense_dims(::Type{Array{T,N}}) where {T,N} = ntuple(_ -> true, Val(N))
 dense_dims(::Type{<:Tuple}) = (true,)
 function dense_dims(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractMatrix{T}}
     dense = dense_dims(A)
@@ -775,8 +776,8 @@ function __init__()
     known_length(::Type{StaticArrays.SOneTo{N}}) where {N} = N
 
     Device(::Type{<:StaticArrays.MArray}) = CPU()
-    contiguous_axis(::Type{<:StaticArrays.StaticArray}) = Contiguous(1)
-    contiguous_batch_size(::Type{<:StaticArrays.StaticArray}) = ContiguousBatch(0)
+    contiguous_axis(::Type{<:StaticArrays.StaticArray}) = Contiguous{1}()
+    contiguous_batch_size(::Type{<:StaticArrays.StaticArray}) = ContiguousBatch{0}()
     stride_rank(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = ntuple(identity, Val(N))
     dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = ntuple(_ -> true, Val(N))
 
