@@ -151,6 +151,13 @@ If unknown, it returns `nothing`.
 
 Returns a tuple boolean `Val`s indicating whether that axis is contiguous.
 
+## contiguous_batch_size(::Type{T})
+
+Returns the size of contiguous batches if `!isone(stride_rank(T, contiguous_axis(T)))`.
+If `isone(stride_rank(T, contiguous_axis(T)))`, then it will return `ContiguousBatch{0}()`.
+If `contiguous_axis(T) == -1`, it will return `ContiguousBatch{-1}()`.
+If unknown, it will return `nothing`.
+
 ## stride_rank(::Type{T})
 
 Returns the rank of each stride.

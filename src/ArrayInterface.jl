@@ -609,6 +609,14 @@ struct ContiguousBatch{N} end
 Base.@pure ContiguousBatch(N::Int) = ContiguousBatch{N}()
 unwrap(::ContiguousBatch{N}) where {N} = N
 
+"""
+contiguous_batch_size(::Type{T}) -> ContiguousBatch{N}
+
+Returns the size of contiguous batches if `!isone(stride_rank(T, contiguous_axis(T)))`.
+If `isone(stride_rank(T, contiguous_axis(T)))`, then it will return `ContiguousBatch{0}()`.
+If `contiguous_axis(T) == -1`, it will return `ContiguousBatch{-1}()`.
+If unknown, it will return `nothing`.
+"""
 contiguous_batch_size(x) = contiguous_batch_size(typeof(x))
 contiguous_batch_size(::Type) = nothing
 contiguous_batch_size(::Type{Array{T,N}}) where {T,N} = ContiguousBatch{0}()
