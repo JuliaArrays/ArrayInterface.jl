@@ -519,27 +519,27 @@ function restructure(x::Array,y)
 end
 
 abstract type AbstractDevice end
-struct CPU <: AbstractDevice end
+abstract type CPU <: AbstractDevice end
+struct CPUPointer <: AbstractDevice end
+struct CPUIndex <: AbstractDevice end
 struct GPU <: AbstractDevice end
 """
-Device(::Type{T})
+device(::Type{T})
 
-If `pointer` is defined on instances of type `T`, it returns the device
-this object belongs to.
-Can be used for dispatching to optimized low-level
-routines.
-Returns the Device of an array of type `T` if it is known.
-Returns `ArrayInterface.CPU()` for an `Array`, and `ArrayInterface.GPU()` for GPUArrays.
-
-Returns `nothing` otherwise.
+Indicates the most efficient way to access elements from the collection in low level code.
+For `GPUArrays`, will return `ArrayInterface.GPU()`.
+For `AbstractArray` supporting a `pointer` method, returns `ArrayInterface.CPUPointer()`.
+For other `AbstractArray`s and `Tuple`s, returns `ArrayInterface.CPUIndex()`.
+Otherwise, returns `nothing`.
 """
-Device(A) = Device(typeof(A))
-Device(::Type) = nothing
+device(A) = device(typeof(A))
+device(::Type) = nothing
+device(::Type{<:Tuple}) = CPUIndex()
 # Relies on overloading for GPUArrays that have subtyped `StridedArray`.
-Device(::Type{<:StridedArray}) = CPU()
-function Device(::Type{T}) where {T <: AbstractArray}
+device(::Type{<:StridedArray}) = CPUPointer()
+function device(::Type{T}) where {T <: AbstractArray}
     P = parent_type(T)
-    T === P ? nothing : Device(P)
+    T === P ? CPUIndex() : device(P)
 end
 
 struct Contiguous{N} end
@@ -557,6 +557,11 @@ contiguous_axis(x) = contiguous_axis(typeof(x))
 contiguous_axis(::Type) = nothing
 contiguous_axis(::Type{<:Array}) = Contiguous{1}()
 contiguous_axis(::Type{<:Tuple}) = Contiguous{1}()
+function contiguous_axis(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractVector{T}}
+    c = contiguous_axis(A)
+    isnothing(c) && return nothing
+    c === Contiguous{1}() ? Contiguous{2}() : Contiguous{-1}()
+end
 function contiguous_axis(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractMatrix{T}}
     c = contiguous_axis(A)
     isnothing(c) && return nothing
@@ -621,7 +626,7 @@ contiguous_batch_size(x) = contiguous_batch_size(typeof(x))
 contiguous_batch_size(::Type) = nothing
 contiguous_batch_size(::Type{Array{T,N}}) where {T,N} = ContiguousBatch{0}()
 contiguous_batch_size(::Type{<:Tuple}) = ContiguousBatch{0}()
-contiguous_batch_size(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractMatrix{T}} = contiguous_batch_size(A)
+contiguous_batch_size(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractVecOrMat{T}} = contiguous_batch_size(A)
 contiguous_batch_size(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = contiguous_batch_size(A)
 @generated function contiguous_batch_size(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}}
     b = contiguous_batch_size(A)
@@ -774,7 +779,7 @@ function __init__()
     known_last(::Type{StaticArrays.SOneTo{N}}) where {N} = N
     known_length(::Type{StaticArrays.SOneTo{N}}) where {N} = N
 
-    Device(::Type{<:StaticArrays.MArray}) = CPU()
+    device(::Type{<:StaticArrays.MArray}) = CPUPointer()
     contiguous_axis(::Type{<:StaticArrays.StaticArray}) = Contiguous{1}()
     contiguous_batch_size(::Type{<:StaticArrays.StaticArray}) = ContiguousBatch{0}()
     stride_rank(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = ntuple(identity, Val(N))

@@ -130,16 +130,13 @@ Otherwise, returns `nothing`. For example, `known_step(UnitRange{Int})` returns
 `one(Int)`.
 
 
-## Device(::Type{T})
+## device(::Type{T})
 
-If `pointer` is defined on instances of type `T`, it returns the device
-this object belongs to.
-Can be used for dispatching to optimized low-level
-routines.
-Returns the Device of an array of type `T` if it is known.
-Returns `ArrayInterface.CPU()` for an `Array`, and `ArrayInterface.GPU()` for GPUArrays.
-
-Returns `nothing` otherwise.
+Indicates the most efficient way to access elements from the collection in low level code.
+For `GPUArrays`, will return `ArrayInterface.GPU()`.
+For `AbstractArray` supporting a `pointer` method, returns `ArrayInterface.CPUPointer()`.
+For other `AbstractArray`s and `Tuple`s, returns `ArrayInterface.CPUIndex()`.
+Otherwise, returns `nothing`.
 
 ## contiguous_axis(::Type{T})
 

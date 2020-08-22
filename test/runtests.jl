@@ -1,6 +1,6 @@
 using ArrayInterface, Test
 using Base: setindex
-import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, Device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims
+import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims
 @test ArrayInterface.ismutable(rand(3))
 
 using StaticArrays
@@ -193,13 +193,15 @@ end
 
 @testset "Memory Layout" begin
     A = rand(3,4,5)
-    @test Device(A) === ArrayInterface.CPU()
-    @test isnothing(Device((1,2,3)))
-    @test Device(PermutedDimsArray(A,(3,1,2))) === ArrayInterface.CPU()
-    @test Device(view(A, 1, :, 2:4)) === ArrayInterface.CPU()
-    @test Device(view(A, 1, :, 2:4)') === ArrayInterface.CPU()
-    @test isnothing(Device(@SArray(rand(2,2,2))))
-    @test Device(@MArray(rand(2,2,2))) === ArrayInterface.CPU()
+    @test device(A) === ArrayInterface.CPUPointer()
+    @test device((1,2,3)) === ArrayInterface.CPUIndex()
+    @test device(PermutedDimsArray(A,(3,1,2))) === ArrayInterface.CPUPointer()
+    @test device(view(A, 1, :, 2:4)) === ArrayInterface.CPUPointer()
+    @test device(view(A, 1, :, 2:4)') === ArrayInterface.CPUPointer()
+    @test device(@SArray(rand(2,2,2))) === ArrayInterface.CPUIndex()
+    @test device(@view(@SArray(rand(2,2,2))[1,1:2,:])) === ArrayInterface.CPUIndex()
+    @test device(@MArray(rand(2,2,2))) === ArrayInterface.CPUPointer()
+    @test isnothing(device("Hello, world!"))
 
     @test @inferred(contiguous_axis(@SArray(rand(2,2,2)))) === ArrayInterface.Contiguous(1)
     @test @inferred(contiguous_axis(A)) === ArrayInterface.Contiguous(1)
