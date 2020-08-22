@@ -640,12 +640,11 @@ contiguous_batch_size(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2
     end
 end
 
+struct StrideRank{R} end
+Base.@pure StrideRank(R::NTuple{<:Any,Int}) = StrideRank{R}()
+unwrap(::StrideRank{R}) where {R} = R
+Base.collect(::StrideRank{R}) where {R} = collect(R)
 
-"""
-stride_rank(::Type{T}) -> NTuple{N,Int}
-
-Returns the rank of each stride.
-"""
 is_element(x) = is_element(typeof(x))
 is_element(::Type{T}) where {T<:Number} = true
 is_element(::Type{T}) where {T<:CartesianIndex} = true
@@ -680,7 +679,13 @@ function stride_rank(::Type{T}, dim::Integer) where {T<:AbstractArray}
     end
 end
 
-stride_rank(::Type{T}) where {D, T <: AbstractArray{<:Any,D}} = ntuple(d -> stride_rank(T, d), Val{D}())
+"""
+stride_rank(::Type{T}) -> StrudeRank{R}()
+
+For `T <: AbstractArray{<:Any,N}`, returns `ArrayInterface.StrideRank{R}()`,
+where `R::NTuple{N,Int}` is the rank of each stride of `T`.
+"""
+Base.@pure stride_rank(::Type{T}) where {D, T <: AbstractArray{<:Any,D}} = StrideRank{ntuple(d -> stride_rank(T, d), Val{D}())}()
 stride_rank(A) = stride_rank(typeof(A))
 
 """
@@ -782,7 +787,7 @@ function __init__()
     device(::Type{<:StaticArrays.MArray}) = CPUPointer()
     contiguous_axis(::Type{<:StaticArrays.StaticArray}) = Contiguous{1}()
     contiguous_batch_size(::Type{<:StaticArrays.StaticArray}) = ContiguousBatch{0}()
-    stride_rank(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = ntuple(identity, Val(N))
+    stride_rank(::Type{T}, dim::Integer) where {T <: StaticArrays.StaticArray} = dim
     dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = ntuple(_ -> true, Val(N))
 
     @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
