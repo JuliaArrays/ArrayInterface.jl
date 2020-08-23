@@ -192,18 +192,18 @@ end
 end
 
 @testset "Memory Layout" begin
-    A = rand(3,4,5)
+    A = zeros(3,4,5);
     @test device(A) === ArrayInterface.CPUPointer()
     @test device((1,2,3)) === ArrayInterface.CPUIndex()
     @test device(PermutedDimsArray(A,(3,1,2))) === ArrayInterface.CPUPointer()
     @test device(view(A, 1, :, 2:4)) === ArrayInterface.CPUPointer()
     @test device(view(A, 1, :, 2:4)') === ArrayInterface.CPUPointer()
-    @test device(@SArray(rand(2,2,2))) === ArrayInterface.CPUIndex()
-    @test device(@view(@SArray(rand(2,2,2))[1,1:2,:])) === ArrayInterface.CPUIndex()
-    @test device(@MArray(rand(2,2,2))) === ArrayInterface.CPUPointer()
+    @test device(@SArray(zeros(2,2,2))) === ArrayInterface.CPUIndex()
+    @test device(@view(@SArray(zeros(2,2,2))[1,1:2,:])) === ArrayInterface.CPUIndex()
+    @test device(@MArray(zeros(2,2,2))) === ArrayInterface.CPUPointer()
     @test isnothing(device("Hello, world!"))
 
-    @test @inferred(contiguous_axis(@SArray(rand(2,2,2)))) === ArrayInterface.Contiguous(1)
+    @test @inferred(contiguous_axis(@SArray(zeros(2,2,2)))) === ArrayInterface.Contiguous(1)
     @test @inferred(contiguous_axis(A)) === ArrayInterface.Contiguous(1)
     @test @inferred(contiguous_axis(PermutedDimsArray(A,(3,1,2)))) === ArrayInterface.Contiguous(2)
     @test @inferred(contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) === ArrayInterface.Contiguous(1)
@@ -213,7 +213,7 @@ end
     @test @inferred(contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === ArrayInterface.Contiguous(-1)
     @test @inferred(contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === ArrayInterface.Contiguous(1)
 
-    @test @inferred(ArrayInterface.contiguous_axis_indicator(@SArray(rand(2,2,2)))) === (Val(true),Val(false),Val(false))
+    @test @inferred(ArrayInterface.contiguous_axis_indicator(@SArray(zeros(2,2,2)))) === (Val(true),Val(false),Val(false))
     @test @inferred(ArrayInterface.contiguous_axis_indicator(A)) === (Val(true),Val(false),Val(false))
     @test @inferred(ArrayInterface.contiguous_axis_indicator(PermutedDimsArray(A,(3,1,2)))) === (Val(false),Val(true),Val(false))
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) === (Val(true),Val(false))
@@ -223,7 +223,7 @@ end
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === (Val(false),Val(false))
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === (Val(true),Val(false))
 
-    @test @inferred(contiguous_batch_size(@SArray(rand(2,2,2)))) === ArrayInterface.ContiguousBatch(0)
+    @test @inferred(contiguous_batch_size(@SArray(zeros(2,2,2)))) === ArrayInterface.ContiguousBatch(0)
     @test @inferred(contiguous_batch_size(A)) === ArrayInterface.ContiguousBatch(0)
     @test @inferred(contiguous_batch_size(PermutedDimsArray(A,(3,1,2)))) === ArrayInterface.ContiguousBatch(0)
     @test @inferred(contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) === ArrayInterface.ContiguousBatch(0)
@@ -233,7 +233,7 @@ end
     @test @inferred(contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === ArrayInterface.ContiguousBatch(-1)
     @test @inferred(contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === ArrayInterface.ContiguousBatch(0)
 
-    @test @inferred(stride_rank(@SArray(rand(2,2,2)))) === ArrayInterface.StrideRank((1, 2, 3))
+    @test @inferred(stride_rank(@SArray(zeros(2,2,2)))) === ArrayInterface.StrideRank((1, 2, 3))
     @test @inferred(stride_rank(A)) === ArrayInterface.StrideRank((1,2,3))
     @test @inferred(stride_rank(PermutedDimsArray(A,(3,1,2)))) === ArrayInterface.StrideRank((3, 1, 2))
     @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) === ArrayInterface.StrideRank((1, 2))
@@ -243,19 +243,64 @@ end
     @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === ArrayInterface.StrideRank((2, 3))
     @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === ArrayInterface.StrideRank((1, 3))
 
-    @test dense_dims(@SArray(rand(2,2,2))) === (true,true,true)
-    @test dense_dims(A) === (true,true,true)
-    @test dense_dims(PermutedDimsArray(A,(3,1,2))) === (true,true,true)
-    @test dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])) === (false,true)
-    @test dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])') === (true,false)
-    @test dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:])) === (false,false,true)
-    @test dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])) === (false,true)
-    @test dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])') === (true,false)
-    @test dense_dims(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])') === (false,true)
+    @test @inferred(dense_dims(@SArray(zeros(2,2,2)))) === ArrayInterface.DenseDims((true,true,true))
+    @test @inferred(dense_dims(A)) === ArrayInterface.DenseDims((true,true,true))
+    @test @inferred(dense_dims(PermutedDimsArray(A,(3,1,2)))) === ArrayInterface.DenseDims((true,true,true))
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) === ArrayInterface.DenseDims((true,false))
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) === ArrayInterface.DenseDims((false,true))
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:]))) === ArrayInterface.DenseDims((false,true,false))
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,:,1:2]))) === ArrayInterface.DenseDims((false,true,true))
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))) === ArrayInterface.DenseDims((false,false))
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === ArrayInterface.DenseDims((false,false))
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === ArrayInterface.DenseDims((true,false))
 
     B = Array{Int8}(undef, 2,2,2,2);
     doubleperm = PermutedDimsArray(PermutedDimsArray(B,(4,2,3,1)), (4,2,1,3));
     @test collect(strides(B))[collect(stride_rank(doubleperm))] == collect(strides(doubleperm))
+end
+
+@testset "Static-Dynamic Size and Strides" begin
+    A = zeros(3,4,5); Ap = @view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])';
+    S = @SArray zeros(2,3,4); Sp = @view(PermutedDimsArray(S,(3,1,2))[2:3,1:2,:]);
+    M = @MArray zeros(2,3,4); Mp = @view(PermutedDimsArray(M,(3,1,2))[:,2,:])';
+    Sp2 = @view(PermutedDimsArray(S,(3,2,1))[2:3,:,:]);
+    Mp2 = @view(PermutedDimsArray(M,(3,1,2))[2:3,:,2])';
+    
+    @test @inferred(ArrayInterface.sdsize(A)) === ArrayInterface.SDTuple{(-1,-1,-1)}((3,4,5))
+    @test @inferred(ArrayInterface.sdsize(Ap)) === ArrayInterface.SDTuple{(-1,-1)}((2,5))
+    @test @inferred(Tuple(ArrayInterface.sdsize(A))) === size(A)
+    @test @inferred(Tuple(ArrayInterface.sdsize(Ap))) === size(Ap)
+    
+    @test @inferred(ArrayInterface.sdsize(S)) === ArrayInterface.SDTuple{(2, 3, 4)}(())
+    @test @inferred(ArrayInterface.sdsize(Sp)) === ArrayInterface.SDTuple{(-1, -1, 3)}((2, 2))
+    @test @inferred(ArrayInterface.sdsize(Sp2)) === ArrayInterface.SDTuple{(-1, 3, 2)}((2, ))
+    @test @inferred(Tuple(ArrayInterface.sdsize(S))) === size(S)
+    @test @inferred(Tuple(ArrayInterface.sdsize(Sp))) === size(Sp)
+    @test @inferred(Tuple(ArrayInterface.sdsize(Sp2))) === size(Sp2)
+    
+    @test @inferred(ArrayInterface.sdsize(M)) === ArrayInterface.SDTuple{(2,3,4)}(())
+    @test @inferred(ArrayInterface.sdsize(Mp)) === ArrayInterface.SDTuple{(3,4)}(())
+    @test @inferred(ArrayInterface.sdsize(Mp2)) === ArrayInterface.SDTuple{(2,-1)}((2,))
+    @test @inferred(Tuple(ArrayInterface.sdsize(M))) === size(M)
+    @test @inferred(Tuple(ArrayInterface.sdsize(Mp))) === size(Mp)
+    @test @inferred(Tuple(ArrayInterface.sdsize(Mp2))) === size(Mp2)
+
+    @test @inferred(ArrayInterface.sdstrides(A)) === ArrayInterface.SDTuple{(1,-1,-1)}((3,12))
+    @test @inferred(ArrayInterface.sdstrides(Ap)) === ArrayInterface.SDTuple{(1,-1)}((12,))
+    @test @inferred(Tuple(ArrayInterface.sdstrides(A))) === strides(A)
+    @test @inferred(Tuple(ArrayInterface.sdstrides(Ap))) === strides(Ap)
+    
+    @test @inferred(ArrayInterface.sdstrides(S)) === ArrayInterface.SDTuple{(1,2,6)}(())
+    @test @inferred(ArrayInterface.sdstrides(Sp)) === ArrayInterface.SDTuple{(6,1,2)}(())
+    @test @inferred(ArrayInterface.sdstrides(Sp2)) === ArrayInterface.SDTuple{(6, 2, 1)}(())
+    
+    @test @inferred(ArrayInterface.sdstrides(M)) === ArrayInterface.SDTuple{(1,2,6)}(())
+    @test @inferred(ArrayInterface.sdstrides(Mp)) === ArrayInterface.SDTuple{(2,6)}(())
+    @test @inferred(ArrayInterface.sdstrides(Mp2)) === ArrayInterface.SDTuple{(1,6)}(())
+    @test @inferred(Tuple(ArrayInterface.sdstrides(M))) === strides(M)
+    @test @inferred(Tuple(ArrayInterface.sdstrides(Mp))) === strides(Mp)
+    @test @inferred(Tuple(ArrayInterface.sdstrides(Mp2))) === strides(Mp2)
+
 end
 
 @test ArrayInterface.can_avx(ArrayInterface.can_avx) == false

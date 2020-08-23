@@ -542,191 +542,16 @@ function device(::Type{T}) where {T <: AbstractArray}
     T === P ? CPUIndex() : device(P)
 end
 
-struct Contiguous{N} end
-Base.@pure Contiguous(N::Int) = Contiguous{N}()
-unwrap(::Val{N}) where {N} = N
-unwrap(::Contiguous{N}) where {N} = N
-"""
-contiguous_axis(::Type{T}) -> Contiguous{N}
-
-Returns the axis of an array of type `T` containing contiguous data.
-If no axis is contiguous, it returns `Contiguous{-1}`.
-If unknown, it returns `nothing`.
-"""
-contiguous_axis(x) = contiguous_axis(typeof(x))
-contiguous_axis(::Type) = nothing
-contiguous_axis(::Type{<:Array}) = Contiguous{1}()
-contiguous_axis(::Type{<:Tuple}) = Contiguous{1}()
-function contiguous_axis(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractVector{T}}
-    c = contiguous_axis(A)
-    isnothing(c) && return nothing
-    c === Contiguous{1}() ? Contiguous{2}() : Contiguous{-1}()
-end
-function contiguous_axis(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractMatrix{T}}
-    c = contiguous_axis(A)
-    isnothing(c) && return nothing
-    contig = unwrap(c)
-    new_contig = contig == -1 ? -1 : 3 - contig
-    Contiguous{new_contig}()
-end
-function contiguous_axis(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A<:AbstractArray{T,N}}
-    c = contiguous_axis(A)
-    isnothing(c) && return nothing
-    new_contig = I2[unwrap(c)]
-    Contiguous{new_contig}()
-end
-@generated function contiguous_axis(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}}
-    c = contiguous_axis(A)
-    isnothing(c) && return nothing
-    n = 0
-    new_contig = contig = unwrap(c)
-    for np in 1:NP
-        if I.parameters[np] <: AbstractUnitRange
-            n += 1
-            if np == contig
-                new_contig = n
-            end
-        else
-            if np == contig
-                new_contig = -1
-            end
-        end
-    end
-    # If n != N, then an axis was indeced by something other than an integer or `AbstractUnitRange`, so we return `nothing`
-    n == N || return nothing
-    Expr(:call, Expr(:curly, :Contiguous, new_contig))
-end
 
 """
-contiguous_axis_indicator(::Type{T}) -> Tuple{Vararg{<:Val}}
+defines_strides(::Type{T}) -> Bool
 
-Returns a tuple boolean `Val`s indicating whether that axis is contiguous.
+Is strides(::T) defined?
 """
-contiguous_axis_indicator(::Type{A}) where {D, A <: AbstractArray{<:Any,D}} = contiguous_axis_indicator(contiguous_axis(A), Val(D))
-contiguous_axis_indicator(::A) where {A <: AbstractArray} = contiguous_axis_indicator(A)
-Base.@pure contiguous_axis_indicator(::Contiguous{N}, ::Val{D}) where {N,D} = ntuple(d -> Val{d == N}(), Val(D))
-# contiguous_axis_indicator(::Contiguous{-1}, ::Val{D}) where {N,D} = ntuple(d -> Val(false), Val(D))
-
-"""
-If the contiguous dimension is not the dimension with `Stride_rank{1}`
-"""
-struct ContiguousBatch{N} end
-Base.@pure ContiguousBatch(N::Int) = ContiguousBatch{N}()
-unwrap(::ContiguousBatch{N}) where {N} = N
-
-"""
-contiguous_batch_size(::Type{T}) -> ContiguousBatch{N}
-
-Returns the size of contiguous batches if `!isone(stride_rank(T, contiguous_axis(T)))`.
-If `isone(stride_rank(T, contiguous_axis(T)))`, then it will return `ContiguousBatch{0}()`.
-If `contiguous_axis(T) == -1`, it will return `ContiguousBatch{-1}()`.
-If unknown, it will return `nothing`.
-"""
-contiguous_batch_size(x) = contiguous_batch_size(typeof(x))
-contiguous_batch_size(::Type) = nothing
-contiguous_batch_size(::Type{Array{T,N}}) where {T,N} = ContiguousBatch{0}()
-contiguous_batch_size(::Type{<:Tuple}) = ContiguousBatch{0}()
-contiguous_batch_size(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractVecOrMat{T}} = contiguous_batch_size(A)
-contiguous_batch_size(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = contiguous_batch_size(A)
-@generated function contiguous_batch_size(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}}
-    b = contiguous_batch_size(A)
-    isnothing(b) && return nothing
-    c = contiguous_axis(A)
-    isnothing(c) && return nothing
-    if I.parameters[unwrap(c)] <: AbstractUnitRange
-        b
-    else
-        Expr(:call, Expr(:curly, :ContiguousBatch, -1))
-    end
-end
-
-struct StrideRank{R} end
-Base.@pure StrideRank(R::NTuple{<:Any,Int}) = StrideRank{R}()
-unwrap(::StrideRank{R}) where {R} = R
-Base.collect(::StrideRank{R}) where {R} = collect(R)
-
-is_element(x) = is_element(typeof(x))
-is_element(::Type{T}) where {T<:Number} = true
-is_element(::Type{T}) where {T<:CartesianIndex} = true
-is_element(::Type{T}) where {T} = false
-@generated is_element(::Type{T}) where {T<:Tuple} = (map(is_element, T.parameters)...,)
-
-to_parent_dim(::Type{T}, ::Val{dim}) where {T,dim} = to_parent_dim(T, dim)
-to_parent_dim(::Type{T}, dim::Integer) where {T<:AbstractArray} = dim
-to_parent_dim(::Type{T}, dim::Integer) where {T<:Union{<:Adjoint,<:Transpose}} = (2, 1)[dim]
-to_parent_dim(::Type{<:PermutedDimsArray{T,N,I}}, i::Integer) where {T,N,I} = I[i]
-function to_parent_dim(::Type{<:SubArray{T,N,A,I}}, dim::Integer) where {T,N,A,I}
-    # if a view is created with something that maps to a single value thena dimension
-    # is dropped. We add all dimensions dropped up to i
-    @static if VERSION ≥ v"1.5"
-        return dim + cumsum(is_element(I))[dim]
-    else
-        ieI = is_element(I)
-        d = Ref(dim)
-        return ntuple(i -> d[] += ieI[i], length(ieI))[dim]
-    end
-end
-
-stride_rank(::Type{T}, ::Val{dim}) where {T,dim} = stride_rank(T, dim)
-stride_rank(::Type{T}, ::Contiguous{dim}) where {T,dim} = stride_rank(T, dim)
-stride_rank(::Type{T}, dim::Integer) where {T} = nothing
-stride_rank(::Type{T}, dim::Integer) where {T<:Array} = dim
-function stride_rank(::Type{T}, dim::Integer) where {T<:AbstractArray}
-    if parent_type(T) <: T  # assume no parent
-        return nothing
-    else
-        return stride_rank(parent_type(T), to_parent_dim(T, dim))
-    end
-end
-
-"""
-stride_rank(::Type{T}) -> StrudeRank{R}()
-
-For `T <: AbstractArray{<:Any,N}`, returns `ArrayInterface.StrideRank{R}()`,
-where `R::NTuple{N,Int}` is the rank of each stride of `T`.
-"""
-Base.@pure stride_rank(::Type{T}) where {D, T <: AbstractArray{<:Any,D}} = StrideRank{ntuple(d -> stride_rank(T, d), Val{D}())}()
-stride_rank(A) = stride_rank(typeof(A))
-
-"""
-dense_dims(::Type{T}) -> NTuple{N,Bool}
-
-Returns a tuple of indicators for whether each axis is dense.
-An axis `i` of array `A` is dense if `stride(A, i) * size(A, i) == stride(A, j)` where `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
-"""
-dense_dims(x) = dense_dims(typeof(x))
-dense_dims(::Type) = nothing
-dense_dims(::Type{Array{T,N}}) where {T,N} = ntuple(_ -> true, Val(N))
-dense_dims(::Type{<:Tuple}) = (true,)
-function dense_dims(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractMatrix{T}}
-    dense = dense_dims(A)
-    isnothing(dense) && return nothing
-    (dense[2], dense[1])
-end
-function dense_dims(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A<:AbstractArray{T,N}}
-    dense = dense_dims(A)
-    isnothing(dense) && return nothing
-    ntuple(n -> dense[I1[n]], Val(N))
-end
-@generated function dense_dims(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}}
-    dense = dense_dims(A)
-    isnothing(dense) && return nothing
-    dense_tup = Expr(:tuple)
-    n = 0
-    for np in 1:NP
-        if I.parameters[np] <: Base.Slice
-            n += 1
-            push!(dense_tup.args, dense[n])
-        elseif I.parameters[np] <: AbstractUnitRange
-            n += 1
-            push!(dense_tup.args, false)
-        end
-    end
-    # If n != N, then an axis was indexed by something other than an integer or `AbstractUnitRange`, so we return `nothing`
-    n == N ? dense_tup : nothing
-end
-
-
+defines_strides(::Type) = false
+defines_strides(x) = defines_strides(typeof(x))
+defines_strides(::Type{<:StridedArray}) = true
+defines_strides(::Type{A}) where {A <: Union{<:Transpose,<:Adjoint,<:SubArray,<:PermutedDimsArray}} = defines_strides(parent_type(A))
 
 """
 can_avx(f)
@@ -787,8 +612,17 @@ function __init__()
     device(::Type{<:StaticArrays.MArray}) = CPUPointer()
     contiguous_axis(::Type{<:StaticArrays.StaticArray}) = Contiguous{1}()
     contiguous_batch_size(::Type{<:StaticArrays.StaticArray}) = ContiguousBatch{0}()
-    stride_rank(::Type{T}, dim::Integer) where {T <: StaticArrays.StaticArray} = dim
-    dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = ntuple(_ -> true, Val(N))
+    stride_rank(::Type{T}) where {N, T <: StaticArrays.StaticArray{<:Any,<:Any,N}} = StrideRank{ntuple(identity, Val{N}())}()
+    dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = DenseDims{ntuple(_ -> true, Val(N))}()
+    defines_strides(::Type{<:StaticArrays.MArray}) = true
+    sdsize(A::StaticArrays.StaticArray) = SDTuple{size(A)}(())
+    @generated function sdstrides(A::StaticArrays.StaticArray{S}) where {S}
+        X = Expr(:tuple, 1); Sp = S.parameters; x = 1
+        for n in 1:length(Sp)-1
+            push!(X.args, (x *= Sp[n]))
+        end
+        Expr(:call, Expr(:curly, :SDTuple, X), Expr(:tuple))
+    end
 
     @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
       function Adapt.adapt_storage(::Type{<:StaticArrays.SArray{S}},xs::Array) where S
@@ -911,6 +745,7 @@ function __init__()
   end
 end
 
+include("stridelayout.jl")
 include("ranges.jl")
 
 end
