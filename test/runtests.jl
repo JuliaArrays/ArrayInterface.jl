@@ -301,6 +301,8 @@ end
     @test @inferred(Tuple(ArrayInterface.sdstrides(Mp))) === strides(Mp)
     @test @inferred(Tuple(ArrayInterface.sdstrides(Mp2))) === strides(Mp2)
 
+    @test isnothing(ArrayInterface.sdsize((1,2,3)))
+    @test isnothing(ArrayInterface.sdstrides((1,2,3)))
 end
 
 @test ArrayInterface.can_avx(ArrayInterface.can_avx) == false

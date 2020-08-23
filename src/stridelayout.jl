@@ -260,7 +260,8 @@ end
 end
 merge_static_dynamic(sz::NTuple, ::Val{K}) where {K} = merge_static_dynamic(sz, K)
 
-
+sdsize(::Any) = nothing
+sdstrides(::Any) = nothing
 sdsize(A::AbstractArray{<:Any,N}) where {N} = SDTuple{ntuple(_ -> -1, Val{N}())}(size(A))
 sdstrides(A::Vector{<:Any}) where {N} = SDTuple{(1,)}(())
 sdstrides(A::Array{<:Any,N}) where {N} = SDTuple{ntuple(n -> isone(n) ? 1 : -1, Val(N))}(Base.tail(strides(A)))
