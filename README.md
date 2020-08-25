@@ -129,6 +129,11 @@ If `step` of instances of type `T` are known at compile time, return that step.
 Otherwise, returns `nothing`. For example, `known_step(UnitRange{Int})` returns
 `one(Int)`.
 
+## known_length(::Type{T})
+
+If `length` of an instance of type `T` is known at compile time, return it.
+Otherwise, return `nothing`.
+
 # List of things to add
 
 - https://github.com/JuliaLang/julia/issues/22216
