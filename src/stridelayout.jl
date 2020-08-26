@@ -204,34 +204,67 @@ _dense_dims(::Any, ::Any) = nothing
     length(dense_tup.args) == N ? Expr(:call, Expr(:curly, :DenseDims, dense_tup)) : nothing
 end
 
+@generated function tuple_type_to_value_tuple(::Type{S}) where {S<:Tuple}
+    t = Expr(:tuple)
+    foreach(i -> push!(t.args, S.parameters[i]), eachindex(S.parameters))
+    Expr(:block, Expr(:meta, :inline), t)
+end
+@generated function value_tuple_to_tuple_type(::Val{S}) where {S}
+    t = Expr(:curly, :Tuple)
+    foreach(s -> push!(t.args, s), S)
+    Expr(:block, Expr(:meta, :inline), t)
+end
+
 """
 StaticDynamicTuple
 """
-struct SDTuple{X,N,P} x::NTuple{P,Int} end
-@inline SDTuple{X}(x::NTuple{P,Int}) where {X,P} = SDTuple{X}(x, X)
-@inline SDTuple{X}(x::NTuple{P,Int}, ::NTuple{N}) where {X,N,P} = SDTuple{X,N,P}(x)
-@inline Base.Tuple(t::SDTuple{X,N,0}) where {X,N} = X
-@inline function Base.Tuple(t::SDTuple{X,N}) where {X,N}
-    r = Ref(0); x = t.x
-    ntuple(Val{N}()) do n
-        xₙ = X[n]; xₙ == -1 ? x[r[] += 1] : xₙ
+struct SDTuple{N,X,P} x::NTuple{P,Int} end
+@inline SDTuple{X}(x::NTuple{P,Int}) where {N,X<:Tuple{Vararg{<:Any,N}},P} = SDTuple{N,X,P}(x)
+# @inline SDTuple{X}(x::NTuple{P,Int}) where {X<:Tuple, P} = SDTuple{known_length(X),X,P}(x)
+@inline SDTuple(::Val{X}, x::NTuple{P,Int}) where {X,P} = SDTuple{value_tuple_to_tuple_type(Val{X}())}(x)
+# @generated function fill_tuple(::Val{V}, ::Val{N}) where {V,N}
+#     t = Expr(:curly, :Tuple)
+#     foreach(_ -> push!(t.args, V), Base.OneTo(N))
+#     Expr(:block, Expr(:meta, :inline), t)
+# end
+@inline Base.Tuple(t::SDTuple{N,X,0}) where {X,N} = tuple_type_to_value_tuple(X)
+@generated function Base.Tuple(t::SDTuple{N,X}) where {X,N}
+    Xᵥ = tuple_type_to_value_tuple(X)
+    tup = Expr(:tuple); i = 0
+    for n in 1:N
+        xₙ = Xᵥ[n]
+        xₙ == -1 ? push!(tup.args, Expr(:ref, :x, (i += 1))) : push!(tup.args, xₙ)
     end
+    Expr(:block, Expr(:meta, :inline), :(x = t.x), tup)
 end
+# @inline function Base.Tuple(t::SDTuple{X,N}) where {X,N}
+#     Xᵥ = tuple_type_to_value_tuple(X)
+#     r = Ref(0); x = t.x
+#     ntuple(Val{N}()) do n
+#         xₙ = Xᵥ[n]; xₙ == -1 ? x[r[] += 1] : xₙ
+#     end
+# end
 permute(t::NTuple{N}, I::NTuple{N,Int}) where {N} = ntuple(n -> t[I[n]], Val{N}())
+function permute(::Type{S}, I::NTuple) where {S}
+    t = Expr(:curly, :Tuple)
+    foreach(i -> push!(t.args, S.parameters[i]), I)
+    t
+end
+@generated permute(::Type{S}, ::Val{I}) where {S <: Tuple, I} = permute(S, I)
 # permute(t::NTuple{N}, ::Val{I}) where {N,I} = permute(t, Val{I}())
 @inline Base.getindex(t::SDTuple, i::Integer) = Tuple(t)[i]
-@inline Base.getindex(::SDTuple{X,N,0}, ::Val{I}) where {X,N,I} = SDTuple{permute(X, I),N,0}(tuple())
-@generated function Base.getindex(t::SDTuple{X,N,P}, ::Val{I}) where {X,N,P,I}
-    Xp = permute(X, I)
+@inline Base.getindex(::SDTuple{N,X,0}, ::Val{I}) where {X,N,I} = SDTuple{N,permute(X, Val{I}()),0}(tuple())
+@generated function Base.getindex(t::SDTuple{N,X,P}, ::Val{I}) where {X,N,P,I}
+    Xv = tuple_type_to_value_tuple(X)
     i = 0; tup = Expr(:tuple)
     x = Vector{Int}(undef, N)
     for n in 1:N
-        if X[n] == -1
+        if Xv[n] == -1
             x[n] = (i += 1)
         end
     end
     for n in 1:N
-        if X[I[n]] == -1
+        if Xv[I[n]] == -1
             push!(tup.args, Expr(:ref, :x, x[I[n]]))
         end
     end
@@ -239,33 +272,16 @@ permute(t::NTuple{N}, I::NTuple{N,Int}) where {N} = ntuple(n -> t[I[n]], Val{N}(
         :block,
         Expr(:meta, :inline),
         Expr(:(=), :x, Expr(:(.), :t, QuoteNode(:x))),
-        Expr(:call, Expr(:curly, :SDTuple, Xp, N, P), tup)
+        Expr(:call, Expr(:curly, :SDTuple, N, permute(X, I), P), tup)
     )
 end
 
-@generated function merge_static_dynamic(sz::NTuple{N,Int}, k::Tuple{Vararg{Any,N}}) where {N}
-    p = 0;
-    kp = k.parameters
-    s = Expr(:tuple); d = Expr(:tuple);
-    for n in 1:N
-        if kp[n] === Nothing
-            p += 1
-            push!(s.args, -1)
-            push!(d.args, Expr(:ref, :sz, n))
-        else
-            push!(s.args, Expr(:ref, :k, n))
-        end
-    end
-    Expr(:call, Expr(:curly, :SDTuple, s, N, p), d)
-end
-merge_static_dynamic(sz::NTuple, ::Val{K}) where {K} = merge_static_dynamic(sz, K)
-
 sdsize(::Any) = nothing
 sdstrides(::Any) = nothing
-sdsize(A::AbstractArray{<:Any,N}) where {N} = SDTuple{ntuple(_ -> -1, Val{N}())}(size(A))
-sdstrides(A::Vector{<:Any}) where {N} = SDTuple{(1,)}(())
-sdstrides(A::Array{<:Any,N}) where {N} = SDTuple{ntuple(n -> isone(n) ? 1 : -1, Val(N))}(Base.tail(strides(A)))
-sdstrides(A::AbstractArray{<:Any,N}) where {N} = SDTuple{ntuple(_ -> -1, Val{N}())}(strides(A))
+sdsize(A::AbstractArray{<:Any,N}) where {N} = SDTuple(Val{ntuple(_ -> -1, Val{N}())}(), size(A))
+sdstrides(A::Vector{<:Any}) where {N} = SDTuple{Tuple{1}}(())
+sdstrides(A::Array{<:Any,N}) where {N} = SDTuple(Val{ntuple(n -> isone(n) ? 1 : -1, Val(N))}(), Base.tail(strides(A)))
+sdstrides(A::AbstractArray{<:Any,N}) where {N} = SDTuple(Val{ntuple(_ -> -1, Val{N}())}(), strides(A))
 
 sdsize(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} = sdsize(parent(B))[Val{(2,1)}()]
 sdsize(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = sdsize(parent(B))[Val{I1}()]
@@ -274,8 +290,9 @@ sdstrides(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T
 
 sdsize(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} = _sdsize(sdsize(parent(B)), B.indices)
 sdstrides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} = _sdstrides(sdstrides(parent(B)), B.indices)
-@generated function _sdsize(A::SDTuple{S,N}, inds::I) where {S,N,I<:Tuple}
-    s = Expr(:tuple); d = Expr(:tuple)
+@generated function _sdsize(A::SDTuple{N, ST}, inds::I) where {ST,N,I<:Tuple}
+    S = tuple_type_to_value_tuple(ST)
+    s = Expr(:curly, :Tuple); d = Expr(:tuple)
     for n in 1:N
         if (S[n] != -1) && (I.parameters[n] <: Base.Slice)
             push!(s.args, S[n])
@@ -291,8 +308,9 @@ sdstrides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} =
     end
     Expr(:call, Expr(:curly, :SDTuple, s), d)
 end
-@generated function _sdstrides(A::SDTuple{S,N}, inds::I) where {S,N,I<:Tuple}
-    s = Expr(:tuple); d = Expr(:tuple)
+@generated function _sdstrides(A::SDTuple{N, ST}, inds::I) where {ST,N,I<:Tuple}
+    S = tuple_type_to_value_tuple(ST)
+    s = Expr(:curly, :Tuple); d = Expr(:tuple)
     i = 0
     for n in 1:N
         if I.parameters[n] <: AbstractUnitRange

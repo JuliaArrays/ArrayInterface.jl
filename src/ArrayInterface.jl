@@ -36,6 +36,7 @@ known_length(x) = known_length(typeof(x))
 known_length(::Type{<:NTuple{N,<:Any}}) where {N} = N
 known_length(::Type{<:NamedTuple{L}}) where {L} = length(L)
 known_length(::Type{T}) where {T<:Base.Slice} = known_length(parent_type(T))
+known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N
 
 """
     can_change_size(::Type{T}) -> Bool
@@ -615,9 +616,9 @@ function __init__()
     stride_rank(::Type{T}) where {N, T <: StaticArrays.StaticArray{<:Any,<:Any,N}} = StrideRank{ntuple(identity, Val{N}())}()
     dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = DenseDims{ntuple(_ -> true, Val(N))}()
     defines_strides(::Type{<:StaticArrays.MArray}) = true
-    sdsize(A::StaticArrays.StaticArray) = SDTuple{size(A)}(())
+    sdsize(A::StaticArrays.StaticArray{S}) where {S} = SDTuple{S}(())
     @generated function sdstrides(A::StaticArrays.StaticArray{S}) where {S}
-        X = Expr(:tuple, 1); Sp = S.parameters; x = 1
+        X = Expr(:curly, :Tuple, 1); Sp = S.parameters; x = 1
         for n in 1:length(Sp)-1
             push!(X.args, (x *= Sp[n]))
         end
