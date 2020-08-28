@@ -1,7 +1,6 @@
 struct Contiguous{N} end
 Base.@pure Contiguous(N::Int) = Contiguous{N}()
-unwrap(::Val{N}) where {N} = N
-unwrap(::Contiguous{N}) where {N} = N
+_get(::Contiguous{N}) where {N} = N
 """
 contiguous_axis(::Type{T}) -> Contiguous{N}
 
@@ -21,14 +20,14 @@ end
 function contiguous_axis(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractMatrix{T}}
     c = contiguous_axis(A)
     isnothing(c) && return nothing
-    contig = unwrap(c)
+    contig = _get(c)
     new_contig = contig == -1 ? -1 : 3 - contig
     Contiguous{new_contig}()
 end
 function contiguous_axis(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A<:AbstractArray{T,N}}
     c = contiguous_axis(A)
     isnothing(c) && return nothing
-    new_contig = I2[unwrap(c)]
+    new_contig = I2[_get(c)]
     Contiguous{new_contig}()
 end
 function contiguous_axis(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}}
@@ -70,7 +69,7 @@ If the contiguous dimension is not the dimension with `Stride_rank{1}`
 """
 struct ContiguousBatch{N} end
 Base.@pure ContiguousBatch(N::Int) = ContiguousBatch{N}()
-unwrap(::ContiguousBatch{N}) where {N} = N
+_get(::ContiguousBatch{N}) where {N} = N
 
 """
 contiguous_batch_size(::Type{T}) -> ContiguousBatch{N}
@@ -100,7 +99,7 @@ end
 
 struct StrideRank{R} end
 Base.@pure StrideRank(R::NTuple{<:Any,Int}) = StrideRank{R}()
-unwrap(::StrideRank{R}) where {R} = R
+_get(::StrideRank{R}) where {R} = R
 Base.collect(::StrideRank{R}) where {R} = collect(R)
 @inline Base.getindex(::StrideRank{R}, i::Integer) where {R} = R[i]
 @inline Base.getindex(::StrideRank{R}, ::Val{I}) where {R,I} = StrideRank{permute(R, I)}()
@@ -253,7 +252,14 @@ end
 @generated permute(::Type{S}, ::Val{I}) where {S <: Tuple, I} = permute(S, I)
 # permute(t::NTuple{N}, ::Val{I}) where {N,I} = permute(t, Val{I}())
 @inline Base.getindex(t::SDTuple, i::Integer) = Tuple(t)[i]
-@inline Base.getindex(::SDTuple{N,X,0}, ::Val{I}) where {X,N,I} = SDTuple{N,permute(X, Val{I}()),0}(tuple())
+@generated function Base.getindex(::SDTuple{N,X,0}, ::Val{I}) where {X,N,I}
+    ex = if I isa Integer
+        X[I]
+    elseif I isa Tuple
+        :(SDTuple{N,permute(X, Val{I}()),0}(tuple()))
+    end
+    Expr(:block, Expr(:meta, :inline), ex)
+end
 @generated function Base.getindex(t::SDTuple{N,X,P}, ::Val{I}) where {X,N,P,I}
     Xv = tuple_type_to_value_tuple(X)
     i = 0; tup = Expr(:tuple)
@@ -262,6 +268,11 @@ end
         if Xv[n] == -1
             x[n] = (i += 1)
         end
+    end
+    if I isa Integer
+        Xᵢ = X[I]
+        ex = Xᵢ == -1 ? Expr(:ref, :x, x[I]) : Xᵢ
+        return Expr(:bock, Expr(:meta, :inline), ex)
     end
     for n in 1:N
         if Xv[I[n]] == -1
