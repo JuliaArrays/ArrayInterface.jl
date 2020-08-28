@@ -204,6 +204,7 @@ end
     @test ArrayInterface.known_length(1:2) == nothing
     @test ArrayInterface.known_length((1,)) == 1
     @test ArrayInterface.known_length((a=1,b=2)) == 2
+    @test ArrayInterface.known_length([]) == nothing
 end
 
 @testset "indices" begin
