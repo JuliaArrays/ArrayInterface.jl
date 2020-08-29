@@ -205,6 +205,10 @@ end
     @test ArrayInterface.known_length((1,)) == 1
     @test ArrayInterface.known_length((a=1,b=2)) == 2
     @test ArrayInterface.known_length([]) == nothing
+
+    x = view(SArray{Tuple{3,3,3}}(ones(3,3,3)), :, SOneTo(2), 2)
+    @test @inferred(ArrayInterface.known_length(x)) == 6
+    @test @inferred(ArrayInterface.known_length(x')) == 6
 end
 
 @testset "indices" begin
