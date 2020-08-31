@@ -72,9 +72,10 @@ https://github.com/JuliaDiffEq/RecursiveArrayTools.jl/issues/19.
 ismutable(x) = ismutable(typeof(x))
 
 ismutable(::Type{<:AbstractArray}) = true
-ismutable(::Type{<:Number}) = false
 ismutable(::Type{<:AbstractRange}) = false
-ismutable(::Type{<:Tuple}) = false
+ismutable(::Type{<:AbstractDict}) = true
+ismutable(::Type{<:Base.ImmutableDict}) = false
+ismutable(::Type{T}) where {T} = T.mutable
 
 # Piracy
 function Base.setindex(x::AbstractArray,v,i...)
