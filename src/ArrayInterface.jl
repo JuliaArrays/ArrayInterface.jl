@@ -37,6 +37,19 @@ known_length(::Type{<:NTuple{N,<:Any}}) where {N} = N
 known_length(::Type{<:NamedTuple{L}}) where {L} = length(L)
 known_length(::Type{T}) where {T<:Base.Slice} = known_length(parent_type(T))
 known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N
+known_length(::Type{<:Number}) = 1
+function known_length(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return nothing
+    else
+        return known_length(parent_type(T))
+    end
+end
+@inline function known_length(::Type{<:SubArray{T,N,P,I}}) where {T,N,P,I}
+    return _known_length(ntuple(i -> known_length(I.parameters[i]), Val(N)))
+end
+_known_length(x::Tuple{Vararg{<:Union{Int,Nothing}}}) = nothing
+_known_length(x::Tuple{Vararg{Int}}) = prod(x)
 
 """
     can_change_size(::Type{T}) -> Bool

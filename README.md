@@ -129,6 +129,10 @@ If `step` of instances of type `T` are known at compile time, return that step.
 Otherwise, returns `nothing`. For example, `known_step(UnitRange{Int})` returns
 `one(Int)`.
 
+## known_length(::Type{T})
+
+If `length` of an instance of type `T` is known at compile time, return it.
+Otherwise, return `nothing`.
 
 ## device(::Type{T})
 
@@ -164,10 +168,10 @@ Returns a tuple of indicators for whether each axis is dense.
 An axis `i` of array `A` is dense if `stride(A, i) * size(A, i) == stride(A, j)` where `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
 
 
-
 ## can_avx(f)
 
 Is the function `f` whitelisted for `LoopVectorization.@avx`?
+
 
 # List of things to add
 
