@@ -208,13 +208,13 @@ end
 
 indices(x, d) = indices(axes(x, d))
 
-@inline function indices(x::NTuple{N,<:Any}, dim) where {N}
+@inline function indices(x::Tuple{Vararg{Any,N}}, dim) where {N}
   inds = map(x_i -> indices(x_i, dim), x)
   @assert all(isequal(first(inds)), Base.tail(inds)) "Not all specified axes are equal: $inds"
   return reduce(_pick_range, inds)
 end
 
-@inline function indices(x::NTuple{N,<:Any}, dim::NTuple{N,<:Any}) where {N}
+@inline function indices(x::Tuple{Vararg{Any,N}}, dim::NTuple{N,<:Any}) where {N}
   inds = map(indices, x, dim)
   @assert all(isequal(first(inds)), Base.tail(inds)) "Not all specified axes are equal: $inds"
   return reduce(_pick_range, inds)
