@@ -1,6 +1,6 @@
 using ArrayInterface, Test
 using Base: setindex
-import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims
+import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, Static
 @test ArrayInterface.ismutable(rand(3))
 
 using StaticArrays
@@ -266,40 +266,40 @@ end
     Sp2 = @view(PermutedDimsArray(S,(3,2,1))[2:3,:,:]);
     Mp2 = @view(PermutedDimsArray(M,(3,1,2))[2:3,:,2])';
     
-    @test @inferred(ArrayInterface.sdsize(A)) === ArrayInterface.SDTuple{Tuple{-1,-1,-1}}((3,4,5))
-    @test @inferred(ArrayInterface.sdsize(Ap)) === ArrayInterface.SDTuple{Tuple{-1,-1}}((2,5))
-    @test @inferred(Tuple(ArrayInterface.sdsize(A))) === size(A)
-    @test @inferred(Tuple(ArrayInterface.sdsize(Ap))) === size(Ap)
+    @test @inferred(ArrayInterface.sdsize(A)) === (3,4,5)
+    @test @inferred(ArrayInterface.sdsize(Ap)) === (2,5)
+    @test @inferred(ArrayInterface.sdsize(A)) === size(A)
+    @test @inferred(ArrayInterface.sdsize(Ap)) === size(Ap)
     
-    @test @inferred(ArrayInterface.sdsize(S)) === ArrayInterface.SDTuple{Tuple{2, 3, 4}}(())
-    @test @inferred(ArrayInterface.sdsize(Sp)) === ArrayInterface.SDTuple{Tuple{-1, -1, 3}}((2, 2))
-    @test @inferred(ArrayInterface.sdsize(Sp2)) === ArrayInterface.SDTuple{Tuple{-1, 3, 2}}((2, ))
-    @test @inferred(Tuple(ArrayInterface.sdsize(S))) === size(S)
-    @test @inferred(Tuple(ArrayInterface.sdsize(Sp))) === size(Sp)
-    @test @inferred(Tuple(ArrayInterface.sdsize(Sp2))) === size(Sp2)
+    @test @inferred(ArrayInterface.sdsize(S)) === (Static(2), Static(3), Static(4))
+    @test @inferred(ArrayInterface.sdsize(Sp)) === (2, 2, Static(3))
+    @test @inferred(ArrayInterface.sdsize(Sp2)) === (2, Static(3), Static(2))
+    @test @inferred(ArrayInterface.sdsize(S)) == size(S)
+    @test @inferred(ArrayInterface.sdsize(Sp)) == size(Sp)
+    @test @inferred(ArrayInterface.sdsize(Sp2)) == size(Sp2)
     
-    @test @inferred(ArrayInterface.sdsize(M)) === ArrayInterface.SDTuple{Tuple{2,3,4}}(())
-    @test @inferred(ArrayInterface.sdsize(Mp)) === ArrayInterface.SDTuple{Tuple{3,4}}(())
-    @test @inferred(ArrayInterface.sdsize(Mp2)) === ArrayInterface.SDTuple{Tuple{2,-1}}((2,))
-    @test @inferred(Tuple(ArrayInterface.sdsize(M))) === size(M)
-    @test @inferred(Tuple(ArrayInterface.sdsize(Mp))) === size(Mp)
-    @test @inferred(Tuple(ArrayInterface.sdsize(Mp2))) === size(Mp2)
+    @test @inferred(ArrayInterface.sdsize(M)) === (Static(2), Static(3), Static(4))
+    @test @inferred(ArrayInterface.sdsize(Mp)) === (Static(3), Static(4))
+    @test @inferred(ArrayInterface.sdsize(Mp2)) === (Static(2), 2)
+    @test @inferred(ArrayInterface.sdsize(M)) == size(M)
+    @test @inferred(ArrayInterface.sdsize(Mp)) == size(Mp)
+    @test @inferred(ArrayInterface.sdsize(Mp2)) == size(Mp2)
 
-    @test @inferred(ArrayInterface.sdstrides(A)) === ArrayInterface.SDTuple{Tuple{1,-1,-1}}((3,12))
-    @test @inferred(ArrayInterface.sdstrides(Ap)) === ArrayInterface.SDTuple{Tuple{1,-1}}((12,))
-    @test @inferred(Tuple(ArrayInterface.sdstrides(A))) === strides(A)
-    @test @inferred(Tuple(ArrayInterface.sdstrides(Ap))) === strides(Ap)
+    @test @inferred(ArrayInterface.sdstrides(A)) === (Static(1), 3, 12)
+    @test @inferred(ArrayInterface.sdstrides(Ap)) === (Static(1), 12)
+    @test @inferred(ArrayInterface.sdstrides(A)) == strides(A)
+    @test @inferred(ArrayInterface.sdstrides(Ap)) == strides(Ap)
     
-    @test @inferred(ArrayInterface.sdstrides(S)) === ArrayInterface.SDTuple{Tuple{1,2,6}}(())
-    @test @inferred(ArrayInterface.sdstrides(Sp)) === ArrayInterface.SDTuple{Tuple{6,1,2}}(())
-    @test @inferred(ArrayInterface.sdstrides(Sp2)) === ArrayInterface.SDTuple{Tuple{6, 2, 1}}(())
+    @test @inferred(ArrayInterface.sdstrides(S)) === (Static(1), Static(2), Static(6))
+    @test @inferred(ArrayInterface.sdstrides(Sp)) === (Static(6), Static(1), Static(2))
+    @test @inferred(ArrayInterface.sdstrides(Sp2)) === (Static(6), Static(2), Static(1))
     
-    @test @inferred(ArrayInterface.sdstrides(M)) === ArrayInterface.SDTuple{Tuple{1,2,6}}(())
-    @test @inferred(ArrayInterface.sdstrides(Mp)) === ArrayInterface.SDTuple{Tuple{2,6}}(())
-    @test @inferred(ArrayInterface.sdstrides(Mp2)) === ArrayInterface.SDTuple{Tuple{1,6}}(())
-    @test @inferred(Tuple(ArrayInterface.sdstrides(M))) === strides(M)
-    @test @inferred(Tuple(ArrayInterface.sdstrides(Mp))) === strides(Mp)
-    @test @inferred(Tuple(ArrayInterface.sdstrides(Mp2))) === strides(Mp2)
+    @test @inferred(ArrayInterface.sdstrides(M)) === (Static(1), Static(2), Static(6))
+    @test @inferred(ArrayInterface.sdstrides(Mp)) === (Static(2), Static(6))
+    @test @inferred(ArrayInterface.sdstrides(Mp2)) === (Static(1), Static(6))
+    @test @inferred(ArrayInterface.sdstrides(M)) == strides(M)
+    @test @inferred(ArrayInterface.sdstrides(Mp)) == strides(Mp)
+    @test @inferred(ArrayInterface.sdstrides(Mp2)) == strides(Mp2)
 
     @test isnothing(ArrayInterface.sdsize((1,2,3)))
     @test isnothing(ArrayInterface.sdstrides((1,2,3)))

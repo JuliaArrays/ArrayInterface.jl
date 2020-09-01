@@ -616,13 +616,19 @@ function __init__()
     stride_rank(::Type{T}) where {N, T <: StaticArrays.StaticArray{<:Any,<:Any,N}} = StrideRank{ntuple(identity, Val{N}())}()
     dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = DenseDims{ntuple(_ -> true, Val(N))}()
     defines_strides(::Type{<:StaticArrays.MArray}) = true
-    sdsize(A::StaticArrays.StaticArray{S}) where {S} = SDTuple{S}(())
-    @generated function sdstrides(A::StaticArrays.StaticArray{S}) where {S}
-        X = Expr(:curly, :Tuple, 1); Sp = S.parameters; x = 1
-        for n in 1:length(Sp)-1
-            push!(X.args, (x *= Sp[n]))
+    @generated function sdsize(A::StaticArrays.StaticArray{S}) where {S}
+        t = Expr(:tuple); Sp = S.parameters
+        for n in 1:length(Sp)
+            push!(t.args, Expr(:call, Expr(:curly, :Static, Sp[n])))
         end
-        Expr(:call, Expr(:curly, :SDTuple, X), Expr(:tuple))
+        t
+    end
+    @generated function sdstrides(A::StaticArrays.StaticArray{S}) where {S}
+        t = Expr(:tuple, Expr(:call, Expr(:curly, :Static, 1))); Sp = S.parameters; x = 1
+        for n in 1:length(Sp)-1
+            push!(t.args, Expr(:call, Expr(:curly, :Static, (x *= Sp[n]))))
+        end
+        t
     end
 
     @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
@@ -746,7 +752,8 @@ function __init__()
   end
 end
 
-include("stridelayout.jl")
 include("ranges.jl")
+include("static.jl")
+include("stridelayout.jl")
 
 end
