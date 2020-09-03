@@ -11,8 +11,11 @@ Static(N) = Static(convert(Int,N))
 Static(::Val{N}) where {N} = Static{N}()
 @inline Base.Val(::Static{N}) where {N} = Val{N}()
 Base.convert(::Type{T}, ::Static{N}) where {T<:Number,N} = convert(T, N)
+Base.convert(::Type{Static{N}}, ::Static{N}) where {N} = Static{N}()
 Base.promote_rule(::Type{<:Static}, ::Type{T}) where {T} = promote_rule(Int, T)
 Base.promote_rule(::Type{T}, ::Type{<:Static}) where {T} = promote_rule(T, Int)
+Base.promote_rule(::Type{<:Static}, ::Type{<:Static}) where {T} = Int
+Base.:(%)(::Static{N}, ::Type{Integer}) where {N} = N
 
 _get(::Static{N}) where {N} = N
 _get(::Type{Static{N}}) where {N} = N
