@@ -216,7 +216,12 @@ sdoffsets(::Any) = (Static{1}(),) # Assume arbitrary Julia data structures use 1
 @inline sdstrides(A::Vector{<:Any}) where {N} = (Static(1),)
 @inline sdstrides(A::Array{<:Any,N}) where {N} = (Static(1), Base.tail(strides(A))...)
 @inline sdstrides(A::AbstractArray{<:Any,N}) where {N} = strides(A)
-sdoffsets(::AbstractArray{<:Any,N}) where {N} = ntuple(_ -> Static{1}(), Static{N}())
+
+@generated function maybe_static_first(x)
+    L = known_first(x)
+    isnothing(L) ? :(first(x)) : :(Static{$L}())
+end
+sdoffsets(A::AbstractArray{<:Any,N}) where {N} = ntuple(n -> maybe_static_first(axes(A,n)), Static{N}())
 
 @inline sdsize(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} = permute(sdsize(parent(B)), Val{(2,1)}())
 @inline sdsize(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = permute(sdsize(parent(B)), Val{I1}())

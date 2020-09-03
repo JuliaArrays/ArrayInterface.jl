@@ -767,7 +767,7 @@ function __init__()
   @require OffsetArrays="6fe1bfb0-de20-5000-8ca7-80f57d26f881" begin
       sdsize(A::OffsetArrays.OffsetArray) = sdsize(parent(A))
       sdstrides(A::OffsetArrays.OffsetArray) = sdstrides(parent(A))
-      sdoffsets(A::OffsetArrays.OffsetArray) = map(+, A.offsets, sdoffsets(parent(A)))
+      # sdoffsets(A::OffsetArrays.OffsetArray) = map(+, A.offsets, sdoffsets(parent(A)))
       device(::OffsetArrays.OffsetArray) = CheckParent()
       contiguous_axis(A::OffsetArrays.OffsetArray) = contiguous_axis(parent(A))
       contiguous_batch_size(A::OffsetArrays.OffsetArray) = contiguous_batch_size(parent(A))
