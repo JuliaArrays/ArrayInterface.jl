@@ -4,12 +4,17 @@ import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, 
 @test ArrayInterface.ismutable(rand(3))
 
 using StaticArrays
-@test ArrayInterface.ismutable(@SVector [1,2,3]) == false
-@test ArrayInterface.ismutable(@MVector [1,2,3]) == true
+x = @SVector [1,2,3]
+@test ArrayInterface.ismutable(x) == false
+@test ArrayInterface.ismutable(view(x, 1:2)) == false
+x = @MVector [1,2,3]
+@test ArrayInterface.ismutable(x) == true
+@test ArrayInterface.ismutable(view(x, 1:2)) == true
 @test ArrayInterface.ismutable(1:10) == false
 @test ArrayInterface.ismutable((0.1,1.0)) == false
 @test ArrayInterface.ismutable(Base.ImmutableDict{Symbol,Int64}) == false
 @test ArrayInterface.ismutable((;x=1)) == false
+
 @test isone(ArrayInterface.known_first(typeof(StaticArrays.SOneTo(7))))
 @test ArrayInterface.known_last(typeof(StaticArrays.SOneTo(7))) == 7
 @test ArrayInterface.known_length(typeof(StaticArrays.SOneTo(7))) == 7
