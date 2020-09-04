@@ -61,7 +61,7 @@ Returns a tuple boolean `Val`s indicating whether that axis is contiguous.
 """
 contiguous_axis_indicator(::Type{A}) where {D, A <: AbstractArray{<:Any,D}} = contiguous_axis_indicator(contiguous_axis(A), Val(D))
 contiguous_axis_indicator(::A) where {A <: AbstractArray} = contiguous_axis_indicator(A)
-Base.@pure contiguous_axis_indicator(::Contiguous{N}, ::Val{D}) where {N,D} = ntuple(d -> Val{d == N}(), Static{D}())
+Base.@pure contiguous_axis_indicator(::Contiguous{N}, ::Val{D}) where {N,D} = ntuple(d -> Val{d == N}(), Val{D}())
 
 """
 If the contiguous dimension is not the dimension with `Stride_rank{1}`
@@ -104,8 +104,8 @@ Base.collect(::StrideRank{R}) where {R} = collect(R)
 @inline Base.getindex(::StrideRank{R}, ::Val{I}) where {R,I} = StrideRank{permute(R, I)}()
 
 function rank_to_sortperm(R::NTuple{N,Int}) where {N}
-    sp = ntuple(zero, Static{N}())
-    r = ntuple(n -> sum(R[n] .≥ R), Static{N}())
+    sp = ntuple(zero, Val{N}())
+    r = ntuple(n -> sum(R[n] .≥ R), Val{N}())
     @inbounds for n in 1:N
         sp = Base.setindex(sp, n, r[n])
     end
@@ -120,7 +120,7 @@ Returns the `sortperm` of the stride ranks.
 
 stride_rank(x) = stride_rank(typeof(x))
 stride_rank(::Type) = nothing
-stride_rank(::Type{Array{T,N}}) where {T,N} = StrideRank{ntuple(identity, Static{N}())}()
+stride_rank(::Type{Array{T,N}}) where {T,N} = StrideRank{ntuple(identity, Val{N}())}()
 stride_rank(::Type{<:Tuple}) = StrideRank{(1,)}()
 
 stride_rank(::Type{B}) where {T, A, B <: Union{Transpose{T,A},Adjoint{T,A}}} = _stride_rank(B, stride_rank(A))
@@ -164,7 +164,7 @@ An axis `i` of array `A` is dense if `stride(A, i) * size(A, i) == stride(A, j)`
 """
 dense_dims(x) = dense_dims(typeof(x))
 dense_dims(::Type) = nothing
-dense_dims(::Type{Array{T,N}}) where {T,N} = DenseDims{ntuple(_ -> true, Static{N}())}()
+dense_dims(::Type{Array{T,N}}) where {T,N} = DenseDims{ntuple(_ -> true, Val{N}())}()
 dense_dims(::Type{<:Tuple}) = DenseDims{(true,)}()
 function dense_dims(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractMatrix{T}}
     dense = dense_dims(A)
@@ -202,7 +202,7 @@ _dense_dims(::Any, ::Any) = nothing
     length(dense_tup.args) == N ? Expr(:call, Expr(:curly, :DenseDims, dense_tup)) : nothing
 end
 
-permute(t::NTuple{N}, I::NTuple{N,Int}) where {N} = ntuple(n -> t[I[n]], Static{N}())
+permute(t::NTuple{N}, I::NTuple{N,Int}) where {N} = ntuple(n -> t[I[n]], Val{N}())
 @generated function permute(t::Tuple{Vararg{Any,N}}, ::Val{I}) where {N,I}
     t = Expr(:tuple)
     foreach(i -> push!(t.args, Expr(:ref, :t, i)), I)
@@ -221,7 +221,7 @@ sdoffsets(::Any) = (Static{1}(),) # Assume arbitrary Julia data structures use 1
     L = known_first(x)
     isnothing(L) ? :(first(x)) : :(Static{$L}())
 end
-sdoffsets(A::AbstractArray{<:Any,N}) where {N} = ntuple(n -> maybe_static_first(axes(A,n)), Static{N}())
+sdoffsets(A::AbstractArray{<:Any,N}) where {N} = ntuple(n -> maybe_static_first(axes(A,n)), Val{N}())
 
 @inline sdsize(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} = permute(sdsize(parent(B)), Val{(2,1)}())
 @inline sdsize(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = permute(sdsize(parent(B)), Val{I1}())

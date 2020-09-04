@@ -57,14 +57,4 @@ Base.:(:)(::Static{L}, ::Static{U}) where {L,U} = OptionallyStaticUnitRange(Val(
 Base.:(==)(::Static{M}, ::Static{N}) where {M,N} = false
 Base.:(==)(::Static{M}, ::Static{M}) where {M} = true
 
-"""
-  ntuple(f::F, ::Static{N}) -> Tuple{Vararg{Any,N}}
-
-Fully unrolled evaluation of `1:N`.
-"""
-@generated function Base.ntuple(f::F, ::Static{N}) where {F,N}
-    t = Expr(:tuple)
-    foreach(n -> push!(t.args, Expr(:call, :f, n)), 1:N)
-    Expr(:block, Expr(:meta, :inline), t)
-end
 
