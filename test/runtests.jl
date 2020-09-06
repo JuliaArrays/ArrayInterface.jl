@@ -259,7 +259,8 @@ end
     @test collect(strides(B))[collect(stride_rank(doubleperm))] == collect(strides(doubleperm))
 end
 
-@testset "Static-Dynamic Size and Strides" begin
+using OffsetArrays
+@testset "Static-Dynamic Size, Strides, and Offsets" begin
     A = zeros(3,4,5); Ap = @view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])';
     S = @SArray zeros(2,3,4); Sp = @view(PermutedDimsArray(S,(3,1,2))[2:3,1:2,:]);
     M = @MArray zeros(2,3,4); Mp = @view(PermutedDimsArray(M,(3,1,2))[:,2,:])';
@@ -300,9 +301,26 @@ end
     @test @inferred(ArrayInterface.sdstrides(M)) == strides(M)
     @test @inferred(ArrayInterface.sdstrides(Mp)) == strides(Mp)
     @test @inferred(ArrayInterface.sdstrides(Mp2)) == strides(Mp2)
+    
+    @test @inferred(ArrayInterface.sdoffsets(A)) === (Static(1), Static(1), Static(1))
+    @test @inferred(ArrayInterface.sdoffsets(Ap)) === (Static(1), Static(1))
+    
+    @test @inferred(ArrayInterface.sdoffsets(S)) === (Static(1), Static(1), Static(1))
+    @test @inferred(ArrayInterface.sdoffsets(Sp)) === (Static(1), Static(1), Static(1))
+    @test @inferred(ArrayInterface.sdoffsets(Sp2)) === (Static(1), Static(1), Static(1))
+    
+    @test @inferred(ArrayInterface.sdoffsets(M)) === (Static(1), Static(1), Static(1))
+    @test @inferred(ArrayInterface.sdoffsets(Mp)) === (Static(1), Static(1))
+    @test @inferred(ArrayInterface.sdoffsets(Mp2)) === (Static(1), Static(1))
 
-    @test isnothing(ArrayInterface.sdsize((1,2,3)))
-    @test isnothing(ArrayInterface.sdstrides((1,2,3)))
+    O = OffsetArray(A, 3, 7, 10);
+    Op = PermutedDimsArray(O,(3,1,2));
+    @test @inferred(ArrayInterface.sdoffsets(O)) === (4, 8, 11)
+    @test @inferred(ArrayInterface.sdoffsets(Op)) === (11, 4, 8)
+    
+    @test @inferred(isnothing(ArrayInterface.sdsize((1,2,3))))
+    @test @inferred(isnothing(ArrayInterface.sdstrides((1,2,3))))
+    @test @inferred(ArrayInterface.sdoffsets((1,2,3))) === (Static(1),)
 end
 
 @test ArrayInterface.can_avx(ArrayInterface.can_avx) == false
@@ -316,7 +334,7 @@ end
 end
 
 @testset "known_length" begin
-    @test ArrayInterface.known_length(ArrayInterface.indices(SOneTo(7))) == 7
+    @test ArrayInterface.known_length(@inferred(ArrayInterface.indices(SOneTo(7)))) == 7
     @test ArrayInterface.known_length(1:2) == nothing
     @test ArrayInterface.known_length((1,)) == 1
     @test ArrayInterface.known_length((a=1,b=2)) == 2

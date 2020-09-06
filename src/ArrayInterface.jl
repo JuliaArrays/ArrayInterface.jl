@@ -775,8 +775,8 @@ function __init__()
   end
 end
 
-include("ranges.jl")
 include("static.jl")
+include("ranges.jl")
 include("stridelayout.jl")
 
 end

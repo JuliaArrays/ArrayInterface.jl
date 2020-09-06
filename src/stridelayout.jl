@@ -219,10 +219,18 @@ sdoffsets(::Any) = (Static{1}(),) # Assume arbitrary Julia data structures use 1
 
 @inline function sdoffsets(x, i)
     inds = indices(x, i)
-    start = known_first(x)
+    start = known_first(inds)
     isnothing(start) ? first(inds) : Static(start)
 end
-sdoffsets(A::AbstractArray{<:Any,N}) where {N} = ntuple(n -> sdoffsets(A, n), Val{N}())
+# @inline sdoffsets(A::AbstractArray{<:Any,N}) where {N} = ntuple(n -> sdoffsets(A, n), Val{N}())
+# Explicit tuple needed for inference.
+@generated function sdoffsets(A::AbstractArray{<:Any,N}) where {N}
+    quote
+        $(Expr(:meta, :inline))
+        Base.Cartesian.@ntuple $N n -> sdoffsets(A, n)
+    end
+end
+
 
 @inline sdsize(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} = permute(sdsize(parent(B)), Val{(2,1)}())
 @inline sdsize(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = permute(sdsize(parent(B)), Val{I1}())

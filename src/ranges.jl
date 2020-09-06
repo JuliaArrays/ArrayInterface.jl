@@ -90,6 +90,10 @@ struct OptionallyStaticUnitRange{T,F,L} <: AbstractUnitRange{T}
   end
 end
 
+Base.:(:)(L, ::Static{U}) where {U} = OptionallyStaticUnitRange(L, Val(U))
+Base.:(:)(::Static{L}, U) where {L} = OptionallyStaticUnitRange(Val(L), U)
+Base.:(:)(::Static{L}, ::Static{U}) where {L,U} = OptionallyStaticUnitRange(Val(L), Val(U))
+
 Base.first(r::OptionallyStaticUnitRange{<:Any,Val{F}}) where {F} = F
 Base.first(r::OptionallyStaticUnitRange{<:Any,<:Any}) = r.start
 
@@ -141,10 +145,10 @@ end
   return convert(eltype(r), val)
 end
 
-_try_static(x, y) = Val(x)
-_try_static(::Nothing, y) = Val(y)
-_try_static(x, ::Nothing) = Val(x)
-_try_static(::Nothing, ::Nothing) = nothing
+@inline _try_static(x, y) = Val(x)
+@inline _try_static(::Nothing, y) = Val(y)
+@inline _try_static(x, ::Nothing) = Val(x)
+@inline _try_static(::Nothing, ::Nothing) = nothing
 
 ###
 ### length
@@ -161,6 +165,10 @@ _try_static(::Nothing, ::Nothing) = nothing
       return unsafe_length_unit_range(fst, lst)
     end
   end
+end
+@generated function maybe_static_length(x)
+    l = known_length(x)
+    isnothing(l) ? :(length(x)) : :(Static{$l}())
 end
 
 function Base.length(r::OptionallyStaticUnitRange{T}) where {T}
@@ -193,7 +201,7 @@ specified then indices for visiting each index of `x` is returned.
 """
 @inline function indices(x)
   inds = eachindex(x)
-  if inds isa AbstractUnitRange{<:Integer}
+  if inds isa AbstractUnitRange#{<:Integer} # prevents inference
     return Base.Slice(OptionallyStaticUnitRange(inds))
   else
     return inds
@@ -206,7 +214,7 @@ function indices(x::Tuple)
   return reduce(_pick_range, inds)
 end
 
-indices(x, d) = indices(axes(x, d))
+@inline indices(x, d) = indices(axes(x, d))
 
 @inline function indices(x::Tuple{Vararg{Any,N}}, dim) where {N}
   inds = map(x_i -> indices(x_i, dim), x)
@@ -221,11 +229,11 @@ end
 end
 
 @inline function _pick_range(x, y)
-  fst = _try_static(known_first(x), known_first(y))
-  fst = fst === nothing ? first(x) : fst
+  _fst = _try_static(known_first(x), known_first(y))
+  fst = _fst === nothing ? first(x) : _fst
 
-  lst = _try_static(known_last(x), known_last(y))
-  lst = lst === nothing ? last(x) : lst
+  _lst = _try_static(known_last(x), known_last(y))
+  lst = _lst === nothing ? last(x) : _lst
   return Base.Slice(OptionallyStaticUnitRange(fst, lst))
 end
 

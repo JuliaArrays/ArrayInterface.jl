@@ -50,10 +50,6 @@ Base.:(&)(::Static{M}, ::Static{N}) where {M,N} = Static{M & N}()
 Base.:(|)(::Static{M}, ::Static{N}) where {M,N} = Static{M | N}()
 Base.:(⊻)(::Static{M}, ::Static{N}) where {M,N} = Static{M ⊻ N}()
 
-Base.:(:)(L, ::Static{U}) where {U} = OptionallyStaticUnitRange(L, Val(U))
-Base.:(:)(::Static{L}, U) where {L} = OptionallyStaticUnitRange(Val(L), U)
-Base.:(:)(::Static{L}, ::Static{U}) where {L,U} = OptionallyStaticUnitRange(Val(L), Val(U))
-
 Base.:(==)(::Static{M}, ::Static{N}) where {M,N} = false
 Base.:(==)(::Static{M}, ::Static{M}) where {M} = true
 
