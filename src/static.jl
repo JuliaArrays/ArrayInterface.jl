@@ -25,19 +25,30 @@ _get(::Type{Static{N}}) where {N} = N
 
 Base.:(+)(i::Number, ::Static{0}) = i
 Base.:(+)(::Static{0}, i::Number) = i
+Base.:(+)(::Static{0}, i::Integer) = i
 Base.:(+)(::Static{0}, ::Static{0}) = Static{0}()
+Base.:(+)(::Static{N}, ::Static{0}) where {N} = Static{N}()
+Base.:(+)(::Static{0}, ::Static{N}) where {N} = Static{N}()
 Base.:(+)(::Static{M}, ::Static{N}) where {M,N} = Static{M + N}()
 
 Base.:(-)(::Static{0}, i::Number) = -i
 Base.:(-)(i::Number, ::Static{0}) = i
 Base.:(-)(::Static{0}, ::Static{0}) = Static{0}()
+Base.:(-)(::Static{0}, ::Static{N}) where {N} = Static{-N}()
+Base.:(-)(::Static{N}, ::Static{0}) where {N} = Static{N}()
 Base.:(-)(::Static{M}, ::Static{N}) where {M,N} = Static{M - N}()
 
 Base.:(*)(::Static{0}, i::Number) = Static{0}()
 Base.:(*)(i::Number, ::Static{0}) = Static{0}()
+Base.:(*)(::Static{0}, ::Static{M}) where {M} = Static{0}()
+Base.:(*)(::Static{M}, ::Static{0}) where {M} = Static{0}()
 Base.:(*)(::Static{0}, ::Static{0}) = Static{0}()
 Base.:(*)(::Static{1}, i::Number) = i
 Base.:(*)(i::Number, ::Static{1}) = i
+Base.:(*)(::Static{0}, ::Static{1}) where {M} = Static{0}()
+Base.:(*)(::Static{1}, ::Static{0}) where {M} = Static{0}()
+Base.:(*)(::Static{M}, ::Static{1}) where {M} = Static{M}()
+Base.:(*)(::Static{1}, ::Static{M}) where {M} = Static{M}()
 Base.:(*)(::Static{1}, ::Static{1}) = Static{1}()
 Base.:(*)(::Static{M}, ::Static{N}) where {M,N} = Static{M * N}()
 
