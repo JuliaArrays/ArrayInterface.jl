@@ -150,7 +150,7 @@ If unknown, it returns `nothing`.
 
 ## contiguous_axis_indicator(::Type{T})
 
-Returns a tuple boolean `Val`s indicating whether that axis is contiguous.
+Returns a tuple of boolean `Val`s indicating whether that axis is contiguous.
 
 ## contiguous_batch_size(::Type{T})
 
