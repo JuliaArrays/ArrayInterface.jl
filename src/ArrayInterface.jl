@@ -543,6 +543,79 @@ function restructure(x::Array,y)
   reshape(convert(Array,y),size(x)...)
 end
 
+"""
+    push(collection, item)
+
+Return a new instance of `collection` with `item` inserted on the end.
+"""
+push(collection, x) = vcat(collection, x)
+
+"""
+    pushfirst(collection, item)
+
+Return a new instance of `collection` with `item` inserted at the beginning.
+"""
+pushfirst(collection, x) = vcat(x, collection)
+
+"""
+    insert(collection, index, item)
+
+Return a new instance of `collection` with `item` inserted into at the given `index`.
+"""
+Base.@propagate_inbounds function insert(collection, index, item)
+  @boundscheck checkbounds(collection, index)
+  ret = similar(collection, length(collection) + 1)
+  @inbounds for i in indices(ret)
+    if i < index
+      ret[i] = collection[i]
+    elseif i == index
+      ret[i] = item
+    else
+      ret[i] = collection[i - 1]
+    end
+  end
+  return ret
+end
+
+"""
+    pop(collection)
+
+Return a new instance of `collection` with the last item removed.
+"""
+@inline function pop(collection)
+  inds = pop(indices(collection))
+  return @inbounds(getindex(collection, inds))
+end
+
+"""
+    popfirst(collection)
+
+
+Return a new instance of `collection` with the first item removed.
+"""
+@inline function popfirst(collection)
+  inds = popfirst(indices(collection))
+  return @inbounds(getindex(collection, inds))
+end
+
+"""
+    deleteat(collection, index)
+
+Return a new instance of `collection` with the item at the given `index` removed.
+"""
+Base.@propagate_inbounds function deleteat(collection, index)
+  @boundscheck checkbounds(collection, index)
+  ret = similar(collection, length(collection) - 1)
+  @inbounds for i in indices(ret)
+    if i < index
+      ret[i] = collection[i]
+    else
+      ret[i] = collection[i + 1]
+    end
+  end
+  return ret
+end
+
 function __init__()
 
   @require SuiteSparse="4607b0f0-06f3-5cda-b6b1-a6196a1729e9" begin
