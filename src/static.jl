@@ -17,9 +17,6 @@ Base.promote_rule(::Type{T}, ::Type{<:Static}) where {T} = promote_rule(T, Int)
 Base.promote_rule(::Type{<:Static}, ::Type{<:Static}) where {T} = Int
 Base.:(%)(::Static{N}, ::Type{Integer}) where {N} = N
 
-_get(::Static{N}) where {N} = N
-_get(::Type{Static{N}}) where {N} = N
-
 @inline Base.iszero(::Static{0}) = true
 @inline Base.iszero(::Static) = false
 
@@ -64,4 +61,13 @@ Base.:(⊻)(::Static{M}, ::Static{N}) where {M,N} = Static{M ⊻ N}()
 Base.:(==)(::Static{M}, ::Static{N}) where {M,N} = false
 Base.:(==)(::Static{M}, ::Static{M}) where {M} = true
 
+
+@inline function maybe_static(f::F, g::G, x) where {F, G}
+    L = f(x)
+    isnothing(L) ? g(x) : Static(L)
+end
+@inline static_length(x) = maybe_static(known_length, length, x)
+@inline static_first(x) = maybe_static(known_first, first, x)
+@inline static_last(x) = maybe_static(known_last, last, x)
+@inline static_step(x) = maybe_static(known_step, step, x)
 

@@ -33,7 +33,6 @@ If `length` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
 """
 known_length(x) = known_length(typeof(x))
-known_length(::Type{<:NTuple{N,<:Any}}) where {N} = N
 known_length(::Type{<:NamedTuple{L}}) where {L} = length(L)
 known_length(::Type{T}) where {T<:Base.Slice} = known_length(parent_type(T))
 known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N

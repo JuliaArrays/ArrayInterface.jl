@@ -44,6 +44,8 @@ known_step(::Type{<:AbstractUnitRange{T}}) where {T} = one(T)
 
 _get(x) = x
 _get(::Val{V}) where {V} = V
+_get(::Static{V}) where {V} = V
+_get(::Type{Static{V}}) where {V} = V
 _convert(::Type{T}, x) where {T} = convert(T, x)
 _convert(::Type{T}, ::Val{V}) where {T,V} = Val(convert(T, V))
 
@@ -56,7 +58,7 @@ at compile time. An `OptionallyStaticUnitRange` is intended to be constructed in
 from other valid indices. Therefore, users should not expect the same checks are used
 to ensure construction of a valid `OptionallyStaticUnitRange` as a `UnitRange`.
 """
-struct OptionallyStaticUnitRange{T,F,L} <: AbstractUnitRange{T}
+struct OptionallyStaticUnitRange{T <: Integer, F <: Integer, L <: Integer} <: AbstractUnitRange{T}
   start::F
   stop::L
 
@@ -79,10 +81,8 @@ struct OptionallyStaticUnitRange{T,F,L} <: AbstractUnitRange{T}
 
   function OptionallyStaticUnitRange(x::AbstractRange)
     if step(x) == 1
-      fst = known_first(x)
-      fst = fst === nothing ? first(x) : Val(fst)
-      lst = known_last(x)
-      lst = lst === nothing ? last(x) : Val(lst)
+      fst = static_first(x)
+      lst = static_last(x)
       return OptionallyStaticUnitRange(fst, lst)
     else
         throw(ArgumentError("step must be 1, got $(step(r))"))
@@ -90,21 +90,17 @@ struct OptionallyStaticUnitRange{T,F,L} <: AbstractUnitRange{T}
   end
 end
 
-Base.:(:)(L, ::Static{U}) where {U} = OptionallyStaticUnitRange(L, Val(U))
-Base.:(:)(::Static{L}, U) where {L} = OptionallyStaticUnitRange(Val(L), U)
-Base.:(:)(::Static{L}, ::Static{U}) where {L,U} = OptionallyStaticUnitRange(Val(L), Val(U))
+Base.:(:)(L, ::Static{U}) where {U} = OptionallyStaticUnitRange(L, Static(U))
+Base.:(:)(::Static{L}, U) where {L} = OptionallyStaticUnitRange(Static(L), U)
+Base.:(:)(::Static{L}, ::Static{U}) where {L,U} = OptionallyStaticUnitRange(Static(L), Static(U))
 
-Base.first(r::OptionallyStaticUnitRange{<:Any,Val{F}}) where {F} = F
-Base.first(r::OptionallyStaticUnitRange{<:Any,<:Any}) = r.start
-
+Base.first(r::OptionallyStaticUnitRange) = r.start
 Base.step(r::OptionallyStaticUnitRange{T}) where {T} = oneunit(T)
+Base.last(r::OptionallyStaticUnitRange) = r.stop
 
-Base.last(r::OptionallyStaticUnitRange{<:Any,<:Any,Val{L}}) where {L} = L
-Base.last(r::OptionallyStaticUnitRange{<:Any,<:Any,<:Any}) = r.stop
-
-known_first(::Type{<:OptionallyStaticUnitRange{<:Any,Val{F}}}) where {F} = F
+known_first(::Type{<:OptionallyStaticUnitRange{<:Any,Static{F}}}) where {F} = F
 known_step(::Type{<:OptionallyStaticUnitRange{T}}) where {T} = one(T)
-known_last(::Type{<:OptionallyStaticUnitRange{<:Any,<:Any,Val{L}}}) where {L} = L
+known_last(::Type{<:OptionallyStaticUnitRange{<:Any,<:Any,Static{L}}}) where {L} = L
 
 function Base.isempty(r::OptionallyStaticUnitRange)
   if known_first(r) === oneunit(eltype(r))
@@ -145,10 +141,19 @@ end
   return convert(eltype(r), val)
 end
 
-@inline _try_static(x, y) = Val(x)
-@inline _try_static(::Nothing, y) = Val(y)
-@inline _try_static(x, ::Nothing) = Val(x)
-@inline _try_static(::Nothing, ::Nothing) = nothing
+@inline _try_static(::Static{N}, ::Static{N}) where {N} = Static{N}()
+function _try_static(::Static{N}, x) where {N}
+    @assert N == x "Unequal Indices: Static{$N}() != x == $x"
+    Static{N}()
+end
+function _try_static(x, ::Static{N}) where {N}
+    @assert N == x "Unequal Indices: x == $x != Static{$N}()"
+    Static{N}()
+end
+function _try_static(x, y)
+    @assert x == y "Unequal Indicess: x == $x != $y == y"
+    x
+end
 
 ###
 ### length
@@ -165,10 +170,6 @@ end
       return unsafe_length_unit_range(fst, lst)
     end
   end
-end
-@generated function maybe_static_length(x)
-    l = known_length(x)
-    isnothing(l) ? :(length(x)) : :(Static{$l}())
 end
 
 function Base.length(r::OptionallyStaticUnitRange{T}) where {T}
@@ -210,7 +211,6 @@ end
 
 function indices(x::Tuple)
   inds = map(eachindex, x)
-  @assert all(isequal(first(inds)), Base.tail(inds)) "Not all specified axes are equal: $inds"
   return reduce(_pick_range, inds)
 end
 
@@ -218,22 +218,17 @@ end
 
 @inline function indices(x::Tuple{Vararg{Any,N}}, dim) where {N}
   inds = map(x_i -> indices(x_i, dim), x)
-  @assert all(isequal(first(inds)), Base.tail(inds)) "Not all specified axes are equal: $inds"
   return reduce(_pick_range, inds)
 end
 
 @inline function indices(x::Tuple{Vararg{Any,N}}, dim::NTuple{N,<:Any}) where {N}
   inds = map(indices, x, dim)
-  @assert all(isequal(first(inds)), Base.tail(inds)) "Not all specified axes are equal: $inds"
   return reduce(_pick_range, inds)
 end
 
 @inline function _pick_range(x, y)
-  _fst = _try_static(known_first(x), known_first(y))
-  fst = _fst === nothing ? first(x) : _fst
-
-  _lst = _try_static(known_last(x), known_last(y))
-  lst = _lst === nothing ? last(x) : _lst
+  fst = _try_static(static_first(x), static_first(y))
+  lst = _try_static(static_last(x), static_last(y))
   return Base.Slice(OptionallyStaticUnitRange(fst, lst))
 end
 

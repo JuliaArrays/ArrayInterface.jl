@@ -123,7 +123,8 @@ stride_rank(::Type) = nothing
 stride_rank(::Type{Array{T,N}}) where {T,N} = StrideRank{ntuple(identity, Val{N}())}()
 stride_rank(::Type{<:Tuple}) = StrideRank{(1,)}()
 
-stride_rank(::Type{B}) where {T, A, B <: Union{Transpose{T,A},Adjoint{T,A}}} = _stride_rank(B, stride_rank(A))
+stride_rank(::Type{B}) where {T, A <: AbstractVector{T}, B <: Union{Transpose{T,A},Adjoint{T,A}}} = StrideRank{(2, 1)}()
+stride_rank(::Type{B}) where {T, A <: AbstractMatrix{T}, B <: Union{Transpose{T,A},Adjoint{T,A}}} = _stride_rank(B, stride_rank(A))
 _stride_rank(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}, ::Nothing) where {T,A<:AbstractMatrix{T}} = nothing
 _stride_rank(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}, rank) where {T,A<:AbstractMatrix{T}} = rank[Val{(2,1)}()]
 
@@ -187,7 +188,7 @@ _dense_dims(::Any, ::Any) = nothing
         still_dense &= D[spₙ]
         densev[spₙ] = still_dense
         # a dim not being complete makes later dims not dense
-        still_dense &= (I.parameters[spₙ] <: Base.Slice)::Bool)
+        still_dense &= (I.parameters[spₙ] <: Base.Slice)::Bool
     end
     dense_tup = Expr(:tuple)
     for np in 1:NP
@@ -209,8 +210,43 @@ permute(t::NTuple{N}, I::NTuple{N,Int}) where {N} = ntuple(n -> t[I[n]], Val{N}(
     Expr(:block, Expr(:meta, :inline), t)
 end
 
+"""
+  sdsize(A)
+
+Returns the size of `A`. If the size of any axes are known at compile time,
+these should be returned as `Static` numbers. For example:
+```julia
+julia> using StaticArrays; using ArrayInterface: sdsize
+
+julia> A = @SMatrix rand(3,4);
+
+julia> sdsize(A)
+(Static{3}(), Static{4}())
+```
+"""
 sdsize(::Any) = nothing
+"""
+  sdstrides(A)
+
+Returns the strides of array `A`. If any strides are known at compile time,
+these should be returned as `Static` numbers. For example:
+```julia
+julia> using ArrayInterface: sdstrides
+
+julia> A = rand(3,4);
+
+julia> sdstrides(A)
+(Static{1}(), 3)
+```
+"""
 sdstrides(::Any) = nothing
+"""
+  sdoffsets(A)
+
+Returns offsets of indices with respect to 0. If values are known at compile time,
+it should return them as `Static` numbers.
+For example, if `A isa Base.Matrix`, `sdoffsets(A) === (Static(1), Static(1))`.
+"""
 sdoffsets(::Any) = (Static{1}(),) # Assume arbitrary Julia data structures use 1-based indexing by default.
 @inline sdsize(A::AbstractArray{<:Any,N}) where {N} = size(A)
 @inline sdstrides(A::Vector{<:Any}) where {N} = (Static(1),)
@@ -266,3 +302,4 @@ end
     end
     Expr(:block, Expr(:meta, :inline), t)
 end
+

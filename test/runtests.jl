@@ -179,16 +179,16 @@ using ArrayInterface: parent_type
 end
 
 @testset "Range Interface" begin
-    @test isnothing(ArrayInterface.known_first(typeof(1:4)))
-    @test isone(ArrayInterface.known_first(Base.OneTo(4)))
-    @test isone(ArrayInterface.known_first(typeof(Base.OneTo(4))))
+    @test isnothing(@inferred(ArrayInterface.known_first(typeof(1:4))))
+    @test isone(@inferred(ArrayInterface.known_first(Base.OneTo(4))))
+    @test isone(@inferred(ArrayInterface.known_first(typeof(Base.OneTo(4)))))
 
-    @test isnothing(ArrayInterface.known_last(1:4))
-    @test isnothing(ArrayInterface.known_last(typeof(1:4)))
+    @test isnothing(@inferred(ArrayInterface.known_last(1:4)))
+    @test isnothing(@inferred(ArrayInterface.known_last(typeof(1:4))))
 
-    @test isnothing(ArrayInterface.known_step(typeof(1:0.2:4)))
-    @test isone(ArrayInterface.known_step(1:4))
-    @test isone(ArrayInterface.known_step(typeof(1:4)))
+    @test isnothing(@inferred(ArrayInterface.known_step(typeof(1:0.2:4))))
+    @test isone(@inferred(ArrayInterface.known_step(1:4)))
+    @test isone(@inferred(ArrayInterface.known_step(typeof(1:4))))
 end
 
 @testset "Memory Layout" begin
@@ -207,7 +207,7 @@ end
     @test @inferred(contiguous_axis(A)) === ArrayInterface.Contiguous(1)
     @test @inferred(contiguous_axis(PermutedDimsArray(A,(3,1,2)))) === ArrayInterface.Contiguous(2)
     @test @inferred(contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) === ArrayInterface.Contiguous(1)
-    @test @inferred(contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) === ArrayInterface.Contiguous(2)
+    @test @inferred(contiguous_axis(transpose(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])))) === ArrayInterface.Contiguous(2)
     @test @inferred(contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:]))) === ArrayInterface.Contiguous(2)
     @test @inferred(contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))) === ArrayInterface.Contiguous(-1)
     @test @inferred(contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === ArrayInterface.Contiguous(-1)
@@ -242,6 +242,7 @@ end
     @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))) === ArrayInterface.StrideRank((3, 2))
     @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === ArrayInterface.StrideRank((2, 3))
     @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === ArrayInterface.StrideRank((1, 3))
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,2,1])')) === ArrayInterface.StrideRank((2, 1))
 
     @test @inferred(dense_dims(@SArray(zeros(2,2,2)))) === ArrayInterface.DenseDims((true,true,true))
     @test @inferred(dense_dims(A)) === ArrayInterface.DenseDims((true,true,true))

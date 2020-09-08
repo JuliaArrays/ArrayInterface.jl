@@ -167,6 +167,36 @@ Returns the rank of each stride.
 Returns a tuple of indicators for whether each axis is dense.
 An axis `i` of array `A` is dense if `stride(A, i) * size(A, i) == stride(A, j)` where `j` is the axis (if it exists) such that `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
 
+## sdsize(A)
+
+Returns the size of `A`. If the size of any axes are known at compile time,
+these should be returned as `Static` numbers. For example:
+```julia
+julia> using StaticArrays; using ArrayInterface: sdsize
+
+julia> A = @SMatrix rand(3,4);
+
+julia> sdsize(A)
+(Static{3}(), Static{4}())
+```
+
+## sdstrides(A)
+
+Returns the strides of array `A`. If any strides are known at compile time,
+these should be returned as `Static` numbers. For example:
+```julia
+julia> using ArrayInterface: sdstrides
+
+julia> A = rand(3,4);
+
+julia> sdstrides(A)
+(Static{1}(), 3)
+```
+## sdoffsets(A)
+
+Returns offsets of indices with respect to 0. If values are known at compile time,
+it should return them as `Static` numbers.
+For example, if `A isa Base.Matrix`, `sdoffsets(A) === (Static(1), Static(1))`.
 
 ## can_avx(f)
 
