@@ -221,7 +221,7 @@ end
   return reduce(_pick_range, inds)
 end
 
-@inline function indices(x::Tuple{Vararg{Any,N}}, dim::NTuple{N,<:Any}) where {N}
+@inline function indices(x::Tuple{Vararg{Any,N}}, dim::Tuple{Vararg{Any,N}}) where {N}
   inds = map(indices, x, dim)
   return reduce(_pick_range, inds)
 end
