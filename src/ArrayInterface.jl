@@ -643,8 +643,6 @@ function __init__()
         end
         t
     end
-    # Needed for type stability on Julia 1.6
-    @inline indices(x::StaticArrays.StaticArray, d) = indices(axes(x)[d])
     @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
       function Adapt.adapt_storage(::Type{<:StaticArrays.SArray{S}},xs::Array) where S
           StaticArrays.SArray{S}(xs)

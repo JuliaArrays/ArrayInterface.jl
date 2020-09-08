@@ -60,7 +60,10 @@ Base.:(⊻)(::Static{M}, ::Static{N}) where {M,N} = Static{M ⊻ N}()
 
 Base.:(==)(::Static{M}, ::Static{N}) where {M,N} = false
 Base.:(==)(::Static{M}, ::Static{M}) where {M} = true
-
+Base.:(≤)(::Static{M}, N::Int) where {M} = M ≤ N
+Base.:(≤)(N::Int, ::Static{M}) where {M} = N ≤ M
+Base.:(≥)(::Static{M}, N::Int) where {M} = M ≤ N
+Base.:(≥)(N::Int, ::Static{M}) where {M} = N ≥ M
 
 @inline function maybe_static(f::F, g::G, x) where {F, G}
     L = f(x)
