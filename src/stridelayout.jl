@@ -187,7 +187,7 @@ _dense_dims(::Any, ::Any) = nothing
         still_dense &= D[spₙ]
         densev[spₙ] = still_dense
         # a dim not being complete makes later dims not dense
-        still_dense && (still_dense = (I.parameters[spₙ] <: Base.Slice)::Bool)
+        still_dense &= (I.parameters[spₙ] <: Base.Slice)::Bool)
     end
     dense_tup = Expr(:tuple)
     for np in 1:NP
@@ -266,4 +266,3 @@ end
     end
     Expr(:block, Expr(:meta, :inline), t)
 end
-
