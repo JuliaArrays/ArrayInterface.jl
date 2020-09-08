@@ -165,7 +165,7 @@ Returns the rank of each stride.
 
 ## dense_dims(::Type{T})
 Returns a tuple of indicators for whether each axis is dense.
-An axis `i` of array `A` is dense if `stride(A, i) * size(A, i) == stride(A, j)` where `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
+An axis `i` of array `A` is dense if `stride(A, i) * size(A, i) == stride(A, j)` where `j` is the axis (if it exists) such that `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
 
 
 ## can_avx(f)
