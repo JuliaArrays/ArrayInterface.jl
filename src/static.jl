@@ -13,14 +13,9 @@ Static(::Val{N}) where {N} = Static{N}()
 Base.Val(::Static{N}) where {N} = Val{N}()
 Base.convert(::Type{T}, ::Static{N}) where {T<:Number,N} = convert(T, N)
 Base.convert(::Type{Static{N}}, ::Static{N}) where {N} = Static{N}()
-# for S ∈ [:Any, :AbstractIrrational]#, :(Complex{<:Real})]
-    # let S = :Any
-let S = :AbstractIrrational
-    @eval begin
-        Base.promote_rule(::Type{<:Static}, ::Type{T}) where {T <: $S} = promote_rule(Int, T)
-        Base.promote_rule(::Type{T}, ::Type{<:Static}) where {T <: $S} = promote_rule(T, Int)
-    end
-end
+
+Base.promote_rule(::Type{<:Static}, ::Type{T}) where {T <: AbstractIrrational} = promote_rule(Int, T)
+Base.promote_rule(::Type{T}, ::Type{<:Static}) where {T <: AbstractIrrational} = promote_rule(T, Int)
 for (S,T) ∈ [(:Complex,:Real), (:Rational, :Integer), (:(Base.TwicePrecision),:Any)]
     @eval Base.promote_rule(::Type{$S{T}}, ::Type{<:Static}) where {T <: $T} = promote_rule($S{T}, Int)
 end

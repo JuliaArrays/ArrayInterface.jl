@@ -203,7 +203,7 @@ specified then indices for visiting each index of `x` is returned.
 """
 @inline function indices(x)
   inds = eachindex(x)
-  if inds isa AbstractUnitRange#{<:Integer} # prevents inference
+  if inds isa AbstractUnitRange && eltype(inds) <: Integer
     return Base.Slice(OptionallyStaticUnitRange(inds))
   else
     return inds
