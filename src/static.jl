@@ -13,8 +13,9 @@ Static(::Val{N}) where {N} = Static{N}()
 Base.Val(::Static{N}) where {N} = Val{N}()
 Base.convert(::Type{T}, ::Static{N}) where {T<:Number,N} = convert(T, N)
 Base.convert(::Type{Static{N}}, ::Static{N}) where {N} = Static{N}()
-for S ∈ [:Any, :AbstractIrrational]#, :(Complex{<:Real})]
-# let S = :Any    
+# for S ∈ [:Any, :AbstractIrrational]#, :(Complex{<:Real})]
+    # let S = :Any
+let S = :AbstractIrrational
     @eval begin
         Base.promote_rule(::Type{<:Static}, ::Type{T}) where {T <: $S} = promote_rule(Int, T)
         Base.promote_rule(::Type{T}, ::Type{<:Static}) where {T <: $S} = promote_rule(T, Int)
@@ -27,7 +28,7 @@ Base.promote_rule(::Type{Union{Nothing,Missing}}, ::Type{<:Static}) = Union{Noth
 Base.promote_rule(::Type{T}, ::Type{<:Static}) where {T >: Union{Missing,Nothing}} = promote_rule(T, Int)
 Base.promote_rule(::Type{T}, ::Type{<:Static}) where {T >: Nothing} = promote_rule(T, Int)
 Base.promote_rule(::Type{T}, ::Type{<:Static}) where {T >: Missing} = promote_rule(T, Int)
-for T ∈ [:Bool, :Missing, :BigFloat, :BigInt, :Nothing]
+for T ∈ [:Bool, :Missing, :BigFloat, :BigInt, :Nothing, :Any]
 # let S = :Any    
     @eval begin
         Base.promote_rule(::Type{S}, ::Type{$T}) where {S <: Static} = promote_rule(Int, $T)
