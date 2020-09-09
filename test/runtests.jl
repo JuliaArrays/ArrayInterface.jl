@@ -3,8 +3,8 @@ using Base: setindex
 import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, Static
 @test ArrayInterface.ismutable(rand(3))
 
-@test isempty(detect_unbound_args(ArrayInterface))
-@test isempty(detect_ambiguities(ArrayInterface))
+using Aqua
+Aqua.test_all(ArrayInterface)
 
 using StaticArrays
 x = @SVector [1,2,3]
