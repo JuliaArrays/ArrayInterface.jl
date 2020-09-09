@@ -3,8 +3,8 @@ using Base: setindex
 import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, Static
 @test ArrayInterface.ismutable(rand(3))
 
-@test isempty(detect_unbound_args(ArrayInterface))
-@test isempty(detect_ambiguities(ArrayInterface))
+using Aqua
+Aqua.test_all(ArrayInterface)
 
 using StaticArrays
 x = @SVector [1,2,3]
@@ -404,9 +404,5 @@ end
             @test convert(typeof(y), @inferred(f(1.4, i))) === y # if f is division and i === Static(0), returns `NaN`; hence use of ==== in check.
         end
     end
-    @test @inferred("Hello world!" * Static(0)) === Static(0)
-    @test @inferred("Hello world!" * Static(1)) === "Hello world!"
-    @test @inferred(Static(0) * "Hello world!") === Static(0)
-    @test @inferred(Static(1) * "Hello world!") === "Hello world!"
 end
 
