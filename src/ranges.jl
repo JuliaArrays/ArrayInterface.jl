@@ -90,8 +90,8 @@ struct OptionallyStaticUnitRange{T <: Integer, F <: Integer, L <: Integer} <: Ab
   end
 end
 
-Base.:(:)(L, ::Static{U}) where {U} = OptionallyStaticUnitRange(L, Static(U))
-Base.:(:)(::Static{L}, U) where {L} = OptionallyStaticUnitRange(Static(L), U)
+Base.:(:)(L::Integer, ::Static{U}) where {U} = OptionallyStaticUnitRange(L, Static(U))
+Base.:(:)(::Static{L}, U::Integer) where {L} = OptionallyStaticUnitRange(Static(L), U)
 Base.:(:)(::Static{L}, ::Static{U}) where {L,U} = OptionallyStaticUnitRange(Static(L), Static(U))
 
 Base.first(r::OptionallyStaticUnitRange) = r.start
@@ -142,6 +142,7 @@ end
 end
 
 @inline _try_static(::Static{N}, ::Static{N}) where {N} = Static{N}()
+@inline _try_static(::Static{M}, ::Static{N}) where {M, N} = @assert false "Unequal Indices: Static{$M}() != Static{$N}()"
 function _try_static(::Static{N}, x) where {N}
     @assert N == x "Unequal Indices: Static{$N}() != x == $x"
     Static{N}()

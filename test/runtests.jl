@@ -3,6 +3,9 @@ using Base: setindex
 import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, Static
 @test ArrayInterface.ismutable(rand(3))
 
+@test isempty(detect_unbound_args(ArrayInterface))
+@test isempty(detect_ambiguities(ArrayInterface))
+
 using StaticArrays
 x = @SVector [1,2,3]
 @test ArrayInterface.ismutable(x) == false
@@ -243,6 +246,7 @@ end
     @test_throws AssertionError ArrayInterface.indices((A23, ones(3, 3)), (1, 2))
     @test_throws AssertionError ArrayInterface.indices((SA23, ones(3, 3)), Static(1))
     @test_throws AssertionError ArrayInterface.indices((SA23, ones(3, 3)), (Static(1), 2))
+    @test_throws AssertionError ArrayInterface.indices((SA23, SA23), (Static(1), Static(2)))
 end
 
 @testset "Static" begin
