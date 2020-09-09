@@ -249,7 +249,7 @@ For example, if `A isa Base.Matrix`, `sdoffsets(A) === (Static(1), Static(1))`.
 """
 sdoffsets(::Any) = (Static{1}(),) # Assume arbitrary Julia data structures use 1-based indexing by default.
 @inline sdsize(A::AbstractArray{<:Any,N}) where {N} = size(A)
-@inline sdstrides(A::Vector{<:Any}) where {N} = (Static(1),)
+@inline sdstrides(A::Vector{<:Any}) = (Static(1),)
 @inline sdstrides(A::Array{<:Any,N}) where {N} = (Static(1), Base.tail(strides(A))...)
 @inline sdstrides(A::AbstractArray{<:Any,N}) where {N} = strides(A)
 
