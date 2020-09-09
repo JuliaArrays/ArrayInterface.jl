@@ -5,11 +5,10 @@ Use `Static(N)` instead of `Val(N)` when you want it to behave like a number.
 """
 struct Static{N} <: Integer
     function Static{N}()  where {N}
-        @assert isa(typeof(N), Base.BitIntegerType) "$N is not a primitive integer type"
-        return new{N}()
+        return new{N::Int}()
     end
 end
-Base.@pure Static(N::Union{Int8, Int16, Int32, Int64, Int128, UInt8, UInt16, UInt32, UInt64, UInt128}) = Static{N}()
+Base.@pure Static(N::Int) = Static{N}()
 Static(N) = Static(convert(Int, N))
 Static(::Val{N}) where {N} = Static{N}()
 Base.Val(::Static{N}) where {N} = Val{N}()
@@ -20,52 +19,31 @@ Base.promote_rule(::Type{T}, ::Type{<:Static}) where {T} = promote_rule(T, Int)
 Base.promote_rule(::Type{<:Static}, ::Type{<:Static}) where {T} = Int
 Base.:(%)(::Static{N}, ::Type{Integer}) where {N} = N
 
-@inline Base.iszero(::Static{M}) where {M} = iszero(M)
-@inline Base.isone(::Static{M}) where {M} = isone(M)
+Base.iszero(::Static{0}) = true
+Base.iszero(::Static) = false
+Base.isone(::Static{1}) = true
+Base.isone(::Static) = false
 
 for T ∈ [:Any, :Number]
     @eval begin
-        @inline function Base.:(+)(i::$T, ::Static{M}) where {M}
-            if iszero(M)
-                i
-            else
-                i + M
-            end
-        end
-        @inline function Base.:(+)(::Static{M}, i::$T) where {M}
-            if iszero(M)
-                i
-            else
-                M + i
-            end
-        end
-        @inline function Base.:(-)(i::$T, ::Static{M}) where {M}
-            if iszero(M)
-                i
-            else
-                i - M
-            end
-        end
-        @inline function Base.:(*)(i::$T, j::Static{M}) where {M}
-            if iszero(M)
-                j
-            elseif isone(M)
-                i
-            else
-                i * M
-            end
-        end
-        @inline function Base.:(*)(j::Static{M}, i::$T) where {M}
-            if iszero(M)
-                j
-            elseif isone(M)
-                i
-            else
-                M * i
-            end
-        end
+        @inline Base.:(+)(i::$T, ::Static{0}) = i
+        @inline Base.:(+)(i::$T, ::Static{M}) where {M} = i + M
+        @inline Base.:(+)(::Static{0}, i::$T) = i
+        @inline Base.:(+)(::Static{M}, i::$T) where {M} = M + i
+        @inline Base.:(-)(i::$T, ::Static{0}) = i
+        @inline Base.:(-)(i::$T, ::Static{M}) where {M} = i - M
+        @inline Base.:(*)(i::$T, ::Static{0}) = Static{0}()
+        @inline Base.:(*)(i::$T, ::Static{1}) = i
+        @inline Base.:(*)(i::$T, ::Static{M}) where {M} = i * M
+        @inline Base.:(*)(::Static{0}, i::$T) = Static{0}()
+        @inline Base.:(*)(::Static{1}, i::$T) = i
+        @inline Base.:(*)(::Static{M}, i::$T) where {M} = M * i
     end
 end
+@inline Base.:(*)(::Static{0}, ::Static{0}) = Static{0}()
+@inline Base.:(*)(::Static{1}, ::Static{0}) = Static{0}()
+@inline Base.:(*)(::Static{0}, ::Static{1}) = Static{0}()
+@inline Base.:(*)(::Static{1}, ::Static{1}) = Static{1}()
 for f ∈ [:(+), :(-), :(*), :(/), :(÷), :(%), :(<<), :(>>), :(>>>), :(&), :(|), :(⊻)]
     @eval @generated Base.$f(::Static{M}, ::Static{N}) where {M,N} = Expr(:call, Expr(:curly, :Static, $f(M, N)))
 end
