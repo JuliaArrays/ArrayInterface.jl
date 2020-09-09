@@ -249,9 +249,25 @@ end
     @test iszero(Static(0))
     @test !iszero(Static(1))
     # test for ambiguities and correctness
-    for i ∈ [Static(0), Static(1), Static(2), 3], j ∈ [Static(0), Static(1), Static(2), 3], f ∈ [+, -, *, ÷, %, <<, >>, >>>, &, |, ⊻, ==, ≤, ≥]
-        (iszero(j) && ((f === ÷) || (f === %))) && continue # integer division error
-        @test convert(Int, @inferred(f(i,j))) == f(convert(Int, i), convert(Int, j))
+    for i ∈ [Static(0), Static(1), Static(2), 3]
+        for j ∈ [Static(0), Static(1), Static(2), 3]
+            i === j === 3 && continue
+            for f ∈ [+, -, *, ÷, %, <<, >>, >>>, &, |, ⊻, ==, ≤, ≥]
+                (iszero(j) && ((f === ÷) || (f === %))) && continue # integer division error
+                @test convert(Int, @inferred(f(i,j))) == f(convert(Int, i), convert(Int, j))
+            end
+        end
+        i == 3 && break
+        for f ∈ [+, -, *, /, ÷, %, ==, ≤, ≥]
+            x = f(convert(Int, i), 1.4)
+            y = f(1.4, convert(Int, i))
+            @test convert(typeof(x), @inferred(f(i, 1.4))) === x
+            @test convert(typeof(y), @inferred(f(1.4, i))) === y # if f is division and i === Static(0), returns `NaN`; hence use of ==== in check.
+        end
     end
+    @test @inferred("Hello world!" * Static(0)) === Static(0)
+    @test @inferred("Hello world!" * Static(1)) === "Hello world!"
+    @test @inferred(Static(0) * "Hello world!") === Static(0)
+    @test @inferred(Static(1) * "Hello world!") === "Hello world!"
 end
 

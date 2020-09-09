@@ -24,7 +24,7 @@ Base.iszero(::Static) = false
 Base.isone(::Static{1}) = true
 Base.isone(::Static) = false
 
-for T ∈ [:Any, :Number]
+for T ∈ [:Any, :Number, :Integer]
     @eval begin
         @inline Base.:(+)(i::$T, ::Static{0}) = i
         @inline Base.:(+)(i::$T, ::Static{M}) where {M} = i + M
