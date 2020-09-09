@@ -30,8 +30,8 @@ Base.promote_rule(::Type{T}, ::Type{<:Static}) where {T >: Missing} = promote_ru
 for T ∈ [:Bool, :Missing, :BigFloat, :BigInt, :Nothing]
 # let S = :Any    
     @eval begin
-        Base.promote_rule(::Type{<:Static}, ::Type{$T}) = promote_rule(Int, $T)
-        Base.promote_rule(::Type{$T}, ::Type{<:Static}) = promote_rule($T, Int)
+        Base.promote_rule(::Type{S}, ::Type{$T}) where {S <: Static} = promote_rule(Int, $T)
+        Base.promote_rule(::Type{$T}, ::Type{S}) where {S <: Static} = promote_rule($T, Int)
     end
 end
 Base.promote_rule(::Type{<:Static}, ::Type{<:Static}) = Int
