@@ -4,9 +4,7 @@ A statically sized `Int`.
 Use `Static(N)` instead of `Val(N)` when you want it to behave like a number.
 """
 struct Static{N} <: Integer
-    function Static{N}()  where {N}
-        return new{N::Int}()
-    end
+    Static{N}() where {N} = new{N::Int}()
 end
 Base.@pure Static(N::Int) = Static{N}()
 Static(N) = Static(convert(Int, N))
