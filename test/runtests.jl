@@ -4,10 +4,17 @@ import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, 
 @test ArrayInterface.ismutable(rand(3))
 
 using StaticArrays
-@test ArrayInterface.ismutable(@SVector [1,2,3]) == false
-@test ArrayInterface.ismutable(@MVector [1,2,3]) == true
+x = @SVector [1,2,3]
+@test ArrayInterface.ismutable(x) == false
+@test ArrayInterface.ismutable(view(x, 1:2)) == false
+x = @MVector [1,2,3]
+@test ArrayInterface.ismutable(x) == true
+@test ArrayInterface.ismutable(view(x, 1:2)) == true
 @test ArrayInterface.ismutable(1:10) == false
 @test ArrayInterface.ismutable((0.1,1.0)) == false
+@test ArrayInterface.ismutable(Base.ImmutableDict{Symbol,Int64}) == false
+@test ArrayInterface.ismutable((;x=1)) == false
+
 @test isone(ArrayInterface.known_first(typeof(StaticArrays.SOneTo(7))))
 @test ArrayInterface.known_last(typeof(StaticArrays.SOneTo(7))) == 7
 @test ArrayInterface.known_length(typeof(StaticArrays.SOneTo(7))) == 7
@@ -46,6 +53,7 @@ rowind,colind=findstructralnz(Sp)
 
 @test ArrayInterface.ismutable(spzeros(1, 1))
 @test ArrayInterface.ismutable(spzeros(1))
+
 
 @test !fast_scalar_indexing(qr(rand(10, 10)).Q)
 @test !fast_scalar_indexing(qr(rand(10, 10), Val(true)).Q)
@@ -370,5 +378,15 @@ end
     @test_throws AssertionError ArrayInterface.indices((A23, ones(3, 3)), (1, 2))
     @test_throws AssertionError ArrayInterface.indices((SA23, ones(3, 3)), Static(1))
     @test_throws AssertionError ArrayInterface.indices((SA23, ones(3, 3)), (Static(1), 2))
+end
+
+@testset "Static" begin
+    @test iszero(Static(0))
+    @test !iszero(Static(1))
+    # test for ambiguities and correctness
+    for i ∈ [Static(0), Static(1), Static(2), 3], j ∈ [Static(0), Static(1), Static(2), 3], f ∈ [+, -, *, ÷, %, <<, >>, >>>, &, |, ⊻, ==, ≤, ≥]
+        (iszero(j) && ((f === ÷) || (f === %))) && continue # integer division error
+        @test convert(Int, @inferred(f(i,j))) == f(convert(Int, i), convert(Int, j))
+    end
 end
 

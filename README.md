@@ -202,6 +202,13 @@ For example, if `A isa Base.Matrix`, `sdoffsets(A) === (Static(1), Static(1))`.
 
 Is the function `f` whitelisted for `LoopVectorization.@avx`?
 
+## Static(N::Int)
+
+Creates a static integer with value known at compile time. It is a number,
+supporting basic arithmetic. Many operations with two `Static` integers
+will produce another `Static` integer. If one of the arguments to a
+function call isn't static (e.g., `Static(4) + 3`) then the `Static`
+number will promote to a dynamic value.
 
 # List of things to add
 
