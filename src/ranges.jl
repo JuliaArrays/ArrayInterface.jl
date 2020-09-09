@@ -43,7 +43,6 @@ known_step(::Type{<:AbstractUnitRange{T}}) where {T} = one(T)
 # add methods to support ArrayInterface
 
 _get(x) = x
-_get(::Val{V}) where {V} = V
 _get(::Static{V}) where {V} = V
 _get(::Type{Static{V}}) where {V} = V
 _convert(::Type{T}, x) where {T} = convert(T, x)
