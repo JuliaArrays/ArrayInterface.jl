@@ -1,7 +1,10 @@
 using ArrayInterface, Test
 using Base: setindex
-import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance
+import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, Static
 @test ArrayInterface.ismutable(rand(3))
+
+using Aqua
+Aqua.test_all(ArrayInterface)
 
 using StaticArrays
 x = @SVector [1,2,3]
@@ -220,13 +223,52 @@ end
 end
 
 @testset "indices" begin
-    @test @inferred(ArrayInterface.indices((ones(2, 3), ones(3, 2)))) == 1:6
-    @test @inferred(ArrayInterface.indices(ones(2, 3))) == 1:6
-    @test @inferred(ArrayInterface.indices(ones(2, 3), 1)) == 1:2
-    @test @inferred(ArrayInterface.indices((ones(2, 3), ones(3, 2)), (1, 2))) == 1:2
-    @test @inferred(ArrayInterface.indices((ones(2, 3), ones(2, 3)), 1)) == 1:2
-    @test_throws AssertionError ArrayInterface.indices((ones(2, 3), ones(3, 3)), 1)
-    @test_throws AssertionError ArrayInterface.indices((ones(2, 3), ones(3, 3)), (1, 2))
+    A23 = ones(2,3); SA23 = @SMatrix ones(2,3);
+    A32 = ones(3,2); SA32 = @SMatrix ones(3,2);
+    @test @inferred(ArrayInterface.indices((A23, A32))) == 1:6
+    @test @inferred(ArrayInterface.indices((SA23, A32))) == 1:6
+    @test @inferred(ArrayInterface.indices((A23, SA32))) == 1:6
+    @test @inferred(ArrayInterface.indices((SA23, SA32))) == 1:6
+    @test @inferred(ArrayInterface.indices(A23)) == 1:6
+    @test @inferred(ArrayInterface.indices(SA23)) == 1:6
+    @test @inferred(ArrayInterface.indices(A23, 1)) == 1:2
+    @test @inferred(ArrayInterface.indices(SA23, Static(1))) === Base.Slice(Static(1):Static(2))
+    @test @inferred(ArrayInterface.indices((A23, A32), (1, 2))) == 1:2
+    @test @inferred(ArrayInterface.indices((SA23, A32), (Static(1), 2))) === Base.Slice(Static(1):Static(2))
+    @test @inferred(ArrayInterface.indices((A23, SA32), (1, Static(2)))) === Base.Slice(Static(1):Static(2))
+    @test @inferred(ArrayInterface.indices((SA23, SA32), (Static(1), Static(2)))) === Base.Slice(Static(1):Static(2))
+    @test @inferred(ArrayInterface.indices((A23, A23), 1)) == 1:2
+    @test @inferred(ArrayInterface.indices((SA23, SA23), Static(1))) === Base.Slice(Static(1):Static(2))
+    @test @inferred(ArrayInterface.indices((SA23, A23), Static(1))) === Base.Slice(Static(1):Static(2))
+    @test @inferred(ArrayInterface.indices((A23, SA23), Static(1))) === Base.Slice(Static(1):Static(2))
+    @test @inferred(ArrayInterface.indices((SA23, SA23), Static(1))) === Base.Slice(Static(1):Static(2))
+    @test_throws AssertionError ArrayInterface.indices((A23, ones(3, 3)), 1)
+    @test_throws AssertionError ArrayInterface.indices((A23, ones(3, 3)), (1, 2))
+    @test_throws AssertionError ArrayInterface.indices((SA23, ones(3, 3)), Static(1))
+    @test_throws AssertionError ArrayInterface.indices((SA23, ones(3, 3)), (Static(1), 2))
+    @test_throws AssertionError ArrayInterface.indices((SA23, SA23), (Static(1), Static(2)))
+end
+
+@testset "Static" begin
+    @test iszero(Static(0))
+    @test !iszero(Static(1))
+    # test for ambiguities and correctness
+    for i ∈ [Static(0), Static(1), Static(2), 3]
+        for j ∈ [Static(0), Static(1), Static(2), 3]
+            i === j === 3 && continue
+            for f ∈ [+, -, *, ÷, %, <<, >>, >>>, &, |, ⊻, ==, ≤, ≥]
+                (iszero(j) && ((f === ÷) || (f === %))) && continue # integer division error
+                @test convert(Int, @inferred(f(i,j))) == f(convert(Int, i), convert(Int, j))
+            end
+        end
+        i == 3 && break
+        for f ∈ [+, -, *, /, ÷, %, ==, ≤, ≥]
+            x = f(convert(Int, i), 1.4)
+            y = f(1.4, convert(Int, i))
+            @test convert(typeof(x), @inferred(f(i, 1.4))) === x
+            @test convert(typeof(y), @inferred(f(1.4, i))) === y # if f is division and i === Static(0), returns `NaN`; hence use of ==== in check.
+        end
+    end
 end
 
 @testset "push, pushfirst, pop, popfirst, insert, deleteat" begin

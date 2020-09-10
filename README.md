@@ -134,6 +134,14 @@ Otherwise, returns `nothing`. For example, `known_step(UnitRange{Int})` returns
 If `length` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
 
+## Static(N::Int)
+
+Creates a static integer with value known at compile time. It is a number,
+supporting basic arithmetic. Many operations with two `Static` integers
+will produce another `Static` integer. If one of the arguments to a
+function call isn't static (e.g., `Static(4) + 3`) then the `Static`
+number will promote to a dynamic value.
+
 # List of things to add
 
 - https://github.com/JuliaLang/julia/issues/22216

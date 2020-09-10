@@ -772,6 +772,7 @@ function __init__()
   end
 end
 
+include("static.jl")
 include("ranges.jl")
 
 end
