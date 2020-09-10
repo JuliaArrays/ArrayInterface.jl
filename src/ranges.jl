@@ -183,7 +183,7 @@ function Base.length(r::OptionallyStaticUnitRange{T}) where {T}
   end
 end
 
-unsafe_length_unit_range(fst::T, lst::T) where {T} = Integer(lst - fst + one(T))
+unsafe_length_unit_range(fst, lst) = Integer(lst - fst + 1)
 function unsafe_length_unit_range(fst::T, lst::T) where {T<:Union{Int,Int64,Int128}}
   return Base.checked_add(Base.checked_sub(lst, fst), one(T))
 end
@@ -236,21 +236,7 @@ function pop(r::AbstractUnitRange)
     if isempty(r)
         throw(ArgumentError("cannot pop value from empty collection"))
     else
-        start = known_first(r)
-        stop = known_last(r)
-        if start === nothing
-            if stop === nothing
-                return first(r):(last(r) - 1)
-            else
-                return OptionallyStaticUnitRange(first(r), Val(stop - 1))
-            end
-        else
-            if stop === nothing
-                return OptionallyStaticUnitRange(Val(start), last(r) - 1)
-            else
-                return OptionallyStaticUnitRange(Val(start), Val(stop - 1))
-            end
-        end
+        return (static_first(r)):(static_last(r) - Static(1))
     end
 end
 
@@ -258,21 +244,7 @@ function popfirst(r::AbstractUnitRange)
     if isempty(r)
         throw(ArgumentError("cannot pop value from empty collection"))
     else
-        start = known_first(r)
-        stop = known_last(r)
-        if start === nothing
-            if stop === nothing
-                return (first(r) + 1):last(r)
-            else
-                return OptionallyStaticUnitRange(first(r) + 1, Val(stop))
-            end
-        else
-            if stop === nothing
-                return OptionallyStaticUnitRange(Val(start + 1), last(r))
-            else
-                return OptionallyStaticUnitRange(Val(start + 1), Val(stop))
-            end
-        end
+        return (static_first(r) + Static(1)):static_last(r)
     end
 end
 

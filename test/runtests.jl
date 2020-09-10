@@ -272,11 +272,11 @@ end
 end
 
 @testset "push, pushfirst, pop, popfirst, insert, deleteat" begin
-    @test ArrayInterface.push([1,2,3], 4) == [1, 2, 3, 4]
-    @test ArrayInterface.pushfirst([2,3,4], 1) == [1, 2, 3, 4]
-    @test ArrayInterface.pop([1, 2, 3, 4]) == [1, 2, 3]
-    @test ArrayInterface.popfirst([1, 2, 3, 4]) == [2, 3, 4]
-    @test ArrayInterface.insert([1,2,3], 2, -2) == [1, -2, 2, 3]
-    @test ArrayInterface.deleteat([1, 2, 3], 2) == [1, 3]
+    @test @inferred(ArrayInterface.push([1,2,3], 4)) == [1, 2, 3, 4]
+    @test @inferred(ArrayInterface.pushfirst([2,3,4], 1)) == [1, 2, 3, 4]
+    @test @inferred(ArrayInterface.pop([1, 2, 3, 4])) == [1, 2, 3]
+    @test @inferred(ArrayInterface.popfirst([1, 2, 3, 4])) == [2, 3, 4]
+    @test @inferred(ArrayInterface.insert([1,2,3], 2, -2)) == [1, -2, 2, 3]
+    @test @inferred(ArrayInterface.deleteat([1, 2, 3], 2)) == [1, 3]
 end
 
