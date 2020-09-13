@@ -252,6 +252,8 @@ end
 @testset "Static" begin
     @test iszero(Static(0))
     @test !iszero(Static(1))
+    @test @inferred(one(Static)) === Static(1)
+    @test @inferred(zero(Static)) === Static(0)
     # test for ambiguities and correctness
     for i ∈ [Static(0), Static(1), Static(2), 3]
         for j ∈ [Static(0), Static(1), Static(2), 3]

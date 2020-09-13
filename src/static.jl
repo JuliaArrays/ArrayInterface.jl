@@ -37,6 +37,8 @@ Base.iszero(::Static{0}) = true
 Base.iszero(::Static) = false
 Base.isone(::Static{1}) = true
 Base.isone(::Static) = false
+Base.zero(::Type{T}) where {T<:Static} = Static{0}()
+Base.one(::Type{T}) where {T<:Static} = Static{1}()
 
 for T = [:Real, :Rational, :Integer]
     @eval begin
