@@ -274,7 +274,7 @@ end
     end
 end
 
-@testset "push, pushfirst, pop, popfirst, insert, deleteat" begin
+@testset "insert/deleteat" begin
     @test @inferred(ArrayInterface.insert([1,2,3], 2, -2)) == [1, -2, 2, 3]
     @test @inferred(ArrayInterface.deleteat([1, 2, 3], 2)) == [1, 3]
 
