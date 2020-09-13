@@ -33,6 +33,7 @@ end
 Base.promote_rule(::Type{<:Static}, ::Type{<:Static}) = Int
 Base.:(%)(::Static{N}, ::Type{Integer}) where {N} = N
 
+Base.eltype(::Type{T}) where {T<:Static} = Int
 Base.iszero(::Static{0}) = true
 Base.iszero(::Static) = false
 Base.isone(::Static{1}) = true
