@@ -171,9 +171,7 @@ function Base.length(r::OptionallyStaticUnitRange)
   end
 end
 
-function unsafe_length_unit_range(start, stop)
-  return Base.checked_add(Base.checked_sub(start, stop), one(T))
-end
+unsafe_length_unit_range(start::Integer, stop::Integer) = Int(start - stop + 1)
 
 """
     indices(x[, d])
