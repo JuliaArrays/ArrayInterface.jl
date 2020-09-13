@@ -232,19 +232,4 @@ end
   return Base.Slice(OptionallyStaticUnitRange(fst, lst))
 end
 
-function pop(r::AbstractUnitRange)
-    if isempty(r)
-        throw(ArgumentError("cannot pop value from empty collection"))
-    else
-        return (static_first(r)):(static_last(r) - Static(1))
-    end
-end
-
-function popfirst(r::AbstractUnitRange)
-    if isempty(r)
-        throw(ArgumentError("cannot pop value from empty collection"))
-    else
-        return (static_first(r) + Static(1)):static_last(r)
-    end
-end
-
+indices(::Tuple{Vararg{Any,N}}) where {N} = OptionallyStaticUnitRange(Static(1), Static(N))
