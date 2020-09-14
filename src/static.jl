@@ -6,6 +6,10 @@ Use `Static(N)` instead of `Val(N)` when you want it to behave like a number.
 struct Static{N} <: Integer
     Static{N}() where {N} = new{N::Int}()
 end
+
+const Zero = Static{0}()
+const One = Static{1}()
+
 Base.@pure Static(N::Int) = Static{N}()
 Static(N::Integer) = Static(convert(Int, N))
 Static(::Static{N}) where {N} = Static{N}()
@@ -38,8 +42,8 @@ Base.iszero(::Static{0}) = true
 Base.iszero(::Static) = false
 Base.isone(::Static{1}) = true
 Base.isone(::Static) = false
-Base.zero(::Type{T}) where {T<:Static} = Static{0}()
-Base.one(::Type{T}) where {T<:Static} = Static{1}()
+Base.zero(::Type{T}) where {T<:Static} = Zero
+Base.one(::Type{T}) where {T<:Static} = One
 
 for T = [:Real, :Rational, :Integer]
     @eval begin
