@@ -4,7 +4,7 @@ using Requires
 using LinearAlgebra
 using SparseArrays
 
-using Base: OneTo, @propagate_inbounds
+using Base: @propagate_inbounds, tail, OneTo, LogicalIndex
 
 Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
@@ -572,7 +572,7 @@ end
   if i === 1
     return (item, x...)
   else
-    return (first(x), unsafe_insert(Base.tail(x), i - 1, item)...)
+    return (first(x), unsafe_insert(tail(x), i - 1, item)...)
   end
 end
 
@@ -632,11 +632,11 @@ end
 
 @inline function unsafe_deleteat(x::Tuple, i::Integer)
   if i === one(i)
-    return Base.tail(x)
+    return tail(x)
   elseif i == length(x)
     return Base.front(x)
   else
-    return (first(x), unsafe_deleteat(Base.tail(x), i - one(i))...)
+    return (first(x), unsafe_deleteat(tail(x), i - one(i))...)
   end
 end
 
@@ -798,5 +798,6 @@ end
 
 include("static.jl")
 include("ranges.jl")
+include("indexing.jl")
 
 end
