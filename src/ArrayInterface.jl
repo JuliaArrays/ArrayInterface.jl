@@ -551,14 +551,12 @@ Return a new instance of `collection` with `item` inserted into at the given `in
 Base.@propagate_inbounds function insert(collection, index, item)
   @boundscheck checkbounds(collection, index)
   ret = similar(collection, length(collection) + 1)
-  @inbounds for i in indices(ret)
-    if i < index
+  @inbounds for i in firstindex(ret):(index - 1)
       ret[i] = collection[i]
-    elseif i == index
-      ret[i] = item
-    else
+  end
+  @inbounds ret[index] = item
+  @inbounds for i in (index + 1):lastindex(ret)
       ret[i] = collection[i - 1]
-    end
   end
   return ret
 end
