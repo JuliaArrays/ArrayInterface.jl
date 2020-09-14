@@ -6,6 +6,10 @@ Use `Static(N)` instead of `Val(N)` when you want it to behave like a number.
 struct Static{N} <: Integer
     Static{N}() where {N} = new{N::Int}()
 end
+
+const Zero = Static{0}
+const One = Static{1}
+
 Base.@pure Static(N::Int) = Static{N}()
 Static(N::Integer) = Static(convert(Int, N))
 Static(::Static{N}) where {N} = Static{N}()
@@ -33,41 +37,44 @@ end
 Base.promote_rule(::Type{<:Static}, ::Type{<:Static}) = Int
 Base.:(%)(::Static{N}, ::Type{Integer}) where {N} = N
 
-Base.iszero(::Static{0}) = true
+Base.eltype(::Type{T}) where {T<:Static} = Int
+Base.iszero(::Zero) = true
 Base.iszero(::Static) = false
-Base.isone(::Static{1}) = true
+Base.isone(::One) = true
 Base.isone(::Static) = false
+Base.zero(::Type{T}) where {T<:Static} = Zero()
+Base.one(::Type{T}) where {T<:Static} = One()
 
 for T = [:Real, :Rational, :Integer]
     @eval begin
-        @inline Base.:(+)(i::$T, ::Static{0}) = i
+        @inline Base.:(+)(i::$T, ::Zero) = i
         @inline Base.:(+)(i::$T, ::Static{M}) where {M} = i + M
-        @inline Base.:(+)(::Static{0}, i::$T) = i
+        @inline Base.:(+)(::Zero, i::$T) = i
         @inline Base.:(+)(::Static{M}, i::$T) where {M} = M + i
-        @inline Base.:(-)(i::$T, ::Static{0}) = i
+        @inline Base.:(-)(i::$T, ::Zero) = i
         @inline Base.:(-)(i::$T, ::Static{M}) where {M} = i - M
-        @inline Base.:(*)(i::$T, ::Static{0}) = Static{0}()
-        @inline Base.:(*)(i::$T, ::Static{1}) = i
+        @inline Base.:(*)(i::$T, ::Zero) = Zero()
+        @inline Base.:(*)(i::$T, ::One) = i
         @inline Base.:(*)(i::$T, ::Static{M}) where {M} = i * M
-        @inline Base.:(*)(::Static{0}, i::$T) = Static{0}()
-        @inline Base.:(*)(::Static{1}, i::$T) = i
+        @inline Base.:(*)(::Zero, i::$T) = Zero()
+        @inline Base.:(*)(::One, i::$T) = i
         @inline Base.:(*)(::Static{M}, i::$T) where {M} = M * i
     end
 end
-@inline Base.:(+)(::Static{0}, ::Static{0}) = Static{0}()
-@inline Base.:(+)(::Static{0}, ::Static{M}) where {M} = Static{M}()
-@inline Base.:(+)(::Static{M}, ::Static{0}) where {M} = Static{M}()
+@inline Base.:(+)(::Zero, ::Zero) = Zero()
+@inline Base.:(+)(::Zero, ::Static{M}) where {M} = Static{M}()
+@inline Base.:(+)(::Static{M}, ::Zero) where {M} = Static{M}()
 
-@inline Base.:(-)(::Static{M}, ::Static{0}) where {M} = Static{M}()
+@inline Base.:(-)(::Static{M}, ::Zero) where {M} = Static{M}()
 
-@inline Base.:(*)(::Static{0}, ::Static{0}) = Static{0}()
-@inline Base.:(*)(::Static{1}, ::Static{0}) = Static{0}()
-@inline Base.:(*)(::Static{0}, ::Static{1}) = Static{0}()
-@inline Base.:(*)(::Static{1}, ::Static{1}) = Static{1}()
-@inline Base.:(*)(::Static{M}, ::Static{0}) where {M} = Static{0}()
-@inline Base.:(*)(::Static{0}, ::Static{M}) where {M} = Static{0}()
-@inline Base.:(*)(::Static{M}, ::Static{1}) where {M} = Static{M}()
-@inline Base.:(*)(::Static{1}, ::Static{M}) where {M} = Static{M}()
+@inline Base.:(*)(::Zero, ::Zero) = Zero()
+@inline Base.:(*)(::One, ::Zero) = Zero()
+@inline Base.:(*)(::Zero, ::One) = Zero()
+@inline Base.:(*)(::One, ::One) = One()
+@inline Base.:(*)(::Static{M}, ::Zero) where {M} = Zero()
+@inline Base.:(*)(::Zero, ::Static{M}) where {M} = Zero()
+@inline Base.:(*)(::Static{M}, ::One) where {M} = Static{M}()
+@inline Base.:(*)(::One, ::Static{M}) where {M} = Static{M}()
 for f ∈ [:(+), :(-), :(*), :(/), :(÷), :(%), :(<<), :(>>), :(>>>), :(&), :(|), :(⊻)]
     @eval @generated Base.$f(::Static{M}, ::Static{N}) where {M,N} = Expr(:call, Expr(:curly, :Static, $f(M, N)))
 end

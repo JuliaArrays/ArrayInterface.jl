@@ -252,6 +252,9 @@ end
 @testset "Static" begin
     @test iszero(Static(0))
     @test !iszero(Static(1))
+    @test @inferred(one(Static)) === Static(1)
+    @test @inferred(zero(Static)) === Static(0)
+    @test eltype(one(Static)) <: Int
     # test for ambiguities and correctness
     for i ∈ [Static(0), Static(1), Static(2), 3]
         for j ∈ [Static(0), Static(1), Static(2), 3]
@@ -269,5 +272,24 @@ end
             @test convert(typeof(y), @inferred(f(1.4, i))) === y # if f is division and i === Static(0), returns `NaN`; hence use of ==== in check.
         end
     end
+end
+
+@testset "insert/deleteat" begin
+    @test @inferred(ArrayInterface.insert([1,2,3], 2, -2)) == [1, -2, 2, 3]
+    @test @inferred(ArrayInterface.deleteat([1, 2, 3], 2)) == [1, 3]
+
+    @test @inferred(ArrayInterface.deleteat([1, 2, 3], [1, 2])) == [3]
+    @test @inferred(ArrayInterface.deleteat([1, 2, 3], [1, 3])) == [2]
+    @test @inferred(ArrayInterface.deleteat([1, 2, 3], [2, 3])) == [1]
+
+
+    @test @inferred(ArrayInterface.insert((1,2,3), 1, -2)) == (-2, 1, 2, 3)
+    @test @inferred(ArrayInterface.insert((1,2,3), 2, -2)) == (1, -2, 2, 3)
+    @test @inferred(ArrayInterface.insert((1,2,3), 3, -2)) == (1, 2, -2, 3)
+
+    @test @inferred(ArrayInterface.deleteat((1, 2, 3), 1)) == (2, 3)
+    @test @inferred(ArrayInterface.deleteat((1, 2, 3), 2)) == (1, 3)
+    @test @inferred(ArrayInterface.deleteat((1, 2, 3), 3)) == (1, 2)
+    @test ArrayInterface.deleteat((1, 2, 3), [1, 2]) == (3,)
 end
 
