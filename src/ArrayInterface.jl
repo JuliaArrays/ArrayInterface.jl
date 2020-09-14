@@ -599,7 +599,6 @@ end
 """
 can_avx(::Any) = false
 
-=======
 """
     insert(collection, index, item)
 

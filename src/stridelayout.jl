@@ -279,7 +279,7 @@ sdstrides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} =
     t = Expr(:tuple)
     for n in 1:N
         if (I.parameters[n] <: Base.Slice)
-            push!(t.args, :(@inbounds(_pick_range(A[$n], l[$n]))))
+            push!(t.args, :(@inbounds(_try_static(A[$n], l[$n]))))
         elseif I.parameters[n] <: AbstractUnitRange
             push!(t.args, Expr(:ref, :l, n))
         end
