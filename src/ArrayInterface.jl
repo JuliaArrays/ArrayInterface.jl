@@ -4,7 +4,7 @@ using Requires
 using LinearAlgebra
 using SparseArrays
 
-using Base: OneTo
+using Base: OneTo, @propagate_inbounds
 
 Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
@@ -599,6 +599,103 @@ end
 """
 can_avx(::Any) = false
 
+=======
+"""
+    insert(collection, index, item)
+
+Return a new instance of `collection` with `item` inserted into at the given `index`.
+"""
+Base.@propagate_inbounds function insert(collection, index, item)
+  @boundscheck checkbounds(collection, index)
+  ret = similar(collection, length(collection) + 1)
+  @inbounds for i in firstindex(ret):(index - 1)
+      ret[i] = collection[i]
+  end
+  @inbounds ret[index] = item
+  @inbounds for i in (index + 1):lastindex(ret)
+      ret[i] = collection[i - 1]
+  end
+  return ret
+end
+
+function insert(x::Tuple, index::Integer, item)
+  @boundscheck if !checkindex(Bool, static_first(x):static_last(x), index)
+    throw(BoundsError(x, index))
+  end
+  return unsafe_insert(x, Int(index), item)
+end
+
+@inline function unsafe_insert(x::Tuple, i::Int, item)
+  if i === 1
+    return (item, x...)
+  else
+    return (first(x), unsafe_insert(Base.tail(x), i - 1, item)...)
+  end
+end
+
+"""
+    deleteat(collection, index)
+
+Return a new instance of `collection` with the item at the given `index` removed.
+"""
+@propagate_inbounds function deleteat(collection::AbstractVector, index)
+  @boundscheck if !checkindex(Bool, eachindex(collection), index)
+    throw(BoundsError(collection, index))
+  end
+  return unsafe_deleteat(collection, index)
+end
+@propagate_inbounds function deleteat(collection::Tuple, index)
+  @boundscheck if !checkindex(Bool, static_first(collection):static_last(collection), index)
+    throw(BoundsError(collection, index))
+  end
+  return unsafe_deleteat(collection, index)
+end
+
+function unsafe_deleteat(src::AbstractVector, index::Integer)
+  dst = similar(src, length(src) - 1)
+  @inbounds for i in indices(dst)
+    if i < index
+      dst[i] = src[i]
+    else
+      dst[i] = src[i + 1]
+    end
+  end
+  return dst
+end
+
+@inline function unsafe_deleteat(src::AbstractVector, inds::AbstractVector)
+  dst = similar(src, length(src) - length(inds))
+  dst_index = firstindex(dst)
+  @inbounds for src_index in indices(src)
+    if !in(src_index, inds)
+      dst[dst_index] = src[src_index]
+      dst_index += one(dst_index)
+    end
+  end
+  return dst
+end
+
+@inline function unsafe_deleteat(src::Tuple, inds::AbstractVector)
+  dst = Vector{eltype(src)}(undef, length(src) - length(inds))
+  dst_index = firstindex(dst)
+  @inbounds for src_index in OneTo(length(src))
+    if !in(src_index, inds)
+      dst[dst_index] = src[src_index]
+      dst_index += one(dst_index)
+    end
+  end
+  return Tuple(dst)
+end
+
+@inline function unsafe_deleteat(x::Tuple, i::Integer)
+  if i === one(i)
+    return Base.tail(x)
+  elseif i == length(x)
+    return Base.front(x)
+  else
+    return (first(x), unsafe_deleteat(Base.tail(x), i - one(i))...)
+  end
+end
 
 function __init__()
 

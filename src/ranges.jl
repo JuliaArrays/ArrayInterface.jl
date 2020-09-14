@@ -42,13 +42,6 @@ known_step(::Type{<:AbstractUnitRange{T}}) where {T} = one(T)
 
 # add methods to support ArrayInterface
 
-_get(x) = x
-_get(::Val{V}) where {V} = V
-_get(::Static{V}) where {V} = V
-_get(::Type{Static{V}}) where {V} = V
-_convert(::Type{T}, x) where {T} = convert(T, x)
-_convert(::Type{T}, ::Val{V}) where {T,V} = Val(convert(T, V))
-
 """
     OptionallyStaticUnitRange{T<:Integer}(start, stop) <: OrdinalRange{T,T}
 
@@ -58,28 +51,23 @@ at compile time. An `OptionallyStaticUnitRange` is intended to be constructed in
 from other valid indices. Therefore, users should not expect the same checks are used
 to ensure construction of a valid `OptionallyStaticUnitRange` as a `UnitRange`.
 """
-struct OptionallyStaticUnitRange{T <: Integer, F <: Integer, L <: Integer} <: AbstractUnitRange{T}
+struct OptionallyStaticUnitRange{F <: Integer, L <: Integer} <: AbstractUnitRange{Int}
   start::F
   stop::L
 
-  function OptionallyStaticUnitRange{T}(start, stop) where {T<:Real}
-    if _get(start) isa T
-      if _get(stop) isa T
-        return new{T,typeof(start),typeof(stop)}(start, stop)
+  function OptionallyStaticUnitRange(start, stop)
+    if eltype(start) <: Int
+      if eltype(stop) <: Int
+        return new{typeof(start),typeof(stop)}(start, stop)
       else
-        return OptionallyStaticUnitRange{T}(start, _convert(T, stop))
+        return OptionallyStaticUnitRange(start, Int(stop))
       end
     else
-      return OptionallyStaticUnitRange{T}(_convert(T, start), stop)
+      return OptionallyStaticUnitRange(Int(start), stop)
     end
   end
 
-  function OptionallyStaticUnitRange(start, stop)
-    T = promote_type(typeof(_get(start)), typeof(_get(stop)))
-    return OptionallyStaticUnitRange{T}(start, stop)
-  end
-
-  function OptionallyStaticUnitRange(x::AbstractRange)
+ function OptionallyStaticUnitRange(x::AbstractRange)
     if step(x) == 1
       fst = static_first(x)
       lst = static_last(x)
@@ -95,12 +83,12 @@ Base.:(:)(::Static{L}, U::Integer) where {L} = OptionallyStaticUnitRange(Static(
 Base.:(:)(::Static{L}, ::Static{U}) where {L,U} = OptionallyStaticUnitRange(Static(L), Static(U))
 
 Base.first(r::OptionallyStaticUnitRange) = r.start
-Base.step(r::OptionallyStaticUnitRange{T}) where {T} = oneunit(T)
+Base.step(::OptionallyStaticUnitRange) = Static(1)
 Base.last(r::OptionallyStaticUnitRange) = r.stop
 
-known_first(::Type{<:OptionallyStaticUnitRange{<:Any,Static{F}}}) where {F} = F
-known_step(::Type{<:OptionallyStaticUnitRange{T}}) where {T} = one(T)
-known_last(::Type{<:OptionallyStaticUnitRange{<:Any,<:Any,Static{L}}}) where {L} = L
+known_first(::Type{<:OptionallyStaticUnitRange{Static{F}}}) where {F} = F
+known_step(::Type{<:OptionallyStaticUnitRange}) = 1
+known_last(::Type{<:OptionallyStaticUnitRange{<:Any,Static{L}}}) where {L} = L
 
 function Base.isempty(r::OptionallyStaticUnitRange)
   if known_first(r) === oneunit(eltype(r))
@@ -113,10 +101,8 @@ end
 unsafe_isempty_one_to(lst) = lst <= zero(lst)
 unsafe_isempty_unit_range(fst, lst) = fst > lst
 
-unsafe_isempty_unit_range(fst::T, lst::T) where {T} = Integer(lst - fst + one(T))
-
-unsafe_length_one_to(lst::T) where {T<:Int} = T(lst)
-unsafe_length_one_to(lst::T) where {T} = Integer(lst - zero(lst))
+unsafe_length_one_to(lst::Int) = lst
+unsafe_length_one_to(::Static{L}) where {L} = lst
 
 Base.@propagate_inbounds function Base.getindex(r::OptionallyStaticUnitRange, i::Integer)
   if known_first(r) === oneunit(r)
@@ -143,17 +129,23 @@ end
 
 @inline _try_static(::Static{N}, ::Static{N}) where {N} = Static{N}()
 @inline _try_static(::Static{M}, ::Static{N}) where {M, N} = @assert false "Unequal Indices: Static{$M}() != Static{$N}()"
-function _try_static(::Static{N}, x) where {N}
-    @assert N == x "Unequal Indices: Static{$N}() != x == $x"
-    Static{N}()
+@propagate_inbounds function _try_static(::Static{N}, x) where {N}
+    @boundscheck begin
+        @assert N == x "Unequal Indices: Static{$N}() != x == $x"
+    end
+    return Static{N}()
 end
-function _try_static(x, ::Static{N}) where {N}
-    @assert N == x "Unequal Indices: x == $x != Static{$N}()"
-    Static{N}()
+@propagate_inbounds function _try_static(x, ::Static{N}) where {N}
+    @boundscheck begin
+        @assert N == x "Unequal Indices: x == $x != Static{$N}()"
+    end
+    return Static{N}()
 end
-function _try_static(x, y)
-    @assert x == y "Unequal Indicess: x == $x != $y == y"
-    x
+@propagate_inbounds function _try_static(x, y)
+    @boundscheck begin
+        @assert x == y "Unequal Indicess: x == $x != $y == y"
+    end
+    return x
 end
 
 ###
@@ -173,11 +165,11 @@ end
   end
 end
 
-function Base.length(r::OptionallyStaticUnitRange{T}) where {T}
+function Base.length(r::OptionallyStaticUnitRange)
   if isempty(r)
-    return zero(T)
+    return 0
   else
-    if known_one(r) === one(T)
+    if known_first(r) === 0
       return unsafe_length_one_to(last(r))
     else
       return unsafe_length_unit_range(first(r), last(r))
@@ -185,12 +177,7 @@ function Base.length(r::OptionallyStaticUnitRange{T}) where {T}
   end
 end
 
-function unsafe_length_unit_range(fst::T, lst::T) where {T<:Union{Int,Int64,Int128}}
-  return Base.checked_add(Base.checked_sub(lst, fst), one(T))
-end
-function unsafe_length_unit_range(fst::T, lst::T) where {T<:Union{UInt,UInt64,UInt128}}
-  return Base.checked_add(lst - fst, one(T))
-end
+unsafe_length_unit_range(start::Integer, stop::Integer) = Int(start - stop + 1)
 
 """
     indices(x[, d])
@@ -203,7 +190,7 @@ specified then indices for visiting each index of `x` is returned.
 """
 @inline function indices(x)
   inds = eachindex(x)
-  if inds isa AbstractUnitRange#{<:Integer} # prevents inference
+  if inds isa AbstractUnitRange && eltype(inds) <: Integer
     return Base.Slice(OptionallyStaticUnitRange(inds))
   else
     return inds
@@ -232,4 +219,3 @@ end
   lst = _try_static(static_last(x), static_last(y))
   return Base.Slice(OptionallyStaticUnitRange(fst, lst))
 end
-
