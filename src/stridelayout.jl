@@ -103,6 +103,11 @@ Base.collect(::StrideRank{R}) where {R} = collect(R)
 @inline Base.getindex(::StrideRank{R}, i::Integer) where {R} = R[i]
 @inline Base.getindex(::StrideRank{R}, ::Val{I}) where {R,I} = StrideRank{permute(R, I)}()
 
+"""
+rank_to_sortperm(::StrideRank) -> NTuple{N,Int}
+
+Returns the `sortperm` of the stride ranks.
+"""
 function rank_to_sortperm(R::NTuple{N,Int}) where {N}
     sp = ntuple(zero, Val{N}())
     r = ntuple(n -> sum(R[n] .≥ R), Val{N}())
@@ -111,11 +116,6 @@ function rank_to_sortperm(R::NTuple{N,Int}) where {N}
     end
     sp
 end
-"""
-rank_to_sortperm(::StrideRank) -> NTuple{N,Int}
-
-Returns the `sortperm` of the stride ranks.
-"""
 @generated Base.sortperm(::StrideRank{R}) where {R} = rank_to_sortperm(R)
 
 stride_rank(x) = stride_rank(typeof(x))
