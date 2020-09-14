@@ -273,20 +273,15 @@ end
 @inline sdstrides(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} = permute(sdstrides(parent(B)), Val{(2,1)}())
 @inline sdstrides(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = permute(sdstrides(parent(B)), Val{I1}())
 
-sdsize(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} = _sdsize(sdsize(parent(B)), B.indices)
+sdsize(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} = _sdsize(sdsize(parent(B)), B.indices, map(static_length, B.indices))
 sdstrides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} = _sdstrides(sdstrides(parent(B)), B.indices)
-@generated function _sdsize(A::Tuple{Vararg{Any,N}}, inds::I) where {N, I<:Tuple}
+@generated function _sdsize(A::Tuple{Vararg{Any,N}}, inds::I, l::L) where {N, I<:Tuple, L}
     t = Expr(:tuple)
     for n in 1:N
         if (I.parameters[n] <: Base.Slice)
             push!(t.args, Expr(:ref, :A, n))
         elseif I.parameters[n] <: AbstractUnitRange
-            kl = known_length(I.parameters[n])
-            if isnothing(kl)
-                push!(t.args, Expr(:call, :length, Expr(:ref, :inds, n)))
-            else
-                push!(t.args, Expr(:call, Expr(:curly, :Static, kl)))
-            end
+            push!(t.args, Expr(:ref, :l, n))
         end
     end
     Expr(:block, Expr(:meta, :inline), t)
