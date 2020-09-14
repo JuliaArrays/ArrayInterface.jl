@@ -74,7 +74,7 @@ Construct new axes given the index arguments `args` and the corresponding `inds`
 constructed after `to_indices(A, old_axes, args) -> inds`
 """
 @inline to_axes(A, args, inds) = to_axes(A, axes(A), args, inds)
-to_axes(A, axs::Tuple, args::Tuple, inds::Tuple{}) = ()
+to_axes(A, axs::Tuple{Ax,Vararg{Any}}, args::Tuple{Arg,Vararg{Any}}, inds::Tuple{}) where {Ax,Arg} = ()
 @propagate_inbounds function to_axes(A, axs::Tuple{Ax,Vararg{Any}}, args::Tuple{Arg,Vararg{Any}}, inds::Tuple) where {Ax,Arg}
     if argdims(Ax, Arg) === 0
         # drop this dimension
@@ -142,7 +142,7 @@ end
     _, axes_tail = IteratorsMD.split(axs, Val(N))
     return (first(args)..., flatten_args(A, _maybe_tail(axs), tail(args))...)
 end
-@inline function flatten_args(A, axs::Tuple, args::Tuple{Arg,Vararg{Any}}) where {N,Arg<:CartesianIndices{0}}
+@inline function flatten_args(A, axs::Tuple, args::Tuple{Arg,Vararg{Any}}) where {Arg<:CartesianIndices{0}}
     return (first(args), flatten_args(A, tail(axs), tail(args))...)
 end
 @inline function flatten_args(A, axs::Tuple, args::Tuple{Arg,Vararg{Any}}) where {N,Arg<:CartesianIndices{N}}
