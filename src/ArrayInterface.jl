@@ -53,7 +53,7 @@ _known_length(x::Tuple{Vararg{Int}}) = prod(x)
 """
     can_change_size(::Type{T}) -> Bool
 
-Returns `true` if the size of `T` can change, in which case operations
+Returns `true` if the Base.size of `T` can change, in which case operations
 such as `pop!` and `popfirst!` are available for collections of type `T`.
 """
 can_change_size(x) = can_change_size(typeof(x))
@@ -103,7 +103,7 @@ function Base.setindex(x::AbstractVector,v,i::Int)
 end
 
 function Base.setindex(x::AbstractMatrix,v,i::Int,j::Int)
-  n,m = size(x)
+  n,m = Base.size(x)
   x .* (i .!== 1:n) .* (j  .!== i:m)' .+ v .* (i .== 1:n) .* (j  .== i:m)'
 end
 
@@ -203,7 +203,7 @@ Return: (I,J) #indexable objects
 Find sparsity pattern of special matrices, the same as the first two elements of findnz(::SparseMatrixCSC)
 """
 function findstructralnz(x::Diagonal)
-  n=size(x,1)
+  n = Base.size(x,1)
   (1:n,1:n)
 end
 
@@ -413,7 +413,7 @@ function Base.getindex(ind::BandedBlockBandedMatrixIndex,i::Int)
 end
 
 function findstructralnz(x::Bidiagonal)
-  n=size(x,1)
+  n= Base.size(x,1)
   isup= x.uplo=='U' ? true : false
   rowind=BidiagonalIndex(n+n-1,isup)
   colind=BidiagonalIndex(n+n-1,!isup)
@@ -421,7 +421,7 @@ function findstructralnz(x::Bidiagonal)
 end
 
 function findstructralnz(x::Union{Tridiagonal,SymTridiagonal})
-  n=size(x,1)
+  n= Base.size(x,1)
   rowind=TridiagonalIndex(n+n-1+n-1,n,true)
   colind=TridiagonalIndex(n+n-1+n-1,n,false)
   (rowind,colind)
@@ -448,10 +448,10 @@ fast_matrix_colors(A::Type{<:Union{Diagonal,Bidiagonal,Tridiagonal,SymTridiagona
     matrix_colors(A::Union{Array,UpperTriangular,LowerTriangular})
 
 The color vector for dense matrix and triangular matrix is simply
-`[1,2,3,...,size(A,2)]`
+`[1,2,3,..., Base.size(A,2)]`
 """
 function matrix_colors(A::Union{Array,UpperTriangular,LowerTriangular})
-    eachindex(1:size(A,2)) # Vector size matches number of rows
+    eachindex(1:Base.size(A,2)) # Vector Base.size matches number of rows
 end
 
 function _cycle(repetend,len)
@@ -459,15 +459,15 @@ function _cycle(repetend,len)
 end
 
 function matrix_colors(A::Diagonal)
-    fill(1,size(A,2))
+    fill(1, Base.size(A,2))
 end
 
 function matrix_colors(A::Bidiagonal)
-    _cycle(1:2,size(A,2))
+    _cycle(1:2, Base.size(A,2))
 end
 
 function matrix_colors(A::Union{Tridiagonal,SymTridiagonal})
-    _cycle(1:3,size(A,2))
+    _cycle(1:3, Base.size(A,2))
 end
 
 """
@@ -541,7 +541,7 @@ function restructure(x,y)
 end
 
 function restructure(x::Array,y)
-  reshape(convert(Array,y),size(x)...)
+  reshape(convert(Array,y), Base.size(x)...)
 end
 
 abstract type AbstractDevice end
@@ -738,14 +738,14 @@ function __init__()
     stride_rank(::Type{T}) where {N, T <: StaticArrays.StaticArray{<:Any,<:Any,N}} = StrideRank{ntuple(identity, Val{N}())}()
     dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = DenseDims{ntuple(_ -> true, Val(N))}()
     defines_strides(::Type{<:StaticArrays.MArray}) = true
-    @generated function sdsize(A::StaticArrays.StaticArray{S}) where {S}
+    @generated function size(A::StaticArrays.StaticArray{S}) where {S}
         t = Expr(:tuple); Sp = S.parameters
         for n in 1:length(Sp)
             push!(t.args, Expr(:call, Expr(:curly, :Static, Sp[n])))
         end
         t
     end
-    @generated function sdstrides(A::StaticArrays.StaticArray{S}) where {S}
+    @generated function strides(A::StaticArrays.StaticArray{S}) where {S}
         t = Expr(:tuple, Expr(:call, Expr(:curly, :Static, 1))); Sp = S.parameters; x = 1
         for n in 1:length(Sp)-1
             push!(t.args, Expr(:call, Expr(:curly, :Static, (x *= Sp[n]))))
@@ -794,7 +794,7 @@ function __init__()
   @require BandedMatrices="aae01518-5342-5314-be14-df237901396f" begin
     function findstructralnz(x::BandedMatrices.BandedMatrix)
       l,u=BandedMatrices.bandwidths(x)
-      rowsize,colsize=size(x)
+      rowsize,colsize= Base.size(x)
       rowind=BandedMatrixIndex(rowsize,colsize,l,u,true)
       colind=BandedMatrixIndex(rowsize,colsize,l,u,false)
       (rowind,colind)
@@ -807,7 +807,7 @@ function __init__()
     function matrix_colors(A::BandedMatrices.BandedMatrix)
         l,u=BandedMatrices.bandwidths(A)
         width=u+l+1
-        _cycle(1:width,size(A,2))
+        _cycle(1:width, Base.size(A,2))
     end
 
   end
@@ -872,9 +872,9 @@ function __init__()
     end
   end
   @require OffsetArrays="6fe1bfb0-de20-5000-8ca7-80f57d26f881" begin
-      sdsize(A::OffsetArrays.OffsetArray) = sdsize(parent(A))
-      sdstrides(A::OffsetArrays.OffsetArray) = sdstrides(parent(A))
-      # sdoffsets(A::OffsetArrays.OffsetArray) = map(+, A.offsets, sdoffsets(parent(A)))
+      size(A::OffsetArrays.OffsetArray) = size(parent(A))
+      strides(A::OffsetArrays.OffsetArray) = strides(parent(A))
+      # offsets(A::OffsetArrays.OffsetArray) = map(+, A.offsets, offsets(parent(A)))
       device(::OffsetArrays.OffsetArray) = CheckParent()
       contiguous_axis(A::OffsetArrays.OffsetArray) = contiguous_axis(parent(A))
       contiguous_batch_size(A::OffsetArrays.OffsetArray) = contiguous_batch_size(parent(A))

@@ -73,7 +73,7 @@ _get(::ContiguousBatch{N}) where {N} = N
 """
 contiguous_batch_size(::Type{T}) -> ContiguousBatch{N}
 
-Returns the size of contiguous batches if `!isone(stride_rank(T, contiguous_axis(T)))`.
+Returns the Base.size of contiguous batches if `!isone(stride_rank(T, contiguous_axis(T)))`.
 If `isone(stride_rank(T, contiguous_axis(T)))`, then it will return `ContiguousBatch{0}()`.
 If `contiguous_axis(T) == -1`, it will return `ContiguousBatch{-1}()`.
 If unknown, it will return `nothing`.
@@ -161,7 +161,7 @@ Base.@pure DenseDims(D::NTuple{<:Any,Bool}) = DenseDims{D}()
 dense_dims(::Type{T}) -> NTuple{N,Bool}
 
 Returns a tuple of indicators for whether each axis is dense.
-An axis `i` of array `A` is dense if `stride(A, i) * size(A, i) == stride(A, j)` where `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
+An axis `i` of array `A` is dense if `stride(A, i) * Base.size(A, i) == stride(A, j)` where `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
 """
 dense_dims(x) = dense_dims(typeof(x))
 dense_dims(::Type) = nothing
@@ -211,71 +211,69 @@ permute(t::NTuple{N}, I::NTuple{N,Int}) where {N} = ntuple(n -> t[I[n]], Val{N}(
 end
 
 """
-  sdsize(A)
+  size(A)
 
 Returns the size of `A`. If the size of any axes are known at compile time,
 these should be returned as `Static` numbers. For example:
 ```julia
-julia> using StaticArrays; using ArrayInterface: sdsize
+julia> using StaticArrays, ArrayInterface
 
 julia> A = @SMatrix rand(3,4);
 
-julia> sdsize(A)
+julia> ArrayInterface.size(A)
 (Static{3}(), Static{4}())
 ```
 """
-sdsize(::Any) = nothing
+size(::Any) = nothing
 """
-  sdstrides(A)
+  strides(A)
 
 Returns the strides of array `A`. If any strides are known at compile time,
 these should be returned as `Static` numbers. For example:
 ```julia
-julia> using ArrayInterface: sdstrides
-
 julia> A = rand(3,4);
 
-julia> sdstrides(A)
+julia> ArrayInterface.strides(A)
 (Static{1}(), 3)
 ```
 """
-sdstrides(::Any) = nothing
+strides(::Any) = nothing
 """
-  sdoffsets(A)
+  offsets(A)
 
 Returns offsets of indices with respect to 0. If values are known at compile time,
 it should return them as `Static` numbers.
-For example, if `A isa Base.Matrix`, `sdoffsets(A) === (Static(1), Static(1))`.
+For example, if `A isa Base.Matrix`, `offsets(A) === (Static(1), Static(1))`.
 """
-sdoffsets(::Any) = (Static{1}(),) # Assume arbitrary Julia data structures use 1-based indexing by default.
-@inline sdsize(A::AbstractArray{<:Any,N}) where {N} = size(A)
-@inline sdstrides(A::Vector{<:Any}) = (Static(1),)
-@inline sdstrides(A::Array{<:Any,N}) where {N} = (Static(1), Base.tail(strides(A))...)
-@inline sdstrides(A::AbstractArray{<:Any,N}) where {N} = strides(A)
+offsets(::Any) = (Static{1}(),) # Assume arbitrary Julia data structures use 1-based indexing by default.
+@inline size(A::AbstractArray{<:Any,N}) where {N} = Base.size(A)
+@inline strides(A::Vector{<:Any}) = (Static(1),)
+@inline strides(A::Array{<:Any,N}) where {N} = (Static(1), Base.tail(Base.strides(A))...)
+@inline strides(A::AbstractArray{<:Any,N}) where {N} = Base.strides(A)
 
-@inline function sdoffsets(x, i)
+@inline function offsets(x, i)
     inds = indices(x, i)
     start = known_first(inds)
     isnothing(start) ? first(inds) : Static(start)
 end
-# @inline sdoffsets(A::AbstractArray{<:Any,N}) where {N} = ntuple(n -> sdoffsets(A, n), Val{N}())
+# @inline offsets(A::AbstractArray{<:Any,N}) where {N} = ntuple(n -> offsets(A, n), Val{N}())
 # Explicit tuple needed for inference.
-@generated function sdoffsets(A::AbstractArray{<:Any,N}) where {N}
+@generated function offsets(A::AbstractArray{<:Any,N}) where {N}
     quote
         $(Expr(:meta, :inline))
-        Base.Cartesian.@ntuple $N n -> sdoffsets(A, n)
+        Base.Cartesian.@ntuple $N n -> offsets(A, n)
     end
 end
 
 
-@inline sdsize(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} = permute(sdsize(parent(B)), Val{(2,1)}())
-@inline sdsize(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = permute(sdsize(parent(B)), Val{I1}())
-@inline sdstrides(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} = permute(sdstrides(parent(B)), Val{(2,1)}())
-@inline sdstrides(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = permute(sdstrides(parent(B)), Val{I1}())
+@inline size(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} = permute(size(parent(B)), Val{(2,1)}())
+@inline size(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = permute(size(parent(B)), Val{I1}())
+@inline strides(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} = permute(strides(parent(B)), Val{(2,1)}())
+@inline strides(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = permute(strides(parent(B)), Val{I1}())
 
-sdsize(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} = _sdsize(sdsize(parent(B)), B.indices, map(static_length, B.indices))
-sdstrides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} = _sdstrides(sdstrides(parent(B)), B.indices)
-@generated function _sdsize(A::Tuple{Vararg{Any,N}}, inds::I, l::L) where {N, I<:Tuple, L}
+size(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} = _size(size(parent(B)), B.indices, map(static_length, B.indices))
+strides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} = _strides(strides(parent(B)), B.indices)
+@generated function _size(A::Tuple{Vararg{Any,N}}, inds::I, l::L) where {N, I<:Tuple, L}
     t = Expr(:tuple)
     for n in 1:N
         if (I.parameters[n] <: Base.Slice)
@@ -286,7 +284,7 @@ sdstrides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} =
     end
     Expr(:block, Expr(:meta, :inline), t)
 end
-@generated function _sdstrides(A::Tuple{Vararg{Any,N}}, inds::I) where {N, I<:Tuple}
+@generated function _strides(A::Tuple{Vararg{Any,N}}, inds::I) where {N, I<:Tuple}
     t = Expr(:tuple)
     for n in 1:N
         if I.parameters[n] <: AbstractRange
