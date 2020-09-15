@@ -290,6 +290,9 @@ using OffsetArrays
     @test @inferred(ArrayInterface.size(S)) == size(S)
     @test @inferred(ArrayInterface.size(Sp)) == size(Sp)
     @test @inferred(ArrayInterface.size(Sp2)) == size(Sp2)
+    @test @inferred(ArrayInterface.size(Sp2, Static(1))) === 2
+    @test @inferred(ArrayInterface.size(Sp2, Static(2))) === Static(3)
+    @test @inferred(ArrayInterface.size(Sp2, Static(3))) === Static(2)
     
     @test @inferred(ArrayInterface.size(M)) === (Static(2), Static(3), Static(4))
     @test @inferred(ArrayInterface.size(Mp)) === (Static(3), Static(4))
@@ -306,6 +309,9 @@ using OffsetArrays
     @test @inferred(ArrayInterface.strides(S)) === (Static(1), Static(2), Static(6))
     @test @inferred(ArrayInterface.strides(Sp)) === (Static(6), Static(1), Static(2))
     @test @inferred(ArrayInterface.strides(Sp2)) === (Static(6), Static(2), Static(1))
+    @test @inferred(ArrayInterface.stride(Sp2, Static(1))) === Static(6)
+    @test @inferred(ArrayInterface.stride(Sp2, Static(2))) === Static(2)
+    @test @inferred(ArrayInterface.stride(Sp2, Static(3))) === Static(1)
     
     @test @inferred(ArrayInterface.strides(M)) === (Static(1), Static(2), Static(6))
     @test @inferred(ArrayInterface.strides(Mp)) === (Static(2), Static(6))
