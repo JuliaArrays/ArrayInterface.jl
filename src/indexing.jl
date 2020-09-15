@@ -6,7 +6,6 @@ _maybe_tail(x::Tuple) = tail(x)
 #    to_indices(A, args)
 #
 function to_indices end
-const to_indices = ArrayInterface.to_indices
 
 @propagate_inbounds to_indices(A, args::Tuple) = to_indices(A, axes(A), args)
 @propagate_inbounds function to_indices(A, args::Tuple{Any})
