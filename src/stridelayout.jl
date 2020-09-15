@@ -268,8 +268,12 @@ end
 
 @inline size(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} = permute(size(parent(B)), Val{(2,1)}())
 @inline size(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = permute(size(parent(B)), Val{I1}())
+@inline size(A::AbstractArray, ::Static{N}) = size(A)[N]
+@inline size(A::AbstractArray, ::Val{N}) = size(A)[N]
 @inline strides(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} = permute(strides(parent(B)), Val{(2,1)}())
 @inline strides(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = permute(strides(parent(B)), Val{I1}())
+@inline stride(A::AbstractArray, ::Static{N}) = stride(A)[N]
+@inline stride(A::AbstractArray, ::Val{N}) = stride(A)[N]
 
 size(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} = _size(size(parent(B)), B.indices, map(static_length, B.indices))
 strides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} = _strides(strides(parent(B)), B.indices)
