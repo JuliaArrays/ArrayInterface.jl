@@ -14,7 +14,7 @@ Base.@pure Static(N::Int) = Static{N}()
 Static(N::Integer) = Static(convert(Int, N))
 Static(::Static{N}) where {N} = Static{N}()
 Static(::Val{N}) where {N} = Static{N}()
-Base.Val(::Static{N}) where {N} = Val{N}()
+# Base.Val(::Static{N}) where {N} = Val{N}()
 Base.convert(::Type{T}, ::Static{N}) where {T<:Number,N} = convert(T, N)
 Base.convert(::Type{Static{N}}, ::Static{N}) where {N} = Static{N}()
 

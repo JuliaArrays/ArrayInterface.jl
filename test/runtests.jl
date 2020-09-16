@@ -336,8 +336,6 @@ using OffsetArrays
     @test @inferred(ArrayInterface.offsets(O)) === (4, 8, 11)
     @test @inferred(ArrayInterface.offsets(Op)) === (11, 4, 8)
     
-    @test @inferred(isnothing(ArrayInterface.size((1,2,3))))
-    @test @inferred(isnothing(ArrayInterface.strides((1,2,3))))
     @test @inferred(ArrayInterface.offsets((1,2,3))) === (Static(1),)
 end
 
