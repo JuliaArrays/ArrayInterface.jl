@@ -221,7 +221,7 @@ julia> using StaticArrays, ArrayInterface
 julia> A = @SMatrix rand(3,4);
 
 julia> ArrayInterface.size(A)
-(Static{3}(), Static{4}())
+(StaticInt{3}(), StaticInt{4}())
 ```
 """
 size(A) = Base.size(A)
@@ -234,7 +234,7 @@ these should be returned as `Static` numbers. For example:
 julia> A = rand(3,4);
 
 julia> ArrayInterface.strides(A)
-(Static{1}(), 3)
+(StaticInt{1}(), 3)
 ```
 """
 strides(A) = Base.strides(A)
@@ -243,17 +243,17 @@ strides(A) = Base.strides(A)
 
 Returns offsets of indices with respect to 0. If values are known at compile time,
 it should return them as `Static` numbers.
-For example, if `A isa Base.Matrix`, `offsets(A) === (Static(1), Static(1))`.
+For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1))`.
 """
-offsets(::Any) = (Static{1}(),) # Assume arbitrary Julia data structures use 1-based indexing by default.
-@inline strides(A::Vector{<:Any}) = (Static(1),)
-@inline strides(A::Array{<:Any,N}) where {N} = (Static(1), Base.tail(Base.strides(A))...)
+offsets(::Any) = (StaticInt{1}(),) # Assume arbitrary Julia data structures use 1-based indexing by default.
+@inline strides(A::Vector{<:Any}) = (StaticInt(1),)
+@inline strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
 @inline strides(A::AbstractArray{<:Any,N}) where {N} = Base.strides(A)
 
 @inline function offsets(x, i)
     inds = indices(x, i)
     start = known_first(inds)
-    isnothing(start) ? first(inds) : Static(start)
+    isnothing(start) ? first(inds) : StaticInt(start)
 end
 # @inline offsets(A::AbstractArray{<:Any,N}) where {N} = ntuple(n -> offsets(A, n), Val{N}())
 # Explicit tuple needed for inference.
@@ -267,11 +267,11 @@ end
 
 @inline size(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} = permute(size(parent(B)), Val{(2,1)}())
 @inline size(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = permute(size(parent(B)), Val{I1}())
-@inline size(A::AbstractArray, ::Static{N}) where {N} = size(A)[N]
+@inline size(A::AbstractArray, ::StaticInt{N}) where {N} = size(A)[N]
 @inline size(A::AbstractArray, ::Val{N}) where {N} = size(A)[N]
 @inline strides(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} = permute(strides(parent(B)), Val{(2,1)}())
 @inline strides(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = permute(strides(parent(B)), Val{I1}())
-@inline stride(A::AbstractArray, ::Static{N}) where {N} = strides(A)[N]
+@inline stride(A::AbstractArray, ::StaticInt{N}) where {N} = strides(A)[N]
 @inline stride(A::AbstractArray, ::Val{N}) where {N} = strides(A)[N]
 stride(A, i) = Base.stride(A, i)
 

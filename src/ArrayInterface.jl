@@ -741,14 +741,14 @@ function __init__()
     @generated function size(A::StaticArrays.StaticArray{S}) where {S}
         t = Expr(:tuple); Sp = S.parameters
         for n in 1:length(Sp)
-            push!(t.args, Expr(:call, Expr(:curly, :Static, Sp[n])))
+            push!(t.args, Expr(:call, Expr(:curly, :StaticInt, Sp[n])))
         end
         t
     end
     @generated function strides(A::StaticArrays.StaticArray{S}) where {S}
-        t = Expr(:tuple, Expr(:call, Expr(:curly, :Static, 1))); Sp = S.parameters; x = 1
+        t = Expr(:tuple, Expr(:call, Expr(:curly, :StaticInt, 1))); Sp = S.parameters; x = 1
         for n in 1:length(Sp)-1
-            push!(t.args, Expr(:call, Expr(:curly, :Static, (x *= Sp[n]))))
+            push!(t.args, Expr(:call, Expr(:curly, :StaticInt, (x *= Sp[n]))))
         end
         t
     end

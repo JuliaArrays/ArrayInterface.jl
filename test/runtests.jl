@@ -1,6 +1,6 @@
 using ArrayInterface, Test
 using Base: setindex
-import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, Static
+import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, StaticInt
 @test ArrayInterface.ismutable(rand(3))
 
 using Aqua
@@ -284,59 +284,59 @@ using OffsetArrays
     @test @inferred(ArrayInterface.size(A)) === size(A)
     @test @inferred(ArrayInterface.size(Ap)) === size(Ap)
     
-    @test @inferred(ArrayInterface.size(S)) === (Static(2), Static(3), Static(4))
-    @test @inferred(ArrayInterface.size(Sp)) === (2, 2, Static(3))
-    @test @inferred(ArrayInterface.size(Sp2)) === (2, Static(3), Static(2))
+    @test @inferred(ArrayInterface.size(S)) === (StaticInt(2), StaticInt(3), StaticInt(4))
+    @test @inferred(ArrayInterface.size(Sp)) === (2, 2, StaticInt(3))
+    @test @inferred(ArrayInterface.size(Sp2)) === (2, StaticInt(3), StaticInt(2))
     @test @inferred(ArrayInterface.size(S)) == size(S)
     @test @inferred(ArrayInterface.size(Sp)) == size(Sp)
     @test @inferred(ArrayInterface.size(Sp2)) == size(Sp2)
-    @test @inferred(ArrayInterface.size(Sp2, Static(1))) === 2
-    @test @inferred(ArrayInterface.size(Sp2, Static(2))) === Static(3)
-    @test @inferred(ArrayInterface.size(Sp2, Static(3))) === Static(2)
+    @test @inferred(ArrayInterface.size(Sp2, StaticInt(1))) === 2
+    @test @inferred(ArrayInterface.size(Sp2, StaticInt(2))) === StaticInt(3)
+    @test @inferred(ArrayInterface.size(Sp2, StaticInt(3))) === StaticInt(2)
     
-    @test @inferred(ArrayInterface.size(M)) === (Static(2), Static(3), Static(4))
-    @test @inferred(ArrayInterface.size(Mp)) === (Static(3), Static(4))
-    @test @inferred(ArrayInterface.size(Mp2)) === (Static(2), 2)
+    @test @inferred(ArrayInterface.size(M)) === (StaticInt(2), StaticInt(3), StaticInt(4))
+    @test @inferred(ArrayInterface.size(Mp)) === (StaticInt(3), StaticInt(4))
+    @test @inferred(ArrayInterface.size(Mp2)) === (StaticInt(2), 2)
     @test @inferred(ArrayInterface.size(M)) == size(M)
     @test @inferred(ArrayInterface.size(Mp)) == size(Mp)
     @test @inferred(ArrayInterface.size(Mp2)) == size(Mp2)
 
-    @test @inferred(ArrayInterface.strides(A)) === (Static(1), 3, 12)
-    @test @inferred(ArrayInterface.strides(Ap)) === (Static(1), 12)
+    @test @inferred(ArrayInterface.strides(A)) === (StaticInt(1), 3, 12)
+    @test @inferred(ArrayInterface.strides(Ap)) === (StaticInt(1), 12)
     @test @inferred(ArrayInterface.strides(A)) == strides(A)
     @test @inferred(ArrayInterface.strides(Ap)) == strides(Ap)
     
-    @test @inferred(ArrayInterface.strides(S)) === (Static(1), Static(2), Static(6))
-    @test @inferred(ArrayInterface.strides(Sp)) === (Static(6), Static(1), Static(2))
-    @test @inferred(ArrayInterface.strides(Sp2)) === (Static(6), Static(2), Static(1))
-    @test @inferred(ArrayInterface.stride(Sp2, Static(1))) === Static(6)
-    @test @inferred(ArrayInterface.stride(Sp2, Static(2))) === Static(2)
-    @test @inferred(ArrayInterface.stride(Sp2, Static(3))) === Static(1)
+    @test @inferred(ArrayInterface.strides(S)) === (StaticInt(1), StaticInt(2), StaticInt(6))
+    @test @inferred(ArrayInterface.strides(Sp)) === (StaticInt(6), StaticInt(1), StaticInt(2))
+    @test @inferred(ArrayInterface.strides(Sp2)) === (StaticInt(6), StaticInt(2), StaticInt(1))
+    @test @inferred(ArrayInterface.stride(Sp2, StaticInt(1))) === StaticInt(6)
+    @test @inferred(ArrayInterface.stride(Sp2, StaticInt(2))) === StaticInt(2)
+    @test @inferred(ArrayInterface.stride(Sp2, StaticInt(3))) === StaticInt(1)
     
-    @test @inferred(ArrayInterface.strides(M)) === (Static(1), Static(2), Static(6))
-    @test @inferred(ArrayInterface.strides(Mp)) === (Static(2), Static(6))
-    @test @inferred(ArrayInterface.strides(Mp2)) === (Static(1), Static(6))
+    @test @inferred(ArrayInterface.strides(M)) === (StaticInt(1), StaticInt(2), StaticInt(6))
+    @test @inferred(ArrayInterface.strides(Mp)) === (StaticInt(2), StaticInt(6))
+    @test @inferred(ArrayInterface.strides(Mp2)) === (StaticInt(1), StaticInt(6))
     @test @inferred(ArrayInterface.strides(M)) == strides(M)
     @test @inferred(ArrayInterface.strides(Mp)) == strides(Mp)
     @test @inferred(ArrayInterface.strides(Mp2)) == strides(Mp2)
     
-    @test @inferred(ArrayInterface.offsets(A)) === (Static(1), Static(1), Static(1))
-    @test @inferred(ArrayInterface.offsets(Ap)) === (Static(1), Static(1))
+    @test @inferred(ArrayInterface.offsets(A)) === (StaticInt(1), StaticInt(1), StaticInt(1))
+    @test @inferred(ArrayInterface.offsets(Ap)) === (StaticInt(1), StaticInt(1))
     
-    @test @inferred(ArrayInterface.offsets(S)) === (Static(1), Static(1), Static(1))
-    @test @inferred(ArrayInterface.offsets(Sp)) === (Static(1), Static(1), Static(1))
-    @test @inferred(ArrayInterface.offsets(Sp2)) === (Static(1), Static(1), Static(1))
+    @test @inferred(ArrayInterface.offsets(S)) === (StaticInt(1), StaticInt(1), StaticInt(1))
+    @test @inferred(ArrayInterface.offsets(Sp)) === (StaticInt(1), StaticInt(1), StaticInt(1))
+    @test @inferred(ArrayInterface.offsets(Sp2)) === (StaticInt(1), StaticInt(1), StaticInt(1))
     
-    @test @inferred(ArrayInterface.offsets(M)) === (Static(1), Static(1), Static(1))
-    @test @inferred(ArrayInterface.offsets(Mp)) === (Static(1), Static(1))
-    @test @inferred(ArrayInterface.offsets(Mp2)) === (Static(1), Static(1))
+    @test @inferred(ArrayInterface.offsets(M)) === (StaticInt(1), StaticInt(1), StaticInt(1))
+    @test @inferred(ArrayInterface.offsets(Mp)) === (StaticInt(1), StaticInt(1))
+    @test @inferred(ArrayInterface.offsets(Mp2)) === (StaticInt(1), StaticInt(1))
 
     O = OffsetArray(A, 3, 7, 10);
     Op = PermutedDimsArray(O,(3,1,2));
     @test @inferred(ArrayInterface.offsets(O)) === (4, 8, 11)
     @test @inferred(ArrayInterface.offsets(Op)) === (11, 4, 8)
     
-    @test @inferred(ArrayInterface.offsets((1,2,3))) === (Static(1),)
+    @test @inferred(ArrayInterface.offsets((1,2,3))) === (StaticInt(1),)
 end
 
 @test ArrayInterface.can_avx(ArrayInterface.can_avx) == false
@@ -371,32 +371,32 @@ end
     @test @inferred(ArrayInterface.indices(A23)) == 1:6
     @test @inferred(ArrayInterface.indices(SA23)) == 1:6
     @test @inferred(ArrayInterface.indices(A23, 1)) == 1:2
-    @test @inferred(ArrayInterface.indices(SA23, Static(1))) === Base.Slice(Static(1):Static(2))
+    @test @inferred(ArrayInterface.indices(SA23, StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
     @test @inferred(ArrayInterface.indices((A23, A32), (1, 2))) == 1:2
-    @test @inferred(ArrayInterface.indices((SA23, A32), (Static(1), 2))) === Base.Slice(Static(1):Static(2))
-    @test @inferred(ArrayInterface.indices((A23, SA32), (1, Static(2)))) === Base.Slice(Static(1):Static(2))
-    @test @inferred(ArrayInterface.indices((SA23, SA32), (Static(1), Static(2)))) === Base.Slice(Static(1):Static(2))
+    @test @inferred(ArrayInterface.indices((SA23, A32), (StaticInt(1), 2))) === Base.Slice(StaticInt(1):StaticInt(2))
+    @test @inferred(ArrayInterface.indices((A23, SA32), (1, StaticInt(2)))) === Base.Slice(StaticInt(1):StaticInt(2))
+    @test @inferred(ArrayInterface.indices((SA23, SA32), (StaticInt(1), StaticInt(2)))) === Base.Slice(StaticInt(1):StaticInt(2))
     @test @inferred(ArrayInterface.indices((A23, A23), 1)) == 1:2
-    @test @inferred(ArrayInterface.indices((SA23, SA23), Static(1))) === Base.Slice(Static(1):Static(2))
-    @test @inferred(ArrayInterface.indices((SA23, A23), Static(1))) === Base.Slice(Static(1):Static(2))
-    @test @inferred(ArrayInterface.indices((A23, SA23), Static(1))) === Base.Slice(Static(1):Static(2))
-    @test @inferred(ArrayInterface.indices((SA23, SA23), Static(1))) === Base.Slice(Static(1):Static(2))
+    @test @inferred(ArrayInterface.indices((SA23, SA23), StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
+    @test @inferred(ArrayInterface.indices((SA23, A23), StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
+    @test @inferred(ArrayInterface.indices((A23, SA23), StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
+    @test @inferred(ArrayInterface.indices((SA23, SA23), StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
     @test_throws AssertionError ArrayInterface.indices((A23, ones(3, 3)), 1)
     @test_throws AssertionError ArrayInterface.indices((A23, ones(3, 3)), (1, 2))
-    @test_throws AssertionError ArrayInterface.indices((SA23, ones(3, 3)), Static(1))
-    @test_throws AssertionError ArrayInterface.indices((SA23, ones(3, 3)), (Static(1), 2))
-    @test_throws AssertionError ArrayInterface.indices((SA23, SA23), (Static(1), Static(2)))
+    @test_throws AssertionError ArrayInterface.indices((SA23, ones(3, 3)), StaticInt(1))
+    @test_throws AssertionError ArrayInterface.indices((SA23, ones(3, 3)), (StaticInt(1), 2))
+    @test_throws AssertionError ArrayInterface.indices((SA23, SA23), (StaticInt(1), StaticInt(2)))
 end
 
 @testset "Static" begin
-    @test iszero(Static(0))
-    @test !iszero(Static(1))
-    @test @inferred(one(Static)) === Static(1)
-    @test @inferred(zero(Static)) === Static(0)
-    @test eltype(one(Static)) <: Int
+    @test iszero(StaticInt(0))
+    @test !iszero(StaticInt(1))
+    @test @inferred(one(StaticInt)) === StaticInt(1)
+    @test @inferred(zero(StaticInt)) === StaticInt(0)
+    @test eltype(one(StaticInt)) <: Int
     # test for ambiguities and correctness
-    for i ∈ [Static(0), Static(1), Static(2), 3]
-        for j ∈ [Static(0), Static(1), Static(2), 3]
+    for i ∈ [StaticInt(0), StaticInt(1), StaticInt(2), 3]
+        for j ∈ [StaticInt(0), StaticInt(1), StaticInt(2), 3]
             i === j === 3 && continue
             for f ∈ [+, -, *, ÷, %, <<, >>, >>>, &, |, ⊻, ==, ≤, ≥]
                 (iszero(j) && ((f === ÷) || (f === %))) && continue # integer division error
@@ -408,7 +408,7 @@ end
             x = f(convert(Int, i), 1.4)
             y = f(1.4, convert(Int, i))
             @test convert(typeof(x), @inferred(f(i, 1.4))) === x
-            @test convert(typeof(y), @inferred(f(1.4, i))) === y # if f is division and i === Static(0), returns `NaN`; hence use of ==== in check.
+            @test convert(typeof(y), @inferred(f(1.4, i))) === y # if f is division and i === StaticInt(0), returns `NaN`; hence use of ==== in check.
         end
     end
 end

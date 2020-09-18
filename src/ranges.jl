@@ -78,17 +78,17 @@ struct OptionallyStaticUnitRange{F <: Integer, L <: Integer} <: AbstractUnitRang
   end
 end
 
-Base.:(:)(L::Integer, ::Static{U}) where {U} = OptionallyStaticUnitRange(L, Static(U))
-Base.:(:)(::Static{L}, U::Integer) where {L} = OptionallyStaticUnitRange(Static(L), U)
-Base.:(:)(::Static{L}, ::Static{U}) where {L,U} = OptionallyStaticUnitRange(Static(L), Static(U))
+Base.:(:)(L::Integer, ::StaticInt{U}) where {U} = OptionallyStaticUnitRange(L, StaticInt(U))
+Base.:(:)(::StaticInt{L}, U::Integer) where {L} = OptionallyStaticUnitRange(StaticInt(L), U)
+Base.:(:)(::StaticInt{L}, ::StaticInt{U}) where {L,U} = OptionallyStaticUnitRange(StaticInt(L), StaticInt(U))
 
 Base.first(r::OptionallyStaticUnitRange) = r.start
-Base.step(::OptionallyStaticUnitRange) = Static(1)
+Base.step(::OptionallyStaticUnitRange) = StaticInt(1)
 Base.last(r::OptionallyStaticUnitRange) = r.stop
 
-known_first(::Type{<:OptionallyStaticUnitRange{Static{F}}}) where {F} = F
+known_first(::Type{<:OptionallyStaticUnitRange{StaticInt{F}}}) where {F} = F
 known_step(::Type{<:OptionallyStaticUnitRange}) = 1
-known_last(::Type{<:OptionallyStaticUnitRange{<:Any,Static{L}}}) where {L} = L
+known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = L
 
 function Base.isempty(r::OptionallyStaticUnitRange)
   if known_first(r) === oneunit(eltype(r))
@@ -102,7 +102,7 @@ unsafe_isempty_one_to(lst) = lst <= zero(lst)
 unsafe_isempty_unit_range(fst, lst) = fst > lst
 
 unsafe_length_one_to(lst::Int) = lst
-unsafe_length_one_to(::Static{L}) where {L} = lst
+unsafe_length_one_to(::StaticInt{L}) where {L} = lst
 
 Base.@propagate_inbounds function Base.getindex(r::OptionallyStaticUnitRange, i::Integer)
   if known_first(r) === oneunit(r)
@@ -127,19 +127,19 @@ end
   return convert(eltype(r), val)
 end
 
-@inline _try_static(::Static{N}, ::Static{N}) where {N} = Static{N}()
-@inline _try_static(::Static{M}, ::Static{N}) where {M, N} = @assert false "Unequal Indices: Static{$M}() != Static{$N}()"
-@propagate_inbounds function _try_static(::Static{N}, x) where {N}
+@inline _try_static(::StaticInt{N}, ::StaticInt{N}) where {N} = StaticInt{N}()
+@inline _try_static(::StaticInt{M}, ::StaticInt{N}) where {M, N} = @assert false "Unequal Indices: StaticInt{$M}() != StaticInt{$N}()"
+@propagate_inbounds function _try_static(::StaticInt{N}, x) where {N}
     @boundscheck begin
-        @assert N == x "Unequal Indices: Static{$N}() != x == $x"
+        @assert N == x "Unequal Indices: StaticInt{$N}() != x == $x"
     end
-    return Static{N}()
+    return StaticInt{N}()
 end
-@propagate_inbounds function _try_static(x, ::Static{N}) where {N}
+@propagate_inbounds function _try_static(x, ::StaticInt{N}) where {N}
     @boundscheck begin
-        @assert N == x "Unequal Indices: x == $x != Static{$N}()"
+        @assert N == x "Unequal Indices: x == $x != StaticInt{$N}()"
     end
-    return Static{N}()
+    return StaticInt{N}()
 end
 @propagate_inbounds function _try_static(x, y)
     @boundscheck begin
