@@ -167,47 +167,47 @@ Returns the rank of each stride.
 Returns a tuple of indicators for whether each axis is dense.
 An axis `i` of array `A` is dense if `stride(A, i) * size(A, i) == stride(A, j)` where `j` is the axis (if it exists) such that `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
 
-## sdsize(A)
+## ArrayInterface.size(A)
 
 Returns the size of `A`. If the size of any axes are known at compile time,
-these should be returned as `Static` numbers. For example:
+these should be returned as `StaticInt`s. For example:
 ```julia
 julia> using StaticArrays; using ArrayInterface: sdsize
 
 julia> A = @SMatrix rand(3,4);
 
-julia> sdsize(A)
-(Static{3}(), Static{4}())
+julia> ArrayInterface.size(A)
+(StaticInt{3}(), StaticInt{4}())
 ```
 
-## sdstrides(A)
+## ArrayInterface.strides(A)
 
 Returns the strides of array `A`. If any strides are known at compile time,
-these should be returned as `Static` numbers. For example:
+these should be returned as `StaticInt`s. For example:
 ```julia
 julia> using ArrayInterface: sdstrides
 
 julia> A = rand(3,4);
 
-julia> sdstrides(A)
-(Static{1}(), 3)
+julia> ArrayInterface.strides(A)
+(StaticInt{1}(), 3)
 ```
-## sdoffsets(A)
+## offsets(A)
 
 Returns offsets of indices with respect to 0. If values are known at compile time,
-it should return them as `Static` numbers.
-For example, if `A isa Base.Matrix`, `sdoffsets(A) === (Static(1), Static(1))`.
+it should return them as `StaticInt`s.
+For example, if `A isa Base.Matrix`, `sdoffsets(A) === (StaticInt(1), StaticInt(1))`.
 
 ## can_avx(f)
 
 Is the function `f` whitelisted for `LoopVectorization.@avx`?
 
-## Static(N::Int)
+## StaticInt(N::Int)
 
 Creates a static integer with value known at compile time. It is a number,
-supporting basic arithmetic. Many operations with two `Static` integers
-will produce another `Static` integer. If one of the arguments to a
-function call isn't static (e.g., `Static(4) + 3`) then the `Static`
+supporting basic arithmetic. Many operations with two `StaticInt` integers
+will produce another `StaticInt` integer. If one of the arguments to a
+function call isn't static (e.g., `StaticInt(4) + 3`) then the `StaticInt`
 number will promote to a dynamic value.
 
 # List of things to add
