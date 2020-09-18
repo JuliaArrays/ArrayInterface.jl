@@ -172,7 +172,7 @@ An axis `i` of array `A` is dense if `stride(A, i) * size(A, i) == stride(A, j)`
 Returns the size of `A`. If the size of any axes are known at compile time,
 these should be returned as `StaticInt`s. For example:
 ```julia
-julia> using StaticArrays; using ArrayInterface: sdsize
+julia> using StaticArrays, ArrayInterface
 
 julia> A = @SMatrix rand(3,4);
 
@@ -185,7 +185,7 @@ julia> ArrayInterface.size(A)
 Returns the strides of array `A`. If any strides are known at compile time,
 these should be returned as `StaticInt`s. For example:
 ```julia
-julia> using ArrayInterface: sdstrides
+julia> using ArrayInterface
 
 julia> A = rand(3,4);
 
@@ -196,7 +196,7 @@ julia> ArrayInterface.strides(A)
 
 Returns offsets of indices with respect to 0. If values are known at compile time,
 it should return them as `StaticInt`s.
-For example, if `A isa Base.Matrix`, `sdoffsets(A) === (StaticInt(1), StaticInt(1))`.
+For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1))`.
 
 ## can_avx(f)
 
