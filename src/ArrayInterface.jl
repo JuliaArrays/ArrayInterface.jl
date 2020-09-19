@@ -33,8 +33,9 @@ If `length` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
 """
 known_length(x) = known_length(typeof(x))
-known_length(::Type{<:NTuple{N,<:Any}}) where {N} = N
 known_length(::Type{<:NamedTuple{L}}) where {L} = length(L)
+known_length(::Type{T}) where {T<:Base.Slice} = known_length(parent_type(T))
+known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N
 known_length(::Type{<:Number}) = 1
 function known_length(::Type{T}) where {T}
     if parent_type(T) <: T
@@ -52,7 +53,7 @@ _known_length(x::Tuple{Vararg{Int}}) = prod(x)
 """
     can_change_size(::Type{T}) -> Bool
 
-Returns `true` if the size of `T` can change, in which case operations
+Returns `true` if the Base.size of `T` can change, in which case operations
 such as `pop!` and `popfirst!` are available for collections of type `T`.
 """
 can_change_size(x) = can_change_size(typeof(x))
@@ -102,7 +103,7 @@ function Base.setindex(x::AbstractVector,v,i::Int)
 end
 
 function Base.setindex(x::AbstractMatrix,v,i::Int,j::Int)
-  n,m = size(x)
+  n,m = Base.size(x)
   x .* (i .!== 1:n) .* (j  .!== i:m)' .+ v .* (i .== 1:n) .* (j  .== i:m)'
 end
 
@@ -202,7 +203,7 @@ Return: (I,J) #indexable objects
 Find sparsity pattern of special matrices, the same as the first two elements of findnz(::SparseMatrixCSC)
 """
 function findstructralnz(x::Diagonal)
-  n=size(x,1)
+  n = Base.size(x,1)
   (1:n,1:n)
 end
 
@@ -412,7 +413,7 @@ function Base.getindex(ind::BandedBlockBandedMatrixIndex,i::Int)
 end
 
 function findstructralnz(x::Bidiagonal)
-  n=size(x,1)
+  n= Base.size(x,1)
   isup= x.uplo=='U' ? true : false
   rowind=BidiagonalIndex(n+n-1,isup)
   colind=BidiagonalIndex(n+n-1,!isup)
@@ -420,7 +421,7 @@ function findstructralnz(x::Bidiagonal)
 end
 
 function findstructralnz(x::Union{Tridiagonal,SymTridiagonal})
-  n=size(x,1)
+  n= Base.size(x,1)
   rowind=TridiagonalIndex(n+n-1+n-1,n,true)
   colind=TridiagonalIndex(n+n-1+n-1,n,false)
   (rowind,colind)
@@ -447,10 +448,10 @@ fast_matrix_colors(A::Type{<:Union{Diagonal,Bidiagonal,Tridiagonal,SymTridiagona
     matrix_colors(A::Union{Array,UpperTriangular,LowerTriangular})
 
 The color vector for dense matrix and triangular matrix is simply
-`[1,2,3,...,size(A,2)]`
+`[1,2,3,..., Base.size(A,2)]`
 """
 function matrix_colors(A::Union{Array,UpperTriangular,LowerTriangular})
-    eachindex(1:size(A,2)) # Vector size matches number of rows
+    eachindex(1:Base.size(A,2)) # Vector Base.size matches number of rows
 end
 
 function _cycle(repetend,len)
@@ -458,15 +459,15 @@ function _cycle(repetend,len)
 end
 
 function matrix_colors(A::Diagonal)
-    fill(1,size(A,2))
+    fill(1, Base.size(A,2))
 end
 
 function matrix_colors(A::Bidiagonal)
-    _cycle(1:2,size(A,2))
+    _cycle(1:2, Base.size(A,2))
 end
 
 function matrix_colors(A::Union{Tridiagonal,SymTridiagonal})
-    _cycle(1:3,size(A,2))
+    _cycle(1:3, Base.size(A,2))
 end
 
 """
@@ -540,8 +541,63 @@ function restructure(x,y)
 end
 
 function restructure(x::Array,y)
-  reshape(convert(Array,y),size(x)...)
+  reshape(convert(Array,y), Base.size(x)...)
 end
+
+abstract type AbstractDevice end
+abstract type AbstractCPU <: AbstractDevice end
+struct CPUPointer <: AbstractCPU end
+struct CheckParent end
+struct CPUIndex <: AbstractCPU end
+struct GPU <: AbstractDevice end
+"""
+device(::Type{T})
+
+Indicates the most efficient way to access elements from the collection in low level code.
+For `GPUArrays`, will return `ArrayInterface.GPU()`.
+For `AbstractArray` supporting a `pointer` method, returns `ArrayInterface.CPUPointer()`.
+For other `AbstractArray`s and `Tuple`s, returns `ArrayInterface.CPUIndex()`.
+Otherwise, returns `nothing`.
+"""
+device(A) = device(typeof(A))
+device(::Type) = nothing
+device(::Type{<:Tuple}) = CPUIndex()
+# Relies on overloading for GPUArrays that have subtyped `StridedArray`.
+device(::Type{<:StridedArray}) = CPUPointer()
+function device(::Type{T}) where {T <: AbstractArray}
+    P = parent_type(T)
+    T === P ? CPUIndex() : device(P)
+end
+
+
+"""
+defines_strides(::Type{T}) -> Bool
+
+Is strides(::T) defined?
+"""
+defines_strides(::Type) = false
+defines_strides(x) = defines_strides(typeof(x))
+defines_strides(::Type{<:StridedArray}) = true
+defines_strides(::Type{A}) where {A <: Union{<:Transpose,<:Adjoint,<:SubArray,<:PermutedDimsArray}} = defines_strides(parent_type(A))
+
+"""
+can_avx(f)
+
+Returns `true` if the function `f` is guaranteed to be compatible with `LoopVectorization.@avx` for supported element and array types.
+While a return value of `false` does not indicate the function isn't supported, this allows a library to conservatively apply `@avx`
+only when it is known to be safe to do so.
+
+```julia
+function mymap!(f, y, args...)
+    if can_avx(f)
+        @avx @. y = f(args...)
+    else
+        @. y = f(args...)
+    end
+end
+```
+"""
+can_avx(::Any) = false
 
 """
     insert(collection, index, item)
@@ -654,6 +710,7 @@ function __init__()
     ismutable(::Type{<:StaticArrays.StaticArray}) = false
     can_setindex(::Type{<:StaticArrays.StaticArray}) = false
     ismutable(::Type{<:StaticArrays.MArray}) = true
+    ismutable(::Type{<:StaticArrays.SizedArray}) = true
 
     function lu_instance(_A::StaticArrays.StaticMatrix{N,N}) where {N}
       A = StaticArrays.SArray(_A)
@@ -675,6 +732,26 @@ function __init__()
     known_last(::Type{StaticArrays.SOneTo{N}}) where {N} = N
     known_length(::Type{StaticArrays.SOneTo{N}}) where {N} = N
 
+    device(::Type{<:StaticArrays.MArray}) = CPUPointer()
+    contiguous_axis(::Type{<:StaticArrays.StaticArray}) = Contiguous{1}()
+    contiguous_batch_size(::Type{<:StaticArrays.StaticArray}) = ContiguousBatch{0}()
+    stride_rank(::Type{T}) where {N, T <: StaticArrays.StaticArray{<:Any,<:Any,N}} = StrideRank{ntuple(identity, Val{N}())}()
+    dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = DenseDims{ntuple(_ -> true, Val(N))}()
+    defines_strides(::Type{<:StaticArrays.MArray}) = true
+    @generated function size(A::StaticArrays.StaticArray{S}) where {S}
+        t = Expr(:tuple); Sp = S.parameters
+        for n in 1:length(Sp)
+            push!(t.args, Expr(:call, Expr(:curly, :StaticInt, Sp[n])))
+        end
+        t
+    end
+    @generated function strides(A::StaticArrays.StaticArray{S}) where {S}
+        t = Expr(:tuple, Expr(:call, Expr(:curly, :StaticInt, 1))); Sp = S.parameters; x = 1
+        for n in 1:length(Sp)-1
+            push!(t.args, Expr(:call, Expr(:curly, :StaticInt, (x *= Sp[n]))))
+        end
+        t
+    end
     @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
       function Adapt.adapt_storage(::Type{<:StaticArrays.SArray{S}},xs::Array) where S
           StaticArrays.SArray{S}(xs)
@@ -694,7 +771,7 @@ function __init__()
     aos_to_soa(x::AbstractArray{<:Tracker.TrackedReal,N}) where N = Tracker.collect(x)
   end
 
-  @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
+    @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
     @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
       include("cuarrays.jl")
     end
@@ -717,7 +794,7 @@ function __init__()
   @require BandedMatrices="aae01518-5342-5314-be14-df237901396f" begin
     function findstructralnz(x::BandedMatrices.BandedMatrix)
       l,u=BandedMatrices.bandwidths(x)
-      rowsize,colsize=size(x)
+      rowsize,colsize= Base.size(x)
       rowind=BandedMatrixIndex(rowsize,colsize,l,u,true)
       colind=BandedMatrixIndex(rowsize,colsize,l,u,false)
       (rowind,colind)
@@ -730,7 +807,7 @@ function __init__()
     function matrix_colors(A::BandedMatrices.BandedMatrix)
         l,u=BandedMatrices.bandwidths(A)
         width=u+l+1
-        _cycle(1:width,size(A,2))
+        _cycle(1:width, Base.size(A,2))
     end
 
   end
@@ -794,9 +871,19 @@ function __init__()
       end
     end
   end
+  @require OffsetArrays="6fe1bfb0-de20-5000-8ca7-80f57d26f881" begin
+      size(A::OffsetArrays.OffsetArray) = size(parent(A))
+      strides(A::OffsetArrays.OffsetArray) = strides(parent(A))
+      # offsets(A::OffsetArrays.OffsetArray) = map(+, A.offsets, offsets(parent(A)))
+      device(::OffsetArrays.OffsetArray) = CheckParent()
+      contiguous_axis(A::OffsetArrays.OffsetArray) = contiguous_axis(parent(A))
+      contiguous_batch_size(A::OffsetArrays.OffsetArray) = contiguous_batch_size(parent(A))
+      stride_rank(A::OffsetArrays.OffsetArray) = stride_rank(parent(A))
+  end
 end
 
 include("static.jl")
 include("ranges.jl")
+include("stridelayout.jl")
 
 end
