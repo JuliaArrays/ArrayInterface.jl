@@ -134,12 +134,80 @@ Otherwise, returns `nothing`. For example, `known_step(UnitRange{Int})` returns
 If `length` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
 
-## Static(N::Int)
+## device(::Type{T})
+
+Indicates the most efficient way to access elements from the collection in low level code.
+For `GPUArrays`, will return `ArrayInterface.GPU()`.
+For `AbstractArray` supporting a `pointer` method, returns `ArrayInterface.CPUPointer()`.
+For other `AbstractArray`s and `Tuple`s, returns `ArrayInterface.CPUIndex()`.
+Otherwise, returns `nothing`.
+
+## contiguous_axis(::Type{T})
+
+Returns the axis of an array of type `T` containing contiguous data.
+If no axis is contiguous, it returns `Contiguous{-1}`.
+If unknown, it returns `nothing`.
+
+## contiguous_axis_indicator(::Type{T})
+
+Returns a tuple of boolean `Val`s indicating whether that axis is contiguous.
+
+## contiguous_batch_size(::Type{T})
+
+Returns the size of contiguous batches if `!isone(stride_rank(T, contiguous_axis(T)))`.
+If `isone(stride_rank(T, contiguous_axis(T)))`, then it will return `ContiguousBatch{0}()`.
+If `contiguous_axis(T) == -1`, it will return `ContiguousBatch{-1}()`.
+If unknown, it will return `nothing`.
+
+## stride_rank(::Type{T})
+
+Returns the rank of each stride.
+
+## dense_dims(::Type{T})
+Returns a tuple of indicators for whether each axis is dense.
+An axis `i` of array `A` is dense if `stride(A, i) * size(A, i) == stride(A, j)` where `j` is the axis (if it exists) such that `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
+
+## ArrayInterface.size(A)
+
+Returns the size of `A`. If the size of any axes are known at compile time,
+these should be returned as `StaticInt`s. For example:
+```julia
+julia> using StaticArrays, ArrayInterface
+
+julia> A = @SMatrix rand(3,4);
+
+julia> ArrayInterface.size(A)
+(StaticInt{3}(), StaticInt{4}())
+```
+
+## ArrayInterface.strides(A)
+
+Returns the strides of array `A`. If any strides are known at compile time,
+these should be returned as `StaticInt`s. For example:
+```julia
+julia> using ArrayInterface
+
+julia> A = rand(3,4);
+
+julia> ArrayInterface.strides(A)
+(StaticInt{1}(), 3)
+```
+## offsets(A)
+
+Returns offsets of indices with respect to 0. If values are known at compile time,
+it should return them as `StaticInt`s.
+For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1))`.
+
+## can_avx(f)
+
+Is the function `f` whitelisted for `LoopVectorization.@avx`?
+
+## StaticInt(N::Int)
 
 Creates a static integer with value known at compile time. It is a number,
-supporting basic arithmetic. Many operations with two `Static` integers
-will produce another `Static` integer. If one of the arguments to a
-function call isn't static (e.g., `Static(4) + 3`) then the `Static`
+supporting basic arithmetic. Many operations with two `StaticInt` integers
+will produce another `StaticInt` integer. If one of the arguments to a
+function call isn't static (e.g., `StaticInt(4) + 3`) then the `StaticInt`
 number will promote to a dynamic value.
 
 # List of things to add

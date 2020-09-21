@@ -9,5 +9,8 @@ function Base.setindex(x::CuArrays.CuArray,v,i::Int)
 end
 
 function restructure(x::CuArrays.CuArray,y)
-  reshape(Adapt.adapt(parameterless_type(x),y),size(x)...)
+  reshape(Adapt.adapt(parameterless_type(x),y), Base.size(x)...)
 end
+
+Device(::Type{<:CuArrays.CuArray}) = GPU()
+

@@ -1,94 +1,95 @@
 
 """
 A statically sized `Int`.
-Use `Static(N)` instead of `Val(N)` when you want it to behave like a number.
+Use `StaticInt(N)` instead of `Val(N)` when you want it to behave like a number.
 """
-struct Static{N} <: Integer
-    Static{N}() where {N} = new{N::Int}()
+struct StaticInt{N} <: Integer
+    StaticInt{N}() where {N} = new{N::Int}()
 end
 
-const Zero = Static{0}
-const One = Static{1}
+const Zero = StaticInt{0}
+const One = StaticInt{1}
 
-Base.@pure Static(N::Int) = Static{N}()
-Static(N::Integer) = Static(convert(Int, N))
-Static(::Static{N}) where {N} = Static{N}()
-Static(::Val{N}) where {N} = Static{N}()
-Base.Val(::Static{N}) where {N} = Val{N}()
-Base.convert(::Type{T}, ::Static{N}) where {T<:Number,N} = convert(T, N)
-Base.convert(::Type{Static{N}}, ::Static{N}) where {N} = Static{N}()
+Base.@pure StaticInt(N::Int) = StaticInt{N}()
+StaticInt(N::Integer) = StaticInt(convert(Int, N))
+StaticInt(::StaticInt{N}) where {N} = StaticInt{N}()
+StaticInt(::Val{N}) where {N} = StaticInt{N}()
+# Base.Val(::StaticInt{N}) where {N} = Val{N}()
+Base.convert(::Type{T}, ::StaticInt{N}) where {T<:Number,N} = convert(T, N)
+# (::Type{T})(::ArrayInterface.StaticInt{N}) where {T,N} = T(N)
+Base.convert(::Type{StaticInt{N}}, ::StaticInt{N}) where {N} = StaticInt{N}()
 
-Base.promote_rule(::Type{<:Static}, ::Type{T}) where {T <: AbstractIrrational} = promote_rule(Int, T)
-Base.promote_rule(::Type{T}, ::Type{<:Static}) where {T <: AbstractIrrational} = promote_rule(T, Int)
+Base.promote_rule(::Type{<:StaticInt}, ::Type{T}) where {T <: AbstractIrrational} = promote_rule(Int, T)
+Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T <: AbstractIrrational} = promote_rule(T, Int)
 for (S,T) ∈ [(:Complex,:Real), (:Rational, :Integer), (:(Base.TwicePrecision),:Any)]
-    @eval Base.promote_rule(::Type{$S{T}}, ::Type{<:Static}) where {T <: $T} = promote_rule($S{T}, Int)
+    @eval Base.promote_rule(::Type{$S{T}}, ::Type{<:StaticInt}) where {T <: $T} = promote_rule($S{T}, Int)
 end
-Base.promote_rule(::Type{Union{Nothing,Missing}}, ::Type{<:Static}) = Union{Nothing, Missing, Int}
-Base.promote_rule(::Type{T}, ::Type{<:Static}) where {T >: Union{Missing,Nothing}} = promote_rule(T, Int)
-Base.promote_rule(::Type{T}, ::Type{<:Static}) where {T >: Nothing} = promote_rule(T, Int)
-Base.promote_rule(::Type{T}, ::Type{<:Static}) where {T >: Missing} = promote_rule(T, Int)
+Base.promote_rule(::Type{Union{Nothing,Missing}}, ::Type{<:StaticInt}) = Union{Nothing, Missing, Int}
+Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T >: Union{Missing,Nothing}} = promote_rule(T, Int)
+Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T >: Nothing} = promote_rule(T, Int)
+Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T >: Missing} = promote_rule(T, Int)
 for T ∈ [:Bool, :Missing, :BigFloat, :BigInt, :Nothing, :Any]
 # let S = :Any    
     @eval begin
-        Base.promote_rule(::Type{S}, ::Type{$T}) where {S <: Static} = promote_rule(Int, $T)
-        Base.promote_rule(::Type{$T}, ::Type{S}) where {S <: Static} = promote_rule($T, Int)
+        Base.promote_rule(::Type{S}, ::Type{$T}) where {S <: StaticInt} = promote_rule(Int, $T)
+        Base.promote_rule(::Type{$T}, ::Type{S}) where {S <: StaticInt} = promote_rule($T, Int)
     end
 end
-Base.promote_rule(::Type{<:Static}, ::Type{<:Static}) = Int
-Base.:(%)(::Static{N}, ::Type{Integer}) where {N} = N
+Base.promote_rule(::Type{<:StaticInt}, ::Type{<:StaticInt}) = Int
+Base.:(%)(::StaticInt{N}, ::Type{Integer}) where {N} = N
 
-Base.eltype(::Type{T}) where {T<:Static} = Int
+Base.eltype(::Type{T}) where {T<:StaticInt} = Int
 Base.iszero(::Zero) = true
-Base.iszero(::Static) = false
+Base.iszero(::StaticInt) = false
 Base.isone(::One) = true
-Base.isone(::Static) = false
-Base.zero(::Type{T}) where {T<:Static} = Zero()
-Base.one(::Type{T}) where {T<:Static} = One()
+Base.isone(::StaticInt) = false
+Base.zero(::Type{T}) where {T<:StaticInt} = Zero()
+Base.one(::Type{T}) where {T<:StaticInt} = One()
 
 for T = [:Real, :Rational, :Integer]
     @eval begin
         @inline Base.:(+)(i::$T, ::Zero) = i
-        @inline Base.:(+)(i::$T, ::Static{M}) where {M} = i + M
+        @inline Base.:(+)(i::$T, ::StaticInt{M}) where {M} = i + M
         @inline Base.:(+)(::Zero, i::$T) = i
-        @inline Base.:(+)(::Static{M}, i::$T) where {M} = M + i
+        @inline Base.:(+)(::StaticInt{M}, i::$T) where {M} = M + i
         @inline Base.:(-)(i::$T, ::Zero) = i
-        @inline Base.:(-)(i::$T, ::Static{M}) where {M} = i - M
+        @inline Base.:(-)(i::$T, ::StaticInt{M}) where {M} = i - M
         @inline Base.:(*)(i::$T, ::Zero) = Zero()
         @inline Base.:(*)(i::$T, ::One) = i
-        @inline Base.:(*)(i::$T, ::Static{M}) where {M} = i * M
+        @inline Base.:(*)(i::$T, ::StaticInt{M}) where {M} = i * M
         @inline Base.:(*)(::Zero, i::$T) = Zero()
         @inline Base.:(*)(::One, i::$T) = i
-        @inline Base.:(*)(::Static{M}, i::$T) where {M} = M * i
+        @inline Base.:(*)(::StaticInt{M}, i::$T) where {M} = M * i
     end
 end
 @inline Base.:(+)(::Zero, ::Zero) = Zero()
-@inline Base.:(+)(::Zero, ::Static{M}) where {M} = Static{M}()
-@inline Base.:(+)(::Static{M}, ::Zero) where {M} = Static{M}()
+@inline Base.:(+)(::Zero, ::StaticInt{M}) where {M} = StaticInt{M}()
+@inline Base.:(+)(::StaticInt{M}, ::Zero) where {M} = StaticInt{M}()
 
-@inline Base.:(-)(::Static{M}, ::Zero) where {M} = Static{M}()
+@inline Base.:(-)(::StaticInt{M}, ::Zero) where {M} = StaticInt{M}()
 
 @inline Base.:(*)(::Zero, ::Zero) = Zero()
 @inline Base.:(*)(::One, ::Zero) = Zero()
 @inline Base.:(*)(::Zero, ::One) = Zero()
 @inline Base.:(*)(::One, ::One) = One()
-@inline Base.:(*)(::Static{M}, ::Zero) where {M} = Zero()
-@inline Base.:(*)(::Zero, ::Static{M}) where {M} = Zero()
-@inline Base.:(*)(::Static{M}, ::One) where {M} = Static{M}()
-@inline Base.:(*)(::One, ::Static{M}) where {M} = Static{M}()
+@inline Base.:(*)(::StaticInt{M}, ::Zero) where {M} = Zero()
+@inline Base.:(*)(::Zero, ::StaticInt{M}) where {M} = Zero()
+@inline Base.:(*)(::StaticInt{M}, ::One) where {M} = StaticInt{M}()
+@inline Base.:(*)(::One, ::StaticInt{M}) where {M} = StaticInt{M}()
 for f ∈ [:(+), :(-), :(*), :(/), :(÷), :(%), :(<<), :(>>), :(>>>), :(&), :(|), :(⊻)]
-    @eval @generated Base.$f(::Static{M}, ::Static{N}) where {M,N} = Expr(:call, Expr(:curly, :Static, $f(M, N)))
+    @eval @generated Base.$f(::StaticInt{M}, ::StaticInt{N}) where {M,N} = Expr(:call, Expr(:curly, :StaticInt, $f(M, N)))
 end
 for f ∈ [:(==), :(!=), :(<), :(≤), :(>), :(≥)]
     @eval begin
-        @inline Base.$f(::Static{M}, ::Static{N}) where {M,N} = $f(M, N)
-        @inline Base.$f(::Static{M}, x::Int) where {M} = $f(M, x)
-        @inline Base.$f(x::Int, ::Static{M}) where {M} = $f(x, M)
+        @inline Base.$f(::StaticInt{M}, ::StaticInt{N}) where {M,N} = $f(M, N)
+        @inline Base.$f(::StaticInt{M}, x::Int) where {M} = $f(M, x)
+        @inline Base.$f(x::Int, ::StaticInt{M}) where {M} = $f(x, M)
     end
 end
 
 @inline function maybe_static(f::F, g::G, x) where {F, G}
     L = f(x)
-    isnothing(L) ? g(x) : Static(L)
+    isnothing(L) ? g(x) : StaticInt(L)
 end
 @inline static_length(x) = maybe_static(known_length, length, x)
 @inline static_first(x) = maybe_static(known_first, first, x)
