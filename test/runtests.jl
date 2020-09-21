@@ -200,6 +200,15 @@ end
     @test isnothing(@inferred(ArrayInterface.known_step(typeof(1:0.2:4))))
     @test isone(@inferred(ArrayInterface.known_step(1:4)))
     @test isone(@inferred(ArrayInterface.known_step(typeof(1:4))))
+
+    @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(1, 0))) == 0
+    @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(1, 10))) == 10
+    @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10))) == 10
+    @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(0), 10))) == 11
+    @test @inferred(getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 1)) == 1
+    @test @inferred(getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(0), 10), 1)) == 0
+    @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 0)
+    @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 0)
 end
 
 @testset "Memory Layout" begin
