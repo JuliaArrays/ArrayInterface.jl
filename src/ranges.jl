@@ -105,7 +105,7 @@ unsafe_length_one_to(lst::Int) = lst
 unsafe_length_one_to(::StaticInt{L}) where {L} = lst
 
 Base.@propagate_inbounds function Base.getindex(r::OptionallyStaticUnitRange, i::Integer)
-  if known_first(r) === oneunit(r)
+  if known_first(r) === oneunit(eltype(r))
     return get_index_one_to(r, i)
   else
     return get_index_unit_range(r, i)
@@ -113,7 +113,7 @@ Base.@propagate_inbounds function Base.getindex(r::OptionallyStaticUnitRange, i:
 end
 
 @inline function get_index_one_to(r, i)
-  @boundscheck if ((i > 0) & (i <= last(r)))
+  @boundscheck if ((i < 1) || (i > last(r)))
     throw(BoundsError(r, i))
   end
   return convert(eltype(r), i)
@@ -121,7 +121,7 @@ end
 
 @inline function get_index_unit_range(r, i)
   val = first(r) + (i - 1)
-  @boundscheck if i > 0 && val <= last(r) && val >= first(r)
+  @boundscheck if (i < 1) || (val > last(r) && val < first(r))
     throw(BoundsError(r, i))
   end
   return convert(eltype(r), val)
@@ -169,7 +169,7 @@ function Base.length(r::OptionallyStaticUnitRange)
   if isempty(r)
     return 0
   else
-    if known_first(r) === 0
+    if known_first(r) === 1
       return unsafe_length_one_to(last(r))
     else
       return unsafe_length_unit_range(first(r), last(r))
@@ -177,7 +177,7 @@ function Base.length(r::OptionallyStaticUnitRange)
   end
 end
 
-unsafe_length_unit_range(start::Integer, stop::Integer) = Int(start - stop + 1)
+unsafe_length_unit_range(start::Integer, stop::Integer) = Int((stop - start) + 1)
 
 """
     indices(x[, d])
