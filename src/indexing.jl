@@ -18,7 +18,7 @@ end
 @propagate_inbounds function to_indices(A, axs::Tuple, args::Tuple{Arg,Vararg{Any}}) where {Arg}
     if argdims(Arg) > 1
         axes_front, axes_tail = IteratorsMD.split(axs, Val(argdims(Arg)))
-        return (to_index(axes_front, first(args)), to_indices(A, axes_tail, tail(args))...)
+        return (to_multi_index(axes_front, first(args)), to_indices(A, axes_tail, tail(args))...)
     else
         return (to_index(first(axs), first(args)), to_indices(A, tail(axs), tail(args))...)
     end
@@ -33,6 +33,13 @@ end
     return (to_index(Static(1):Static(1), first(args)), to_indices(A, (), tail(args))...)
 end
 to_indices(A, axs::Tuple{}, args::Tuple{}) = ()
+
+function to_multi_index(axs::Tuple, arg)
+    @boundscheck if !Base.checkbounds_indices(Bool, axs, (arg,))
+        throw(BoundsError(axs, arg))
+    end
+    return arg
+end
 
 """
     to_index([::IndexStyle, ]axis, arg) -> index
