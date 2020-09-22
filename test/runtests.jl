@@ -400,6 +400,8 @@ end
 @testset "Static" begin
     @test iszero(StaticInt(0))
     @test !iszero(StaticInt(1))
+    @test @inferred(one(StaticInt(1))) === StaticInt(1)
+    @test @inferred(zero(StaticInt(1))) === StaticInt(0)
     @test @inferred(one(StaticInt)) === StaticInt(1)
     @test @inferred(zero(StaticInt)) === StaticInt(0)
     @test eltype(one(StaticInt)) <: Int
