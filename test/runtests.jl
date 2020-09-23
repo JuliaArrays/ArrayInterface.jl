@@ -190,6 +190,17 @@ using ArrayInterface: parent_type
 end
 
 @testset "Range Interface" begin
+    @testset "Range Constructors" begin
+        @test @inferred(StaticInt(1):StaticInt(10)) == 1:10
+        @test @inferred(StaticInt(1):StaticInt(2):StaticInt(10)) == 1:2:10 
+        @test @inferred(1:StaticInt(2):StaticInt(10)) == 1:2:10
+        @test @inferred(StaticInt(1):StaticInt(2):10) == 1:2:10
+        @test @inferred(StaticInt(1):2:StaticInt(10)) == 1:2:10 
+        @test @inferred(1:2:StaticInt(10)) == 1:2:10
+        @test @inferred(1:StaticInt(2):10) == 1:2:10
+        @test @inferred(StaticInt(1):2:10) == 1:2:10 
+    end
+
     @test isnothing(@inferred(ArrayInterface.known_first(typeof(1:4))))
     @test isone(@inferred(ArrayInterface.known_first(Base.OneTo(4))))
     @test isone(@inferred(ArrayInterface.known_first(typeof(Base.OneTo(4)))))
@@ -201,10 +212,17 @@ end
     @test isone(@inferred(ArrayInterface.known_step(1:4)))
     @test isone(@inferred(ArrayInterface.known_step(typeof(1:4))))
 
-    @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(1, 0))) == 0
-    @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(1, 10))) == 10
-    @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10))) == 10
-    @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(0), 10))) == 11
+    @testset "length" begin
+        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(1, 0))) == 0
+        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(1, 10))) == 10
+        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10))) == 10
+        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(0), 10))) == 11
+        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10)))) == 10
+        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(0), StaticInt(10)))) == 11
+
+        @test @inferred(length(StaticInt(1):StaticInt(2):StaticInt(0))) == 0
+        @test @inferred(length(StaticInt(0):StaticInt(-2):StaticInt(1))) == 0
+    end
     @test @inferred(getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 1)) == 1
     @test @inferred(getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(0), 10), 1)) == 0
     @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 0)
