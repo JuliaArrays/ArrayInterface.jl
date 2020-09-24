@@ -182,6 +182,11 @@ Base.:(:)(::StaticInt{F}, step::Integer, ::StaticInt{L}) where {F,L} = Optionall
 Base.:(:)(start::Integer, step::Integer, ::StaticInt{L}) where {L} = OptionallyStaticStepRange(start, step, StaticInt(L))
 Base.:(:)(start::Integer, ::StaticInt{S}, stop::Integer) where {S} = OptionallyStaticStepRange(start, StaticInt(S), stop)
 Base.:(:)(::StaticInt{F}, step::Integer, stop::Integer) where {F} = OptionallyStaticStepRange(StaticInt(F), step, stop)
+Base.:(:)(::StaticInt{F}, ::StaticInt{1}, ::StaticInt{L}) where {F,L} = OptionallyStaticUnitRange(StaticInt(F), StaticInt(L))
+Base.:(:)(start::Integer, ::StaticInt{1}, ::StaticInt{L}) where {L} = OptionallyStaticUnitRange(start, StaticInt(L))
+Base.:(:)(::StaticInt{F}, ::StaticInt{1}, stop::Integer) where {F} = OptionallyStaticUnitRange(StaticInt(F), stop)
+Base.:(:)(start::Integer, ::StaticInt{1}, stop::Integer) = OptionallyStaticUnitRange(start, stop)
+
 
 function Base.isempty(r::OptionallyStaticUnitRange)
   if known_first(r) === oneunit(eltype(r))

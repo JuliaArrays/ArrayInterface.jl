@@ -199,6 +199,10 @@ end
         @test @inferred(1:2:StaticInt(10)) == 1:2:10
         @test @inferred(1:StaticInt(2):10) == 1:2:10
         @test @inferred(StaticInt(1):2:10) == 1:2:10 
+
+        @test @inferred(StaticInt(1):StaticInt(1):StaticInt(10)) === ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))
+        @test @inferred(StaticInt(1):StaticInt(1):10) === ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10)
+        @test @inferred(1:StaticInt(1):10) === ArrayInterface.OptionallyStaticUnitRange(1, 10)
     end
 
     @test isnothing(@inferred(ArrayInterface.known_first(typeof(1:4))))
