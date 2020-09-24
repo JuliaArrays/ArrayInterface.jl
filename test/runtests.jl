@@ -312,12 +312,12 @@ using OffsetArrays
     M = @MArray zeros(2,3,4); Mp = @view(PermutedDimsArray(M,(3,1,2))[:,2,:])';
     Sp2 = @view(PermutedDimsArray(S,(3,2,1))[2:3,:,:]);
     Mp2 = @view(PermutedDimsArray(M,(3,1,2))[2:3,:,2])';
-    
+
     @test @inferred(ArrayInterface.size(A)) === (3,4,5)
     @test @inferred(ArrayInterface.size(Ap)) === (2,5)
     @test @inferred(ArrayInterface.size(A)) === size(A)
     @test @inferred(ArrayInterface.size(Ap)) === size(Ap)
-    
+
     @test @inferred(ArrayInterface.size(S)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(Sp)) === (2, 2, StaticInt(3))
     @test @inferred(ArrayInterface.size(Sp2)) === (2, StaticInt(3), StaticInt(2))
@@ -430,6 +430,11 @@ end
     @test @inferred(one(StaticInt)) === StaticInt(1)
     @test @inferred(zero(StaticInt)) === StaticInt(0)
     @test eltype(one(StaticInt)) <: Int
+
+    x = StaticInt(1)
+    @test @inferred(Bool(x)) isa Bool
+    @test @inferred(BigInt(x)) isa BigInt
+    @test @inferred(Integer(x)) === x
     # test for ambiguities and correctness
     for i ∈ [StaticInt(0), StaticInt(1), StaticInt(2), 3]
         for j ∈ [StaticInt(0), StaticInt(1), StaticInt(2), 3]
