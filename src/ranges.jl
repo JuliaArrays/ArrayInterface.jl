@@ -43,7 +43,7 @@ known_step(::Type{<:AbstractUnitRange{T}}) where {T} = one(T)
 # add methods to support ArrayInterface
 
 """
-    OptionallyStaticUnitRange{T<:Integer}(start, stop) <: OrdinalRange{T,T}
+    OptionallyStaticUnitRange(start, stop) <: AbstractUnitRange{Int}
 
 This range permits diverse representations of arrays to comunicate common information 
 about their indices. Each field may be an integer or `Val(<:Integer)` if it is known
@@ -83,6 +83,28 @@ Base.last(r::OptionallyStaticUnitRange) = r.stop
 known_first(::Type{<:OptionallyStaticUnitRange{StaticInt{F}}}) where {F} = F
 known_step(::Type{<:OptionallyStaticUnitRange}) = 1
 known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = L
+
+"""
+    OptionallyStaticStepRange(start, step, stop) <: OrdinalRange{Int,Int}
+
+Similar to [`OptionallyStaticUnitRange`](@ref), `OptionallyStaticStepRange` permits
+a combination of static and standard primitive `Int`s to construct a range. It
+specifically enables the use of ranges without a step size of 1. It may be constructed
+through the use of `OptionallyStaticStepRange` directly or using static integers with
+the range operatore (i.e. `:`).
+
+```julia
+julia> using ArrayInterface
+
+julia> x = ArrayInterface.StaticInt(2);
+
+julia> x:x:10
+ArrayInterface.StaticInt{2}():ArrayInterface.StaticInt{2}():10
+
+julia> ArrayInterface.OptionallyStaticStepRange(x, x, 10)
+ArrayInterface.StaticInt{2}():ArrayInterface.StaticInt{2}():10
+```
+"""
 struct OptionallyStaticStepRange{F <: Integer, S <: Integer, L <: Integer} <: OrdinalRange{Int,Int}
   start::F
   step::S
