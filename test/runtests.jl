@@ -190,6 +190,21 @@ using ArrayInterface: parent_type
 end
 
 @testset "Range Interface" begin
+    @testset "Range Constructors" begin
+        @test @inferred(StaticInt(1):StaticInt(10)) == 1:10
+        @test @inferred(StaticInt(1):StaticInt(2):StaticInt(10)) == 1:2:10 
+        @test @inferred(1:StaticInt(2):StaticInt(10)) == 1:2:10
+        @test @inferred(StaticInt(1):StaticInt(2):10) == 1:2:10
+        @test @inferred(StaticInt(1):2:StaticInt(10)) == 1:2:10 
+        @test @inferred(1:2:StaticInt(10)) == 1:2:10
+        @test @inferred(1:StaticInt(2):10) == 1:2:10
+        @test @inferred(StaticInt(1):2:10) == 1:2:10 
+
+        @test @inferred(StaticInt(1):StaticInt(1):StaticInt(10)) === ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))
+        @test @inferred(StaticInt(1):StaticInt(1):10) === ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10)
+        @test @inferred(1:StaticInt(1):10) === ArrayInterface.OptionallyStaticUnitRange(1, 10)
+    end
+
     @test isnothing(@inferred(ArrayInterface.known_first(typeof(1:4))))
     @test isone(@inferred(ArrayInterface.known_first(Base.OneTo(4))))
     @test isone(@inferred(ArrayInterface.known_first(typeof(Base.OneTo(4)))))
@@ -201,14 +216,24 @@ end
     @test isone(@inferred(ArrayInterface.known_step(1:4)))
     @test isone(@inferred(ArrayInterface.known_step(typeof(1:4))))
 
-    @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(1, 0))) == 0
-    @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(1, 10))) == 10
-    @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10))) == 10
-    @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(0), 10))) == 11
+    @testset "length" begin
+        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(1, 0))) == 0
+        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(1, 10))) == 10
+        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10))) == 10
+        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(0), 10))) == 11
+        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10)))) == 10
+        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(0), StaticInt(10)))) == 11
+
+        @test @inferred(length(StaticInt(1):StaticInt(2):StaticInt(0))) == 0
+        @test @inferred(length(StaticInt(0):StaticInt(-2):StaticInt(1))) == 0
+    end
     @test @inferred(getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 1)) == 1
     @test @inferred(getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(0), 10), 1)) == 0
     @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 0)
-    @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 0)
+    @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), 2, 10), 0)
+    @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 11)
+    @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), 2, 10), 11)
+
 end
 
 @testset "Memory Layout" begin
@@ -287,12 +312,12 @@ using OffsetArrays
     M = @MArray zeros(2,3,4); Mp = @view(PermutedDimsArray(M,(3,1,2))[:,2,:])';
     Sp2 = @view(PermutedDimsArray(S,(3,2,1))[2:3,:,:]);
     Mp2 = @view(PermutedDimsArray(M,(3,1,2))[2:3,:,2])';
-    
+
     @test @inferred(ArrayInterface.size(A)) === (3,4,5)
     @test @inferred(ArrayInterface.size(Ap)) === (2,5)
     @test @inferred(ArrayInterface.size(A)) === size(A)
     @test @inferred(ArrayInterface.size(Ap)) === size(Ap)
-    
+
     @test @inferred(ArrayInterface.size(S)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(Sp)) === (2, 2, StaticInt(3))
     @test @inferred(ArrayInterface.size(Sp2)) === (2, StaticInt(3), StaticInt(2))
@@ -405,6 +430,11 @@ end
     @test @inferred(one(StaticInt)) === StaticInt(1)
     @test @inferred(zero(StaticInt)) === StaticInt(0)
     @test eltype(one(StaticInt)) <: Int
+
+    x = StaticInt(1)
+    @test @inferred(Bool(x)) isa Bool
+    @test @inferred(BigInt(x)) isa BigInt
+    @test @inferred(Integer(x)) === x
     # test for ambiguities and correctness
     for i ∈ [StaticInt(0), StaticInt(1), StaticInt(2), 3]
         for j ∈ [StaticInt(0), StaticInt(1), StaticInt(2), 3]
