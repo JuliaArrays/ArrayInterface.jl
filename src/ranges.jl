@@ -230,7 +230,7 @@ end
 
 @inline function get_index_unit_range(r, i)
   val = first(r) + (i - 1)
-  @boundscheck if (i < 1) || (val > last(r) && val < first(r))
+  @boundscheck if (i < 1) || val > last(r)
     throw(BoundsError(r, i))
   end
   return convert(eltype(r), val)
