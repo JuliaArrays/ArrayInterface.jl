@@ -370,3 +370,10 @@ end
   return Base.Slice(OptionallyStaticUnitRange(fst, lst))
 end
 
+
+function Base.UnitRange{T}(r::OptionallyStaticUnitRange) where {T}
+    return UnitRange{T}(T(first(r)), T(last(r)))
+end
+
+Base.UnitRange(r::OptionallyStaticUnitRange) = UnitRange(Int(first(r)), Int(last(r)))
+
