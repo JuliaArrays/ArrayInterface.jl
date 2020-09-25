@@ -329,11 +329,26 @@ end
 
 unsafe_length_unit_range(start::Integer, stop::Integer) = Int((stop - start) + 1)
 
-Base.to_shape(x::OptionallyStaticUnitRange) = length(x)
-Base.to_shape(x::OptionallyStaticStepRange) = length(x)
-Base.to_shape(x::Slice{T}) where {T<:OptionallyStaticUnitRange} = length(x)
-Base.to_shape(x::Slice{T}) where {T<:OptionallyStaticStepRange} = length(x)
+const OptionallyStaticRange = Union{<:OptionallyStaticUnitRange,<:OptionallyStaticStepRange}
 
+Base.to_shape(x::OptionallyStaticRange) = length(x)
+Base.to_shape(x::Slice{T}) where {T<:OptionallyStaticRange} = length(x)
+
+function Base.axes(S::Slice{T}) where {T<:OptionallyStaticRange}
+    if known_first(T) === 1 && known_step(T) === 1
+        return (S.indices,)
+    else
+        return (Base.IdentityUnitRange(S.indices),)
+    end
+end
+
+function Base.axes1(S::Slice{T}) where {T<:OptionallyStaticRange}
+    if known_first(T) === 1 && known_step(T) === 1
+        return S.indices
+    else
+        return Base.IdentityUnitRange(S.indices)
+    end
+end
 
 """
     indices(x[, d])

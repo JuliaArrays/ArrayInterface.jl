@@ -425,7 +425,10 @@ end
     @test_throws AssertionError ArrayInterface.indices((SA23, SA23), (StaticInt(1), StaticInt(2)))
 
     @test size(similar(ones(2, 4), ArrayInterface.indices(ones(2, 4), 1), ArrayInterface.indices(ones(2, 4), 2))) == (2, 4)
-
+    @test axes(ArrayInterface.indices(ones(2,2))) === (StaticInt(1):4,)
+    @test axes(Base.Slice(StaticInt(2):4)) === (Base.IdentityUnitRange(StaticInt(2):4),)
+    @test Base.axes1(ArrayInterface.indices(ones(2,2))) === StaticInt(1):4
+    @test Base.axes1(Base.Slice(StaticInt(2):4)) === Base.IdentityUnitRange(StaticInt(2):4)
 end
 
 @testset "Static" begin
