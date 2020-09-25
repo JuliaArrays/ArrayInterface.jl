@@ -370,10 +370,16 @@ end
   return Base.Slice(OptionallyStaticUnitRange(fst, lst))
 end
 
-
-function Base.UnitRange{T}(r::OptionallyStaticUnitRange) where {T}
-    return UnitRange{T}(T(first(r)), T(last(r)))
+Base.UnitRange{T}(start::StaticInt, stop) where {T<:Real} = UnitRange{T}(T(start), stop)
+Base.UnitRange{T}(start, stop::StaticInt) where {T<:Real} = UnitRange{T}(start, T(stop))
+function Base.UnitRange{T}(start::StaticInt, stop::StaticInt) where {T<:Real}
+    return UnitRange{T}(T(start), T(stop))
 end
 
-Base.UnitRange(r::OptionallyStaticUnitRange) = UnitRange(Int(first(r)), Int(last(r)))
+Base.UnitRange(start::StaticInt, stop) = UnitRange(Int(start), stop)
+Base.UnitRange(start, stop::StaticInt) = UnitRange(start, Int(stop))
+function Base.UnitRange(start::StaticInt, stop::StaticInt)
+    return UnitRange(Int(start), Int(stop))
+end
+
 

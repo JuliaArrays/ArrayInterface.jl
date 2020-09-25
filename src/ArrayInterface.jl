@@ -4,7 +4,7 @@ using Requires
 using LinearAlgebra
 using SparseArrays
 
-using Base: @propagate_inbounds, tail, OneTo, LogicalIndex
+using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice
 
 Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
@@ -23,7 +23,7 @@ parent_type(::Type{Transpose{T,S}}) where {T,S} = S
 parent_type(::Type{Symmetric{T,S}}) where {T,S} = S
 parent_type(::Type{<:LinearAlgebra.AbstractTriangular{T,S}}) where {T,S} = S
 parent_type(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A} = A
-parent_type(::Type{Base.Slice{T}}) where {T} = T
+parent_type(::Type{Slice{T}}) where {T} = T
 parent_type(::Type{T}) where {T} = T
 
 """
@@ -34,7 +34,7 @@ Otherwise, return `nothing`.
 """
 known_length(x) = known_length(typeof(x))
 known_length(::Type{<:NamedTuple{L}}) where {L} = length(L)
-known_length(::Type{T}) where {T<:Base.Slice} = known_length(parent_type(T))
+known_length(::Type{T}) where {T<:Slice} = known_length(parent_type(T))
 known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N
 known_length(::Type{<:Number}) = 1
 function known_length(::Type{T}) where {T}
