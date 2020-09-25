@@ -67,6 +67,14 @@ struct OptionallyStaticUnitRange{F <: Integer, L <: Integer} <: AbstractUnitRang
     end
   end
 
+  function OptionallyStaticUnitRange{F,L}(x::AbstractRange) where {F,L}
+    if step(x) == 1
+      return OptionallyStaticUnitRange(static_first(x), static_last(x))
+    else
+        throw(ArgumentError("step must be 1, got $(step(r))"))
+    end
+  end
+
   function OptionallyStaticUnitRange(x::AbstractRange)
     if step(x) == 1
       return OptionallyStaticUnitRange(static_first(x), static_last(x))
