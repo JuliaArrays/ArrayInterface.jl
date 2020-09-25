@@ -329,6 +329,12 @@ end
 
 unsafe_length_unit_range(start::Integer, stop::Integer) = Int((stop - start) + 1)
 
+Base.to_shape(x::OptionallyStaticUnitRange) = length(x)
+Base.to_shape(x::OptionallyStaticStepRange) = length(x)
+Base.to_shape(x::Slice{T}) where {T<:OptionallyStaticUnitRange} = length(x)
+Base.to_shape(x::Slice{T}) where {T<:OptionallyStaticStepRange} = length(x)
+
+
 """
     indices(x[, d])
 
@@ -369,17 +375,4 @@ end
   lst = _try_static(static_last(x), static_last(y))
   return Base.Slice(OptionallyStaticUnitRange(fst, lst))
 end
-
-Base.UnitRange{T}(start::StaticInt, stop) where {T<:Real} = UnitRange{T}(T(start), stop)
-Base.UnitRange{T}(start, stop::StaticInt) where {T<:Real} = UnitRange{T}(start, T(stop))
-function Base.UnitRange{T}(start::StaticInt, stop::StaticInt) where {T<:Real}
-    return UnitRange{T}(T(start), T(stop))
-end
-
-Base.UnitRange(start::StaticInt, stop) = UnitRange(Int(start), stop)
-Base.UnitRange(start, stop::StaticInt) = UnitRange(start, Int(stop))
-function Base.UnitRange(start::StaticInt, stop::StaticInt)
-    return UnitRange(Int(start), Int(stop))
-end
-
 

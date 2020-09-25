@@ -100,3 +100,15 @@ end
 @inline static_last(x) = maybe_static(known_last, last, x)
 @inline static_step(x) = maybe_static(known_step, step, x)
 
+Base.UnitRange{T}(start::StaticInt, stop) where {T<:Real} = UnitRange{T}(T(start), stop)
+Base.UnitRange{T}(start, stop::StaticInt) where {T<:Real} = UnitRange{T}(start, T(stop))
+function Base.UnitRange{T}(start::StaticInt, stop::StaticInt) where {T<:Real}
+    return UnitRange{T}(T(start), T(stop))
+end
+
+Base.UnitRange(start::StaticInt, stop) = UnitRange(Int(start), stop)
+Base.UnitRange(start, stop::StaticInt) = UnitRange(start, Int(stop))
+function Base.UnitRange(start::StaticInt, stop::StaticInt)
+    return UnitRange(Int(start), Int(stop))
+end
+
