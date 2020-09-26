@@ -431,7 +431,7 @@ end
     @test Base.axes1(Base.Slice(StaticInt(2):4)) === Base.IdentityUnitRange(StaticInt(2):4)
 end
 
-@testset "Static" begin
+@testset "StaticInt" begin
     @test iszero(StaticInt(0))
     @test !iszero(StaticInt(1))
     @test @inferred(one(StaticInt(1))) === StaticInt(1)
@@ -481,4 +481,6 @@ end
     @test @inferred(ArrayInterface.deleteat((1, 2, 3), 3)) == (1, 2)
     @test ArrayInterface.deleteat((1, 2, 3), [1, 2]) == (3,)
 end
+
+include("indexing.jl")
 
