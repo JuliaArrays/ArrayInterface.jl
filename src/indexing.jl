@@ -339,14 +339,15 @@ UnsafeIndex(x::Tuple{I}) where {I} = UnsafeIndex(I)
     return UnsafeIndex(UnsafeIndex(I), UnsafeIndex(tail(x)))
 end
 
-
 """
     unsafe_getindex(A, inds)
 
+Indexes into `A` given `inds`. This method assumes that `inds` have already been
+bounds checked.
 """
 unsafe_getindex(A, inds) = unsafe_getindex(UnsafeIndex(inds), A, inds)
-unsafe_getindex(::UnsafeElement, A, args, inds) = unsafe_get_element(A, inds)
-unsafe_getindex(::UnsafeCollection, A, args, inds) = unsafe_get_collection(A, inds)
+unsafe_getindex(::UnsafeElement, A, inds) = unsafe_get_element(A, inds)
+unsafe_getindex(::UnsafeCollection, A, inds) = unsafe_get_collection(A, inds)
 
 """
     unsafe_get_element(A::AbstractArray{T}, inds::Tuple) -> T
@@ -375,6 +376,8 @@ end
 # This is based on Base._unsafe_getindex from https://github.com/JuliaLang/julia/blob/c5ede45829bf8eb09f2145bfd6f089459d77b2b1/base/multidimensional.jl#L755
 """
     unsafe_get_collection(A, inds)
+
+Returns a collection of `A` given `inds`. `inds` is assumed to be bounds checked prior.
 """
 function unsafe_get_collection(A, inds::Tuple)
     dest = similar(A, to_axes(A, inds))
@@ -403,7 +406,7 @@ end
     if (length(inds) === 1 && N > 1) || !can_preserve_indices(typeof(inds))
         return Base._getindex(IndexStyle(A), A, inds...)
     else
-        return CartesianIndices(to_axes(A, args, ints2range.(inds)))
+        return CartesianIndices(to_axes(A, ints2range.(inds)))
     end
 end
 @inline function unsafe_get_collection(A::LinearIndices{N}, inds::Tuple) where {N}
@@ -416,6 +419,8 @@ end
 
 """
     ArrayInterface.setindex!(A, args...)
+
+Store the given values at the given key or index within a collection.
 """
 @propagate_inbounds function setindex!(A, val, args...)
     if can_setindex(A)
@@ -425,34 +430,46 @@ end
             return unsafe_setindex!(A, val, to_indices(A, args))
         end
     else
-        error("Instance of type $(typeof(A)) are not mutable and cannot change elements after construction.")
+        error("Instance of type $(typeof(A)) are not mutable and cannot change " *
+              "elements after construction.")
     end
 end
 
 """
     unsafe_setindex!(A, val, inds::Tuple)
+
+Sets indices (`inds`) of `A` to `val`. This method assumes that `inds` have already been
+bounds checked. This step of the processing pipeline can be customized by
 """
-@inline function unsafe_setindex!(A, val, inds::Tuple)
-    if all_are_elements(IndexStyle(A), inds)
-        return unsafe_set_element!(A, val, inds)
-    else
-        return unsafe_set_collection!(A, val, inds)
-    end
+function unsafe_setindex!(A, val, inds::Tuple)
+    return unsafe_set_collection!(UnsafeIndex(inds), A, val, inds)
 end
+unsafe_setindex!(::IndexElement, A, val, inds::Tuple) = unsafe_set_element!(A, val, inds)
+unsafe_setindex!(::IndexCollection, A, val, inds::Tuple) = unsafe_set_element!(A, val, inds)
 
 """
     unsafe_set_element!(A, val, inds::Tuple)
+
+Sets an element of `A` to `val` at indices `inds`. This method assumes all `inds`
+have been checked for being inbounds. Any new array type using `ArrayInterface.setindex!`
+must define `unsafe_set_element!(::NewArrayType, val, inds)`.
 """
 function unsafe_set_element!(A, val, inds::Tuple)
     throw(MethodError(unsafe_set_element!, (I, A, inds)))
 end
-function unsafe_set_element!(A::Array, val, inds::Tuple)
-    return Base.arrayref(false, A, inds...)
+function unsafe_set_element!(A::Array{T}, val, inds::Tuple) where {T}
+    if inds isa Tuple{Vararg{Int}}
+        return Base.arrayset(false, A, convert(T, val)::T, inds...)
+    else
+        throw(MethodError(unsafe_set_element!, (A, inds)))
+    end
 end
 
 # This is based on Base._unsafe_setindex!
 """
     unsafe_set_collection!(A, val, inds)
+
+Sets `inds` of `A` to `val`. `inds` is assumed to be bounds checked prior.
 """
 @inline function unsafe_set_collection!(A, val, inds::Tuple)
     return Base._unsafe_setindex!(IndexStyle(A), A, val, inds...)
