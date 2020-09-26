@@ -380,10 +380,14 @@ end
 Returns a collection of `A` given `inds`. `inds` is assumed to be bounds checked prior.
 """
 function unsafe_get_collection(A, inds::Tuple)
-    dest = similar(A, to_axes(A, inds))
-    map(unsafe_length, axes(dest)) == map(unsafe_length, shape) || throw_checksize_error(dest, shape)
-    Base._unsafe_getindex!(dest, A, I...) # usually a generated function, don't allow it to impact inference result
-    return Base._unsafe_getindex(IndexStyle(A), A, inds...)
+    if ismutable(A)
+        dest = similar(A, to_axes(A, inds))
+        map(unsafe_length, axes(dest)) == map(unsafe_length, shape) || throw_checksize_error(dest, shape)
+        Base._unsafe_getindex!(dest, A, I...) # usually a generated function, don't allow it to impact inference result
+        return Base._unsafe_getindex(IndexStyle(A), A, inds...)
+    else
+        error("unsafe_get_collection does not support indexing immutable collections")
+    end
 end
 
 can_preserve_indices(::Type{T}) where {T<:AbstractRange} = known_step(T) === 1
