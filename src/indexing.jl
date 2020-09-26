@@ -444,8 +444,8 @@ bounds checked. This step of the processing pipeline can be customized by
 function unsafe_setindex!(A, val, inds::Tuple)
     return unsafe_set_collection!(UnsafeIndex(inds), A, val, inds)
 end
-unsafe_setindex!(::IndexElement, A, val, inds::Tuple) = unsafe_set_element!(A, val, inds)
-unsafe_setindex!(::IndexCollection, A, val, inds::Tuple) = unsafe_set_element!(A, val, inds)
+unsafe_setindex!(::UnsafeElement, A, val, inds::Tuple) = unsafe_set_element!(A, val, inds)
+unsafe_setindex!(::UnsafeCollection, A, val, inds::Tuple) = unsafe_set_element!(A, val, inds)
 
 """
     unsafe_set_element!(A, val, inds::Tuple)
