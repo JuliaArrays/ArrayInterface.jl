@@ -233,7 +233,6 @@ end
     return (f + static_first(s)):(f + static_last(s))
 end
 
-
 @propagate_inbounds function Base.getindex(r::OptionallyStaticUnitRange, i::Integer)
   if known_first(r) === oneunit(eltype(r))
     return get_index_one_to(r, i)

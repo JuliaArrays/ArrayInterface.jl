@@ -7,7 +7,7 @@ Whats the dimensionality of the indexing argument of type `T`?
 argdims(A, x) = argdims(IndexStyle(A), typeof(x))
 argdims(s::IndexStyle, x) = argdims(s, typeof(x))
 # single elements initially map to 1 dimension but that dimension is subsequently dropped.
-argdims(::IndexStyle, ::Type{T}) where {T<:Integer} = 0
+argdims(::IndexStyle, ::Type{T}) where {T} = 0
 argdims(::IndexStyle, ::Type{T}) where {T<:Colon} = 1
 argdims(::IndexStyle, ::Type{T}) where {T<:AbstractArray} = ndims(T)
 argdims(::IndexStyle, ::Type{T}) where {N,T<:CartesianIndex{N}} = N
@@ -60,7 +60,7 @@ end
     return (first(args).I..., flatten_args(A, tail(args))...)
 end
 @inline function flatten_args(A, args::Tuple{Arg,Vararg{Any}}) where {N,Arg<:CartesianIndices{N}}
-    return (first(args)..., flatten_args(s, tail(args))...)
+    return (first(args).indices..., flatten_args(A, tail(args))...)
 end
 # we preserve CartesianIndices{0} for dropping dimensions
 @inline function flatten_args(A, args::Tuple{Arg,Vararg{Any}}) where {Arg<:CartesianIndices{0}}
@@ -124,29 +124,40 @@ axis and argument to [`to_index`](@ref). Unique behavior based on the type of `A
 accomplished by overloading `to_indices(A, args)`. Unique axis-argument behavior can
 be accomplished using `to_index(axis, arg)`.
 """
-@propagate_inbounds to_indices(A, args::Tuple) = to_indices(A, axes(A), args)
-@propagate_inbounds function to_indices(A, args::Tuple{Arg}) where {Arg}
-    if argdims(A, Arg) > 1
-        return to_indices(A, axes(A), args)
+@propagate_inbounds function to_indices(A, args::Tuple)
+    if can_flatten(A, args)
+        return to_indices(A, flatten_args(A, args))
     else
-        if ndims(A) === 1
-            return (to_index(axes(A, 1), first(args)),)
+        return to_indices(A, axes(A), args)
+    end
+end
+@propagate_inbounds function to_indices(A, args::Tuple{Arg}) where {Arg}
+    if can_flatten(A, args)
+        return to_indices(A, flatten_args(A, args))
+    else
+        if argdims(IndexStyle(A), Arg) > 1
+            return to_indices(A, axes(A), args)
         else
-            return to_indices(A, (eachindex(A),), args)
+            if ndims(A) === 1
+                return (to_index(axes(A, 1), first(args)),)
+            else
+                return to_indices(A, (eachindex(A),), args)
+            end
         end
     end
 end
 @propagate_inbounds function to_indices(A, axs::Tuple, args::Tuple{Arg,Vararg{Any}}) where {Arg}
-    if argdims(A, Arg) > 1
-        axes_front, axes_tail = Base.IteratorsMD.split(axs, Val(argdims(Arg)))
+    N = argdims(IndexStyle(A), Arg)
+    if N > 1
+        axes_front, axes_tail = Base.IteratorsMD.split(axs, Val(N))
         return (to_multi_index(axes_front, first(args)), to_indices(A, axes_tail, tail(args))...)
     else
         return (to_index(first(axs), first(args)), to_indices(A, tail(axs), tail(args))...)
     end
 end
 @propagate_inbounds function to_indices(A, axs::Tuple, args::Tuple{})
-    @boundscheck if length(first(axs)) == 1
-        throw(BoundsError(first(axs), ()))
+    @boundscheck if length(first(axs)) != 1
+        error("Cannot drop dimension of size $(length(first(axs))).")
     end
     return to_indices(A, tail(axs), args)
 end
@@ -177,114 +188,101 @@ to_index(::MyIndexStyle, axis, arg) = ...
 @propagate_inbounds to_index(axis, arg) = to_index(IndexStyle(axis), axis, arg)
 to_index(axis, arg::CartesianIndices{0}) = arg
 # Colons get converted to slices by `indices`
-to_index(::IndexLinear, axis, ::Colon) = indices(axis)
-function to_index(::IndexLinear, axis, arg::Integer)
-    @boundscheck if !checkindex(Bool, axis, arg)
-        throw(BoundsError(axis, arg))
-    end
+to_index(::IndexStyle, axis, ::Colon) = indices(axis)
+function to_index(::IndexStyle, axis, arg::Integer)
+    @boundscheck checkbounds(axis, arg)
     return Int(arg)
 end
-@propagate_inbounds function to_index(::IndexLinear, axis, arg::AbstractArray{Bool})
-    @boundscheck if !checkindex(Bool, axis, arg)
-        throw(BoundsError(axis, arg))
-    end
+@propagate_inbounds function to_index(::IndexStyle, axis, arg::AbstractArray{Bool})
+    @boundscheck checkbounds(axis, arg)
     return AbstractArray{Int}(@inbounds(axis[arg]))
 end
-function to_index(::IndexLinear, axis, arg::AbstractArray{I}) where {I<:Integer}
+function to_index(::IndexStyle, axis, arg::AbstractArray{I}) where {I<:Integer}
     @boundscheck if !checkindex(Bool, axis, arg)
         throw(BoundsError(axis, arg))
     end
     return AbstractArray{Int}(arg)
 end
-@propagate_inbounds function to_index(::IndexLinear, axis, arg::AbstractUnitRange{I}) where {I<:Integer}
+@propagate_inbounds function to_index(::IndexStyle, axis, arg::AbstractRange{I}) where {I<:Integer}
     @boundscheck if !checkindex(Bool, axis, arg)
         throw(BoundsError(axis, arg))
     end
-    return AbstractUnitRange{Int}(arg)
+    return arg
+end
+function to_index(S::IndexStyle, axis, arg)
+    throw(ArgumentError("invalid index: IndexStyle $S does not support indices of type $(typeof(arg))."))
 end
 
-# TODO better doc
 """
-    reconstruct_axis(axis, arg, inds)
+    unsafe_reconstruct(A, data; kwargs...)
+
+Reconstruct `A` given the values in `data`. New methods using `unsafe_reconstruct`
+should only dispatch on `A`.
 """
-function reconstruct_axis(axis, inds::Slice)
-    if can_change_size(axis)
-        # axis is mutable and cannot be safely shared across arrays 
-        return reconstruct_axis(IndexStyle(axis), axis, inds)
+function unsafe_reconstruct(A::AbstractUnitRange, data; kwargs...)
+    if can_change_size(A)
+        return typeof(A)(data)
     else
-        return axis
+        if data isa Slice || !(known_length(A) === nothing || known_length(A) !== known_length(data))
+            return A
+        else
+            return typeof(A)(data)
+        end
     end
 end
-function reconstruct_axis(axis, arg, inds::Slice)
-    if can_change_size(axis)
-        return reconstruct_axis(IndexStyle(axis), axis, arg, inds)
-    else
-        return axis
-    end
-end
-function reconstruct_axis(axis, arg, inds)
-    if can_change_size(axis) || known_length(axis) === nothing || known_length(axis) !== known_length(inds)
-        return reconstruct_axis(IndexStyle(axis), axis, arg, inds)
-    else
-        return axis
-    end
-end
-reconstruct_axis(::IndexLinear, axis, arg, inds) = typeof(axis)(inds)
 
 """
-    to_axes(A, args, inds)
-    to_axes(A, old_axes, args, inds) -> new_axes
+    to_axes(A, inds)
+    to_axes(A, old_axes, inds) -> new_axes
 
-Construct new axes given the index arguments `args` and the corresponding `inds`
-constructed after `to_indices(A, old_axes, args) -> inds`. This method iterates
-through each pair of axes and indices, calling [`to_axis`](@ref).
+Construct new axes given the corresponding `inds` constructed after
+`to_indices(A, old_axes, args) -> inds`. This method iterates through each
+pair of axes and indices, calling [`to_axis`](@ref).
 """
-@inline function to_axes(A, args::Tuple, inds::Tuple)
+@inline function to_axes(A, inds::Tuple)
     if ndims(A) === 1
-        return (to_axis(axes(A, 1), first(args), first(inds)),)
-    elseif length(args) === 1
-        return (to_axis(eachindex(A), first(args), first(inds)),)
+        return (to_axis(axes(A, 1), first(inds)),)
     else
-        return to_axes(A, axes(A), args, inds)
+        return to_axes(A, axes(A), inds)
     end
 end
-to_axes(A, ::Tuple{Ax,Vararg{Any}}, ::Tuple{Arg,Vararg{Any}}, ::Tuple{}) where {Ax,Arg} = ()
-to_axes(A, ::Tuple{Ax,Vararg{Any}}, ::Tuple{}, ::Tuple{}) where {Ax} = ()
-to_axes(A, ::Tuple{}, ::Tuple{}, ::Tuple{}) = ()
-@propagate_inbounds function to_axes(A, axs::Tuple{Ax,Vararg{Any}}, args::Tuple{Arg,Vararg{Any}}, inds::Tuple) where {Ax,Arg}
-    if argdims(Arg) === 0
+to_axes(A, ::Tuple{Ax,Vararg{Any}}, ::Tuple{}) where {Ax} = ()
+to_axes(A, ::Tuple{}, ::Tuple{}) = ()
+@propagate_inbounds function to_axes(A, axs::Tuple{Ax,Vararg{Any}}, inds::Tuple{I,Vararg{Any}}) where {Ax,I}
+    N = argdims(IndexStyle(A), I)
+    if N === 0
         # drop this dimension
-        return to_axes(A, tail(axs), tail(args), tail(inds))
-    elseif argdims(Arg) === 1
-        return (to_axis(first(axs), first(args), first(inds)), to_axes(A, tail(axs), tail(args), tail(inds))...)
+        return to_axes(A, tail(axs), tail(inds))
+    elseif N === 1
+        return (to_axis(first(axs), first(inds)), to_axes(A, tail(axs), tail(inds))...)
     else
         # Only multidimensional AbstractArray{Bool} and AbstractVector{CartesianIndex{N}}
         # make it to this point. They collapse several dimensions into one.
-        axes_front, axes_tail = Base.IteratorsMD.split(axs, Val(argdims(Arg)))
-        return (to_multi_axis(IndexStyle(A), axes_front, first(args), first(inds)), to_axes(A, axes_tail, tail(args), tail(inds))...)
+        axes_front, axes_tail = Base.IteratorsMD.split(axs, Val(N))
+        return (to_multi_axis(IndexStyle(A), axes_front, first(inds)), to_axes(A, axes_tail, tail(inds))...)
     end
 end
 
 """
-    to_axis(old_axis, arg, index) -> new_axis
+    to_axis(old_axis, index) -> new_axis
 
 Construct an `new_axis` for a newly constructed array that corresponds to the
 previously executed `to_index(old_axis, arg) -> index`. `to_axis` assumes that
 `index` has already been confirmed to be inbounds. The underlying indices of
 `new_axis` begins at one and extends the length of `index` (i.e. one-based indexing).
 """
-@inline function to_axis(axis, arg, inds)
+@inline function to_axis(axis, inds)
     if !can_change_size(axis) && (known_length(inds) !== nothing && known_length(axis) === known_length(inds))
         return axis
     else
-        return to_axis(IndexStyle(axis), axis, arg, inds)
+        return to_axis(IndexStyle(axis), axis, inds)
     end
 end
-@inline function to_axis(S::IndexStyle, axis, arg, inds)
-    return reconstruct_axis(S, axis, arg, StaticInt(1):static_length(inds))
+@inline function to_axis(S::IndexStyle, axis, inds)
+    return unsafe_reconstruct(axis, StaticInt(1):static_length(inds))
 end
-@inline function to_multi_axis(::IndexStyle, axs::Tuple, arg, inds)
-    return to_axis(eachindex(LinearIndices(axs)), arg, inds)
+@inline function to_multi_axis(::IndexStyle, axs::Tuple, inds)
+    return to_axis(eachindex(LinearIndices(axs)), inds)
 end
 
 """
@@ -295,13 +293,7 @@ other instance of `ArrayInterface.getindex` should only be done by overloading `
 Changing indexing based on a given argument from `args` should be done through
 [`flatten_args`](@ref), [`to_index`](@ref), or [`to_axis`](@ref).
 """
-@propagate_inbounds function getindex(A, args...)
-    if can_flatten(A, args)
-        return getindex(A, flatten_args(A, args)...)
-    else
-        return unsafe_getindex(A, to_indices(A, args))
-    end
-end
+@propagate_inbounds getindex(A, args...) = unsafe_getindex(A, to_indices(A, args))
 
 """
     UnsafeIndex <: Function
@@ -332,6 +324,8 @@ UnsafeIndex(::Type{T}) where {T<:AbstractArray} = unsafe_collection
 UnsafeIndex(x::UnsafeIndex, y::UnsafeElement) = x
 UnsafeIndex(x::UnsafeElement, y::UnsafeIndex) = y
 UnsafeIndex(x::UnsafeElement, y::UnsafeElement) = x
+UnsafeIndex(x::UnsafeCollection, y::UnsafeCollection) = x
+
 
 # tuple
 UnsafeIndex(x::Tuple{I}) where {I} = UnsafeIndex(I)
@@ -356,20 +350,20 @@ Returns an element of `A` at the indices `inds`. This method assumes all `inds`
 have been checked for being inbounds. Any new array type using `ArrayInterface.getindex`
 must define `unsafe_get_element(::NewArrayType, inds)`
 """
-function unsafe_get_element(A, inds::Tuple)
-    throw(MethodError(unsafe_getindex, (I, A, inds)))
+function unsafe_get_element(A, inds)
+    throw(MethodError(unsafe_getindex, (A, inds)))
 end
-function unsafe_get_element(A::Array, inds::Tuple)
+function unsafe_get_element(A::Array, inds)
     if inds isa Tuple{Vararg{Int}}
         return Base.arrayref(false, A, inds...)
     else
         throw(MethodError(unsafe_get_element, (A, inds)))
     end
 end
-@inline function unsafe_get_element(A::LinearIndices, inds::Tuple)
+@inline function unsafe_get_element(A::LinearIndices, inds)
     return Int(Base._to_linear_index(A, inds...))
 end
-@inline function unsafe_get_element(A::CartesianIndices, inds::Tuple)
+@inline function unsafe_get_element(A::CartesianIndices, inds)
     return CartesianIndex(Base._to_subscript_indices(A, inds...))
 end
 
@@ -379,15 +373,12 @@ end
 
 Returns a collection of `A` given `inds`. `inds` is assumed to be bounds checked prior.
 """
-function unsafe_get_collection(A, inds::Tuple)
-    if ismutable(A)
-        dest = similar(A, to_axes(A, inds))
-        map(unsafe_length, axes(dest)) == map(unsafe_length, shape) || throw_checksize_error(dest, shape)
-        Base._unsafe_getindex!(dest, A, I...) # usually a generated function, don't allow it to impact inference result
-        return Base._unsafe_getindex(IndexStyle(A), A, inds...)
-    else
-        error("unsafe_get_collection does not support indexing immutable collections")
-    end
+function unsafe_get_collection(A, inds)
+    axs = to_axes(A, inds)
+    dest = similar(A, axs)
+    map(Base.unsafe_length, axes(dest)) == map(Base.unsafe_length, axs) || throw_checksize_error(dest, axs)
+    Base._unsafe_getindex!(dest, A, inds...) # usually a generated function, don't allow it to impact inference result
+    return dest
 end
 
 can_preserve_indices(::Type{T}) where {T<:AbstractRange} = known_step(T) === 1
@@ -406,18 +397,22 @@ ints2range(x::AbstractRange) = x
     return true
 end
 
-@inline function unsafe_get_collection(A::CartesianIndices{N}, inds::Tuple) where {N}
+@inline function unsafe_get_collection(A::CartesianIndices{N}, inds) where {N}
     if (length(inds) === 1 && N > 1) || !can_preserve_indices(typeof(inds))
         return Base._getindex(IndexStyle(A), A, inds...)
     else
         return CartesianIndices(to_axes(A, ints2range.(inds)))
     end
 end
-@inline function unsafe_get_collection(A::LinearIndices{N}, inds::Tuple) where {N}
-    if (length(inds) === 1 && N > 1) || !can_preserve_indices(typeof(inds))
-        return Base._getindex(IndexStyle(A), A, inds...)
-    else
+@inline function unsafe_get_collection(A::LinearIndices{N}, inds) where {N}
+    if can_preserve_indices(typeof(inds))
         return LinearIndices(to_axes(A, ints2range.(inds)))
+    else
+        if length(inds) === 1
+            return @inbounds(eachindex(A)[first(inds)])
+        else
+            return Base._getindex(IndexStyle(A), A, inds...)
+        end
     end
 end
 
@@ -428,11 +423,7 @@ Store the given values at the given key or index within a collection.
 """
 @propagate_inbounds function setindex!(A, val, args...)
     if can_setindex(A)
-        if can_flatten(A, args)
-            return A[flatten_args(A, args)...] = val
-        else
-            return unsafe_setindex!(A, val, to_indices(A, args))
-        end
+        return unsafe_setindex!(A, val, to_indices(A, args))
     else
         error("Instance of type $(typeof(A)) are not mutable and cannot change " *
               "elements after construction.")
@@ -445,11 +436,9 @@ end
 Sets indices (`inds`) of `A` to `val`. This method assumes that `inds` have already been
 bounds checked. This step of the processing pipeline can be customized by
 """
-function unsafe_setindex!(A, val, inds::Tuple)
-    return unsafe_set_collection!(UnsafeIndex(inds), A, val, inds)
-end
+unsafe_setindex!(A, val, inds::Tuple) = unsafe_setindex!(UnsafeIndex(inds), A, val, inds)
 unsafe_setindex!(::UnsafeElement, A, val, inds::Tuple) = unsafe_set_element!(A, val, inds)
-unsafe_setindex!(::UnsafeCollection, A, val, inds::Tuple) = unsafe_set_element!(A, val, inds)
+unsafe_setindex!(::UnsafeCollection, A, val, inds::Tuple) = unsafe_set_collection!(A, val, inds)
 
 """
     unsafe_set_element!(A, val, inds::Tuple)
@@ -458,8 +447,8 @@ Sets an element of `A` to `val` at indices `inds`. This method assumes all `inds
 have been checked for being inbounds. Any new array type using `ArrayInterface.setindex!`
 must define `unsafe_set_element!(::NewArrayType, val, inds)`.
 """
-function unsafe_set_element!(A, val, inds::Tuple)
-    throw(MethodError(unsafe_set_element!, (I, A, inds)))
+function unsafe_set_element!(A, val, inds)
+    throw(MethodError(unsafe_set_element!, (A, val, inds)))
 end
 function unsafe_set_element!(A::Array{T}, val, inds::Tuple) where {T}
     if inds isa Tuple{Vararg{Int}}
@@ -475,7 +464,7 @@ end
 
 Sets `inds` of `A` to `val`. `inds` is assumed to be bounds checked prior.
 """
-@inline function unsafe_set_collection!(A, val, inds::Tuple)
+@inline function unsafe_set_collection!(A, val, inds)
     return Base._unsafe_setindex!(IndexStyle(A), A, val, inds...)
 end
 
