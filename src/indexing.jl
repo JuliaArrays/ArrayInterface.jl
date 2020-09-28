@@ -222,17 +222,46 @@ end
 Reconstruct `A` given the values in `data`. New methods using `unsafe_reconstruct`
 should only dispatch on `A`.
 """
-function unsafe_reconstruct(A::AbstractUnitRange, data; kwargs...)
+function unsafe_reconstruct(A::OneTo, data; kwargs...)
     if can_change_size(A)
         return typeof(A)(data)
     else
         if data isa Slice || !(known_length(A) === nothing || known_length(A) !== known_length(data))
             return A
         else
-            return typeof(A)(data)
+            return OneTo(data)
         end
     end
 end
+
+function unsafe_reconstruct(A::UnitRange, data; kwargs...)
+    if can_change_size(A)
+        return typeof(A)(data)
+    else
+        if data isa Slice || !(known_length(A) === nothing || known_length(A) !== known_length(data))
+            return A
+        else
+            return UnitRange(data)
+        end
+    end
+end
+
+function unsafe_reconstruct(A::OptionallyStaticUnitRange, data; kwargs...)
+    if can_change_size(A)
+        return typeof(A)(data)
+    else
+        if data isa Slice || !(known_length(A) === nothing || known_length(A) !== known_length(data))
+            return A
+        else
+            return OptionallyStaticUnitRange(data)
+        end
+    end
+end
+
+function unsafe_reconstruct(A::AbstractUnitRange, data; kwargs...)
+    return static_first(data):static_last(data)
+end
+
 
 """
     to_axes(A, inds)
