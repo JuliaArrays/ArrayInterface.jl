@@ -1,5 +1,5 @@
 
-@testset "indexing" begin
+@testset "argdims" begin
     static_argdims(x) = Val(ArrayInterface.argdims(IndexLinear(), x))
     @test @inferred(static_argdims((1, CartesianIndex(1,2)))) === Val((0, 2))
     @test @inferred(static_argdims((1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === Val((0, 2))
@@ -7,6 +7,18 @@
     @test @inferred(static_argdims((CartesianIndex((2,2)), :, :))) === Val((2, 1, 1))
 end
 
+@testset "to_index" begin
+    axis = 1:3
+    @test @inferred(ArrayInterface.to_index(axis, 1)) === 1
+    @test @inferred(ArrayInterface.to_index(axis, 1:2)) === 1:2
+    @test @inferred(ArrayInterface.to_index(axis, [1, 2])) == [1, 2]
+    @test @inferred(ArrayInterface.to_index(axis, [true, false, false])) == [1]
+
+    @test_throws BoundsError  ArrayInterface.to_index(axis, 4)
+    @test_throws BoundsError  ArrayInterface.to_index(axis, 1:4)
+    @test_throws BoundsError ArrayInterface.to_index(axis, [1, 2, 5])
+    @test_throws BoundsError  ArrayInterface.to_index(axis, [true, false, false, true])
+end
 
 
 @testset "to_indices" begin
@@ -68,7 +80,6 @@ end
         @test ArrayInterface.getindex(LinearIndices(map(Base.Slice, (0:3,3:5))), i-1, j+2) == k
         @test ArrayInterface.getindex(CartesianIndices(map(Base.Slice, (0:3,3:5))), k) == CartesianIndex(i-1,j+2)
     end
-    #= TODO
     @test linear[linear] == linear
     @test linear[vec(linear)] == vec(linear)
     @test linear[cartesian] == linear
@@ -80,7 +91,6 @@ end
     @test linear[2:3] === 2:3
     @test linear[3:-1:1] === 3:-1:1
     @test_throws BoundsError linear[4:13]
-    =#
 end
 
 @testset "3-dimensional" begin
@@ -115,4 +125,5 @@ end
         @test ArrayInterface.getindex(LinearIndices(A),ArrayInterface.getindex(CartesianIndices(A),i)) == i
     end
 end
+
 

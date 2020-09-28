@@ -59,6 +59,9 @@ end
 @inline function flatten_args(A, args::Tuple{Arg,Vararg{Any}}) where {N,Arg<:CartesianIndex{N}}
     return (first(args).I..., flatten_args(A, tail(args))...)
 end
+@inline function flatten_args(A, args::Tuple{Arg,Vararg{Any}}) where {N,Arg<:LinearIndices{N}}
+    return (eachindex(first(args)), flatten_args(A, tail(args))...)
+end
 @inline function flatten_args(A, args::Tuple{Arg,Vararg{Any}}) where {N,Arg<:CartesianIndices{N}}
     return (first(args).indices..., flatten_args(A, tail(args))...)
 end
@@ -166,7 +169,7 @@ end
 end
 to_indices(A, axs::Tuple{}, args::Tuple{}) = ()
 
-function to_multi_index(axs::Tuple, arg)
+@propagate_inbounds function to_multi_index(axs::Tuple, arg)
     @boundscheck if !Base.checkbounds_indices(Bool, axs, (arg,))
         throw(BoundsError(axs, arg))
     end
@@ -189,7 +192,7 @@ to_index(::MyIndexStyle, axis, arg) = ...
 to_index(axis, arg::CartesianIndices{0}) = arg
 # Colons get converted to slices by `indices`
 to_index(::IndexStyle, axis, ::Colon) = indices(axis)
-function to_index(::IndexStyle, axis, arg::Integer)
+@propagate_inbounds function to_index(::IndexStyle, axis, arg::Integer)
     @boundscheck checkbounds(axis, arg)
     return Int(arg)
 end
@@ -197,7 +200,7 @@ end
     @boundscheck checkbounds(axis, arg)
     return AbstractArray{Int}(@inbounds(axis[arg]))
 end
-function to_index(::IndexStyle, axis, arg::AbstractArray{I}) where {I<:Integer}
+@propagate_inbounds function to_index(::IndexStyle, axis, arg::AbstractArray{I}) where {I<:Integer}
     @boundscheck if !checkindex(Bool, axis, arg)
         throw(BoundsError(axis, arg))
     end
@@ -209,7 +212,7 @@ end
     end
     return arg
 end
-function to_index(S::IndexStyle, axis, arg)
+function to_index(S::IndexStyle, axis, arg::Any)
     throw(ArgumentError("invalid index: IndexStyle $S does not support indices of type $(typeof(arg))."))
 end
 
