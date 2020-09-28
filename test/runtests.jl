@@ -218,6 +218,9 @@ end
         @test @inferred((1:StaticInt(10))[StaticInt(2):StaticInt(3)]) === 2:3
 
         @test -(StaticInt{1}():StaticInt{10}()) === StaticInt{-1}():StaticInt{-1}():StaticInt{-10}()
+
+        @test reverse(StaticInt{1}():StaticInt{10}()) === StaticInt{10}():StaticInt{-1}():StaticInt{1}()
+        @test reverse(StaticInt{1}():StaticInt{2}():StaticInt{9}()) === StaticInt{9}():StaticInt{-2}():StaticInt{1}()
     end
 
     @test isnothing(@inferred(ArrayInterface.known_first(typeof(1:4))))
