@@ -70,6 +70,8 @@ end
 @inline Base.:(+)(::Zero, ::StaticInt{M}) where {M} = StaticInt{M}()
 @inline Base.:(+)(::StaticInt{M}, ::Zero) where {M} = StaticInt{M}()
 
+
+@inline Base.:(-)(::StaticInt{M}) where {M} = StaticInt{-M}()
 @inline Base.:(-)(::StaticInt{M}, ::Zero) where {M} = StaticInt{M}()
 
 @inline Base.:(*)(::Zero, ::Zero) = Zero()

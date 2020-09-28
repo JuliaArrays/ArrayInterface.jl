@@ -377,6 +377,8 @@ function Base.axes1(S::Slice{T}) where {T<:OptionallyStaticRange}
     end
 end
 
+Base.:(-)(r::OptionallyStaticRange) = -static_first(r):-static_step(r):-static_last(r)
+
 """
     indices(x[, d])
 
