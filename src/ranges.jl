@@ -222,7 +222,7 @@ unsafe_length_one_to(::StaticInt{L}) where {L} = L
     elseif step > 0
         return Base.checked_add(Int(div(Base.checked_sub(stop, start), step)), 1)
     else
-        return Base.checked_add(Int(div(Base.checked_sub(rtart, stop), -step)), 1)
+        return Base.checked_add(Int(div(Base.checked_sub(start, stop), -step)), 1)
     end
 end
 
