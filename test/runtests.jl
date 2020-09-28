@@ -207,6 +207,10 @@ end
         @test UnitRange(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))) === UnitRange(1, 10)
         @test UnitRange{Int}(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))) === UnitRange(1, 10)
 
+        @test AbstractUnitRange{Int}(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))) isa ArrayInterface.OptionallyStaticUnitRange
+        @test AbstractUnitRange{UInt}(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))) isa Base.OneTo
+        @test AbstractUnitRange{UInt}(ArrayInterface.OptionallyStaticUnitRange(StaticInt(2), StaticInt(10))) isa UnitRange
+
         @test @inferred((StaticInt(1):StaticInt(10))[StaticInt(2):StaticInt(3)]) === StaticInt(2):StaticInt(3)
         @test @inferred((StaticInt(1):StaticInt(10))[StaticInt(2):3]) === StaticInt(2):3
         @test @inferred((StaticInt(1):StaticInt(10))[2:3]) === 2:3

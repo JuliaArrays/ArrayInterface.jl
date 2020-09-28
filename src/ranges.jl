@@ -344,6 +344,18 @@ end
 
 unsafe_length_unit_range(start::Integer, stop::Integer) = Int((stop - start) + 1)
 
+function Base.AbstractUnitRange{T}(r::OptionallyStaticUnitRange) where {T}
+    if T <: Int
+        return r
+    else
+        if known_first(r) === 1 && T <: Integer
+            return OneTo{T}(last(r))
+        else
+            return UnitRange{T}(first(r), last(r))
+        end
+    end
+end
+
 const OptionallyStaticRange = Union{<:OptionallyStaticUnitRange,<:OptionallyStaticStepRange}
 
 Base.to_shape(x::OptionallyStaticRange) = length(x)
