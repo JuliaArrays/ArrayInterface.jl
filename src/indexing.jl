@@ -77,7 +77,7 @@ end
             return (LogicalIndex(first(args)),)
         end
     else
-        return (LogicalIndex(first(args)), flatten_args(A, tail(args)))
+        return (LogicalIndex(first(args)), flatten_args(A, tail(args))...)
     end
 end
 flatten_args(A, args::Tuple{}) = ()

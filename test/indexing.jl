@@ -35,6 +35,8 @@ end
         end
     end
 
+
+    @test @inferred(ArrayInterface.to_indices(ones(2,2,2), ([true,true], CartesianIndex(1,1)))) == ([1, 2], 1, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, 1))) == (1, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, 1:2))) == (1, 1:2)
     @test @inferred(ArrayInterface.to_indices(a, (1:2, 1))) == (1:2, 1)
