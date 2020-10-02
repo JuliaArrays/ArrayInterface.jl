@@ -82,7 +82,6 @@ end
 end
 flatten_args(A, args::Tuple{}) = ()
 
-
 """
     can_flatten(::Type{A}, ::Type{T}) -> Bool
 
@@ -204,7 +203,7 @@ end
     @boundscheck if !checkindex(Bool, axis, arg)
         throw(BoundsError(axis, arg))
     end
-    return AbstractArray{Int}(arg)
+    return arg
 end
 @propagate_inbounds function to_index(::IndexStyle, axis, arg::AbstractRange{I}) where {I<:Integer}
     @boundscheck if !checkindex(Bool, axis, arg)
@@ -408,8 +407,11 @@ Returns a collection of `A` given `inds`. `inds` is assumed to be bounds checked
 function unsafe_get_collection(A, inds)
     axs = to_axes(A, inds)
     dest = similar(A, axs)
-    map(Base.unsafe_length, axes(dest)) == map(Base.unsafe_length, axs) || throw_checksize_error(dest, axs)
-    Base._unsafe_getindex!(dest, A, inds...) # usually a generated function, don't allow it to impact inference result
+    if map(Base.unsafe_length, axes(dest)) == map(Base.unsafe_length, axs)
+        Base._unsafe_getindex!(dest, A, inds...) # usually a generated function, don't allow it to impact inference result
+    else
+        Base.throw_checksize_error(dest, axs)
+    end
     return dest
 end
 
@@ -417,8 +419,8 @@ can_preserve_indices(::Type{T}) where {T<:AbstractRange} = known_step(T) === 1
 can_preserve_indices(::Type{T}) where {T<:Int} = true
 can_preserve_indices(::Type{T}) where {T} = false
 
-ints2range(x::Integer) = x:x
-ints2range(x::AbstractRange) = x
+_ints2range(x::Integer) = x:x
+_ints2range(x::AbstractRange) = x
 
 # if linear indexing on multidim or can't reconstruct AbstractUnitRange
 # then contstruct Array of CartesianIndex/LinearIndices
@@ -433,12 +435,12 @@ end
     if (length(inds) === 1 && N > 1) || !can_preserve_indices(typeof(inds))
         return Base._getindex(IndexStyle(A), A, inds...)
     else
-        return CartesianIndices(to_axes(A, ints2range.(inds)))
+        return CartesianIndices(to_axes(A, _ints2range.(inds)))
     end
 end
 @inline function unsafe_get_collection(A::LinearIndices{N}, inds) where {N}
     if can_preserve_indices(typeof(inds))
-        return LinearIndices(to_axes(A, ints2range.(inds)))
+        return LinearIndices(to_axes(A, _ints2range.(inds)))
     else
         if length(inds) === 1
             return @inbounds(eachindex(A)[first(inds)])
