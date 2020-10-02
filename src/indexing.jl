@@ -197,7 +197,7 @@ to_index(::IndexStyle, axis, ::Colon) = indices(axis)
 end
 @propagate_inbounds function to_index(::IndexStyle, axis, arg::AbstractArray{Bool})
     @boundscheck checkbounds(axis, arg)
-    return AbstractArray{Int}(@inbounds(axis[arg]))
+    return @inbounds(axis[arg])
 end
 @propagate_inbounds function to_index(::IndexStyle, axis, arg::AbstractArray{I}) where {I<:Integer}
     @boundscheck if !checkindex(Bool, axis, arg)
