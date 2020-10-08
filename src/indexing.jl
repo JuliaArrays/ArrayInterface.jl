@@ -14,8 +14,12 @@ argdims(::IndexStyle, ::Type{T}) where {N,T<:CartesianIndex{N}} = N
 argdims(::IndexStyle, ::Type{T}) where {N,T<:AbstractArray{CartesianIndex{N}}} = N
 argdims(::IndexStyle, ::Type{T}) where {N,T<:AbstractArray{<:Any,N}} = N
 argdims(::IndexStyle, ::Type{T}) where {N,T<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = N
-@inline function argdims(s::IndexStyle, ::Type{T}) where {N,T<:Tuple{Vararg{<:Any,N}}}
-    return ntuple(i -> argdims(s, T.parameters[i]), Val(N))
+@generated function argdims(s::IndexStyle, ::Type{T}) where {N,T<:Tuple{Vararg{<:Any,N}}}
+    e = Expr(:tuple)
+    for p in T.parameters
+        push!(e.args, :(ArrayInterface.argdims(s, $p)))
+    end
+    Expr(:block, Expr(:meta, :inline), e)
 end
 
 """
