@@ -97,14 +97,14 @@ specified here. Otherwise, `A` should not be specificied when supporting a new
 multi-dimensional indexing type. For example, the following is the typical usage:
 
 ```julia
-ArrayInterface.flatten_args(::Type{A}, ::Type{T}) where {A,T<:NewIndexer} = true
+ArrayInterface.can_flatten(::Type{A}, ::Type{T}) where {A,T<:NewIndexer} = true
 ```
 
 but in rare instances this may be necessary:
 
 
 ```julia
-ArrayInterface.flatten_args(::Type{A}, ::Type{T}) where {A<:ForbiddenArray,T<:NewIndexer} = false
+ArrayInterface.can_flatten(::Type{A}, ::Type{T}) where {A<:ForbiddenArray,T<:NewIndexer} = false
 ```
 
 """
