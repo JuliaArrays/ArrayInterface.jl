@@ -52,16 +52,16 @@ end
 
 @testset "1-dimensional" begin
     for i = 1:3
-        @test ArrayInterface.getindex(LinearIndices((3,)), i) == i
-        @test ArrayInterface.getindex(CartesianIndices((3,)), i) == CartesianIndex(i,)
+        @test @inferred(ArrayInterface.getindex(LinearIndices((3,)), i)) == i
+        @test @inferred(ArrayInterface.getindex(CartesianIndices((3,)), i)) == CartesianIndex(i,)
     end
-    @test ArrayInterface.getindex(LinearIndices((3,)), 2,1) == 2
-    @test ArrayInterface.getindex(LinearIndices((3,)), [1]) == [1]
+    @test @inferred(ArrayInterface.getindex(LinearIndices((3,)), 2,1)) == 2
+    @test @inferred(ArrayInterface.getindex(LinearIndices((3,)), [1])) == [1]
     # !!NOTE!! this is different than Base.getindex(::LinearIndices, ::AbstractUnitRange)
     # which returns a UnitRange. Instead we try to preserve axes if at all possible so the
     # values are the same but it's still wrapped in LinearIndices struct
-    @test ArrayInterface.getindex(LinearIndices((3,)), 1:2) == 1:2
-    @test ArrayInterface.getindex(LinearIndices((3,)), 1:2:3) === 1:2:3
+    @test @inferred(ArrayInterface.getindex(LinearIndices((3,)), 1:2)) == 1:2
+    @test @inferred(ArrayInterface.getindex(LinearIndices((3,)), 1:2:3)) === 1:2:3
     @test_throws BoundsError ArrayInterface.getindex(LinearIndices((3,)), 2:4)
     @test_throws BoundsError ArrayInterface.getindex(CartesianIndices((3,)), 2, 2)
     #   ambiguity btw cartesian indexing and linear indexing in 1d when
@@ -76,21 +76,21 @@ end
     linear = LinearIndices(cartesian)
     for j = 1:3, i = 1:4
         k += 1
-        @test ArrayInterface.getindex(linear, i, j) == ArrayInterface.getindex(linear, k) == k
-        @test ArrayInterface.getindex(cartesian, k) == CartesianIndex(i,j)
-        @test ArrayInterface.getindex(LinearIndices(map(Base.Slice, (0:3,3:5))), i-1, j+2) == k
-        @test ArrayInterface.getindex(CartesianIndices(map(Base.Slice, (0:3,3:5))), k) == CartesianIndex(i-1,j+2)
+        @test @inferred(ArrayInterface.getindex(linear, i, j)) == ArrayInterface.getindex(linear, k) == k
+        @test @inferred(ArrayInterface.getindex(cartesian, k)) == CartesianIndex(i,j)
+        @test @inferred(ArrayInterface.getindex(LinearIndices(map(Base.Slice, (0:3,3:5))), i-1, j+2)) == k
+        @test @inferred(ArrayInterface.getindex(CartesianIndices(map(Base.Slice, (0:3,3:5))), k)) == CartesianIndex(i-1,j+2)
     end
-    @test linear[linear] == linear
-    @test linear[vec(linear)] == vec(linear)
-    @test linear[cartesian] == linear
-    @test linear[vec(cartesian)] == vec(linear)
-    @test cartesian[linear] == cartesian
-    @test cartesian[vec(linear)] == vec(cartesian)
-    @test cartesian[cartesian] == cartesian
-    @test cartesian[vec(cartesian)] == vec(cartesian)
-    @test linear[2:3] === 2:3
-    @test linear[3:-1:1] === 3:-1:1
+    @test @inferred(getindex(linear, linear)) == linear
+    @test @inferred(getindex(linear, vec(linear))) == vec(linear)
+    @test @inferred(getindex(linear, cartesian)) == linear
+    @test @inferred(getindex(linear, vec(cartesian))) == vec(linear)
+    @test @inferred(getindex(cartesian, linear)) == cartesian
+    @test @inferred(getindex(cartesian, vec(linear))) == vec(cartesian)
+    @test @inferred(getindex(cartesian, cartesian)) == cartesian
+    @test @inferred(getindex(cartesian, vec(cartesian))) == vec(cartesian)
+    @test @inferred(getindex(linear, 2:3)) === 2:3
+    @test @inferred(getindex(linear, 3:-1:1)) === 3:-1:1
     @test_throws BoundsError linear[4:13]
 end
 
@@ -98,32 +98,32 @@ end
     l = 0
     for k = 1:2, j = 1:3, i = 1:4
         l += 1
-        @test ArrayInterface.getindex(LinearIndices((4,3,2)),i,j,k) == l
-        @test ArrayInterface.getindex(LinearIndices((4,3,2)),l) == l
-        @test ArrayInterface.getindex(CartesianIndices((4,3,2)),i,j,k) == CartesianIndex(i,j,k)
-        @test ArrayInterface.getindex(CartesianIndices((4,3,2)),l) == CartesianIndex(i,j,k)
-        @test ArrayInterface.getindex(LinearIndices((1:4,1:3,1:2)),i,j,k) == l
-        @test ArrayInterface.getindex(LinearIndices((1:4,1:3,1:2)),l) == l
-        @test ArrayInterface.getindex(CartesianIndices((1:4,1:3,1:2)),i,j,k) == CartesianIndex(i,j,k)
-        @test ArrayInterface.getindex(CartesianIndices((1:4,1:3,1:2)),l) == CartesianIndex(i,j,k)
+        @test @inferred(ArrayInterface.getindex(LinearIndices((4,3,2)),i,j,k)) == l
+        @test @inferred(ArrayInterface.getindex(LinearIndices((4,3,2)),l)) == l
+        @test @inferred(ArrayInterface.getindex(CartesianIndices((4,3,2)),i,j,k)) == CartesianIndex(i,j,k)
+        @test @inferred(ArrayInterface.getindex(CartesianIndices((4,3,2)),l)) == CartesianIndex(i,j,k)
+        @test @inferred(ArrayInterface.getindex(LinearIndices((1:4,1:3,1:2)),i,j,k)) == l
+        @test @inferred(ArrayInterface.getindex(LinearIndices((1:4,1:3,1:2)),l)) == l
+        @test @inferred(ArrayInterface.getindex(CartesianIndices((1:4,1:3,1:2)),i,j,k)) == CartesianIndex(i,j,k)
+        @test @inferred(ArrayInterface.getindex(CartesianIndices((1:4,1:3,1:2)),l)) == CartesianIndex(i,j,k)
     end
 
     l = 0
     for k = -101:-100, j = 3:5, i = 0:3
         l += 1
-        @test ArrayInterface.getindex(LinearIndices(map(Base.Slice, (0:3,3:5,-101:-100))),i,j,k) == l
-        @test ArrayInterface.getindex(LinearIndices(map(Base.Slice, (0:3,3:5,-101:-100))),l) == l
-        @test ArrayInterface.getindex(CartesianIndices(map(Base.Slice, (0:3,3:5,-101:-100))),i,j,k) == CartesianIndex(i,j,k)
-        @test ArrayInterface.getindex(CartesianIndices(map(Base.Slice, (0:3,3:5,-101:-100))),l) == CartesianIndex(i,j,k)
+        @test @inferred(ArrayInterface.getindex(LinearIndices(map(Base.Slice, (0:3,3:5,-101:-100))),i,j,k)) == l
+        @test @inferred(ArrayInterface.getindex(LinearIndices(map(Base.Slice, (0:3,3:5,-101:-100))),l)) == l
+        @test @inferred(ArrayInterface.getindex(CartesianIndices(map(Base.Slice, (0:3,3:5,-101:-100))),i,j,k)) == CartesianIndex(i,j,k)
+        @test @inferred(ArrayInterface.getindex(CartesianIndices(map(Base.Slice, (0:3,3:5,-101:-100))),l)) == CartesianIndex(i,j,k)
     end
 
     local A = reshape(Vector(1:9), (3,3))
-    @test ArrayInterface.getindex(CartesianIndices(size(A)),6) == CartesianIndex(3,2)
-    @test ArrayInterface.getindex(LinearIndices(size(A)),3, 2) == 6
-    @test ArrayInterface.getindex(CartesianIndices(A),6) == CartesianIndex(3,2)
-    @test ArrayInterface.getindex(LinearIndices(A),3, 2) == 6
+    @test @inferred(ArrayInterface.getindex(CartesianIndices(size(A)),6)) == CartesianIndex(3,2)
+    @test @inferred(ArrayInterface.getindex(LinearIndices(size(A)),3, 2)) == 6
+    @test @inferred(ArrayInterface.getindex(CartesianIndices(A),6)) == CartesianIndex(3,2)
+    @test @inferred(ArrayInterface.getindex(LinearIndices(A),3, 2)) == 6
     for i in 1:length(A)
-        @test ArrayInterface.getindex(LinearIndices(A),ArrayInterface.getindex(CartesianIndices(A),i)) == i
+        @test @inferred(ArrayInterface.getindex(LinearIndices(A),ArrayInterface.getindex(CartesianIndices(A),i))) == i
     end
 end
 
