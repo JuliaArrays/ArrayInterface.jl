@@ -617,8 +617,8 @@ Base.@propagate_inbounds function insert(collection, index, item)
   return ret
 end
 
-function insert(x::Tuple, index::Integer, item)
-  @boundscheck if !checkindex(Bool, static_first(x):static_last(x), index)
+function insert(x::Tuple{Vararg{Any,N}}, index::Integer, item) where {N}
+  @boundscheck if !checkindex(Bool, StaticInt{1}():StaticInt{N}(), index)
     throw(BoundsError(x, index))
   end
   return unsafe_insert(x, Int(index), item)
@@ -643,8 +643,8 @@ Return a new instance of `collection` with the item at the given `index` removed
   end
   return unsafe_deleteat(collection, index)
 end
-@propagate_inbounds function deleteat(collection::Tuple, index)
-  @boundscheck if !checkindex(Bool, static_first(collection):static_last(collection), index)
+@propagate_inbounds function deleteat(collection::Tuple{Vararg{Any,N}}, index) where {N}
+  @boundscheck if !checkindex(Bool, StaticInt{1}():StaticInt{N}(), index)
     throw(BoundsError(collection, index))
   end
   return unsafe_deleteat(collection, index)
@@ -686,6 +686,8 @@ end
   return Tuple(dst)
 end
 
+@inline unsafe_deleteat(x::Tuple{T}, i::Integer) where {T} = ()
+@inline unsafe_deleteat(x::Tuple{T1,T2}, i::Integer) where {T1,T2} = isone(i) ? (x[2],) : (x[1],)
 @inline function unsafe_deleteat(x::Tuple, i::Integer)
   if i === one(i)
     return tail(x)
