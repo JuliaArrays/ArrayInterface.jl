@@ -229,8 +229,8 @@ end
 @propagate_inbounds function Base.getindex(r::OptionallyStaticUnitRange, s::AbstractUnitRange{<:Integer})
     @boundscheck checkbounds(r, s)
     f = static_first(r)
-    f = f - one(f)
-    return (f + static_first(s)):(f + static_last(s))
+    fnew = f - one(f)
+    return (fnew + static_first(s)):(fnew + static_last(s))
 end
 
 @propagate_inbounds function Base.getindex(r::OptionallyStaticUnitRange, i::Integer)
