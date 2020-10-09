@@ -48,6 +48,10 @@ end
     @test @inferred ArrayInterface.to_indices(a, ([CartesianIndex(1,1), CartesianIndex(1,2)],1:1)) == (CartesianIndex{2}[CartesianIndex(1, 1), CartesianIndex(1, 2)], 1:1)
     @test_throws ErrorException ArrayInterface.to_indices(ones(2,2,2), (1, 1))
 
+@testset "0-dimensional" begin
+    x = Array{Int,0}(undef)
+    ArrayInterface.setindex!(x, 1)
+    @test @inferred(ArrayInterface.getindex(x)) == 1
 end
 
 @testset "1-dimensional" begin
