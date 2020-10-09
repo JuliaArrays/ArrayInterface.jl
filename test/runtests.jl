@@ -203,6 +203,24 @@ end
         @test @inferred(StaticInt(1):StaticInt(1):StaticInt(10)) === ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))
         @test @inferred(StaticInt(1):StaticInt(1):10) === ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10)
         @test @inferred(1:StaticInt(1):10) === ArrayInterface.OptionallyStaticUnitRange(1, 10)
+        @test length(StaticInt{-1}():StaticInt{-1}():StaticInt{-10}()) == 10
+
+        @test UnitRange(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))) === UnitRange(1, 10)
+        @test UnitRange{Int}(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))) === UnitRange(1, 10)
+
+        @test AbstractUnitRange{Int}(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))) isa ArrayInterface.OptionallyStaticUnitRange
+        @test AbstractUnitRange{UInt}(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))) isa Base.OneTo
+        @test AbstractUnitRange{UInt}(ArrayInterface.OptionallyStaticUnitRange(StaticInt(2), StaticInt(10))) isa UnitRange
+
+        @test @inferred((StaticInt(1):StaticInt(10))[StaticInt(2):StaticInt(3)]) === StaticInt(2):StaticInt(3)
+        @test @inferred((StaticInt(1):StaticInt(10))[StaticInt(2):3]) === StaticInt(2):3
+        @test @inferred((StaticInt(1):StaticInt(10))[2:3]) === 2:3
+        @test @inferred((1:StaticInt(10))[StaticInt(2):StaticInt(3)]) === 2:3
+
+        @test -(StaticInt{1}():StaticInt{10}()) === StaticInt{-1}():StaticInt{-1}():StaticInt{-10}()
+
+        @test reverse(StaticInt{1}():StaticInt{10}()) === StaticInt{10}():StaticInt{-1}():StaticInt{1}()
+        @test reverse(StaticInt{1}():StaticInt{2}():StaticInt{9}()) === StaticInt{9}():StaticInt{-2}():StaticInt{1}()
     end
 
     @test isnothing(@inferred(ArrayInterface.known_first(typeof(1:4))))
@@ -227,13 +245,13 @@ end
         @test @inferred(length(StaticInt(1):StaticInt(2):StaticInt(0))) == 0
         @test @inferred(length(StaticInt(0):StaticInt(-2):StaticInt(1))) == 0
     end
+
     @test @inferred(getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 1)) == 1
     @test @inferred(getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(0), 10), 1)) == 0
     @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 0)
     @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), 2, 10), 0)
     @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 11)
     @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), 2, 10), 11)
-
 end
 
 @testset "Memory Layout" begin
@@ -420,9 +438,15 @@ end
     @test_throws AssertionError ArrayInterface.indices((SA23, ones(3, 3)), StaticInt(1))
     @test_throws AssertionError ArrayInterface.indices((SA23, ones(3, 3)), (StaticInt(1), 2))
     @test_throws AssertionError ArrayInterface.indices((SA23, SA23), (StaticInt(1), StaticInt(2)))
+
+    @test size(similar(ones(2, 4), ArrayInterface.indices(ones(2, 4), 1), ArrayInterface.indices(ones(2, 4), 2))) == (2, 4)
+    @test axes(ArrayInterface.indices(ones(2,2))) === (StaticInt(1):4,)
+    @test axes(Base.Slice(StaticInt(2):4)) === (Base.IdentityUnitRange(StaticInt(2):4),)
+    @test Base.axes1(ArrayInterface.indices(ones(2,2))) === StaticInt(1):4
+    @test Base.axes1(Base.Slice(StaticInt(2):4)) === Base.IdentityUnitRange(StaticInt(2):4)
 end
 
-@testset "Static" begin
+@testset "StaticInt" begin
     @test iszero(StaticInt(0))
     @test !iszero(StaticInt(1))
     @test @inferred(one(StaticInt(1))) === StaticInt(1)
@@ -472,4 +496,6 @@ end
     @test @inferred(ArrayInterface.deleteat((2, 3, 4), 3)) == (2, 3)
     @test ArrayInterface.deleteat((1, 2, 3), [1, 2]) == (3,)
 end
+
+include("indexing.jl")
 

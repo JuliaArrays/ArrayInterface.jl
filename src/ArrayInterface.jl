@@ -4,7 +4,7 @@ using Requires
 using LinearAlgebra
 using SparseArrays
 
-using Base: OneTo, @propagate_inbounds
+using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice
 
 Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
@@ -23,7 +23,7 @@ parent_type(::Type{Transpose{T,S}}) where {T,S} = S
 parent_type(::Type{Symmetric{T,S}}) where {T,S} = S
 parent_type(::Type{<:LinearAlgebra.AbstractTriangular{T,S}}) where {T,S} = S
 parent_type(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A} = A
-parent_type(::Type{Base.Slice{T}}) where {T} = T
+parent_type(::Type{Slice{T}}) where {T} = T
 parent_type(::Type{T}) where {T} = T
 
 """
@@ -34,7 +34,7 @@ Otherwise, return `nothing`.
 """
 known_length(x) = known_length(typeof(x))
 known_length(::Type{<:NamedTuple{L}}) where {L} = length(L)
-known_length(::Type{T}) where {T<:Base.Slice} = known_length(parent_type(T))
+known_length(::Type{T}) where {T<:Slice} = known_length(parent_type(T))
 known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N
 known_length(::Type{<:Number}) = 1
 function known_length(::Type{T}) where {T}
@@ -628,7 +628,7 @@ end
   if i === 1
     return (item, x...)
   else
-    return (first(x), unsafe_insert(Base.tail(x), i - 1, item)...)
+    return (first(x), unsafe_insert(tail(x), i - 1, item)...)
   end
 end
 
@@ -690,11 +690,11 @@ end
 @inline unsafe_deleteat(x::Tuple{T1,T2}, i::Integer) where {T1,T2} = isone(i) ? (x[2],) : (x[1],)
 @inline function unsafe_deleteat(x::Tuple, i::Integer)
   if i === one(i)
-    return Base.tail(x)
+    return tail(x)
   elseif i == length(x)
     return Base.front(x)
   else
-    return (first(x), unsafe_deleteat(Base.tail(x), i - one(i))...)
+    return (first(x), unsafe_deleteat(tail(x), i - one(i))...)
   end
 end
 
@@ -886,6 +886,7 @@ end
 
 include("static.jl")
 include("ranges.jl")
+include("indexing.jl")
 include("stridelayout.jl")
 
 end

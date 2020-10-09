@@ -67,6 +67,14 @@ struct OptionallyStaticUnitRange{F <: Integer, L <: Integer} <: AbstractUnitRang
     end
   end
 
+  function OptionallyStaticUnitRange{F,L}(x::AbstractRange) where {F,L}
+    if step(x) == 1
+      return OptionallyStaticUnitRange(static_first(x), static_last(x))
+    else
+        throw(ArgumentError("step must be 1, got $(step(r))"))
+    end
+  end
+
   function OptionallyStaticUnitRange(x::AbstractRange)
     if step(x) == 1
       return OptionallyStaticUnitRange(static_first(x), static_last(x))
@@ -214,8 +222,15 @@ unsafe_length_one_to(::StaticInt{L}) where {L} = L
     elseif step > 0
         return Base.checked_add(Int(div(Base.checked_sub(stop, start), step)), 1)
     else
-        return Base.checked_add(Int(div(Base.checked_sub(rtart, stop), -step)), 1)
+        return Base.checked_add(Int(div(Base.checked_sub(start, stop), -step)), 1)
     end
+end
+
+@propagate_inbounds function Base.getindex(r::OptionallyStaticUnitRange, s::AbstractUnitRange{<:Integer})
+    @boundscheck checkbounds(r, s)
+    f = static_first(r)
+    fnew = f - one(f)
+    return (fnew + static_first(s)):(fnew + static_last(s))
 end
 
 @propagate_inbounds function Base.getindex(r::OptionallyStaticUnitRange, i::Integer)
@@ -328,6 +343,41 @@ end
 
 
 unsafe_length_unit_range(start::Integer, stop::Integer) = Int((stop - start) + 1)
+
+function Base.AbstractUnitRange{T}(r::OptionallyStaticUnitRange) where {T}
+    if T <: Int
+        return r
+    else
+        if known_first(r) === 1 && T <: Integer
+            return OneTo{T}(last(r))
+        else
+            return UnitRange{T}(first(r), last(r))
+        end
+    end
+end
+
+const OptionallyStaticRange = Union{<:OptionallyStaticUnitRange,<:OptionallyStaticStepRange}
+
+Base.to_shape(x::OptionallyStaticRange) = length(x)
+Base.to_shape(x::Slice{T}) where {T<:OptionallyStaticRange} = length(x)
+
+function Base.axes(S::Slice{T}) where {T<:OptionallyStaticRange}
+    if known_first(T) === 1 && known_step(T) === 1
+        return (S.indices,)
+    else
+        return (Base.IdentityUnitRange(S.indices),)
+    end
+end
+
+function Base.axes1(S::Slice{T}) where {T<:OptionallyStaticRange}
+    if known_first(T) === 1 && known_step(T) === 1
+        return S.indices
+    else
+        return Base.IdentityUnitRange(S.indices)
+    end
+end
+
+Base.:(-)(r::OptionallyStaticRange) = -static_first(r):-static_step(r):-static_last(r)
 
 """
     indices(x[, d])
