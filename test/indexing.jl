@@ -1,10 +1,15 @@
 
 @testset "argdims" begin
-    static_argdims(x) = Val(ArrayInterface.argdims(IndexLinear(), x))
+    static_argdims(x) = Val(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), x))
     @test @inferred(static_argdims((1, CartesianIndex(1,2)))) === Val((0, 2))
     @test @inferred(static_argdims((1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === Val((0, 2))
     @test @inferred(static_argdims((1, CartesianIndex((2,2))))) === Val((0, 2))
     @test @inferred(static_argdims((CartesianIndex((2,2)), :, :))) === Val((2, 1, 1))
+end
+
+@testset "UnsafeIndex" begin
+    @test @inferred(ArrayInterface.UnsafeIndex(ones(2,2,2), typeof((1,[1,2],1)))) == ArrayInterface.UnsafeGetCollection() 
+    @test @inferred(ArrayInterface.UnsafeIndex(ones(2,2,2), typeof((1,1,1)))) == ArrayInterface.UnsafeGetElement() 
 end
 
 @testset "to_index" begin
@@ -19,7 +24,6 @@ end
     @test_throws BoundsError ArrayInterface.to_index(axis, [1, 2, 5])
     @test_throws BoundsError  ArrayInterface.to_index(axis, [true, false, false, true])
 end
-
 
 @testset "to_indices" begin
     a = ones(2,2,1)
@@ -47,6 +51,7 @@ end
     @test @inferred ArrayInterface.to_indices(a, ([CartesianIndex(1,1,1), CartesianIndex(1,2,1)],)) == (CartesianIndex{3}[CartesianIndex(1, 1, 1), CartesianIndex(1, 2, 1)],)
     @test @inferred ArrayInterface.to_indices(a, ([CartesianIndex(1,1), CartesianIndex(1,2)],1:1)) == (CartesianIndex{2}[CartesianIndex(1, 1), CartesianIndex(1, 2)], 1:1)
     @test_throws ErrorException ArrayInterface.to_indices(ones(2,2,2), (1, 1))
+end
 
 @testset "0-dimensional" begin
     x = Array{Int,0}(undef)
@@ -70,8 +75,9 @@ end
     @test_throws BoundsError ArrayInterface.getindex(CartesianIndices((3,)), 2, 2)
     #   ambiguity btw cartesian indexing and linear indexing in 1d when
     #   indices may be nontraditional
-    @test_throws ArgumentError Base._sub2ind((1:3,), 2)
-    @test_throws ArgumentError Base._ind2sub((1:3,), 2)
+    # TODO should this be implemented in ArrayInterface with vectorization?
+    #@test_throws ArgumentError Base._sub2ind((1:3,), 2)
+    #@test_throws ArgumentError Base._ind2sub((1:3,), 2)
 end
 
 @testset "2-dimensional" begin
@@ -130,5 +136,3 @@ end
         @test @inferred(ArrayInterface.getindex(LinearIndices(A),ArrayInterface.getindex(CartesianIndices(A),i))) == i
     end
 end
-
-
