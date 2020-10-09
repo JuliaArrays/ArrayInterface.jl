@@ -85,17 +85,17 @@ end
         @test @inferred(ArrayInterface.getindex(LinearIndices(map(Base.Slice, (0:3,3:5))), i-1, j+2)) == k
         @test @inferred(ArrayInterface.getindex(CartesianIndices(map(Base.Slice, (0:3,3:5))), k)) == CartesianIndex(i-1,j+2)
     end
-    @test @inferred(getindex(linear, linear)) == linear
-    @test @inferred(getindex(linear, vec(linear))) == vec(linear)
-    @test @inferred(getindex(linear, cartesian)) == linear
-    @test @inferred(getindex(linear, vec(cartesian))) == vec(linear)
-    @test @inferred(getindex(cartesian, linear)) == cartesian
-    @test @inferred(getindex(cartesian, vec(linear))) == vec(cartesian)
-    @test @inferred(getindex(cartesian, cartesian)) == cartesian
-    @test @inferred(getindex(cartesian, vec(cartesian))) == vec(cartesian)
-    @test @inferred(getindex(linear, 2:3)) === 2:3
-    @test @inferred(getindex(linear, 3:-1:1)) === 3:-1:1
-    @test_throws BoundsError linear[4:13]
+    @test @inferred(ArrayInterface.getindex(linear, linear)) == linear
+    @test @inferred(ArrayInterface.getindex(linear, vec(linear))) == vec(linear)
+    @test @inferred(ArrayInterface.getindex(linear, cartesian)) == linear
+    @test @inferred(ArrayInterface.getindex(linear, vec(cartesian))) == vec(linear)
+    @test @inferred(ArrayInterface.getindex(cartesian, linear)) == cartesian
+    @test @inferred(ArrayInterface.getindex(cartesian, vec(linear))) == vec(cartesian)
+    @test @inferred(ArrayInterface.getindex(cartesian, cartesian)) == cartesian
+    @test @inferred(ArrayInterface.getindex(cartesian, vec(cartesian))) == vec(cartesian)
+    @test @inferred(ArrayInterface.getindex(linear, 2:3)) === 2:3
+    @test @inferred(ArrayInterface.getindex(linear, 3:-1:1)) === 3:-1:1
+    @test_throws BoundsError ArrayInterface.getindex(linear, 4:13)
 end
 
 @testset "3-dimensional" begin
