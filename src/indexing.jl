@@ -4,7 +4,7 @@
 
 Used to customize the meaning of indexing arguments in the context of a given array `A`.
 
-See also: [`argdims`](@ref), [`UnsafeIndexStyle`](@ref)
+See also: [`argdims`](@ref), [`UnsafeIndex`](@ref)
 """
 abstract type ArrayStyle end
 
@@ -14,7 +14,7 @@ ArrayStyle(A) = ArrayStyle(typeof(A))
 ArrayStyle(::Type{A}) where {A} = DefaultArrayStyle()
 
 """
-    argdims(::IndexStyle, ::Type{T})
+    argdims(::ArrayStyle, ::Type{T})
 
 Whats the dimensionality of the indexing argument of type `T`?
 """
@@ -238,7 +238,6 @@ end
     return arg
 end
 
-
 """
     to_index([::IndexStyle, ]axis, arg) -> index
 
@@ -296,7 +295,6 @@ function unsafe_reconstruct(A::OneTo, data; kwargs...)
         end
     end
 end
-
 function unsafe_reconstruct(A::UnitRange, data; kwargs...)
     if can_change_size(A)
         return typeof(A)(data)
@@ -308,7 +306,6 @@ function unsafe_reconstruct(A::UnitRange, data; kwargs...)
         end
     end
 end
-
 function unsafe_reconstruct(A::OptionallyStaticUnitRange, data; kwargs...)
     if can_change_size(A)
         return typeof(A)(data)
@@ -320,7 +317,6 @@ function unsafe_reconstruct(A::OptionallyStaticUnitRange, data; kwargs...)
         end
     end
 end
-
 function unsafe_reconstruct(A::AbstractUnitRange, data; kwargs...)
     return static_first(data):static_last(data)
 end
@@ -396,7 +392,7 @@ Changing indexing based on a given argument from `args` should be done through
 Indexes into `A` given `inds`. This method assumes that `inds` have already been
 bounds checked.
 """
-unsafe_getindex(A, inds) = unsafe_getindex(UnsafeIndex(typeof(A), typeof(inds)), A, inds)
+unsafe_getindex(A, inds) = unsafe_getindex(UnsafeIndex(A, inds), A, inds)
 unsafe_getindex(::UnsafeGetElement, A, inds) = unsafe_get_element(A, inds)
 unsafe_getindex(::UnsafeGetCollection, A, inds) = unsafe_get_collection(A, inds)
 
@@ -467,7 +463,6 @@ end
     end
 end
 @inline function unsafe_get_collection(A::LinearIndices{N}, inds) where {N}
-
     if is_linear_indexing(A, inds)
         return @inbounds(eachindex(A)[first(inds)])
     elseif can_preserve_indices(typeof(inds))
@@ -497,7 +492,7 @@ end
 Sets indices (`inds`) of `A` to `val`. This method assumes that `inds` have already been
 bounds checked. This step of the processing pipeline can be customized by
 """
-unsafe_setindex!(A, val, inds::Tuple) = unsafe_setindex!(UnsafeIndex(typeof(A), typeof(inds)), A, val, inds)
+unsafe_setindex!(A, val, inds::Tuple) = unsafe_setindex!(UnsafeIndex(A, inds), A, val, inds)
 unsafe_setindex!(::UnsafeGetElement, A, val, inds::Tuple) = unsafe_set_element!(A, val, inds)
 unsafe_setindex!(::UnsafeGetCollection, A, val, inds::Tuple) = unsafe_set_collection!(A, val, inds)
 
