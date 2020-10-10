@@ -65,14 +65,12 @@ Base.promote_rule(::Type{X}, ::Type{Y}) where {X<:UnsafeIndex,Y<:UnsafeGetElemen
 @generated function UnsafeIndex(s::ArrayStyle, ::Type{T}) where {N,T<:Tuple{Vararg{<:Any,N}}}
     if N === 0
         return UnsafeGetElement()
-    elseif N === 1
-        return UnsafeIndex(s, T.parameters[1])
     else
-        out = typeof(UnsafeIndex(s, T.parameters[1]))
-        for i in 2:N
-            out = promote_type(out, typeof(UnsafeIndex(s, T.parameters[i])))
+        e = Expr(:call, promote_type)
+        for p in T.parameters
+            push!(e.args, :(typeof(ArrayInterface.UnsafeIndex(s, $p))))
         end
-        return out()
+        return Expr(:block, Expr(:meta, :inline), Expr(:call, e))
     end
 end
 
