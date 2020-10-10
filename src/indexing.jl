@@ -45,8 +45,8 @@ native axes' indices are used to return the stored values of an array. For examp
 if the indices at each dimension are single integers than `UnsafeIndex(inds)` returns
 `UnsafeGetElement()`. Conversely, if any of the indices are vectors then `UnsafeGetCollection()`
 is returned, indicating that a new array needs to be reconstructed. This method permits
-customizing the terimnal behavior of the indexing pipeline based on arguments passed
-to `ArrayInterface.getindex`
+customizing the terminal behavior of the indexing pipeline based on arguments passed
+to `ArrayInterface.getindex`. New subtypes of `UnsafeIndex` should define `promote_rule`.
 """
 abstract type UnsafeIndex end
 
@@ -60,24 +60,20 @@ UnsafeIndex(s::ArrayStyle, i) = UnsafeIndex(s, typeof(i))
 UnsafeIndex(::ArrayStyle, ::Type{I}) where {I} = UnsafeGetElement()
 UnsafeIndex(::ArrayStyle, ::Type{I}) where {I<:AbstractArray} = UnsafeGetCollection()
 
-# TODO this probably needs to be documented
-combine_unsafe_index(x::UnsafeIndex, y::UnsafeGetElement) = x
-combine_unsafe_index(x::UnsafeGetElement, y::UnsafeIndex) = y
-combine_unsafe_index(x::UnsafeGetElement, y::UnsafeGetElement) = x
-combine_unsafe_index(x::UnsafeGetCollection, y::UnsafeGetCollection) = x
+Base.promote_rule(::Type{X}, ::Type{Y}) where {X<:UnsafeIndex,Y<:UnsafeGetElement} = X
 
 @generated function UnsafeIndex(s::ArrayStyle, ::Type{T}) where {N,T<:Tuple{Vararg{<:Any,N}}}
-    if N === 0  # TODO check indexing empty arrays
-        out = UnsafeGetElement()
+    if N === 0
+        return UnsafeGetElement()
     elseif N === 1
-        out = UnsafeIndex(s, T.parameters[1])
+        return UnsafeIndex(s, T.parameters[1])
     else
-        out = UnsafeIndex(s, T.parameters[1])
+        out = typeof(UnsafeIndex(s, T.parameters[1]))
         for i in 2:N
-            out = combine_unsafe_index(out, UnsafeIndex(s, T.parameters[i]))
+            out = promote_type(out, typeof(UnsafeIndex(s, T.parameters[i])))
         end
+        return out()
     end
-    return out
 end
 
 # are the indexing arguments provided a linear collection into a multidim collection
