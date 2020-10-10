@@ -42,7 +42,7 @@ end
 
 `UnsafeIndex` controls how indices that have been bounds checked and converted to
 native axes' indices are used to return the stored values of an array. For example,
-if the indices at each dimension are single integers than `UnsafeIndex(inds)` returns
+if the indices at each dimension are single integers then `UnsafeIndex(array, inds)` returns
 `UnsafeGetElement()`. Conversely, if any of the indices are vectors then `UnsafeGetCollection()`
 is returned, indicating that a new array needs to be reconstructed. This method permits
 customizing the terminal behavior of the indexing pipeline based on arguments passed
