@@ -1,10 +1,15 @@
 
 @testset "argdims" begin
-    static_argdims(x) = Val(ArrayInterface.argdims(IndexLinear(), x))
+    static_argdims(x) = Val(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), x))
     @test @inferred(static_argdims((1, CartesianIndex(1,2)))) === Val((0, 2))
     @test @inferred(static_argdims((1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === Val((0, 2))
     @test @inferred(static_argdims((1, CartesianIndex((2,2))))) === Val((0, 2))
     @test @inferred(static_argdims((CartesianIndex((2,2)), :, :))) === Val((2, 1, 1))
+end
+
+@testset "UnsafeIndex" begin
+    @test @inferred(ArrayInterface.UnsafeIndex(ones(2,2,2), typeof((1,[1,2],1)))) == ArrayInterface.UnsafeGetCollection() 
+    @test @inferred(ArrayInterface.UnsafeIndex(ones(2,2,2), typeof((1,1,1)))) == ArrayInterface.UnsafeGetElement() 
 end
 
 @testset "to_index" begin
@@ -19,7 +24,6 @@ end
     @test_throws BoundsError ArrayInterface.to_index(axis, [1, 2, 5])
     @test_throws BoundsError  ArrayInterface.to_index(axis, [true, false, false, true])
 end
-
 
 @testset "to_indices" begin
     a = ones(2,2,1)
@@ -47,7 +51,12 @@ end
     @test @inferred ArrayInterface.to_indices(a, ([CartesianIndex(1,1,1), CartesianIndex(1,2,1)],)) == (CartesianIndex{3}[CartesianIndex(1, 1, 1), CartesianIndex(1, 2, 1)],)
     @test @inferred ArrayInterface.to_indices(a, ([CartesianIndex(1,1), CartesianIndex(1,2)],1:1)) == (CartesianIndex{2}[CartesianIndex(1, 1), CartesianIndex(1, 2)], 1:1)
     @test_throws ErrorException ArrayInterface.to_indices(ones(2,2,2), (1, 1))
+end
 
+@testset "0-dimensional" begin
+    x = Array{Int,0}(undef)
+    ArrayInterface.setindex!(x, 1)
+    @test @inferred(ArrayInterface.getindex(x)) == 1
 end
 
 @testset "1-dimensional" begin
@@ -66,8 +75,9 @@ end
     @test_throws BoundsError ArrayInterface.getindex(CartesianIndices((3,)), 2, 2)
     #   ambiguity btw cartesian indexing and linear indexing in 1d when
     #   indices may be nontraditional
-    @test_throws ArgumentError Base._sub2ind((1:3,), 2)
-    @test_throws ArgumentError Base._ind2sub((1:3,), 2)
+    # TODO should this be implemented in ArrayInterface with vectorization?
+    #@test_throws ArgumentError Base._sub2ind((1:3,), 2)
+    #@test_throws ArgumentError Base._ind2sub((1:3,), 2)
 end
 
 @testset "2-dimensional" begin
@@ -81,17 +91,17 @@ end
         @test @inferred(ArrayInterface.getindex(LinearIndices(map(Base.Slice, (0:3,3:5))), i-1, j+2)) == k
         @test @inferred(ArrayInterface.getindex(CartesianIndices(map(Base.Slice, (0:3,3:5))), k)) == CartesianIndex(i-1,j+2)
     end
-    @test @inferred(getindex(linear, linear)) == linear
-    @test @inferred(getindex(linear, vec(linear))) == vec(linear)
-    @test @inferred(getindex(linear, cartesian)) == linear
-    @test @inferred(getindex(linear, vec(cartesian))) == vec(linear)
-    @test @inferred(getindex(cartesian, linear)) == cartesian
-    @test @inferred(getindex(cartesian, vec(linear))) == vec(cartesian)
-    @test @inferred(getindex(cartesian, cartesian)) == cartesian
-    @test @inferred(getindex(cartesian, vec(cartesian))) == vec(cartesian)
-    @test @inferred(getindex(linear, 2:3)) === 2:3
-    @test @inferred(getindex(linear, 3:-1:1)) === 3:-1:1
-    @test_throws BoundsError linear[4:13]
+    @test @inferred(ArrayInterface.getindex(linear, linear)) == linear
+    @test @inferred(ArrayInterface.getindex(linear, vec(linear))) == vec(linear)
+    @test @inferred(ArrayInterface.getindex(linear, cartesian)) == linear
+    @test @inferred(ArrayInterface.getindex(linear, vec(cartesian))) == vec(linear)
+    @test @inferred(ArrayInterface.getindex(cartesian, linear)) == cartesian
+    @test @inferred(ArrayInterface.getindex(cartesian, vec(linear))) == vec(cartesian)
+    @test @inferred(ArrayInterface.getindex(cartesian, cartesian)) == cartesian
+    @test @inferred(ArrayInterface.getindex(cartesian, vec(cartesian))) == vec(cartesian)
+    @test @inferred(ArrayInterface.getindex(linear, 2:3)) === 2:3
+    @test @inferred(ArrayInterface.getindex(linear, 3:-1:1)) === 3:-1:1
+    @test_throws BoundsError ArrayInterface.getindex(linear, 4:13)
 end
 
 @testset "3-dimensional" begin
@@ -126,5 +136,3 @@ end
         @test @inferred(ArrayInterface.getindex(LinearIndices(A),ArrayInterface.getindex(CartesianIndices(A),i))) == i
     end
 end
-
-
