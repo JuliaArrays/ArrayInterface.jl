@@ -49,7 +49,7 @@ _contiguous_axis(::Any, ::Nothing) = nothing
             end
         end
     end
-    # If n != N, then an axis was indeced by something other than an integer or `AbstractUnitRange`, so we return `nothing`
+    # If n != N, then an axis was indexed by something other than an integer or `AbstractUnitRange`, so we return `nothing`.
     n == N || return nothing
     Expr(:call, Expr(:curly, :Contiguous, new_contig))
 end
@@ -64,7 +64,7 @@ contiguous_axis_indicator(::A) where {A <: AbstractArray} = contiguous_axis_indi
 Base.@pure contiguous_axis_indicator(::Contiguous{N}, ::Val{D}) where {N,D} = ntuple(d -> Val{d == N}(), Val{D}())
 
 """
-If the contiguous dimension is not the dimension with `Stride_rank{1}`
+If the contiguous dimension is not the dimension with `Stride_rank{1}`:
 """
 struct ContiguousBatch{N} end
 Base.@pure ContiguousBatch(N::Int) = ContiguousBatch{N}()
@@ -146,7 +146,7 @@ _stride_rank(::Any, ::Any) = nothing
             push!(rank_new, r)
         end
     end
-    # If n != N, then an axis was indeced by something other than an integer or `AbstractUnitRange`, so we return `nothing`
+    # If n != N, then an axis was indexed by something other than an integer or `AbstractUnitRange`, so we return `nothing`.
     n == N || return nothing
     ranktup = Expr(:tuple); append!(ranktup.args, rank_new) # dynamic splats bad
     Expr(:call, Expr(:curly, :StrideRank, ranktup))
@@ -199,7 +199,7 @@ _dense_dims(::Any, ::Any) = nothing
             push!(dense_tup.args, densev[np])
         end
     end
-    # If n != N, then an axis was indexed by something other than an integer or `AbstractUnitRange`, so we return `nothing`
+    # If n != N, then an axis was indexed by something other than an integer or `AbstractUnitRange`, so we return `nothing`.
     length(dense_tup.args) == N ? Expr(:call, Expr(:curly, :DenseDims, dense_tup)) : nothing
 end
 
@@ -299,4 +299,3 @@ end
     end
     Expr(:block, Expr(:meta, :inline), t)
 end
-

@@ -2,7 +2,7 @@
 """
     argdims(::IndexStyle, ::Type{T})
 
-Whats the dimensionality of the indexing argument of type `T`?
+What is the dimensionality of the indexing argument of type `T`?
 """
 argdims(A, x) = argdims(IndexStyle(A), typeof(x))
 argdims(s::IndexStyle, x) = argdims(s, typeof(x))
@@ -25,14 +25,14 @@ end
 """
     flatten_args(A, args::Tuple{Arg,Vararg{Any}}) -> Tuple
 
-This method may be used to flatten out multi-dimensional arguments across several
+This method may be used to flatten out multidimensional arguments across several
 dimensions prior to performing indexing if any of `args` can be flattened.
 
 See also: [`can_flatten](@ref)
 
 # Extended help
 
-If one wishes to create a new multi-dimensional argument that is altered prior to most of
+If one wishes to create a new multidimensional argument that is altered prior to most of
 the indexing pipeline, then it must be supported via the `can_flatten` and a new instance
 of `flatten_args`, such as the following:
 
@@ -90,17 +90,17 @@ flatten_args(A, args::Tuple{}) = ()
     can_flatten(::Type{A}, ::Type{T}) -> Bool
 
 Returns `true` if an argument passed during indexing can be flattened across multiple
-dimensions. For example, `CartesianIndex{N}` can be flattened as a series of `Int`s 
+dimensions. For example, `CartesianIndex{N}` can be flattened as a series of `Int`s
 across `N` dimensions. This method is used to trigger `flatten_args` prior to indexing.
 If a particular argument-array combination cannot cannot be flattened, then it should be
-specified here. Otherwise, `A` should not be specificied when supporting a new
-multi-dimensional indexing type. For example, the following is the typical usage:
+specified here. Otherwise, `A` should not be specified when supporting a new
+multidimensional indexing type. For example, the following is the typical usage:
 
 ```julia
 ArrayInterface.can_flatten(::Type{A}, ::Type{T}) where {A,T<:NewIndexer} = true
 ```
 
-but in rare instances this may be necessary:
+but, in rare instances, this may be necessary:
 
 
 ```julia
@@ -183,7 +183,7 @@ end
     to_index([::IndexStyle, ]axis, arg) -> index
 
 Convert the argument `arg` that was originally passed to `getindex` for the dimension
-corresponding to `axis` into a form for native indexing (`Int`, Vector{Int}, ect). New
+corresponding to `axis` into a form for native indexing (`Int`, Vector{Int}, etc.). New
 axis types with unique behavior should use an `IndexStyle` trait:
 
 ```julia
@@ -272,7 +272,7 @@ end
 
 Construct new axes given the corresponding `inds` constructed after
 `to_indices(A, old_axes, args) -> inds`. This method iterates through each
-pair of axes and indices, calling [`to_axis`](@ref).
+pair of axes and indices calling [`to_axis`](@ref).
 """
 @inline function to_axes(A, inds::Tuple)
     if ndims(A) === 1
@@ -303,8 +303,8 @@ end
 
 Construct an `new_axis` for a newly constructed array that corresponds to the
 previously executed `to_index(old_axis, arg) -> index`. `to_axis` assumes that
-`index` has already been confirmed to be inbounds. The underlying indices of
-`new_axis` begins at one and extends the length of `index` (i.e. one-based indexing).
+`index` has already been confirmed to be in bounds. The underlying indices of
+`new_axis` begins at one and extends the length of `index` (i.e., one-based indexing).
 """
 @inline function to_axis(axis, inds)
     if !can_change_size(axis) && (known_length(inds) !== nothing && known_length(axis) === known_length(inds))
@@ -324,7 +324,7 @@ end
     ArrayInterface.getindex(A, args...)
 
 Retrieve the value(s) stored at the given key or index within a collection. Creating
-other instance of `ArrayInterface.getindex` should only be done by overloading `A`.
+another instance of `ArrayInterface.getindex` should only be done by overloading `A`.
 Changing indexing based on a given argument from `args` should be done through
 [`flatten_args`](@ref), [`to_index`](@ref), or [`to_axis`](@ref).
 """
@@ -333,13 +333,13 @@ Changing indexing based on a given argument from `args` should be done through
 """
     UnsafeIndex <: Function
 
-`UnsafeIndex` controls how indices that have been bounds checked and converted to
+`UnsafeIndex` controls how indices that have been bounds-checked and converted to
 native axes' indices are used to return the stored values of an array. For example,
-if the indices at each dimension are single integers than `UnsafeIndex(inds)` returns
-`UnsafeElement()`. Conversely, if any of the indices are vectors then `UnsafeCollection()`
+if the indices at each dimension are single integers, then `UnsafeIndex(inds)` returns
+`UnsafeElement()`. Conversely, if any of the indices are vectors, then `UnsafeCollection()`
 is returned, indicating that a new array needs to be reconstructed. This method permits
-customizing the terimnal behavior of the indexing pipeline based on arguments passed
-to `ArrayInterface.getindex`
+customizing the terminal behavior of the indexing pipeline based on arguments passed
+to `ArrayInterface.getindex`.
 """
 abstract type UnsafeIndex <: Function end
 
@@ -372,7 +372,7 @@ end
     unsafe_getindex(A, inds)
 
 Indexes into `A` given `inds`. This method assumes that `inds` have already been
-bounds checked.
+bounds-checked.
 """
 unsafe_getindex(A, inds) = unsafe_getindex(UnsafeIndex(inds), A, inds)
 unsafe_getindex(::UnsafeElement, A, inds) = unsafe_get_element(A, inds)
@@ -382,8 +382,8 @@ unsafe_getindex(::UnsafeCollection, A, inds) = unsafe_get_collection(A, inds)
     unsafe_get_element(A::AbstractArray{T}, inds::Tuple) -> T
 
 Returns an element of `A` at the indices `inds`. This method assumes all `inds`
-have been checked for being inbounds. Any new array type using `ArrayInterface.getindex`
-must define `unsafe_get_element(::NewArrayType, inds)`
+have been checked for being in bounds. Any new array type using `ArrayInterface.getindex`
+must define `unsafe_get_element(::NewArrayType, inds)`.
 """
 function unsafe_get_element(A, inds)
     throw(MethodError(unsafe_getindex, (A, inds)))
@@ -402,11 +402,11 @@ end
     return CartesianIndex(Base._to_subscript_indices(A, inds...))
 end
 
-# This is based on Base._unsafe_getindex from https://github.com/JuliaLang/julia/blob/c5ede45829bf8eb09f2145bfd6f089459d77b2b1/base/multidimensional.jl#L755
+# This is based on Base._unsafe_getindex from https://github.com/JuliaLang/julia/blob/c5ede45829bf8eb09f2145bfd6f089459d77b2b1/base/multidimensional.jl#L755.
 """
     unsafe_get_collection(A, inds)
 
-Returns a collection of `A` given `inds`. `inds` is assumed to be bounds checked prior.
+Returns a collection of `A` given `inds`. `inds` is assumed to have been bounds-checked.
 """
 function unsafe_get_collection(A, inds)
     axs = to_axes(A, inds)
@@ -427,7 +427,7 @@ _ints2range(x::Integer) = x:x
 _ints2range(x::AbstractRange) = x
 
 # if linear indexing on multidim or can't reconstruct AbstractUnitRange
-# then contstruct Array of CartesianIndex/LinearIndices
+# then construct Array of CartesianIndex/LinearIndices
 @generated function can_preserve_indices(::Type{T}) where {T<:Tuple}
     for index_type in T.parameters
         can_preserve_indices(index_type) || return false
@@ -472,7 +472,7 @@ end
     unsafe_setindex!(A, val, inds::Tuple)
 
 Sets indices (`inds`) of `A` to `val`. This method assumes that `inds` have already been
-bounds checked. This step of the processing pipeline can be customized by
+bounds-checked. This step of the processing pipeline can be customized by:
 """
 unsafe_setindex!(A, val, inds::Tuple) = unsafe_setindex!(UnsafeIndex(inds), A, val, inds)
 unsafe_setindex!(::UnsafeElement, A, val, inds::Tuple) = unsafe_set_element!(A, val, inds)
@@ -482,7 +482,7 @@ unsafe_setindex!(::UnsafeCollection, A, val, inds::Tuple) = unsafe_set_collectio
     unsafe_set_element!(A, val, inds::Tuple)
 
 Sets an element of `A` to `val` at indices `inds`. This method assumes all `inds`
-have been checked for being inbounds. Any new array type using `ArrayInterface.setindex!`
+have been checked for being in bounds. Any new array type using `ArrayInterface.setindex!`
 must define `unsafe_set_element!(::NewArrayType, val, inds)`.
 """
 function unsafe_set_element!(A, val, inds)
@@ -496,13 +496,12 @@ function unsafe_set_element!(A::Array{T}, val, inds::Tuple) where {T}
     end
 end
 
-# This is based on Base._unsafe_setindex!
+# This is based on Base._unsafe_setindex!.
 """
     unsafe_set_collection!(A, val, inds)
 
-Sets `inds` of `A` to `val`. `inds` is assumed to be bounds checked prior.
+Sets `inds` of `A` to `val`. `inds` is assumed to have been bounds-checked.
 """
 @inline function unsafe_set_collection!(A, val, inds)
     return Base._unsafe_setindex!(IndexStyle(A), A, val, inds...)
 end
-
