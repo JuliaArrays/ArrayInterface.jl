@@ -45,7 +45,7 @@ known_step(::Type{<:AbstractUnitRange{T}}) where {T} = one(T)
 """
     OptionallyStaticUnitRange(start, stop) <: AbstractUnitRange{Int}
 
-This range permits diverse representations of arrays to comunicate common information 
+This range permits diverse representations of arrays to communicate common information
 about their indices. Each field may be an integer or `Val(<:Integer)` if it is known
 at compile time. An `OptionallyStaticUnitRange` is intended to be constructed internally
 from other valid indices. Therefore, users should not expect the same checks are used
@@ -95,11 +95,11 @@ known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = 
 """
     OptionallyStaticStepRange(start, step, stop) <: OrdinalRange{Int,Int}
 
-Similar to [`OptionallyStaticUnitRange`](@ref), `OptionallyStaticStepRange` permits
+Similarly to [`OptionallyStaticUnitRange`](@ref), `OptionallyStaticStepRange` permits
 a combination of static and standard primitive `Int`s to construct a range. It
 specifically enables the use of ranges without a step size of 1. It may be constructed
 through the use of `OptionallyStaticStepRange` directly or using static integers with
-the range operatore (i.e. `:`).
+the range operator (i.e., `:`).
 
 ```julia
 julia> using ArrayInterface
@@ -272,7 +272,7 @@ end
 end
 @propagate_inbounds function _try_static(x, y)
   @boundscheck begin
-    @assert x == y "Unequal Indicess: x == $x != $y == y"
+    @assert x == y "Unequal Indices: x == $x != $y == y"
   end
   return x
 end
@@ -383,10 +383,10 @@ Base.:(-)(r::OptionallyStaticRange) = -static_first(r):-static_step(r):-static_l
     indices(x[, d])
 
 Given an array `x`, this returns the indices along dimension `d`. If `x` is a tuple
-of arrays then the indices corresponding to dimension `d` of all arrays in `x` are
-returned. If any indices are not equal along dimension `d` an error is thrown. A
+of arrays, then the indices corresponding to dimension `d` of all arrays in `x` are
+returned. If any indices are not equal along dimension `d`, an error is thrown. A
 tuple may be used to specify a different dimension for each array. If `d` is not
-specified then indices for visiting each index of `x` is returned.
+specified, then the indices for visiting each index of `x` are returned.
 """
 @inline function indices(x)
   inds = eachindex(x)
@@ -419,4 +419,3 @@ end
   lst = _try_static(static_last(x), static_last(y))
   return Base.Slice(OptionallyStaticUnitRange(fst, lst))
 end
-

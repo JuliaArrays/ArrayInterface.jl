@@ -110,7 +110,7 @@ end
 """
     can_setindex(x::DataType)
 
-Query whether a type can use `setindex!`
+Query whether a type can use `setindex!`.
 """
 can_setindex(x) = true
 can_setindex(x::AbstractArray) = can_setindex(typeof(x))
@@ -119,14 +119,14 @@ can_setindex(::Type{<:AbstractRange}) = false
 """
     aos_to_soa(x)
 
-Converts an array of structs formulation to a struct of array
+Converts an array of structs formulation to a struct of array.
 """
 aos_to_soa(x) = x
 
 """
     fast_scalar_indexing(x)
 
-Query whether an array type has fast scalar indexing
+Query whether an array type has fast scalar indexing.
 """
 fast_scalar_indexing(x) = true
 fast_scalar_indexing(x::AbstractArray) = fast_scalar_indexing(typeof(x))
@@ -136,21 +136,21 @@ fast_scalar_indexing(::Type{<:LinearAlgebra.LQPackedQ}) = false
 """
     allowed_getindex(x,i...)
 
-A scalar getindex which is always allowed
+A scalar `getindex` which is always allowed.
 """
 allowed_getindex(x,i...) = x[i...]
 
 """
     allowed_setindex!(x,v,i...)
 
-A scalar setindex! which is always allowed
+A scalar `setindex!` which is always allowed.
 """
 allowed_setindex!(x,v,i...) = Base.setindex!(x,v,i...)
 
 """
     isstructured(x::DataType)
 
-Query whether a type is a representation of a structured matrix
+Query whether a type is a representation of a structured matrix.
 """
 isstructured(x) = false
 isstructured(x::AbstractArray) = isstructured(typeof(x))
@@ -166,7 +166,7 @@ isstructured(::Diagonal) = true
 """
     has_sparsestruct(x::AbstractArray)
 
-Determine whether `findstructralnz` accepts the parameter `x`
+Determine whether `findstructralnz` accepts the parameter `x`.
 """
 has_sparsestruct(x) = false
 has_sparsestruct(x::AbstractArray) = has_sparsestruct(typeof(x))
@@ -200,7 +200,7 @@ diaganyzero(A) = any(iszero, view(A, diagind(A)))
     findstructralnz(x::AbstractArray)
 
 Return: (I,J) #indexable objects
-Find sparsity pattern of special matrices, the same as the first two elements of findnz(::SparseMatrixCSC)
+Find sparsity pattern of special matrices, the same as the first two elements of findnz(::SparseMatrixCSC).
 """
 function findstructralnz(x::Diagonal)
   n = Base.size(x,1)
@@ -448,7 +448,7 @@ fast_matrix_colors(A::Type{<:Union{Diagonal,Bidiagonal,Tridiagonal,SymTridiagona
     matrix_colors(A::Union{Array,UpperTriangular,LowerTriangular})
 
 The color vector for dense matrix and triangular matrix is simply
-`[1,2,3,..., Base.size(A,2)]`
+`[1,2,3,..., Base.size(A,2)]`.
 """
 function matrix_colors(A::Union{Array,UpperTriangular,LowerTriangular})
     eachindex(1:Base.size(A,2)) # Vector Base.size matches number of rows
@@ -473,7 +473,7 @@ end
 """
   lu_instance(A) -> lu_factorization_instance
 
-Return an instance of the LU factorization object with the correct type
+Returns an instance of the LU factorization object with the correct type
 cheaply.
 """
 function lu_instance(A::Matrix{T}) where T
@@ -487,21 +487,21 @@ end
 """
   lu_instance(a::Number) -> a
 
-Return the number.
+Returns the number.
 """
 lu_instance(a::Number) = a
 
 """
     lu_instance(a::Any) -> lu(a, check=false)
 
-Return the number.
+Returns the number.
 """
 lu_instance(a::Any) = lu(a, check=false)
 
 """
 safevec(v)
 
-Is a form of `vec` which is safe for all values in vector spaces, i.e. if
+It is a form of `vec` which is safe for all values in vector spaces, i.e., if it
 is already a vector, like an AbstractVector or Number, it will return said
 AbstractVector or Number.
 """
@@ -513,11 +513,11 @@ safevec(v::AbstractVector) = v
 zeromatrix(u::AbstractVector)
 
 Creates the zero'd matrix version of `u`. Note that this is unique because
-`similar(u,length(u),length(u))` returns a mutable type, so is not type-matching,
+`similar(u,length(u),length(u))` returns a mutable type, so it is not type-matching,
 while `fill(zero(eltype(u)),length(u),length(u))` doesn't match the array type,
-i.e. you'll get a CPU array from a GPU array. The generic fallback is
-`u .* u' .* false` which works on a surprising number of types, but can be broken
-with weird (recursive) broadcast overloads. For higher order tensors, this
+i.e., you'll get a CPU array from a GPU array. The generic fallback is
+`u .* u' .* false`, which works on a surprising number of types, but can be broken
+with weird (recursive) broadcast overloads. For higher-order tensors, this
 returns the matrix linear operator type which acts on the `vec` of the array.
 """
 function zeromatrix(u)
@@ -553,7 +553,7 @@ struct GPU <: AbstractDevice end
 """
 device(::Type{T})
 
-Indicates the most efficient way to access elements from the collection in low level code.
+Indicates the most efficient way to access elements from the collection in low-level code.
 For `GPUArrays`, will return `ArrayInterface.GPU()`.
 For `AbstractArray` supporting a `pointer` method, returns `ArrayInterface.CPUPointer()`.
 For other `AbstractArray`s and `Tuple`s, returns `ArrayInterface.CPUIndex()`.
@@ -583,9 +583,10 @@ defines_strides(::Type{A}) where {A <: Union{<:Transpose,<:Adjoint,<:SubArray,<:
 """
 can_avx(f)
 
-Returns `true` if the function `f` is guaranteed to be compatible with `LoopVectorization.@avx` for supported element and array types.
-While a return value of `false` does not indicate the function isn't supported, this allows a library to conservatively apply `@avx`
-only when it is known to be safe to do so.
+Returns `true` if the function `f` is guaranteed to be compatible with
+`LoopVectorization.@avx` for supported element and array types. While a return
+value of `false` does not indicate the function isn't supported, this allows a
+library to conservatively apply `@avx` only when it is known to be safe to do so.
 
 ```julia
 function mymap!(f, y, args...)
@@ -602,7 +603,7 @@ can_avx(::Any) = false
 """
     insert(collection, index, item)
 
-Return a new instance of `collection` with `item` inserted into at the given `index`.
+Returns a new instance of `collection` with `item` inserted into at the given `index`.
 """
 Base.@propagate_inbounds function insert(collection, index, item)
   @boundscheck checkbounds(collection, index)
@@ -635,7 +636,7 @@ end
 """
     deleteat(collection, index)
 
-Return a new instance of `collection` with the item at the given `index` removed.
+Returns a new instance of `collection` with the item at the given `index` removed.
 """
 @propagate_inbounds function deleteat(collection::AbstractVector, index)
   @boundscheck if !checkindex(Bool, eachindex(collection), index)
