@@ -145,7 +145,7 @@ allowed_getindex(x,i...) = x[i...]
 
 A scalar setindex! which is always allowed
 """
-allowed_setindex!(x,v,i...) = setindex!(x,v,i...)
+allowed_setindex!(x,v,i...) = Base.setindex!(x,v,i...)
 
 """
     isstructured(x::DataType)
