@@ -1,26 +1,82 @@
 
 """
-    argdims(::IndexStyle, ::Type{T})
+    ArrayStyle(::Type{A})
+
+Used to customize the meaning of indexing arguments in the context of a given array `A`.
+
+See also: [`argdims`](@ref), [`UnsafeIndex`](@ref)
+"""
+abstract type ArrayStyle end
+
+struct DefaultArrayStyle <: ArrayStyle end
+
+ArrayStyle(A) = ArrayStyle(typeof(A))
+ArrayStyle(::Type{A}) where {A} = DefaultArrayStyle()
+
+"""
+    argdims(::ArrayStyle, ::Type{T})
 
 What is the dimensionality of the indexing argument of type `T`?
 """
-argdims(A, x) = argdims(IndexStyle(A), typeof(x))
-argdims(s::IndexStyle, x) = argdims(s, typeof(x))
+argdims(x, arg) = argdims(x, typeof(arg))
+argdims(x, ::Type{T}) where {T} = argdims(ArrayStyle(x), T)
+argdims(s::ArrayStyle, arg) = argdims(s, typeof(arg))
 # single elements initially map to 1 dimension but that dimension is subsequently dropped.
-argdims(::IndexStyle, ::Type{T}) where {T} = 0
-argdims(::IndexStyle, ::Type{T}) where {T<:Colon} = 1
-argdims(::IndexStyle, ::Type{T}) where {T<:AbstractArray} = ndims(T)
-argdims(::IndexStyle, ::Type{T}) where {N,T<:CartesianIndex{N}} = N
-argdims(::IndexStyle, ::Type{T}) where {N,T<:AbstractArray{CartesianIndex{N}}} = N
-argdims(::IndexStyle, ::Type{T}) where {N,T<:AbstractArray{<:Any,N}} = N
-argdims(::IndexStyle, ::Type{T}) where {N,T<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = N
-@generated function argdims(s::IndexStyle, ::Type{T}) where {N,T<:Tuple{Vararg{<:Any,N}}}
+argdims(::ArrayStyle, ::Type{T}) where {T} = 0
+argdims(::ArrayStyle, ::Type{T}) where {T<:Colon} = 1
+argdims(::ArrayStyle, ::Type{T}) where {T<:AbstractArray} = ndims(T)
+argdims(::ArrayStyle, ::Type{T}) where {N,T<:CartesianIndex{N}} = N
+argdims(::ArrayStyle, ::Type{T}) where {N,T<:AbstractArray{CartesianIndex{N}}} = N
+argdims(::ArrayStyle, ::Type{T}) where {N,T<:AbstractArray{<:Any,N}} = N
+argdims(::ArrayStyle, ::Type{T}) where {N,T<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = N
+@generated function argdims(s::ArrayStyle, ::Type{T}) where {N,T<:Tuple{Vararg{<:Any,N}}}
     e = Expr(:tuple)
     for p in T.parameters
         push!(e.args, :(ArrayInterface.argdims(s, $p)))
     end
     Expr(:block, Expr(:meta, :inline), e)
 end
+
+"""
+    UnsafeIndex(::ArrayStyle, ::Type{I})
+
+`UnsafeIndex` controls how indices that have been bounds checked and converted to
+native axes' indices are used to return the stored values of an array. For example,
+if the indices at each dimension are single integers then `UnsafeIndex(array, inds)` returns
+`UnsafeGetElement()`. Conversely, if any of the indices are vectors then `UnsafeGetCollection()`
+is returned, indicating that a new array needs to be reconstructed. This method permits
+customizing the terminal behavior of the indexing pipeline based on arguments passed
+to `ArrayInterface.getindex`. New subtypes of `UnsafeIndex` should define `promote_rule`.
+"""
+abstract type UnsafeIndex end
+
+struct UnsafeGetElement <: UnsafeIndex end
+
+struct UnsafeGetCollection <: UnsafeIndex end
+
+UnsafeIndex(x, i) = UnsafeIndex(x, typeof(i))
+UnsafeIndex(x, ::Type{I}) where {I} = UnsafeIndex(ArrayStyle(x), I)
+UnsafeIndex(s::ArrayStyle, i) = UnsafeIndex(s, typeof(i))
+UnsafeIndex(::ArrayStyle, ::Type{I}) where {I} = UnsafeGetElement()
+UnsafeIndex(::ArrayStyle, ::Type{I}) where {I<:AbstractArray} = UnsafeGetCollection()
+
+Base.promote_rule(::Type{X}, ::Type{Y}) where {X<:UnsafeIndex,Y<:UnsafeGetElement} = X
+
+@generated function UnsafeIndex(s::ArrayStyle, ::Type{T}) where {N,T<:Tuple{Vararg{<:Any,N}}}
+    if N === 0
+        return UnsafeGetElement()
+    else
+        e = Expr(:call, promote_type)
+        for p in T.parameters
+            push!(e.args, :(typeof(ArrayInterface.UnsafeIndex(s, $p))))
+        end
+        return Expr(:block, Expr(:meta, :inline), Expr(:call, e))
+    end
+end
+
+# are the indexing arguments provided a linear collection into a multidim collection
+is_linear_indexing(A, args::Tuple{Arg}) where {Arg} = argdims(A, Arg) < 2
+is_linear_indexing(A, args::Tuple{Arg,Vararg{Any}}) where {Arg} = false
 
 """
     flatten_args(A, args::Tuple{Arg,Vararg{Any}}) -> Tuple
@@ -133,27 +189,15 @@ be accomplished using `to_index(axis, arg)`.
 @propagate_inbounds function to_indices(A, args::Tuple)
     if can_flatten(A, args)
         return to_indices(A, flatten_args(A, args))
+    elseif is_linear_indexing(A, args)
+        return (to_index(eachindex(IndexLinear(), A), first(args)),)
     else
         return to_indices(A, axes(A), args)
     end
 end
-@propagate_inbounds function to_indices(A, args::Tuple{Arg}) where {Arg}
-    if can_flatten(A, args)
-        return to_indices(A, flatten_args(A, args))
-    else
-        if argdims(IndexStyle(A), Arg) > 1
-            return to_indices(A, axes(A), args)
-        else
-            if ndims(A) === 1
-                return (to_index(axes(A, 1), first(args)),)
-            else
-                return to_indices(A, (eachindex(A),), args)
-            end
-        end
-    end
-end
+@propagate_inbounds to_indices(A, args::Tuple{}) = to_indices(A, axes(A), ())
 @propagate_inbounds function to_indices(A, axs::Tuple, args::Tuple{Arg,Vararg{Any}}) where {Arg}
-    N = argdims(IndexStyle(A), Arg)
+    N = argdims(A, Arg)
     if N > 1
         axes_front, axes_tail = Base.IteratorsMD.split(axs, Val(N))
         return (to_multi_index(axes_front, first(args)), to_indices(A, axes_tail, tail(args))...)
@@ -172,8 +216,21 @@ end
 end
 to_indices(A, axs::Tuple{}, args::Tuple{}) = ()
 
+
+_multi_check_index(axs::Tuple, arg) = _multi_check_index(axs, axes(arg))
+function _multi_check_index(axs::Tuple, arg::AbstractArray{T}) where {T<:CartesianIndex}
+    return checkindex(Bool, axs, arg)
+end
+_multi_check_index(::Tuple{}, ::Tuple{}) = true
+function _multi_check_index(axs::Tuple, args::Tuple)
+    if checkindex(Bool, first(axs), first(args))
+        return _multi_check_index(tail(axs), tail(args))
+    else
+        return false
+    end
+end
 @propagate_inbounds function to_multi_index(axs::Tuple, arg)
-    @boundscheck if !Base.checkbounds_indices(Bool, axs, (arg,))
+    @boundscheck if !_multi_check_index(axs, arg)
         throw(BoundsError(axs, arg))
     end
     return arg
@@ -236,7 +293,6 @@ function unsafe_reconstruct(A::OneTo, data; kwargs...)
         end
     end
 end
-
 function unsafe_reconstruct(A::UnitRange, data; kwargs...)
     if can_change_size(A)
         return typeof(A)(data)
@@ -248,7 +304,6 @@ function unsafe_reconstruct(A::UnitRange, data; kwargs...)
         end
     end
 end
-
 function unsafe_reconstruct(A::OptionallyStaticUnitRange, data; kwargs...)
     if can_change_size(A)
         return typeof(A)(data)
@@ -260,7 +315,6 @@ function unsafe_reconstruct(A::OptionallyStaticUnitRange, data; kwargs...)
         end
     end
 end
-
 function unsafe_reconstruct(A::AbstractUnitRange, data; kwargs...)
     return static_first(data):static_last(data)
 end
@@ -284,7 +338,7 @@ end
 to_axes(A, ::Tuple{Ax,Vararg{Any}}, ::Tuple{}) where {Ax} = ()
 to_axes(A, ::Tuple{}, ::Tuple{}) = ()
 @propagate_inbounds function to_axes(A, axs::Tuple{Ax,Vararg{Any}}, inds::Tuple{I,Vararg{Any}}) where {Ax,I}
-    N = argdims(IndexStyle(A), I)
+    N = argdims(A, I)
     if N === 0
         # drop this dimension
         return to_axes(A, tail(axs), tail(inds))
@@ -331,52 +385,14 @@ Changing indexing based on a given argument from `args` should be done through
 @propagate_inbounds getindex(A, args...) = unsafe_getindex(A, to_indices(A, args))
 
 """
-    UnsafeIndex <: Function
-
-`UnsafeIndex` controls how indices that have been bounds-checked and converted to
-native axes' indices are used to return the stored values of an array. For example,
-if the indices at each dimension are single integers, then `UnsafeIndex(inds)` returns
-`UnsafeElement()`. Conversely, if any of the indices are vectors, then `UnsafeCollection()`
-is returned, indicating that a new array needs to be reconstructed. This method permits
-customizing the terminal behavior of the indexing pipeline based on arguments passed
-to `ArrayInterface.getindex`.
-"""
-abstract type UnsafeIndex <: Function end
-
-struct UnsafeElement <: UnsafeIndex end
-const unsafe_element = UnsafeElement()
-
-struct UnsafeCollection <: UnsafeIndex end
-const unsafe_collection = UnsafeCollection()
-
-# 1-arg
-UnsafeIndex(x) = UnsafeIndex(typeof(x))
-UnsafeIndex(x::UnsafeIndex) = x
-UnsafeIndex(::Type{T}) where {T<:Integer} = unsafe_element
-UnsafeIndex(::Type{T}) where {T<:AbstractArray} = unsafe_collection
-
-# 2-arg
-UnsafeIndex(x::UnsafeIndex, y::UnsafeElement) = x
-UnsafeIndex(x::UnsafeElement, y::UnsafeIndex) = y
-UnsafeIndex(x::UnsafeElement, y::UnsafeElement) = x
-UnsafeIndex(x::UnsafeCollection, y::UnsafeCollection) = x
-
-
-# tuple
-UnsafeIndex(x::Tuple{I}) where {I} = UnsafeIndex(I)
-@inline function UnsafeIndex(x::Tuple{I,Vararg{Any}}) where {I}
-    return UnsafeIndex(UnsafeIndex(I), UnsafeIndex(tail(x)))
-end
-
-"""
     unsafe_getindex(A, inds)
 
 Indexes into `A` given `inds`. This method assumes that `inds` have already been
 bounds-checked.
 """
-unsafe_getindex(A, inds) = unsafe_getindex(UnsafeIndex(inds), A, inds)
-unsafe_getindex(::UnsafeElement, A, inds) = unsafe_get_element(A, inds)
-unsafe_getindex(::UnsafeCollection, A, inds) = unsafe_get_collection(A, inds)
+unsafe_getindex(A, inds) = unsafe_getindex(UnsafeIndex(A, inds), A, inds)
+unsafe_getindex(::UnsafeGetElement, A, inds) = unsafe_get_element(A, inds)
+unsafe_getindex(::UnsafeGetCollection, A, inds) = unsafe_get_collection(A, inds)
 
 """
     unsafe_get_element(A::AbstractArray{T}, inds::Tuple) -> T
@@ -389,7 +405,9 @@ function unsafe_get_element(A, inds)
     throw(MethodError(unsafe_getindex, (A, inds)))
 end
 function unsafe_get_element(A::Array, inds)
-    if inds isa Tuple{Vararg{Int}}
+    if length(inds) === 0
+        return Base.arrayref(false, A, 1)
+    elseif inds isa Tuple{Vararg{Int}}
         return Base.arrayref(false, A, inds...)
     else
         throw(MethodError(unsafe_get_element, (A, inds)))
@@ -443,14 +461,12 @@ end
     end
 end
 @inline function unsafe_get_collection(A::LinearIndices{N}, inds) where {N}
-    if can_preserve_indices(typeof(inds))
+    if is_linear_indexing(A, inds)
+        return @inbounds(eachindex(A)[first(inds)])
+    elseif can_preserve_indices(typeof(inds))
         return LinearIndices(to_axes(A, _ints2range.(inds)))
     else
-        if length(inds) === 1
-            return @inbounds(eachindex(A)[first(inds)])
-        else
-            return Base._getindex(IndexStyle(A), A, inds...)
-        end
+        return Base._getindex(IndexStyle(A), A, inds...)
     end
 end
 
@@ -474,9 +490,9 @@ end
 Sets indices (`inds`) of `A` to `val`. This method assumes that `inds` have already been
 bounds-checked. This step of the processing pipeline can be customized by:
 """
-unsafe_setindex!(A, val, inds::Tuple) = unsafe_setindex!(UnsafeIndex(inds), A, val, inds)
-unsafe_setindex!(::UnsafeElement, A, val, inds::Tuple) = unsafe_set_element!(A, val, inds)
-unsafe_setindex!(::UnsafeCollection, A, val, inds::Tuple) = unsafe_set_collection!(A, val, inds)
+unsafe_setindex!(A, val, inds::Tuple) = unsafe_setindex!(UnsafeIndex(A, inds), A, val, inds)
+unsafe_setindex!(::UnsafeGetElement, A, val, inds::Tuple) = unsafe_set_element!(A, val, inds)
+unsafe_setindex!(::UnsafeGetCollection, A, val, inds::Tuple) = unsafe_set_collection!(A, val, inds)
 
 """
     unsafe_set_element!(A, val, inds::Tuple)
@@ -489,7 +505,9 @@ function unsafe_set_element!(A, val, inds)
     throw(MethodError(unsafe_set_element!, (A, val, inds)))
 end
 function unsafe_set_element!(A::Array{T}, val, inds::Tuple) where {T}
-    if inds isa Tuple{Vararg{Int}}
+    if length(inds) === 0
+        return Base.arrayset(false, A, convert(T, val)::T, 1)
+    elseif inds isa Tuple{Vararg{Int}}
         return Base.arrayset(false, A, convert(T, val)::T, inds...)
     else
         throw(MethodError(unsafe_set_element!, (A, inds)))
