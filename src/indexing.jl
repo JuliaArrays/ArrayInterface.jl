@@ -131,7 +131,7 @@ end
 end
 @inline function flatten_args(A, args::Tuple{Arg,Vararg{Any}}) where {N,Arg<:AbstractArray{Bool,N}}
     if length(args) === 1
-        if s isa IndexLinear
+        if IndexStyle(A) isa IndexLinear
             return (LogicalIndex{Int}(first(args)),)
         else
             return (LogicalIndex(first(args)),)
@@ -218,8 +218,13 @@ to_indices(A, axs::Tuple{}, args::Tuple{}) = ()
 
 
 _multi_check_index(axs::Tuple, arg) = _multi_check_index(axs, axes(arg))
+_multi_check_index(axs::Tuple, arg::LogicalIndex) = prod(map(length, axs)) == length(arg)
 function _multi_check_index(axs::Tuple, arg::AbstractArray{T}) where {T<:CartesianIndex}
-    return checkindex(Bool, axs, arg)
+    b = true
+    for i in arg
+        b &= Base.checkbounds_indices(Bool, axs, (i,))
+    end
+    return b
 end
 _multi_check_index(::Tuple{}, ::Tuple{}) = true
 function _multi_check_index(axs::Tuple, args::Tuple)
@@ -331,6 +336,8 @@ pair of axes and indices calling [`to_axis`](@ref).
 @inline function to_axes(A, inds::Tuple)
     if ndims(A) === 1
         return (to_axis(axes(A, 1), first(inds)),)
+    elseif is_linear_indexing(A, inds)
+        return (to_axis(eachindex(IndexLinear(), A), first(inds)),)
     else
         return to_axes(A, axes(A), inds)
     end
