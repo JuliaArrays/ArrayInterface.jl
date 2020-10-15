@@ -50,7 +50,25 @@ end
     @test @inferred(ArrayInterface.to_indices(a, (1, 1, 1))) == (1,1, 1)
     @test @inferred ArrayInterface.to_indices(a, ([CartesianIndex(1,1,1), CartesianIndex(1,2,1)],)) == (CartesianIndex{3}[CartesianIndex(1, 1, 1), CartesianIndex(1, 2, 1)],)
     @test @inferred ArrayInterface.to_indices(a, ([CartesianIndex(1,1), CartesianIndex(1,2)],1:1)) == (CartesianIndex{2}[CartesianIndex(1, 1), CartesianIndex(1, 2)], 1:1)
+    @test @inferred(first(ArrayInterface.to_indices(a, (fill(true, 2, 2, 1),)))) isa Base.LogicalIndex
+
+    @test_throws BoundsError ArrayInterface.to_indices(a, (fill(true, 2, 2, 2),))
     @test_throws ErrorException ArrayInterface.to_indices(ones(2,2,2), (1, 1))
+end
+
+@testset "to_axes" begin
+    A = ones(3, 3)
+    axis = StaticInt(1):StaticInt(3)
+    inds = StaticInt(1):StaticInt(2)
+    multi_inds = [CartesianIndex(1, 1), CartesianIndex(1, 2)]
+
+    @test @inferred(ArrayInterface.to_axes(A, (axis, axis), (inds, inds))) === (inds, inds)
+    # vector indexing
+    @test @inferred(ArrayInterface.to_axes(ones(3), (axis,), (inds,))) === (inds,)
+    # linear indexing
+    @test @inferred(ArrayInterface.to_axes(A, (axis, axis), (inds,))) === (inds,)
+    # multidim arg
+    @test @inferred(ArrayInterface.to_axes(A, (axis, axis), (multi_inds,))) === (Base.OneTo(2),)
 end
 
 @testset "0-dimensional" begin
