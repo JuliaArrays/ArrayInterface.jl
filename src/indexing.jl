@@ -218,7 +218,7 @@ to_indices(A, axs::Tuple{}, args::Tuple{}) = ()
 
 
 _multi_check_index(axs::Tuple, arg) = _multi_check_index(axs, axes(arg))
-_multi_check_index(axs::Tuple, arg::LogicalIndex) = prod(map(length, axs)) == length(arg)
+_multi_check_index(axs::Tuple, arg::LogicalIndex) = axs == axes(arg.mask)
 function _multi_check_index(axs::Tuple, arg::AbstractArray{T}) where {T<:CartesianIndex}
     b = true
     for i in arg
