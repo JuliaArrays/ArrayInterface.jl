@@ -36,6 +36,7 @@ known_length(x) = known_length(typeof(x))
 known_length(::Type{<:NamedTuple{L}}) where {L} = length(L)
 known_length(::Type{T}) where {T<:Slice} = known_length(parent_type(T))
 known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N
+known_length(::Type{T}) where {Itr,T<:Base.Generator{Itr}} = known_length(Itr)
 known_length(::Type{<:Number}) = 1
 function known_length(::Type{T}) where {T}
     if parent_type(T) <: T
@@ -49,6 +50,7 @@ end
 end
 _known_length(x::Tuple{Vararg{<:Union{Int,Nothing}}}) = nothing
 _known_length(x::Tuple{Vararg{Int}}) = prod(x)
+
 
 """
     can_change_size(::Type{T}) -> Bool
