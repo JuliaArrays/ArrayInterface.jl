@@ -166,7 +166,7 @@ is_column_major(A) = is_column_major(stride_rank(A))
     end
     :(Val{true}())
 end
-
+is_column_major(::Nothing) = Val{false}()
 
 struct DenseDims{D} end
 Base.@pure DenseDims(D::NTuple{<:Any,Bool}) = DenseDims{D}()

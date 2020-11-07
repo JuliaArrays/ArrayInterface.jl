@@ -317,6 +317,8 @@ end
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === Val{true}()
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === Val{true}()
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[:,2,1])')) === Val{false}()
+    @test @inferred(ArrayInterface.is_column_major(1:10)) === Val{false}()
+    @test @inferred(ArrayInterface.is_column_major(2.3)) === Val{false}()
 
     @test @inferred(dense_dims(@SArray(zeros(2,2,2)))) === ArrayInterface.DenseDims((true,true,true))
     @test @inferred(dense_dims(A)) === ArrayInterface.DenseDims((true,true,true))
