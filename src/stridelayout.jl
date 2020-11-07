@@ -153,6 +153,21 @@ _stride_rank(::Any, ::Any) = nothing
 end
 stride_rank(x, i) = stride_rank(x)[i]
 
+"""
+is_column_major(A) -> Val{true/false}()
+"""
+is_column_major(A) = is_column_major(stride_rank(A))
+@generated function is_column_major(::StrideRank{R}) where {R}
+    N = length(R)
+    for n ∈ 2:N
+        if R[n] ≤ R[n-1]
+            return :(Val{false}())
+        end
+    end
+    :(Val{true}())
+end
+
+
 struct DenseDims{D} end
 Base.@pure DenseDims(D::NTuple{<:Any,Bool}) = DenseDims{D}()
 @inline Base.getindex(::DenseDims{D}, i::Integer) where {D} = D[i]

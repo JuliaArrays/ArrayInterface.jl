@@ -163,6 +163,10 @@ If unknown, returns `nothing`.
 
 Returns the rank of each stride.
 
+## is_column_major(A)
+
+Returns a `Val{true}()` if `A` is column major, and a `Val{false}()` otherwise.`
+
 ## dense_dims(::Type{T})
 Returns a tuple of indicators for whether each axis is dense.
 An axis `i` of array `A` is dense if `stride(A, i) * size(A, i) == stride(A, j)`, where `j` is the axis (if it exists) such that `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
