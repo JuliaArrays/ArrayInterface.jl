@@ -1,4 +1,14 @@
 
+Base.@pure function _permute_dimnames(x::Tuple{Vararg{Symbol,D}}, perm::NTuple{N,Int}) where {D,N}
+    ntuple(Val(N)) do i
+        if D < i
+            return :_
+        else
+            return getfield(x, getfield(perm, i))
+        end
+    end
+end
+
 """
     has_dimnames(x) -> Bool
 
@@ -13,33 +23,35 @@ function has_dimnames(::Type{T}) where {T}
     end
 end
 
-@generated default_dimnames(::Val{N}) where {N} = :($(ntuple(i -> Symbol(:dim_, i), N)))
-
 """
-    dimnames(x) -> Tuple
+    dimnames(x) -> Tuple{Vararg{Symbol}}
+    dimnames(x, d) -> Symbol
 
 Return the names of the dimensions for `x`.
 """
 @inline dimnames(x) = dimnames(typeof(x))
-function dimnames(::Type{T}) where {T}
-    if parent_type(T) <: T
-        return default_dimnames(Val(ndims(T)))
+@inline dimnames(x, i::Int) = dimnames(typeof(x), i)
+@inline function dimnames(::Type{T}, d::Int) where {T}
+    if has_dimnames(T)
+        return getfield(dimnames(T), d)
     else
-        return dimnames(parent_type(T))
+        return nothing
     end
 end
-dimnames(::Type{T}) where {T<:Transpose} = reverse(dimnames(parent_type(T)))
-dimnames(::Type{T}) where {T<:Adjoint} = reverse(dimnames(parent_type(T)))
-@inline function dimnames(::Type{T}) where {I1,A,T<:PermutedDimsArray{<:Any,<:Any,I1,<:Any,A}}
-    ns = dimnames(A)
-    return map(i -> getfield(ns, i), I1)
+@inline function dimnames(::Type{T}) where {T}
+    return ntuple(i -> dimnames(parent_type(T), i), Val(ndims(T)))
 end
-@generated function dimnames(::Type{T}) where {N,A,I,T<:SubArray{<:Any,N,A,I}}
+@inline function dimnames(::Type{T}) where {T<:Union{Transpose,Adjoint}}
+    return map(d -> dimnames(dimnames(parent_type(T))), (2, 1))
+end
+@inline function dimnames(::Type{T}) where {I,T<:PermutedDimsArray{<:Any,<:Any,I}}
+    return map(d -> dimnames(dimnames(parent_type(T))), I)
+end
+@generated function dimnames(::Type{T}) where {I,T<:SubArray{<:Any,<:Any,<:Any,I}}
     e = Expr(:tuple)
-    d = dimnames(A)
-    for i in 1:N
+    for i in 1:ndims(T)
         if argdims(A, I.parameters[i]) > 0
-            push!(e.args, d[i])
+            push!(e.args, dimenames(parent_type(P), i))
         end
     end
     return e

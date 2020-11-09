@@ -390,7 +390,13 @@ Changing indexing based on a given argument from `args` should be done through
 [`flatten_args`](@ref), [`to_index`](@ref), or [`to_axis`](@ref).
 """
 @propagate_inbounds getindex(A, args...) = unsafe_getindex(A, to_indices(A, args))
-@propagate_inbounds getindex(A; kwargs...) = A[order_named_inds(Val(dimnames(A)); kwargs...)...]
+@propagate_inbounds function getindex(A; kwargs...)
+    if has_dimnames(A)
+        return A[order_named_inds(Val(dimnames(A)); kwargs...)...]
+    else
+        return unsafe_getindex(A, to_indices(A, ()); kwargs...)
+    end
+end
 
 """
     unsafe_getindex(A, inds)
@@ -398,9 +404,15 @@ Changing indexing based on a given argument from `args` should be done through
 Indexes into `A` given `inds`. This method assumes that `inds` have already been
 bounds-checked.
 """
-unsafe_getindex(A, inds) = unsafe_getindex(UnsafeIndex(A, inds), A, inds)
-unsafe_getindex(::UnsafeGetElement, A, inds) = unsafe_get_element(A, inds)
-unsafe_getindex(::UnsafeGetCollection, A, inds) = unsafe_get_collection(A, inds)
+function unsafe_getindex(A, inds; kwargs...)
+    return unsafe_getindex(UnsafeIndex(A, inds), A, inds; kwargs...)
+end
+function unsafe_getindex(::UnsafeGetElement, A, inds; kwargs...)
+    return unsafe_get_element(A, inds; kwargs...)
+end
+function unsafe_getindex(::UnsafeGetCollection, A, inds; kwargs...)
+    return unsafe_get_collection(A, inds; kwargs...)
+end
 
 """
     unsafe_get_element(A::AbstractArray{T}, inds::Tuple) -> T
@@ -409,9 +421,7 @@ Returns an element of `A` at the indices `inds`. This method assumes all `inds`
 have been checked for being in bounds. Any new array type using `ArrayInterface.getindex`
 must define `unsafe_get_element(::NewArrayType, inds)`.
 """
-function unsafe_get_element(A, inds)
-    throw(MethodError(unsafe_getindex, (A, inds)))
-end
+unsafe_get_element(A, inds; kwargs...) = throw(MethodError(unsafe_getindex, (A, inds)))
 function unsafe_get_element(A::Array, inds)
     if length(inds) === 0
         return Base.arrayref(false, A, 1)
@@ -434,11 +444,11 @@ end
 
 Returns a collection of `A` given `inds`. `inds` is assumed to have been bounds-checked.
 """
-function unsafe_get_collection(A, inds)
+function unsafe_get_collection(A, inds; kwargs...)
     axs = to_axes(A, inds)
     dest = similar(A, axs)
     if map(Base.unsafe_length, axes(dest)) == map(Base.unsafe_length, axs)
-        Base._unsafe_getindex!(dest, A, inds...) # usually a generated function, don't allow it to impact inference result
+        _unsafe_getindex!(dest, A, inds...; kwargs...) # usually a generated function, don't allow it to impact inference result
     else
         Base.throw_checksize_error(dest, axs)
     end
@@ -492,19 +502,28 @@ Store the given values at the given key or index within a collection.
     end
 end
 @propagate_inbounds function setindex!(A, val; kwargs...)
-    A[order_named_inds(Val(dimnames(A)); kwargs...)...] = val
+    if has_dimnames(A)
+        A[order_named_inds(Val(dimnames(A)); kwargs...)...] = val
+    else
+        return unsafe_setindex!(A, val, to_indices(A, ()); kwargs...)
+    end
 end
 
-
 """
-    unsafe_setindex!(A, val, inds::Tuple)
+    unsafe_setindex!(A, val, inds::Tuple; kwargs...)
 
 Sets indices (`inds`) of `A` to `val`. This method assumes that `inds` have already been
 bounds-checked. This step of the processing pipeline can be customized by:
 """
-unsafe_setindex!(A, val, inds::Tuple) = unsafe_setindex!(UnsafeIndex(A, inds), A, val, inds)
-unsafe_setindex!(::UnsafeGetElement, A, val, inds::Tuple) = unsafe_set_element!(A, val, inds)
-unsafe_setindex!(::UnsafeGetCollection, A, val, inds::Tuple) = unsafe_set_collection!(A, val, inds)
+function unsafe_setindex!(A, val, inds::Tuple; kwargs...)
+    return unsafe_setindex!(UnsafeIndex(A, inds), A, val, inds; kwargs...)
+end
+function unsafe_setindex!(::UnsafeGetElement, A, val, inds::Tuple; kwargs...)
+    return unsafe_set_element!(A, val, inds; kwargs...)
+end
+function unsafe_setindex!(::UnsafeGetCollection, A, val, inds::Tuple; kwargs...)
+    return unsafe_set_collection!(A, val, inds; kwargs...)
+end
 
 """
     unsafe_set_element!(A, val, inds::Tuple)
@@ -513,7 +532,7 @@ Sets an element of `A` to `val` at indices `inds`. This method assumes all `inds
 have been checked for being in bounds. Any new array type using `ArrayInterface.setindex!`
 must define `unsafe_set_element!(::NewArrayType, val, inds)`.
 """
-function unsafe_set_element!(A, val, inds)
+function unsafe_set_element!(A, val, inds; kwargs...)
     throw(MethodError(unsafe_set_element!, (A, val, inds)))
 end
 function unsafe_set_element!(A::Array{T}, val, inds::Tuple) where {T}
@@ -532,7 +551,60 @@ end
 
 Sets `inds` of `A` to `val`. `inds` is assumed to have been bounds-checked.
 """
-@inline function unsafe_set_collection!(A, val, inds)
-    return Base._unsafe_setindex!(IndexStyle(A), A, val, inds...)
+@inline function unsafe_set_collection!(A, val, inds; kwargs...)
+    return _unsafe_setindex!(IndexStyle(A), A, val, inds...; kwargs...)
+end
+
+
+# these let us use `@ncall` on getindex/setindex! that have kwargs
+function _setindex_kwargs!(x, val, kwargs, args...)
+    @inbounds setindex!(x, val, args...; kwargs...)
+end
+function _getindex_kwargs(x, kwargs, args...)
+    @inbounds getindex(x, args...; kwargs...)
+end
+
+function _generate_unsafe_getindex!_body(N::Int)
+    quote
+        Base.@_inline_meta
+        D = eachindex(dest)
+        Dy = iterate(D)
+        @inbounds Base.Cartesian.@nloops $N j d->I[d] begin
+            # This condition is never hit, but at the moment
+            # the optimizer is not clever enough to split the union without it
+            Dy === nothing && return dest
+            (idx, state) = Dy
+            dest[idx] = Base.Cartesian.@ncall $N _getindex_kwargs src kwargs j
+            Dy = iterate(D, state)
+        end
+        return dest
+    end
+end
+
+function _generate_unsafe_setindex!_body(N::Int)
+    quote
+        x′ = Base.unalias(A, x)
+        @nexprs $N d->(I_d = Base.unalias(A, I[d]))
+        idxlens = Base.Cartesian.@ncall $N Base.index_lengths I
+        @ncall $N Base.setindex_shape_check x′ (d->idxlens[d])
+        Xy = iterate(x′)
+        @inbounds Base.Cartesian.@nloops $N i d->I_d begin
+            # This is never reached, but serves as an assumption for
+            # the optimizer that it does not need to emit error paths
+            Xy === nothing && break
+            (val, state) = Xy
+            Base.Cartesian.@ncall $N _setindex_kwargs! A val kwargs i
+            Xy = iterate(x′, state)
+        end
+        A
+    end
+end
+
+@generated function _unsafe_getindex!(dest::AbstractArray, src::AbstractArray, I::Vararg{Union{Real, AbstractArray}, N}; kwargs...) where N
+    _generate_unsafe_getindex!_body(N)
+end
+
+@generated function _unsafe_setindex!(::IndexStyle, A::AbstractArray, x, I::Vararg{Union{Real,AbstractArray}, N}; kwargs...) where N
+    _generate_unsafe_setindex!_body(N)
 end
 
