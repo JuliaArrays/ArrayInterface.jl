@@ -9,9 +9,14 @@ Otherwise, return `nothing`.
 @test isone(known_first(typeof(Base.OneTo(4))))
 """
 known_first(x) = known_first(typeof(x))
-known_first(::Type{T}) where {T} = nothing
+function known_first(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return nothing
+    else
+        return known_first(parent_type(T))
+    end
+end
 known_first(::Type{Base.OneTo{T}}) where {T} = one(T)
-known_first(::Type{T}) where {T<:Base.Slice} = known_first(parent_type(T))
 
 """
     known_last(::Type{T})
@@ -24,8 +29,13 @@ using StaticArrays
 @test known_last(typeof(SOneTo(4))) == 4
 """
 known_last(x) = known_last(typeof(x))
-known_last(::Type{T}) where {T} = nothing
-known_last(::Type{T}) where {T<:Base.Slice} = known_last(parent_type(T))
+function known_last(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return nothing
+    else
+        return known_last(parent_type(T))
+    end
+end
 
 """
     known_step(::Type{T})
@@ -37,10 +47,14 @@ Otherwise, return `nothing`.
 @test isone(known_step(typeof(1:4)))
 """
 known_step(x) = known_step(typeof(x))
-known_step(::Type{T}) where {T} = nothing
+function known_step(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return nothing
+    else
+        return known_step(parent_type(T))
+    end
+end
 known_step(::Type{<:AbstractUnitRange{T}}) where {T} = one(T)
-
-# add methods to support ArrayInterface
 
 """
     OptionallyStaticUnitRange(start, stop) <: AbstractUnitRange{Int}

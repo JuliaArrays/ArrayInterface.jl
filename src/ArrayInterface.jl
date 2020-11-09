@@ -889,6 +889,7 @@ end
 
 include("static.jl")
 include("ranges.jl")
+include("dimensions.jl")
 include("indexing.jl")
 include("stridelayout.jl")
 

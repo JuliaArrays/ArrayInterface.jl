@@ -390,6 +390,7 @@ Changing indexing based on a given argument from `args` should be done through
 [`flatten_args`](@ref), [`to_index`](@ref), or [`to_axis`](@ref).
 """
 @propagate_inbounds getindex(A, args...) = unsafe_getindex(A, to_indices(A, args))
+@propagate_inbounds getindex(A; kwargs...) = A[order_named_inds(Val(dimnames(A)); kwargs...)...]
 
 """
     unsafe_getindex(A, inds)
@@ -490,6 +491,10 @@ Store the given values at the given key or index within a collection.
               "elements after construction.")
     end
 end
+@propagate_inbounds function setindex!(A, val; kwargs...)
+    A[order_named_inds(Val(dimnames(A)); kwargs...)...] = val
+end
+
 
 """
     unsafe_setindex!(A, val, inds::Tuple)
@@ -530,3 +535,4 @@ Sets `inds` of `A` to `val`. `inds` is assumed to have been bounds-checked.
 @inline function unsafe_set_collection!(A, val, inds)
     return Base._unsafe_setindex!(IndexStyle(A), A, val, inds...)
 end
+
