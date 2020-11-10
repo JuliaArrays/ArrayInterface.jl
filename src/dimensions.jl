@@ -1,14 +1,4 @@
 
-Base.@pure function _permute_dimnames(x::Tuple{Vararg{Symbol,D}}, perm::NTuple{N,Int}) where {D,N}
-    ntuple(Val(N)) do i
-        if D < i
-            return :_
-        else
-            return getfield(x, getfield(perm, i))
-        end
-    end
-end
-
 """
     has_dimnames(x) -> Bool
 
@@ -30,28 +20,29 @@ end
 Return the names of the dimensions for `x`.
 """
 @inline dimnames(x) = dimnames(typeof(x))
-@inline dimnames(x, i::Int) = dimnames(typeof(x), i)
-@inline function dimnames(::Type{T}, d::Int) where {T}
-    if has_dimnames(T)
-        return getfield(dimnames(T), d)
+@inline dimnames(x, i::Integer) = dimnames(typeof(x), i)
+@inline dimnames(::Type{T}, d::Integer) where {T} = getfield(dimnames(T), to_dims(T, d))
+@generated function dimnames(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return ntuple(i -> Symbol(:dim_, i), Val(ndims(T)))
     else
-        return nothing
+        return dimnames(parent_type(T))
     end
 end
-@inline function dimnames(::Type{T}) where {T}
-    return ntuple(i -> dimnames(parent_type(T), i), Val(ndims(T)))
-end
 @inline function dimnames(::Type{T}) where {T<:Union{Transpose,Adjoint}}
-    return map(d -> dimnames(dimnames(parent_type(T))), (2, 1))
+    return map(i -> dimnames(parent_type(T), i), (2, 1))
 end
 @inline function dimnames(::Type{T}) where {I,T<:PermutedDimsArray{<:Any,<:Any,I}}
-    return map(d -> dimnames(dimnames(parent_type(T))), I)
+    return map(i -> dimnames(parent_type(T), i), I)
 end
-@generated function dimnames(::Type{T}) where {I,T<:SubArray{<:Any,<:Any,<:Any,I}}
+function dimnames(::Type{T}) where {P,I,T<:SubArray{<:Any,<:Any,P,I}}
+    return _sub_array_dimnames(Val(dimnames(P)), Val(argdims(P, I)))
+end
+@generated function _sub_array_dimnames(::Val{L}, ::Val{I}) where {L,I}
     e = Expr(:tuple)
-    for i in 1:ndims(T)
-        if argdims(A, I.parameters[i]) > 0
-            push!(e.args, dimenames(parent_type(P), i))
+    for i in 1:length(L)
+        if I[i] > 0
+            push!(e.args, QuoteNode(L[i]))
         end
     end
     return e
@@ -63,7 +54,6 @@ end
 This returns the dimension(s) of `x` corresponding to `d`.
 """
 to_dims(x, d::Integer) = Int(d)
-to_dims(x, d::StaticInt) = d
 to_dims(x, d::Colon) = d   # `:` is the default for most methods that take `dims`
 @inline to_dims(x, d::Tuple) = map(i -> to_dims(x, i), d)
 @inline function to_dims(x, d::Symbol)::Int

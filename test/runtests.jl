@@ -514,4 +514,5 @@ end
 end
 
 include("indexing.jl")
+include("dimensions.jl")
 

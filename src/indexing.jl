@@ -385,7 +385,7 @@ end
     ArrayInterface.getindex(A, args...)
 
 Retrieve the value(s) stored at the given key or index within a collection. Creating
-another instance of `ArrayInterface.getindex` should only be done by overloading `A`.
+anothe instance of `ArrayInterface.getindex` should only be done by overloading `A`.
 Changing indexing based on a given argument from `args` should be done through
 [`flatten_args`](@ref), [`to_index`](@ref), or [`to_axis`](@ref).
 """
@@ -584,9 +584,9 @@ end
 function _generate_unsafe_setindex!_body(N::Int)
     quote
         x′ = Base.unalias(A, x)
-        @nexprs $N d->(I_d = Base.unalias(A, I[d]))
+        Base.Cartesian.@nexprs $N d->(I_d = Base.unalias(A, I[d]))
         idxlens = Base.Cartesian.@ncall $N Base.index_lengths I
-        @ncall $N Base.setindex_shape_check x′ (d->idxlens[d])
+        Base.Cartesian.@ncall $N Base.setindex_shape_check x′ (d->idxlens[d])
         Xy = iterate(x′)
         @inbounds Base.Cartesian.@nloops $N i d->I_d begin
             # This is never reached, but serves as an assumption for
