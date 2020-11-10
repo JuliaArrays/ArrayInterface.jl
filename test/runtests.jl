@@ -265,6 +265,8 @@ Base.getindex(::DummyZeros{T}, inds...) where {T} = zero(T)
 
 @testset "Memory Layout" begin
     A = zeros(3,4,5);
+    D1 = view(A, 1:2:3, :, :)  # first dimension is discontiguous
+    D2 = view(A, :, 2:2:4, :)  # first dimension is contiguous
     @test device(A) === ArrayInterface.CPUPointer()
     @test device((1,2,3)) === ArrayInterface.CPUIndex()
     @test device(PermutedDimsArray(A,(3,1,2))) === ArrayInterface.CPUPointer()
@@ -277,6 +279,8 @@ Base.getindex(::DummyZeros{T}, inds...) where {T} = zero(T)
 
     @test @inferred(contiguous_axis(@SArray(zeros(2,2,2)))) === ArrayInterface.Contiguous(1)
     @test @inferred(contiguous_axis(A)) === ArrayInterface.Contiguous(1)
+    @test @inferred(contiguous_axis(D1)) === ArrayInterface.Contiguous(-1)
+    @test @inferred(contiguous_axis(D2)) === ArrayInterface.Contiguous(1)
     @test @inferred(contiguous_axis(PermutedDimsArray(A,(3,1,2)))) === ArrayInterface.Contiguous(2)
     @test @inferred(contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) === ArrayInterface.Contiguous(1)
     @test @inferred(contiguous_axis(transpose(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])))) === ArrayInterface.Contiguous(2)
