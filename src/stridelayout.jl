@@ -158,8 +158,11 @@ stride_rank(x, i) = stride_rank(x)[i]
 """
 is_column_major(A) -> Val{true/false}()
 """
-is_column_major(A) = is_column_major(stride_rank(A))
-@generated function is_column_major(::StrideRank{R}) where {R}
+is_column_major(A) = is_column_major(stride_rank(A), contiguous_batch_size(A))
+is_column_major(::StrideRank{R}, ::ContiguousBatch{N}) where {R,N} = Val{false}()
+is_column_major(::Nothing, ::ContiguousBatch{N}) where {N} = Val{false}()
+is_column_major(::Nothing, ::ContiguousBatch{0}) = Val{false}()
+@generated function is_column_major(::StrideRank{R}, ::ContiguousBatch{0}) where {R}
     N = length(R)
     for n ∈ 2:N
         if R[n] ≤ R[n-1]
@@ -168,7 +171,6 @@ is_column_major(A) = is_column_major(stride_rank(A))
     end
     :(Val{true}())
 end
-is_column_major(::Nothing) = Val{false}()
 
 struct DenseDims{D} end
 Base.@pure DenseDims(D::NTuple{<:Any,Bool}) = DenseDims{D}()
