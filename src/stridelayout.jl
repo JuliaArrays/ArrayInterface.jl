@@ -62,6 +62,7 @@ Returns a tuple boolean `Val`s indicating whether that axis is contiguous.
 """
 contiguous_axis_indicator(::Type{A}) where {D, A <: AbstractArray{<:Any,D}} = contiguous_axis_indicator(contiguous_axis(A), Val(D))
 contiguous_axis_indicator(::A) where {A <: AbstractArray} = contiguous_axis_indicator(A)
+contiguous_axis_indicator(::Nothing, ::Val) = nothing
 Base.@pure contiguous_axis_indicator(::Contiguous{N}, ::Val{D}) where {N,D} = ntuple(d -> Val{d == N}(), Val{D}())
 
 """
