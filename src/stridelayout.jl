@@ -27,7 +27,8 @@ end
 function contiguous_axis(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A<:AbstractArray{T,N}}
     c = contiguous_axis(A)
     isnothing(c) && return nothing
-    new_contig = I2[_get(c)]
+    contig = _get(c)
+    new_contig = contig == -1 ? -1 : I2[_get(c)]
     Contiguous{new_contig}()
 end
 function contiguous_axis(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}}
