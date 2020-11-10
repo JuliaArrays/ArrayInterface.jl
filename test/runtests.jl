@@ -265,6 +265,8 @@ Base.getindex(::DummyZeros{T}, inds...) where {T} = zero(T)
 
 @testset "Memory Layout" begin
     A = zeros(3,4,5);
+    D1 = view(A, 1:2:3, :, :)  # first dimension is discontiguous
+    D2 = view(A, :, 2:2:4, :)  # first dimension is contiguous
     @test device(A) === ArrayInterface.CPUPointer()
     @test device((1,2,3)) === ArrayInterface.CPUIndex()
     @test device(PermutedDimsArray(A,(3,1,2))) === ArrayInterface.CPUPointer()
@@ -277,6 +279,8 @@ Base.getindex(::DummyZeros{T}, inds...) where {T} = zero(T)
 
     @test @inferred(contiguous_axis(@SArray(zeros(2,2,2)))) === ArrayInterface.Contiguous(1)
     @test @inferred(contiguous_axis(A)) === ArrayInterface.Contiguous(1)
+    @test @inferred(contiguous_axis(D1)) === ArrayInterface.Contiguous(-1)
+    @test @inferred(contiguous_axis(D2)) === ArrayInterface.Contiguous(1)
     @test @inferred(contiguous_axis(PermutedDimsArray(A,(3,1,2)))) === ArrayInterface.Contiguous(2)
     @test @inferred(contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) === ArrayInterface.Contiguous(1)
     @test @inferred(contiguous_axis(transpose(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])))) === ArrayInterface.Contiguous(2)
@@ -355,6 +359,7 @@ using OffsetArrays
     M = @MArray zeros(2,3,4); Mp = @view(PermutedDimsArray(M,(3,1,2))[:,2,:])';
     Sp2 = @view(PermutedDimsArray(S,(3,2,1))[2:3,:,:]);
     Mp2 = @view(PermutedDimsArray(M,(3,1,2))[2:3,:,2])';
+    D = @view(A[:,2:2:4,:])
 
     @test @inferred(ArrayInterface.size(A)) === (3,4,5)
     @test @inferred(ArrayInterface.size(Ap)) === (2,5)
@@ -377,6 +382,7 @@ using OffsetArrays
     @test @inferred(ArrayInterface.size(M)) == size(M)
     @test @inferred(ArrayInterface.size(Mp)) == size(Mp)
     @test @inferred(ArrayInterface.size(Mp2)) == size(Mp2)
+    @test @inferred(ArrayInterface.size(D)) == size(D)
 
     @test @inferred(ArrayInterface.strides(A)) === (StaticInt(1), 3, 12)
     @test @inferred(ArrayInterface.strides(Ap)) === (StaticInt(1), 12)

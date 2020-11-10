@@ -39,18 +39,19 @@ _contiguous_axis(::Any, ::Nothing) = nothing
     n = 0
     new_contig = contig = C
     for np in 1:NP
-        if I.parameters[np] <: AbstractUnitRange
+        p = I.parameters[np]
+        if p <: OrdinalRange
             n += 1
             if np == contig
-                new_contig = n
+                new_contig = (p <: AbstractUnitRange) ? n : -1
             end
-        else
+        elseif p <: Integer
             if np == contig
                 new_contig = -1
             end
         end
     end
-    # If n != N, then an axis was indexed by something other than an integer or `AbstractUnitRange`, so we return `nothing`.
+    # If n != N, then an axis was indexed by something other than an integer or `OrdinalRange`, so we return `nothing`.
     n == N || return nothing
     Expr(:call, Expr(:curly, :Contiguous, new_contig))
 end
@@ -300,7 +301,9 @@ strides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} = _
     for n in 1:N
         if (I.parameters[n] <: Base.Slice)
             push!(t.args, :(@inbounds(_try_static(A[$n], l[$n]))))
-        elseif I.parameters[n] <: AbstractUnitRange
+        elseif I.parameters[n] <: Number
+            nothing
+        else
             push!(t.args, Expr(:ref, :l, n))
         end
     end
