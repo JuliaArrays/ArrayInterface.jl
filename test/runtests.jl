@@ -355,6 +355,7 @@ using OffsetArrays
     M = @MArray zeros(2,3,4); Mp = @view(PermutedDimsArray(M,(3,1,2))[:,2,:])';
     Sp2 = @view(PermutedDimsArray(S,(3,2,1))[2:3,:,:]);
     Mp2 = @view(PermutedDimsArray(M,(3,1,2))[2:3,:,2])';
+    D = @view(A[:,2:2:4,:])
 
     @test @inferred(ArrayInterface.size(A)) === (3,4,5)
     @test @inferred(ArrayInterface.size(Ap)) === (2,5)
@@ -377,6 +378,7 @@ using OffsetArrays
     @test @inferred(ArrayInterface.size(M)) == size(M)
     @test @inferred(ArrayInterface.size(Mp)) == size(Mp)
     @test @inferred(ArrayInterface.size(Mp2)) == size(Mp2)
+    @test @inferred(ArrayInterface.size(D)) == size(D)
 
     @test @inferred(ArrayInterface.strides(A)) === (StaticInt(1), 3, 12)
     @test @inferred(ArrayInterface.strides(Ap)) === (StaticInt(1), 12)

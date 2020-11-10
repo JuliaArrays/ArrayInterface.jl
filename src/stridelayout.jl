@@ -300,7 +300,9 @@ strides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} = _
     for n in 1:N
         if (I.parameters[n] <: Base.Slice)
             push!(t.args, :(@inbounds(_try_static(A[$n], l[$n]))))
-        elseif I.parameters[n] <: AbstractUnitRange
+        elseif I.parameters[n] <: Number
+            nothing
+        else
             push!(t.args, Expr(:ref, :l, n))
         end
     end
