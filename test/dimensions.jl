@@ -11,6 +11,7 @@ ArrayInterface.dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L}} = L
 Base.parent(x::NamedDimsWrapper) = x.parent
 Base.size(x::NamedDimsWrapper) = size(parent(x))
 Base.axes(x::NamedDimsWrapper) = axes(parent(x))
+Base.strides(x::NamedDimsWrapper) = Base.strides(parent(x))
 
 Base.getindex(x::NamedDimsWrapper; kwargs...) = ArrayInterface.getindex(x; kwargs...)
 Base.getindex(x::NamedDimsWrapper, args...) = ArrayInterface.getindex(x, args...)
@@ -40,6 +41,11 @@ dnums = ntuple(+, length(d))
 @test @inferred(ArrayInterface.to_dims(x, d)) === dnums
 @test @inferred(ArrayInterface.to_dims(x, reverse(d))) === reverse(dnums)
 @test_throws ArgumentError ArrayInterface.to_dims(x, :z)
+
+@test @inferred(ArrayInterface.size(x, :x)) == size(parent(x), 1)
+@test @inferred(ArrayInterface.axes(x, :x)) == axes(parent(x), 1)
+@test @inferred(ArrayInterface.strides(x, :x)) == strides(parent(x))[1]
+
 
 x[x = 1] = [2, 3]
 @test @inferred(getindex(x, x = 1)) == [2, 3]

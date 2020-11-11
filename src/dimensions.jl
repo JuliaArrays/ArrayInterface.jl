@@ -49,6 +49,13 @@ end
 end
 
 """
+    named_axes(x) -> NamedTuple{dimnames(x)}(axes(x))
+
+Returns a `NamedTuple` of the axes of `x` with dimension names as keys.
+"""
+named_axes(x) = NamedTuple{dimnames(x)}(axes(x))
+
+"""
     to_dims(x, d)
 
 This returns the dimension(s) of `x` corresponding to `d`.
@@ -116,4 +123,35 @@ order_named_inds(val::Val{L}; kw...) where {L} = order_named_inds(val, kw.data)
         return Expr(:tuple, exs...)
     end
 end
+
+"""
+  size(A)
+
+Returns the size of `A`. If the size of any axes are known at compile time,
+these should be returned as `Static` numbers. For example:
+```julia
+julia> using StaticArrays, ArrayInterface
+
+julia> A = @SMatrix rand(3,4);
+
+julia> ArrayInterface.size(A)
+(StaticInt{3}(), StaticInt{4}())
+```
+"""
+size(A) = Base.size(A)
+size(A, d) = size(A)[to_dims(A, d)]
+
+"""
+    axes(A, d)
+
+Return a valid range that maps to each index along dimension `d` of `A`.
+"""
+axes(A, d) = axes(A)[to_dims(A, d)]
+
+"""
+    axes(A)
+
+Return a tuple of ranges where each range maps to each element along a dimension of `A`.
+"""
+axes(A) = Base.axes(A)
 
