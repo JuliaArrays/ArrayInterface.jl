@@ -45,6 +45,9 @@ _contiguous_axis(::Any, ::Nothing) = nothing
             if np == contig
                 new_contig = (p <: AbstractUnitRange) ? n : -1
             end
+        elseif p <: AbstractArray
+            n += 1
+            new_contig = np == contig ? -1 : new_contig
         elseif p <: Integer
             if np == contig
                 new_contig = -1
@@ -144,7 +147,7 @@ _stride_rank(::Any, ::Any) = nothing
     n = 0
     for np in 1:NP
         r = rankv[np]
-        if I.parameters[np] <: AbstractUnitRange
+        if I.parameters[np] <: AbstractArray
             n += 1
             push!(rank_new, r)
         end

@@ -300,6 +300,7 @@ Base.getindex(::DummyZeros{T}, inds...) where {T} = zero(T)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))) === (Val(false),Val(false))
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === (Val(false),Val(false))
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === (Val(true),Val(false))
+    @test @inferred(ArrayInterface.contiguous_axis_indicator(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,[1,3,4]]))) === (Val(false),Val(true),Val(false))
     @test @inferred(ArrayInterface.contiguous_axis_indicator(DummyZeros(3,4))) === nothing
 
     @test @inferred(contiguous_batch_size(@SArray(zeros(2,2,2)))) === ArrayInterface.ContiguousBatch(0)
@@ -322,6 +323,7 @@ Base.getindex(::DummyZeros{T}, inds...) where {T} = zero(T)
     @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === ArrayInterface.StrideRank((2, 3))
     @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === ArrayInterface.StrideRank((1, 3))
     @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,2,1])')) === ArrayInterface.StrideRank((2, 1))
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,[1,3,4]]))) === ArrayInterface.StrideRank((3, 1, 2))
 
     @test @inferred(ArrayInterface.is_column_major(@SArray(zeros(2,2,2)))) === Val{true}()
     @test @inferred(ArrayInterface.is_column_major(A)) === Val{true}()
