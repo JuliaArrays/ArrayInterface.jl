@@ -30,13 +30,17 @@ val_dimnames(x, d) = Val(ArrayInterface.dimnames(x, d))
 
 d = (:x, :y)
 x = NamedDimsWrapper{d}(ones(2,2))
+y = NamedDimsWrapper{(:x,)}(ones(2))
 dnums = ntuple(+, length(d))
 @test @inferred(val_has_dimnames(x)) === Val(true)
 @test @inferred(val_has_dimnames(typeof(x)))  === Val(true)
 @test @inferred(val_dimnames(x)) === Val(d)
 @test @inferred(val_dimnames(x')) === Val(reverse(d))
+@test @inferred(val_dimnames(y')) === Val((:_, :x))
 @test @inferred(val_dimnames(PermutedDimsArray(x, (2, 1)))) ===Val(reverse(d))
 @test @inferred(val_dimnames(view(x, :, 1))) === Val((:x,))
+@test @inferred(val_dimnames(view(x, :, :, :))) === Val((:x, :y, :_))
+@test @inferred(val_dimnames(view(x, :, 1, :))) === Val((:x, :_))
 @test @inferred(val_dimnames(x, ArrayInterface.One())) === Val(:x)
 @test @inferred(ArrayInterface.to_dims(x, d)) === dnums
 @test @inferred(ArrayInterface.to_dims(x, reverse(d))) === reverse(dnums)
@@ -45,7 +49,6 @@ dnums = ntuple(+, length(d))
 @test @inferred(ArrayInterface.size(x, :x)) == size(parent(x), 1)
 @test @inferred(ArrayInterface.axes(x, :x)) == axes(parent(x), 1)
 @test @inferred(ArrayInterface.strides(x, :x)) == strides(parent(x))[1]
-
 
 x[x = 1] = [2, 3]
 @test @inferred(getindex(x, x = 1)) == [2, 3]

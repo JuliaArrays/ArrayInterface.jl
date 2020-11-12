@@ -22,16 +22,19 @@ Return the names of the dimensions for `x`.
 @inline dimnames(x) = dimnames(typeof(x))
 @inline dimnames(x, i::Integer) = dimnames(typeof(x), i)
 @inline dimnames(::Type{T}, d::Integer) where {T} = getfield(dimnames(T), to_dims(T, d))
-@generated function dimnames(::Type{T}) where {T}
+@inline function dimnames(::Type{T}) where {T}
     if parent_type(T) <: T
-        return ntuple(i -> Symbol(:dim_, i), Val(ndims(T)))
+        return ntuple(i -> :_, Val(ndims(T)))
     else
         return dimnames(parent_type(T))
     end
 end
 @inline function dimnames(::Type{T}) where {T<:Union{Transpose,Adjoint}}
-    return map(i -> dimnames(parent_type(T), i), (2, 1))
+    return _transpose_dimnames(dimnames(parent_type(T)))
 end
+_transpose_dimnames(x::Tuple{Symbol,Symbol}) = (last(x), first(x))
+_transpose_dimnames(x::Tuple{Symbol}) = (:_, first(x))
+
 @inline function dimnames(::Type{T}) where {I,T<:PermutedDimsArray{<:Any,<:Any,I}}
     return map(i -> dimnames(parent_type(T), i), I)
 end
@@ -40,20 +43,18 @@ function dimnames(::Type{T}) where {P,I,T<:SubArray{<:Any,<:Any,P,I}}
 end
 @generated function _sub_array_dimnames(::Val{L}, ::Val{I}) where {L,I}
     e = Expr(:tuple)
-    for i in 1:length(L)
+    nl = length(L)
+    for i in 1:length(I)
         if I[i] > 0
-            push!(e.args, QuoteNode(L[i]))
+            if nl < i
+                push!(e.args, QuoteNode(:_))
+            else
+                push!(e.args, QuoteNode(L[i]))
+            end
         end
     end
     return e
 end
-
-"""
-    named_axes(x) -> NamedTuple{dimnames(x)}(axes(x))
-
-Returns a `NamedTuple` of the axes of `x` with dimension names as keys.
-"""
-named_axes(x) = NamedTuple{dimnames(x)}(axes(x))
 
 """
     to_dims(x, d)

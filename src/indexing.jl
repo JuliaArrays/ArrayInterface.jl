@@ -385,7 +385,7 @@ end
     ArrayInterface.getindex(A, args...)
 
 Retrieve the value(s) stored at the given key or index within a collection. Creating
-anothe instance of `ArrayInterface.getindex` should only be done by overloading `A`.
+another instance of `ArrayInterface.getindex` should only be done by overloading `A`.
 Changing indexing based on a given argument from `args` should be done through
 [`flatten_args`](@ref), [`to_index`](@ref), or [`to_axis`](@ref).
 """
