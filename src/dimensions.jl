@@ -1,6 +1,6 @@
 
 """
-    has_dimnames(x) -> Bool
+    has_dimnames(::Type{T}) -> Bool
 
 Returns `true` if `x` has names for each dimension.
 """
@@ -14,8 +14,8 @@ function has_dimnames(::Type{T}) where {T}
 end
 
 """
-    dimnames(x) -> Tuple{Vararg{Symbol}}
-    dimnames(x, d) -> Symbol
+    dimnames(::Type{T}) -> Tuple{Vararg{Symbol}}
+    dimnames(::Type{T}, d) -> Symbol
 
 Return the names of the dimensions for `x`.
 """
@@ -57,7 +57,7 @@ end
 end
 
 """
-    to_dims(x, d)
+    to_dims(x[, d])
 
 This returns the dimension(s) of `x` corresponding to `d`.
 """
@@ -100,29 +100,31 @@ Base.@pure function tuple_issubset(
 end
 
 """
-    order_named_inds(Val(names); kw...)
+    order_named_inds(Val(names); kwargs...)
     order_named_inds(Val(names), namedtuple)
 
 Returns the tuple of index values for an array with `names`, when indexed by keywords.
 Any dimensions not fixed are given as `:`, to make a slice.
 An error is thrown if any keywords are used which do not occur in `nda`'s names.
 """
-order_named_inds(val::Val{L}; kw...) where {L} = order_named_inds(val, kw.data)
-@generated function order_named_inds(val::Val{L}, ni::NamedTuple{K}) where {L,K}
-    if length(K) === 0
-        return ()  # if kwargs were empty
+@inline function order_named_inds(val::Val{L}; kwargs...) where {L}
+    if isempty(kwargs)
+        return ()
     else
-        tuple_issubset(K, L) || throw(DimensionMismatch("Expected subset of $L, got $K"))
-        exs = map(L) do n
-            if Base.sym_in(n, K)
-                qn = QuoteNode(n)
-                :(getfield(ni, $qn))
-            else
-                :(Colon())
-            end
-        end
-        return Expr(:tuple, exs...)
+        return order_named_inds(val, kwargs.data)
     end
+end
+@generated function order_named_inds(val::Val{L}, ni::NamedTuple{K}) where {L,K}
+    tuple_issubset(K, L) || throw(DimensionMismatch("Expected subset of $L, got $K"))
+    exs = map(L) do n
+        if Base.sym_in(n, K)
+            qn = QuoteNode(n)
+            :(getfield(ni, $qn))
+        else
+            :(Colon())
+        end
+    end
+    return Expr(:tuple, exs...)
 end
 
 """
@@ -140,14 +142,14 @@ julia> ArrayInterface.size(A)
 ```
 """
 size(A) = Base.size(A)
-size(A, d) = size(A)[to_dims(A, d)]
+size(A, d) = Base.size(A, to_dims(A, d))
 
 """
     axes(A, d)
 
 Return a valid range that maps to each index along dimension `d` of `A`.
 """
-axes(A, d) = axes(A)[to_dims(A, d)]
+axes(A, d) = Base.axes(A, to_dims(A, d))
 
 """
     axes(A)
