@@ -260,6 +260,7 @@ julia> ArrayInterface.strides(A)
 ```
 """
 strides(A) = Base.strides(A)
+
 """
   offsets(A)
 
@@ -270,7 +271,24 @@ For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1)
 offsets(::Any) = (StaticInt{1}(),) # Assume arbitrary Julia data structures use 1-based indexing by default.
 @inline strides(A::Vector{<:Any}) = (StaticInt(1),)
 @inline strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
-@inline strides(A::AbstractArray{<:Any,N}) where {N} = Base.strides(A)
+@inline strides(A::AbstractArray) = _strides(A, Base.strides(A), contiguous_axis(A))
+@generated function _strides(A::AbstractArray{T,N}, s::NTuple{N}, ::Contiguous{C}) where {T,N,C}
+    if C ≤ 0 || C > N
+        return Expr(:block, Expr(:meta,:inline), :s)
+    end
+    stup = Expr(:tuple)
+    for n ∈ 1:N
+        if n == C
+            push!(stup.args, :(StaticInt{$(sizeof(T))}()))
+        else
+            push!(stup.args, Expr(:ref, :s, n))
+        end
+    end
+    quote
+        $(Expr(:meta,:inline))
+        @inbounds $stup
+    end
+end
 
 @inline function offsets(x, i)
     inds = indices(x, i)
