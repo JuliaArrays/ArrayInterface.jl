@@ -27,7 +27,8 @@ end
 function contiguous_axis(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A<:AbstractArray{T,N}}
     c = contiguous_axis(A)
     isnothing(c) && return nothing
-    new_contig = I2[_get(c)]
+    contig = _get(c)
+    new_contig = contig == -1 ? -1 : I2[_get(c)]
     Contiguous{new_contig}()
 end
 function contiguous_axis(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}}
@@ -38,18 +39,22 @@ _contiguous_axis(::Any, ::Nothing) = nothing
     n = 0
     new_contig = contig = C
     for np in 1:NP
-        if I.parameters[np] <: AbstractUnitRange
+        p = I.parameters[np]
+        if p <: OrdinalRange
             n += 1
             if np == contig
-                new_contig = n
+                new_contig = (p <: AbstractUnitRange) ? n : -1
             end
-        else
+        elseif p <: AbstractArray
+            n += 1
+            new_contig = np == contig ? -1 : new_contig
+        elseif p <: Integer
             if np == contig
                 new_contig = -1
             end
         end
     end
-    # If n != N, then an axis was indexed by something other than an integer or `AbstractUnitRange`, so we return `nothing`.
+    # If n != N, then an axis was indexed by something other than an integer or `OrdinalRange`, so we return `nothing`.
     n == N || return nothing
     Expr(:call, Expr(:curly, :Contiguous, new_contig))
 end
@@ -61,6 +66,7 @@ Returns a tuple boolean `Val`s indicating whether that axis is contiguous.
 """
 contiguous_axis_indicator(::Type{A}) where {D, A <: AbstractArray{<:Any,D}} = contiguous_axis_indicator(contiguous_axis(A), Val(D))
 contiguous_axis_indicator(::A) where {A <: AbstractArray} = contiguous_axis_indicator(A)
+contiguous_axis_indicator(::Nothing, ::Val) = nothing
 Base.@pure contiguous_axis_indicator(::Contiguous{N}, ::Val{D}) where {N,D} = ntuple(d -> Val{d == N}(), Val{D}())
 
 """
@@ -141,7 +147,7 @@ _stride_rank(::Any, ::Any) = nothing
     n = 0
     for np in 1:NP
         r = rankv[np]
-        if I.parameters[np] <: AbstractUnitRange
+        if I.parameters[np] <: AbstractArray
             n += 1
             push!(rank_new, r)
         end
@@ -156,8 +162,10 @@ stride_rank(x, i) = stride_rank(x)[i]
 """
 is_column_major(A) -> Val{true/false}()
 """
-is_column_major(A) = is_column_major(stride_rank(A))
-@generated function is_column_major(::StrideRank{R}) where {R}
+is_column_major(A) = is_column_major(stride_rank(A), contiguous_batch_size(A))
+is_column_major(::Nothing, ::Any) = Val{false}()
+@generated function is_column_major(::StrideRank{R}, ::ContiguousBatch{N}) where {R,N}
+    N > 0 && return :(Val{false}())
     N = length(R)
     for n ∈ 2:N
         if R[n] ≤ R[n-1]
@@ -166,7 +174,6 @@ is_column_major(A) = is_column_major(stride_rank(A))
     end
     :(Val{true}())
 end
-is_column_major(::Nothing) = Val{false}()
 
 struct DenseDims{D} end
 Base.@pure DenseDims(D::NTuple{<:Any,Bool}) = DenseDims{D}()
@@ -250,7 +257,24 @@ For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1)
 offsets(::Any) = (StaticInt{1}(),) # Assume arbitrary Julia data structures use 1-based indexing by default.
 @inline strides(A::Vector{<:Any}) = (StaticInt(1),)
 @inline strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
-@inline strides(A::AbstractArray{<:Any,N}) where {N} = Base.strides(A)
+@inline strides(A::AbstractArray) = _strides(A, Base.strides(A), contiguous_axis(A))
+@generated function _strides(A::AbstractArray{T,N}, s::NTuple{N}, ::Contiguous{C}) where {T,N,C}
+    if C ≤ 0 || C > N
+        return Expr(:block, Expr(:meta,:inline), :s)
+    end
+    stup = Expr(:tuple)
+    for n ∈ 1:N
+        if n == C
+            push!(stup.args, :(StaticInt{$(sizeof(T))}()))
+        else
+            push!(stup.args, Expr(:ref, :s, n))
+        end
+    end
+    quote
+        $(Expr(:meta,:inline))
+        @inbounds $stup
+    end
+end
 
 @inline function offsets(x, i)
     inds = indices(x, i)
@@ -283,7 +307,9 @@ strides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} = _
     for n in 1:N
         if (I.parameters[n] <: Base.Slice)
             push!(t.args, :(@inbounds(_try_static(A[$n], l[$n]))))
-        elseif I.parameters[n] <: AbstractUnitRange
+        elseif I.parameters[n] <: Number
+            nothing
+        else
             push!(t.args, Expr(:ref, :l, n))
         end
     end
