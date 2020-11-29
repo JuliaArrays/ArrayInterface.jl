@@ -30,10 +30,20 @@ Return the names of the dimensions for `x`.
     end
 end
 @inline function dimnames(::Type{T}) where {T<:Union{Transpose,Adjoint}}
-    return _transpose_dimnames(dimnames(parent_type(T)))
+    return _transpose_dimnames(Val(dimnames(parent_type(T))))
 end
-_transpose_dimnames(x::Tuple{Symbol,Symbol}) = (last(x), first(x))
-_transpose_dimnames(x::Tuple{Symbol}) = (:_, first(x))
+# inserting the Val here seems to help inferability; I got a test failure without it.
+function _transpose_dimnames(::Val{S}) where {S}
+    if length(S) == 1
+        (:_, first(S))
+    elseif length(S) == 2
+        (last(S), first(S))
+    else
+        throw("Can't transpose $S of dim $(length(S)).")
+    end
+end
+@inline _transpose_dimnames(x::Tuple{Symbol,Symbol}) = (last(x), first(x))
+@inline _transpose_dimnames(x::Tuple{Symbol}) = (:_, first(x))
 
 @inline function dimnames(::Type{T}) where {I,T<:PermutedDimsArray{<:Any,<:Any,I}}
     return map(i -> dimnames(parent_type(T), i), I)
@@ -143,6 +153,8 @@ julia> ArrayInterface.size(A)
 """
 size(A) = Base.size(A)
 size(A, d) = Base.size(A, to_dims(A, d))
+size(x::LinearAlgebra.Adjoint{T,V}) where {T, V <: AbstractVector{T}} = (One(), static_length(x))
+size(x::LinearAlgebra.Transpose{T,V}) where {T, V <: AbstractVector{T}} = (One(), static_length(x))
 
 """
     axes(A, d)

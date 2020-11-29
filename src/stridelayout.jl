@@ -250,24 +250,6 @@ permute(t::NTuple{N}, I::NTuple{N,Int}) where {N} = ntuple(n -> t[I[n]], Val{N}(
 end
 
 """
-  size(A)
-
-Returns the size of `A`. If the size of any axes are known at compile time,
-these should be returned as `Static` numbers. For example:
-```julia
-julia> using StaticArrays, ArrayInterface
-
-julia> A = @SMatrix rand(3,4);
-
-julia> ArrayInterface.size(A)
-(StaticInt{3}(), StaticInt{4}())
-```
-"""
-size(A) = Base.size(A)
-size(x::LinearAlgebra.Adjoint{T,V}) where {T, V <: AbstractVector{T}} = (One(), static_length(x))
-size(x::LinearAlgebra.Transpose{T,V}) where {T, V <: AbstractVector{T}} = (One(), static_length(x))
-
-"""
   strides(A)
 
 Returns the strides of array `A`. If any strides are known at compile time,

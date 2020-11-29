@@ -87,6 +87,12 @@ end
 for f ∈ [:(+), :(-), :(*), :(/), :(÷), :(%), :(<<), :(>>), :(>>>), :(&), :(|), :(⊻)]
     @eval @generated Base.$f(::StaticInt{M}, ::StaticInt{N}) where {M,N} = Expr(:call, Expr(:curly, :StaticInt, $f(M, N)))
 end
+for f ∈ [:(<<), :(>>), :(>>>)]
+    @eval begin
+        @inline Base.$f(::StaticInt{M}, x::UInt) where {M} = $f(M, x)
+        @inline Base.$f(x::Integer, ::StaticInt{M}) where {M} = $f(x, M)
+    end
+end
 for f ∈ [:(==), :(!=), :(<), :(≤), :(>), :(≥)]
     @eval begin
         @inline Base.$f(::StaticInt{M}, ::StaticInt{N}) where {M,N} = $f(M, N)
