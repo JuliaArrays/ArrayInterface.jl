@@ -59,6 +59,14 @@ _contiguous_axis(::Any, ::Nothing) = nothing
     Expr(:call, Expr(:curly, :Contiguous, new_contig))
 end
 
+# contiguous_if_one(::Contiguous{1}) = Contiguous{1}()
+# contiguous_if_one(::Any) = Contiguous{-1}()
+function contiguous_axis(::Type{R}) where {T, N, S, A <: Array{S}, R <: Base.ReinterpretArray{T, N, S, A}}
+    isbitstype(S) ? Contiguous{1}() : nothing
+    # contiguous_if_one(contiguous_axis(parent_type(R)))
+end
+
+
 """
 contiguous_axis_indicator(::Type{T}) -> Tuple{Vararg{<:Val}}
 
@@ -101,6 +109,8 @@ _contiguous_batch_size(::Any, ::Any, ::Any) = nothing
         Expr(:call, Expr(:curly, :ContiguousBatch, -1))
     end
 end
+
+contiguous_batch_size(::Type{R}) where {T, N, S, A <: Array{S}, R <: Base.ReinterpretArray{T, N, S, A}} = ContiguousBatch{0}()
 
 struct StrideRank{R} end
 Base.@pure StrideRank(R::NTuple{<:Any,Int}) = StrideRank{R}()
@@ -158,6 +168,7 @@ _stride_rank(::Any, ::Any) = nothing
     Expr(:call, Expr(:curly, :StrideRank, ranktup))
 end
 stride_rank(x, i) = stride_rank(x)[i]
+stride_rank(::Type{R}) where {T, N, S, A <: Array{S}, R <: Base.ReinterpretArray{T, N, S, A}} = StrideRank{ntuple(identity, Val{N}())}()
 
 """
 is_column_major(A) -> Val{true/false}()
@@ -247,6 +258,9 @@ julia> ArrayInterface.size(A)
 ```
 """
 size(A) = Base.size(A)
+size(x::LinearAlgebra.Adjoint{T,V}) where {T, V <: AbstractVector{T}} = (One(), static_length(x))
+size(x::LinearAlgebra.Transpose{T,V}) where {T, V <: AbstractVector{T}} = (One(), static_length(x))
+
 """
   strides(A)
 
@@ -257,6 +271,16 @@ julia> A = rand(3,4);
 
 julia> ArrayInterface.strides(A)
 (StaticInt{1}(), 3)
+
+Additionally, the behavior differs from `Base.strides` for adjoint vectors:
+
+julia> x = rand(5);
+
+julia> ArrayInterface.strides(x')
+(StaticInt{1}(), StaticInt{1}())
+
+This is to support the pattern of using just the first stride for linear indexing, `x[i]`,
+while still producing correct behavior when using valid cartesian indices, such as `x[1,i]`.
 ```
 """
 strides(A) = Base.strides(A)
@@ -272,6 +296,16 @@ offsets(::Any) = (StaticInt{1}(),) # Assume arbitrary Julia data structures use 
 @inline strides(A::Vector{<:Any}) = (StaticInt(1),)
 @inline strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
 @inline strides(A::AbstractArray) = _strides(A, Base.strides(A), contiguous_axis(A))
+
+@inline function strides(x::LinearAlgebra.Adjoint{T,V}) where {T, V <: AbstractVector{T}}
+    strd = stride(parent(x), One())
+    (strd, strd)
+end
+@inline function strides(x::LinearAlgebra.Transpose{T,V}) where {T, V <: AbstractVector{T}}
+    strd = stride(parent(x), One())
+    (strd, strd)
+end
+                
 @generated function _strides(A::AbstractArray{T,N}, s::NTuple{N}, ::Contiguous{C}) where {T,N,C}
     if C ≤ 0 || C > N
         return Expr(:block, Expr(:meta,:inline), :s)
@@ -279,7 +313,7 @@ offsets(::Any) = (StaticInt{1}(),) # Assume arbitrary Julia data structures use 
     stup = Expr(:tuple)
     for n ∈ 1:N
         if n == C
-            push!(stup.args, :(StaticInt{$(sizeof(T))}()))
+            push!(stup.args, :(One()))
         else
             push!(stup.args, Expr(:ref, :s, n))
         end
@@ -287,6 +321,22 @@ offsets(::Any) = (StaticInt{1}(),) # Assume arbitrary Julia data structures use 
     quote
         $(Expr(:meta,:inline))
         @inbounds $stup
+    end
+end
+
+if VERSION ≥ v"1.6.0-DEV.1581"
+    @generated function _strides(_::Base.ReinterpretArray{T, N, S, A, true}, s::NTuple{N}, ::Contiguous{1}) where {T, N, S, D, A <: Array{S,D}}
+        stup = Expr(:tuple, :(One()))
+        if D < N
+            push!(stup.args, Expr(:call, Expr(:curly, :StaticInt, sizeof(S) ÷ sizeof(T))))
+        end
+        for n ∈ 2+(D < N):N
+            push!(stup.args, Expr(:ref, :s, n))
+        end
+        quote
+            $(Expr(:meta,:inline))
+            @inbounds $stup
+        end        
     end
 end
 
@@ -313,7 +363,7 @@ end
 @inline strides(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = permute(strides(parent(B)), Val{I1}())
 @inline stride(A::AbstractArray, ::StaticInt{N}) where {N} = strides(A)[N]
 @inline stride(A::AbstractArray, ::Val{N}) where {N} = strides(A)[N]
-stride(A, i) = Base.stride(A, i)
+stride(A, i) = Base.stride(A, i) # for type stability
 
 size(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} = _size(size(parent(B)), B.indices, map(static_length, B.indices))
 strides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}} = _strides(strides(parent(B)), B.indices)
@@ -333,11 +383,16 @@ end
 @generated function _strides(A::Tuple{Vararg{Any,N}}, inds::I) where {N, I<:Tuple}
     t = Expr(:tuple)
     for n in 1:N
-        if I.parameters[n] <: AbstractRange
+        if I.parameters[n] <: AbstractUnitRange
             push!(t.args, Expr(:ref, :A, n))
+        elseif I.parameters[n] <: AbstractRange
+            push!(t.args, Expr(:call, :(*), Expr(:ref, :A, n), Expr(:call, :static_step, Expr(:ref, :inds, n))))
         elseif !(I.parameters[n] <: Integer)
             return nothing
         end
     end
     Expr(:block, Expr(:meta, :inline), t)
 end
+
+
+

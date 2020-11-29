@@ -22,21 +22,23 @@ Base.Integer(x::StaticInt{N}) where {N} = x
 (::Type{T})(x::StaticInt{N}) where {T<:Integer,N} = T(N)
 (::Type{T})(x::Int) where {T<:StaticInt} = StaticInt(x)
 Base.convert(::Type{StaticInt{N}}, ::StaticInt{N}) where {N} = StaticInt{N}()
+Base.float(::StaticInt{N}) where {N} = Float64(N)
 
-Base.promote_rule(::Type{<:StaticInt}, ::Type{T}) where {T <: AbstractIrrational} = promote_rule(Int, T)
-Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T <: AbstractIrrational} = promote_rule(T, Int)
+Base.promote_rule(::Type{<:StaticInt}, ::Type{T}) where {T <: Number} = promote_type(Int, T)
+Base.promote_rule(::Type{<:StaticInt}, ::Type{T}) where {T <: AbstractIrrational} = promote_type(Int, T)
+# Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T <: AbstractIrrational} = promote_rule(T, Int)
 for (S,T) ∈ [(:Complex,:Real), (:Rational, :Integer), (:(Base.TwicePrecision),:Any)]
-    @eval Base.promote_rule(::Type{$S{T}}, ::Type{<:StaticInt}) where {T <: $T} = promote_rule($S{T}, Int)
+    @eval Base.promote_rule(::Type{$S{T}}, ::Type{<:StaticInt}) where {T <: $T} = promote_type($S{T}, Int)
 end
 Base.promote_rule(::Type{Union{Nothing,Missing}}, ::Type{<:StaticInt}) = Union{Nothing, Missing, Int}
-Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T >: Union{Missing,Nothing}} = promote_rule(T, Int)
-Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T >: Nothing} = promote_rule(T, Int)
-Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T >: Missing} = promote_rule(T, Int)
+Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T >: Union{Missing,Nothing}} = promote_type(T, Int)
+Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T >: Nothing} = promote_type(T, Int)
+Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T >: Missing} = promote_type(T, Int)
 for T ∈ [:Bool, :Missing, :BigFloat, :BigInt, :Nothing, :Any]
 # let S = :Any    
     @eval begin
-        Base.promote_rule(::Type{S}, ::Type{$T}) where {S <: StaticInt} = promote_rule(Int, $T)
-        Base.promote_rule(::Type{$T}, ::Type{S}) where {S <: StaticInt} = promote_rule($T, Int)
+        Base.promote_rule(::Type{S}, ::Type{$T}) where {S <: StaticInt} = promote_type(Int, $T)
+        Base.promote_rule(::Type{$T}, ::Type{S}) where {S <: StaticInt} = promote_type($T, Int)
     end
 end
 Base.promote_rule(::Type{<:StaticInt}, ::Type{<:StaticInt}) = Int
