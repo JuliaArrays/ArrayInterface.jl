@@ -271,7 +271,7 @@ offsets(::Any) = (StaticInt{1}(),) # Assume arbitrary Julia data structures use 
     stup = Expr(:tuple)
     for n ∈ 1:N
         if n == C
-            push!(stup.args, :(StaticInt{$(sizeof(T))}()))
+            push!(stup.args, :(One()))
         else
             push!(stup.args, Expr(:ref, :s, n))
         end
