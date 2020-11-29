@@ -9,7 +9,13 @@ If no axis is contiguous, it returns `Contiguous{-1}`.
 If unknown, it returns `nothing`.
 """
 contiguous_axis(x) = contiguous_axis(typeof(x))
-contiguous_axis(::Type) = nothing
+function contiguous_axis(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return nothing
+    else
+        return contiguous_axis(parent_type(T))
+    end
+end
 contiguous_axis(::Type{<:Array}) = Contiguous{1}()
 contiguous_axis(::Type{<:Tuple}) = Contiguous{1}()
 function contiguous_axis(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractVector{T}}

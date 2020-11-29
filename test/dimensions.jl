@@ -5,7 +5,7 @@ struct NamedDimsWrapper{L,T,N,P<:AbstractArray{T,N}} <: AbstractArray{T,N}
     parent::P
     NamedDimsWrapper{L}(p) where {L} = new{L,eltype(p),ndims(p),typeof(p)}(p)
 end
-ArrayInterface.parent_type(::Type{T}) where {P,T<:NamedDimsWrapper{<:Any,P}} = P
+ArrayInterface.parent_type(::Type{T}) where {P,T<:NamedDimsWrapper{<:Any,<:Any,<:Any,P}} = P
 ArrayInterface.has_dimnames(::Type{T}) where {T<:NamedDimsWrapper} = true
 ArrayInterface.dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L}} = L
 Base.parent(x::NamedDimsWrapper) = x.parent
@@ -48,7 +48,7 @@ dnums = ntuple(+, length(d))
 
 @test @inferred(ArrayInterface.size(x, :x)) == size(parent(x), 1)
 @test @inferred(ArrayInterface.axes(x, :x)) == axes(parent(x), 1)
-@test @inferred(ArrayInterface.strides(x, :x)) == strides(parent(x))[1]
+@test ArrayInterface.strides(x, :x) == ArrayInterface.strides(parent(x))[1]
 
 x[x = 1] = [2, 3]
 @test @inferred(getindex(x, x = 1)) == [2, 3]
