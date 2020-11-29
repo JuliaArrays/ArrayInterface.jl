@@ -25,6 +25,7 @@ parent_type(::Type{<:LinearAlgebra.AbstractTriangular{T,S}}) where {T,S} = S
 parent_type(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A} = A
 parent_type(::Type{Slice{T}}) where {T} = T
 parent_type(::Type{T}) where {T} = T
+parent_type(::Type{R}) where {S, T, A <: AbstractArray{S}, N, R <: Base.ReinterpretArray{T, N, S, A}} = A
 
 """
     known_length(::Type{T})
@@ -880,10 +881,11 @@ function __init__()
       size(A::OffsetArrays.OffsetArray) = size(parent(A))
       strides(A::OffsetArrays.OffsetArray) = strides(parent(A))
       # offsets(A::OffsetArrays.OffsetArray) = map(+, A.offsets, offsets(parent(A)))
-      device(::OffsetArrays.OffsetArray) = CheckParent()
-      contiguous_axis(A::OffsetArrays.OffsetArray) = contiguous_axis(parent(A))
-      contiguous_batch_size(A::OffsetArrays.OffsetArray) = contiguous_batch_size(parent(A))
-      stride_rank(A::OffsetArrays.OffsetArray) = stride_rank(parent(A))
+      parent_type(::Type{O}) where {T,N,A<:AbstractArray{T,N},O<:OffsetArrays.OffsetArray{T,N,A}} = A
+      device(::Type{<:OffsetArrays.OffsetArray}) = CheckParent()
+      contiguous_axis(::Type{A}) where {A <: OffsetArrays.OffsetArray} = contiguous_axis(parent_type(A))
+      contiguous_batch_size(::Type{A}) where {A <: OffsetArrays.OffsetArray} = contiguous_batch_size(parent_type(A))
+      stride_rank(::Type{A}) where {A <: OffsetArrays.OffsetArray} = stride_rank(parent_type(A))
   end
 end
 
