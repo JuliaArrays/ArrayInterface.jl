@@ -9,7 +9,13 @@ If no axis is contiguous, it returns `Contiguous{-1}`.
 If unknown, it returns `nothing`.
 """
 contiguous_axis(x) = contiguous_axis(typeof(x))
-contiguous_axis(::Type) = nothing
+function contiguous_axis(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return nothing
+    else
+        return contiguous_axis(parent_type(T))
+    end
+end
 contiguous_axis(::Type{<:Array}) = Contiguous{1}()
 contiguous_axis(::Type{<:Tuple}) = Contiguous{1}()
 function contiguous_axis(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractVector{T}}
@@ -233,21 +239,6 @@ permute(t::NTuple{N}, I::NTuple{N,Int}) where {N} = ntuple(n -> t[I[n]], Val{N}(
 end
 
 """
-  size(A)
-
-Returns the size of `A`. If the size of any axes are known at compile time,
-these should be returned as `Static` numbers. For example:
-```julia
-julia> using StaticArrays, ArrayInterface
-
-julia> A = @SMatrix rand(3,4);
-
-julia> ArrayInterface.size(A)
-(StaticInt{3}(), StaticInt{4}())
-```
-"""
-size(A) = Base.size(A)
-"""
   strides(A)
 
 Returns the strides of array `A`. If any strides are known at compile time,
@@ -260,6 +251,7 @@ julia> ArrayInterface.strides(A)
 ```
 """
 strides(A) = Base.strides(A)
+strides(A, d) = strides(A)[to_dims(A, d)]
 
 """
   offsets(A)
@@ -304,7 +296,6 @@ end
     end
 end
 
-
 @inline size(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} = permute(size(parent(B)), Val{(2,1)}())
 @inline size(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = permute(size(parent(B)), Val{I1}())
 @inline size(A::AbstractArray, ::StaticInt{N}) where {N} = size(A)[N]
@@ -341,3 +332,4 @@ end
     end
     Expr(:block, Expr(:meta, :inline), t)
 end
+

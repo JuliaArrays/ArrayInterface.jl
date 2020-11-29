@@ -11,7 +11,7 @@ parameterless_type(x) = parameterless_type(typeof(x))
 parameterless_type(x::Type) = __parameterless_type(x)
 
 """
-    parent_type(x)
+    parent_type(::Type{T})
 
 Returns the parent array that `x` wraps.
 """
@@ -889,6 +889,7 @@ end
 
 include("static.jl")
 include("ranges.jl")
+include("dimensions.jl")
 include("indexing.jl")
 include("stridelayout.jl")
 
