@@ -2,6 +2,7 @@
 
 [![Build Status](https://travis-ci.com/SciML/ArrayInterface.jl.svg?branch=master)](https://travis-ci.com/SciML/ArrayInterface.jl)
 [![Build status](https://ci.appveyor.com/api/projects/status/s4vnsj386dyyv655?svg=true)](https://ci.appveyor.com/project/ChrisRackauckas/arrayinterface-jl)
+[![codecov](https://codecov.io/gh/SciML/ArrayInterface.jl/branch/master/graph/badge.svg?token=Yfe2Qzk0JI)](https://codecov.io/gh/SciML/ArrayInterface.jl)
 
 Julia has only recently reached v1.0 and the AbstractArray interface is still
 quite new. The purpose of this library is to solidify extensions to the current
