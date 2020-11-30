@@ -151,22 +151,22 @@ julia> ArrayInterface.size(A)
 (StaticInt{3}(), StaticInt{4}())
 ```
 """
-size(A) = Base.size(A)
-size(A, d) = Base.size(A, to_dims(A, d))
-size(x::LinearAlgebra.Adjoint{T,V}) where {T, V <: AbstractVector{T}} = (One(), static_length(x))
-size(x::LinearAlgebra.Transpose{T,V}) where {T, V <: AbstractVector{T}} = (One(), static_length(x))
+@inline size(A) = Base.size(A)
+@inline size(A, d) = Base.size(A, to_dims(A, d))
+@inline size(x::LinearAlgebra.Adjoint{T,V}) where {T, V <: AbstractVector{T}} = (One(), static_length(x))
+@inline size(x::LinearAlgebra.Transpose{T,V}) where {T, V <: AbstractVector{T}} = (One(), static_length(x))
 
 """
     axes(A, d)
 
 Return a valid range that maps to each index along dimension `d` of `A`.
 """
-axes(A, d) = Base.axes(A, to_dims(A, d))
+@inline axes(A, d) = Base.axes(A, to_dims(A, d))
 
 """
     axes(A)
 
 Return a tuple of ranges where each range maps to each element along a dimension of `A`.
 """
-axes(A) = Base.axes(A)
+@inline axes(A) = Base.axes(A)
 

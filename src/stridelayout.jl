@@ -337,10 +337,11 @@ end
 # @inline offsets(A::AbstractArray{<:Any,N}) where {N} = ntuple(n -> offsets(A, n), Val{N}())
 # Explicit tuple needed for inference.
 @generated function offsets(A::AbstractArray{<:Any,N}) where {N}
-    quote
-        $(Expr(:meta, :inline))
-        Base.Cartesian.@ntuple $N n -> offsets(A, n)
+    t = Expr(:tuple)
+    for n ∈ 1:N
+        push!(t.args, :(offsets(A, StaticInt{$n}())))
     end
+    Expr(:block, Expr(:meta, :inline), t)
 end
 
 @inline size(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} = permute(size(parent(B)), Val{(2,1)}())
