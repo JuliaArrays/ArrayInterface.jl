@@ -567,13 +567,8 @@ device(::Type) = nothing
 device(::Type{<:Tuple}) = CPUIndex()
 # Relies on overloading for GPUArrays that have subtyped `StridedArray`.
 device(::Type{<:StridedArray}) = CPUPointer()
-function device(::Type{T}) where {T <: SubArray}
-    if T <: StridedArray
-        device(parent_type(T))
-    else
-        CPUIndex()
-    end
-end
+device(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I<:Tuple{Vararg{Union{Integer,AbstractRange}}}} = device(A)
+device(::Type{<:SubArray}) = CPUIndex()
 function device(::Type{T}) where {T <: AbstractArray}
     P = parent_type(T)
     T === P ? CPUIndex() : device(P)
