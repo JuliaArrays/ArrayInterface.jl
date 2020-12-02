@@ -1,6 +1,21 @@
 
 @testset "dimensions" begin
 
+@testset "to_dims" begin
+    @testset "small case" begin
+        @test ArrayInterface.to_dims((:x, :y), :x) == 1
+        @test ArrayInterface.to_dims((:x, :y), :y) == 2
+        @test_throws ArgumentError ArrayInterface.to_dims((:x, :y), :z)  # not found
+    end
+
+    @testset "large case" begin
+        @test ArrayInterface.to_dims((:x, :y, :a, :b, :c, :d), :x) == 1
+        @test ArrayInterface.to_dims((:x, :y, :a, :b, :c, :d), :a) == 3
+        @test ArrayInterface.to_dims((:x, :y, :a, :b, :c, :d), :d) == 6
+        @test_throws ArgumentError ArrayInterface.to_dims((:x, :y, :a, :b, :c, :d), :z) # not found
+    end
+end
+
 struct NamedDimsWrapper{L,T,N,P<:AbstractArray{T,N}} <: AbstractArray{T,N}
     parent::P
     NamedDimsWrapper{L}(p) where {L} = new{L,eltype(p),ndims(p),typeof(p)}(p)
@@ -10,8 +25,11 @@ ArrayInterface.has_dimnames(::Type{T}) where {T<:NamedDimsWrapper} = true
 ArrayInterface.dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L}} = L
 Base.parent(x::NamedDimsWrapper) = x.parent
 Base.size(x::NamedDimsWrapper) = size(parent(x))
+Base.size(x::NamedDimsWrapper, d) = ArrayInterface.size(x, d)
 Base.axes(x::NamedDimsWrapper) = axes(parent(x))
+Base.axes(x::NamedDimsWrapper, d) = ArrayInterface.axes(x, d)
 Base.strides(x::NamedDimsWrapper) = Base.strides(parent(x))
+Base.strides(x::NamedDimsWrapper, d) =  ArrayInterface.strides(x, d)
 
 Base.getindex(x::NamedDimsWrapper; kwargs...) = ArrayInterface.getindex(x; kwargs...)
 Base.getindex(x::NamedDimsWrapper, args...) = ArrayInterface.getindex(x, args...)
@@ -46,9 +64,9 @@ dnums = ntuple(+, length(d))
 @test @inferred(ArrayInterface.to_dims(x, reverse(d))) === reverse(dnums)
 @test_throws ArgumentError ArrayInterface.to_dims(x, :z)
 
-@test @inferred(ArrayInterface.size(x, :x)) == size(parent(x), 1)
-@test @inferred(ArrayInterface.axes(x, :x)) == axes(parent(x), 1)
-@test ArrayInterface.strides(x, :x) == ArrayInterface.strides(parent(x))[1]
+@test @inferred(size(x, :x)) == size(parent(x), 1)
+@test @inferred(axes(x, :x)) == axes(parent(x), 1)
+@test strides(x, :x) == ArrayInterface.strides(parent(x))[1]
 
 x[x = 1] = [2, 3]
 @test @inferred(getindex(x, x = 1)) == [2, 3]

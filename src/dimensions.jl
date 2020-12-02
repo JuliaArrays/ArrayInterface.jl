@@ -71,13 +71,14 @@ end
 
 This returns the dimension(s) of `x` corresponding to `d`.
 """
-to_dims(x, d::Integer) = Int(d)
-to_dims(x, d::Colon) = d   # `:` is the default for most methods that take `dims`
-@inline to_dims(x, d::Tuple) = map(i -> to_dims(x, i), d)
-@inline function to_dims(x, d::Symbol)::Int
-    i = _sym_to_dim(dimnames(x), d)
+to_dims(x, d) = to_dims(dimnames(x), d)
+to_dims(x::Tuple{Vararg{Symbol}}, d::Integer) = Int(d)
+to_dims(x::Tuple{Vararg{Symbol}}, d::Colon) = d   # `:` is the default for most methods that take `dims`
+@inline to_dims(x::Tuple{Vararg{Symbol}}, d::Tuple) = map(i -> to_dims(x, i), d)
+@inline function to_dims(x::Tuple{Vararg{Symbol}}, d::Symbol)::Int
+    i = _sym_to_dim(x, d)
     if i === 0
-        throw(ArgumentError("Specified name ($(repr(d))) does not match any dimension name ($(dimnames(x)))"))
+        throw(ArgumentError("Specified name ($(repr(d))) does not match any dimension name ($(x))"))
     end
     return i
 end
@@ -152,6 +153,7 @@ julia> ArrayInterface.size(A)
 ```
 """
 @inline size(A) = Base.size(A)
+@inline size(A, d::Integer) = size(A)[Int(d)]
 @inline size(A, d) = Base.size(A, to_dims(A, d))
 @inline size(x::LinearAlgebra.Adjoint{T,V}) where {T, V <: AbstractVector{T}} = (One(), static_length(x))
 @inline size(x::LinearAlgebra.Transpose{T,V}) where {T, V <: AbstractVector{T}} = (One(), static_length(x))
@@ -161,7 +163,8 @@ julia> ArrayInterface.size(A)
 
 Return a valid range that maps to each index along dimension `d` of `A`.
 """
-@inline axes(A, d) = Base.axes(A, to_dims(A, d))
+@inline axes(A, d) = axes(A, to_dims(A, d))
+@inline axes(A, d::Integer) = axes(A)[Int(d)]
 
 """
     axes(A)
