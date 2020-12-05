@@ -563,7 +563,13 @@ For other `AbstractArray`s and `Tuple`s, returns `ArrayInterface.CPUIndex()`.
 Otherwise, returns `nothing`.
 """
 device(A) = device(typeof(A))
-device(::Type) = nothing
+function device(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return nothing
+    else
+        return CheckParent()
+    end
+end
 device(::Type{<:Tuple}) = CPUIndex()
 # Relies on overloading for GPUArrays that have subtyped `StridedArray`.
 device(::Type{<:StridedArray}) = CPUPointer()
