@@ -105,11 +105,11 @@ contiguous_batch_size(::Type{<:Tuple}) = ContiguousBatch{0}()
 contiguous_batch_size(::Type{<:Union{Transpose{T,A},Adjoint{T,A}}}) where {T,A<:AbstractVecOrMat{T}} = contiguous_batch_size(A)
 contiguous_batch_size(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = contiguous_batch_size(A)
 function contiguous_batch_size(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}}
-    _contiguous_batch_size(S, contiguous_batch_size(A), contiguous_axis(A))
+    _contiguous_batch_size(I, contiguous_batch_size(A), contiguous_axis(A))
 end
 _contiguous_batch_size(::Any, ::Any, ::Any) = nothing
-@generated function _contiguous_batch_size(::Type{S}, ::ContiguousBatch{B}, ::Contiguous{C}) where {B,C,N,NP,T,A<:AbstractArray{T,NP},I,S <: SubArray{T,N,A,I}}
-    if I.parameters[C] <: AbstractUnitRange
+@generated function _contiguous_batch_size(::Type{I}, ::ContiguousBatch{B}, ::Contiguous{C}) where {I,B,C}
+    if known_step(I.parameters[C]) === 1
         Expr(:call, Expr(:curly, :ContiguousBatch, B))
     else
         Expr(:call, Expr(:curly, :ContiguousBatch, -1))
