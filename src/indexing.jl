@@ -324,7 +324,6 @@ function unsafe_reconstruct(A::AbstractUnitRange, data; kwargs...)
     return static_first(data):static_last(data)
 end
 
-
 """
     to_axes(A, inds)
     to_axes(A, old_axes, inds) -> new_axes
@@ -381,6 +380,9 @@ end
     return to_axis(eachindex(LinearIndices(axs)), inds)
 end
 
+###
+### getters
+###
 """
     ArrayInterface.getindex(A, args...)
 
@@ -444,15 +446,8 @@ end
 
 Returns a collection of `A` given `inds`. `inds` is assumed to have been bounds-checked.
 """
-function unsafe_get_collection(A, inds; kwargs...)
-    axs = to_axes(A, inds)
-    dest = similar(A, axs)
-    if map(Base.unsafe_length, axes(dest)) == map(Base.unsafe_length, axs)
-        _unsafe_getindex!(dest, A, inds...; kwargs...) # usually a generated function, don't allow it to impact inference result
-    else
-        Base.throw_checksize_error(dest, axs)
-    end
-    return dest
+function unsafe_get_collection(src, inds; kwargs...)
+    return unsafe_get_collection(device(src), src, inds; kwargs...)
 end
 
 can_preserve_indices(::Type{T}) where {T<:AbstractRange} = known_step(T) === 1
@@ -471,14 +466,14 @@ _ints2range(x::AbstractRange) = x
     return true
 end
 
-@inline function unsafe_get_collection(A::CartesianIndices{N}, inds) where {N}
+@inline function unsafe_get_collection(A::CartesianIndices{N}, inds; kwargs...) where {N}
     if (length(inds) === 1 && N > 1) || !can_preserve_indices(typeof(inds))
         return Base._getindex(IndexStyle(A), A, inds...)
     else
         return CartesianIndices(to_axes(A, _ints2range.(inds)))
     end
 end
-@inline function unsafe_get_collection(A::LinearIndices{N}, inds) where {N}
+@inline function unsafe_get_collection(A::LinearIndices{N}, inds; kwargs...) where {N}
     if is_linear_indexing(A, inds)
         return @inbounds(eachindex(A)[first(inds)])
     elseif can_preserve_indices(typeof(inds))
@@ -488,6 +483,80 @@ end
     end
 end
 
+
+_getindex_kwargs(x, kwargs, args...) = @inbounds getindex(x, args...; kwargs...)
+
+function _generate_unsafe_getindex!_body(N::Int)
+    quote
+        Base.@_inline_meta
+        D = eachindex(dest)
+        Dy = iterate(D)
+        @inbounds Base.Cartesian.@nloops $N j d->I[d] begin
+            # This condition is never hit, but at the moment
+            # the optimizer is not clever enough to split the union without it
+            Dy === nothing && return dest
+            (idx, state) = Dy
+            dest[idx] = Base.Cartesian.@ncall $N _getindex_kwargs src kwargs j
+            Dy = iterate(D, state)
+        end
+        return dest
+    end
+end
+
+@generated function _unsafe_getindex!(dest::AbstractArray, src::AbstractArray, I::Vararg{Union{Real, AbstractArray}, N}; kwargs...) where N
+    _generate_unsafe_getindex!_body(N)
+end
+
+function unsafe_get_collection(::CPUIndex, src, inds; kwargs...)
+    return unsafe_get_collection_by_index(IndexStyle(src), src, inds)
+end
+
+# TODO
+function unsafe_get_collection_by_index(::IndexLinear, src, inds; kwargs...)
+    dst = similar(src, Base.index_shape(inds...))
+    src_iter = @inbounds(view(LinearIndices(src), inds...)) # FIXME not ideal iterator
+    dst_iter = indices(dst)
+    # TODO should we check that src_iter and dst_iter have the same size?
+    # at this point in the pipeline it shouldn't be an issue
+    src_i = iterate(src_itr)
+    dst_i = iterate(dst_itr)
+    @inbounds while src_i !== nothing
+        dst[dst_i] = src[src_i]
+        src_i = iterate(src, last(src_i))
+        dst_i = iterate(dst, last(dst_i))
+    end
+    return dst
+end
+
+function unsafe_get_collection_by_index(::IndexStyle, src, inds; kwargs...)
+    axs = to_axes(src, inds)
+    dest = similar(src, axs)
+    if map(Base.unsafe_length, axes(dest)) == map(Base.unsafe_length, axs)
+        # usually a generated function, don't allow it to impact inference result
+        _unsafe_getindex!(dest, src, inds...; kwargs...)
+    else
+        Base.throw_checksize_error(dest, axs)
+    end
+    return dest
+end
+
+function unsafe_get_collection(::CPUPointer, src, inds; kwargs...)
+    sz = static_length.(inds)
+    return unsafe_get_collection_by_pointer(          # FIXME not an actual function
+        allocate_memory(src, sz),                     # FIXME not an actual function
+        OptionallyStaticUnitRange(One(), prod(sz)),
+        pointer(src),
+        @inbounds(view(LinearIndices(src), inds...))  # FIXME not ideal iterator
+    )
+end
+
+function unsafe_get_collection(::CheckParent, src, inds; kwargs...)
+    return unsafe_reconstruct(src, @inbounds(Base.getindex(parent(src), inds...; kwargs...)))
+end
+
+###
+### setters
+###
 """
     ArrayInterface.setindex!(A, args...)
 
@@ -560,26 +629,6 @@ end
 function _setindex_kwargs!(x, val, kwargs, args...)
     @inbounds setindex!(x, val, args...; kwargs...)
 end
-function _getindex_kwargs(x, kwargs, args...)
-    @inbounds getindex(x, args...; kwargs...)
-end
-
-function _generate_unsafe_getindex!_body(N::Int)
-    quote
-        Base.@_inline_meta
-        D = eachindex(dest)
-        Dy = iterate(D)
-        @inbounds Base.Cartesian.@nloops $N j d->I[d] begin
-            # This condition is never hit, but at the moment
-            # the optimizer is not clever enough to split the union without it
-            Dy === nothing && return dest
-            (idx, state) = Dy
-            dest[idx] = Base.Cartesian.@ncall $N _getindex_kwargs src kwargs j
-            Dy = iterate(D, state)
-        end
-        return dest
-    end
-end
 
 function _generate_unsafe_setindex!_body(N::Int)
     quote
@@ -600,11 +649,6 @@ function _generate_unsafe_setindex!_body(N::Int)
     end
 end
 
-@generated function _unsafe_getindex!(dest::AbstractArray, src::AbstractArray, I::Vararg{Union{Real, AbstractArray}, N}; kwargs...) where N
-    _generate_unsafe_getindex!_body(N)
-end
-
 @generated function _unsafe_setindex!(::IndexStyle, A::AbstractArray, x, I::Vararg{Union{Real,AbstractArray}, N}; kwargs...) where N
     _generate_unsafe_setindex!_body(N)
 end
-
