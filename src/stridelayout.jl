@@ -231,11 +231,11 @@ _dense_dims(::Any, ::Any) = nothing
     end
     dense_tup = Expr(:tuple)
     for np in 1:NP
-        spₙ = sp[np]
-        if I.parameters[np] <: Base.Slice
+        Iₙₚ = I.parameters[np]
+        if Iₙₚ <: AbstractUnitRange
             push!(dense_tup.args, densev[np])
-        elseif I.parameters[np] <: AbstractUnitRange
-            push!(dense_tup.args, densev[np])
+        elseif Iₙₚ <: AbstractVector
+            push!(dense_tup.args, false)
         end
     end
     # If n != N, then an axis was indexed by something other than an integer or `AbstractUnitRange`, so we return `nothing`.
