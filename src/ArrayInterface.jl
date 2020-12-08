@@ -760,7 +760,11 @@ function __init__()
         end
         t
     end
-    parent_type(::Type{<:StaticArrays.SizedArray{S, T, M, N, A}}) where {S,T,M,N,A} = A
+    if StaticArrays.SizedArray{Tuple{8, 8}, Float64, 2, 2} isa UnionAll
+        parent_type(::Type{<:StaticArrays.SizedArray{S, T, M, N, A}}) where {S,T,M,N,A} = A
+    else
+        parent_type(::Type{<:StaticArrays.SizedArray{S, T, M, N}}) where {S,T,M,N} = Array{T,N}
+    end
     @require Adapt="79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
       function Adapt.adapt_storage(::Type{<:StaticArrays.SArray{S}},xs::Array) where S
           StaticArrays.SArray{S}(xs)

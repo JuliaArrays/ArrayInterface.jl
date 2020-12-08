@@ -372,6 +372,8 @@ end
 
 const OptionallyStaticRange = Union{<:OptionallyStaticUnitRange,<:OptionallyStaticStepRange}
 
+Base.eachindex(r::OptionallyStaticRange) = r
+
 Base.to_shape(x::OptionallyStaticRange) = length(x)
 Base.to_shape(x::Slice{T}) where {T<:OptionallyStaticRange} = length(x)
 
