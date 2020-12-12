@@ -1,7 +1,7 @@
 # ArrayInterface.jl
 
-![CI](https://github.com/SciML/ArrayInterface.jl/workflows/CI/badge.svg)
-[![Build status](https://ci.appveyor.com/api/projects/status/s4vnsj386dyyv655?svg=true)](https://ci.appveyor.com/project/ChrisRackauckas/arrayinterface-jl)
+[![CI](https://github.com/SciML/ArrayInterface.jl/workflows/CI/badge.svg)](https://github.com/SciML/ArrayInterface.jl/actions?query=workflow%3ACI)
+[![CI (Julia nightly)](https://github.com/SciML/ArrayInterface.jl/workflows/CI%20(Julia%20nightly)/badge.svg)](https://github.com/SciML/ArrayInterface.jl/actions?query=workflow%3A%22CI+%28Julia+nightly%29%22)
 [![codecov](https://codecov.io/gh/SciML/ArrayInterface.jl/branch/master/graph/badge.svg?token=Yfe2Qzk0JI)](https://codecov.io/gh/SciML/ArrayInterface.jl)
 
 Julia has only recently reached v1.0 and the AbstractArray interface is still
