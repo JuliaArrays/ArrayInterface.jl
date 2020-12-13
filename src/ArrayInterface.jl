@@ -889,7 +889,7 @@ function __init__()
       strides(A::OffsetArrays.OffsetArray) = strides(parent(A))
       # offsets(A::OffsetArrays.OffsetArray) = map(+, A.offsets, offsets(parent(A)))
       parent_type(::Type{O}) where {T,N,A<:AbstractArray{T,N},O<:OffsetArrays.OffsetArray{T,N,A}} = A
-      device(::Type{<:OffsetArrays.OffsetArray}) = CheckParent()
+      device(::Type{A}) where {A <: OffsetArrays.OffsetArray} = device(parent_type(A))
       contiguous_axis(::Type{A}) where {A <: OffsetArrays.OffsetArray} = contiguous_axis(parent_type(A))
       contiguous_batch_size(::Type{A}) where {A <: OffsetArrays.OffsetArray} = contiguous_batch_size(parent_type(A))
       stride_rank(::Type{A}) where {A <: OffsetArrays.OffsetArray} = stride_rank(parent_type(A))

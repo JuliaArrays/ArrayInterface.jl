@@ -263,6 +263,7 @@ DummyZeros(dims...) = DummyZeros{Float64}(dims...)
 Base.size(x::DummyZeros) = x.dims
 Base.getindex(::DummyZeros{T}, inds...) where {T} = zero(T)
 
+using OffsetArrays
 @testset "Memory Layout" begin
     A = zeros(3,4,5);
     D1 = view(A, 1:2:3, :, :)  # first dimension is discontiguous
@@ -272,12 +273,12 @@ Base.getindex(::DummyZeros{T}, inds...) where {T} = zero(T)
     @test @inferred(device(PermutedDimsArray(A,(3,1,2)))) === ArrayInterface.CPUPointer()
     @test @inferred(device(view(A, 1, :, 2:4))) === ArrayInterface.CPUPointer()
     @test @inferred(device(view(A, 1, :, 2:4)')) === ArrayInterface.CPUPointer()
-    @test @inferred(device(view(PermutedDimsArray(A, (3,1,2)), 1, :, 2:4)')) === ArrayInterface.CPUPointer()
-    @test @inferred(device(view(A, 1, :, [2,3,4]))) === ArrayInterface.CPUIndex()
-    @test @inferred(device(view(A, 1, :, [2,3,4])')) === ArrayInterface.CPUIndex()
-    @test @inferred(device(@SArray(zeros(2,2,2)))) === ArrayInterface.CPUIndex()
-    @test @inferred(device(@view(@SArray(zeros(2,2,2))[1,1:2,:]))) === ArrayInterface.CPUIndex()
-    @test @inferred(device(@MArray(zeros(2,2,2)))) === ArrayInterface.CPUPointer()
+    @test @inferred(device(OffsetArray(view(PermutedDimsArray(A, (3,1,2)), 1, :, 2:4)', 3, -173))) === ArrayInterface.CPUPointer()
+    @test @inferred(device(view(OffsetArray(A,2,3,-12), 4, :, -11:-9))) === ArrayInterface.CPUPointer()
+    @test @inferred(device(view(OffsetArray(A,2,3,-12), 3, :, [-11,-10,-9])')) === ArrayInterface.CPUIndex()
+    @test @inferred(device(OffsetArray(@SArray(zeros(2,2,2)),-123,29,3231))) === ArrayInterface.CPUIndex()
+    @test @inferred(device(OffsetArray(@view(@SArray(zeros(2,2,2))[1,1:2,:]),-3,4))) === ArrayInterface.CPUIndex()
+    @test @inferred(device(OffsetArray(@MArray(zeros(2,2,2)),8,-2,-5))) === ArrayInterface.CPUPointer()
     @test isnothing(device("Hello, world!"))
 
     @test @inferred(contiguous_axis(@SArray(zeros(2,2,2)))) === ArrayInterface.Contiguous(1)
@@ -360,7 +361,6 @@ Base.getindex(::DummyZeros{T}, inds...) where {T} = zero(T)
     @test collect(strides(B))[collect(stride_rank(doubleperm))] == collect(strides(doubleperm))
 end
 
-using OffsetArrays
 @testset "Static-Dynamic Size, Strides, and Offsets" begin
     A = zeros(3,4,5); Ap = @view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])';
     S = @SArray zeros(2,3,4); Sp = @view(PermutedDimsArray(S,(3,1,2))[2:3,1:2,:]);
