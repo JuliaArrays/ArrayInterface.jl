@@ -434,3 +434,12 @@ end
   return Base.Slice(OptionallyStaticUnitRange(fst, lst))
 end
 
+@inline function Base.iterate(r::OptionallyStaticRange, i::Integer)
+    if static_last(r) == i
+        return nothing
+    else
+        out = static_step(r) + i
+        return out, out
+    end
+end
+

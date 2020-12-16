@@ -4,7 +4,7 @@ using Requires
 using LinearAlgebra
 using SparseArrays
 
-using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice
+using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, front
 
 Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
@@ -51,7 +51,6 @@ end
 end
 _known_length(x::Tuple{Vararg{<:Union{Int,Nothing}}}) = nothing
 _known_length(x::Tuple{Vararg{Int}}) = prod(x)
-
 
 """
     can_change_size(::Type{T}) -> Bool
@@ -580,6 +579,15 @@ function device(::Type{T}) where {T <: AbstractArray}
     T === P ? CPUIndex() : device(P)
 end
 
+"""
+    memory_offset(x) -> Integer
+
+Returns the offset from zero of the first element of `x` given it's pointer.
+(e.i., `unsafe_load(pointer(x) + memory_offset(x))` should return the value of `x`).
+"""
+@inline memory_offset(x) = memory_offset(device(x), x)
+@inline memory_offset(::CPUPointer, x) = pointer(x)
+memory_offset(::Any, x) = throw("Memory access for $(typeof(x)) not implemented yet.")
 
 """
 defines_strides(::Type{T}) -> Bool
@@ -900,7 +908,8 @@ end
 include("static.jl")
 include("ranges.jl")
 include("dimensions.jl")
-include("indexing.jl")
 include("stridelayout.jl")
+include("indexing.jl")
+include("parsing.jl")
 
 end

@@ -324,6 +324,8 @@ function unsafe_reconstruct(A::AbstractUnitRange, data; kwargs...)
     return static_first(data):static_last(data)
 end
 
+unsafe_reconstruct(::Array, data; kwargs...) = data
+
 """
     to_axes(A, inds)
     to_axes(A, old_axes, inds) -> new_axes
@@ -378,6 +380,159 @@ end
 end
 @inline function to_multi_axis(::IndexStyle, axs::Tuple, inds)
     return to_axis(eachindex(LinearIndices(axs)), inds)
+end
+
+# TODO document IndexMap
+"""
+    IndexMap{S,I,D}
+"""
+struct IndexMap{S,I,D}
+    src::S
+    idx::I
+    dst::D
+end
+
+src_map(x::IndexMap) = x.src
+idx_map(x::IndexMap) = x.idx
+dst_map(x::IndexMap) = x.dst
+
+Base.show(io::IO, x::IndexMap) = print(io, "IndexMap($(src_map(x)), $(idx_map(x)), $(dst_map(x)))")
+
+"""
+    index_maps(x, inds)
+"""
+index_maps(x, inds) = _index_maps(Val(argdims(x, inds)), typeof(inds))
+@generated function _index_maps(::Val{D}, ::Type{T}) where {D,T}
+    out = []
+    dst_map = 1
+    src_map = 1
+    d = 1
+    for i in 1:length(D)
+        nd = D[i]
+        if nd === 0
+            push!(out, IndexMap(src_map, i, nothing))
+            src_map += 1
+        elseif nd === 1
+            push!(out, IndexMap(src_map, i, dst_map))
+            src_map += 1
+            dst_map += 1
+        else
+            if T.parameters[i] <: Base.AbstractCartesianIndex
+                push!(out, IndexMap(ntuple(ii -> ii + src_map, nd), i, nothing))
+            else
+                push!(out, IndexMap(ntuple(ii -> ii + src_map, nd), i, dst_map))
+                dst_map += 1
+            end
+            src_map += nd
+        end
+    end
+    return (out...,)
+end
+
+"""
+    contiguous_rank_slices(x, inds) -> Tuple{Vararg{Union{Val{false},Val{true}}}}
+
+Returns a tuple of `Val(<:Bool)` indicating if wich position of `inds` correspond to
+subsequent slices along a dimensions that have contiguous stride ranks.
+"""
+function contiguous_rank_slices(x, inds)
+    return _contiguous_rank_slices(Val(index_maps(x, typeof(inds))), contiguous_axis(x), stride_rank(x))
+end
+@generated function _contiguous_rank_slices(::Val{M}, ::Type{I}, ::Contiguous{C}, ::StrideRank{SR}) where {M,I,C,SR}
+    NS = length(SR)
+    contiguous_ranks = fill(false, NS)
+    contiguous_ranks[C] = true
+
+    if NS > C
+        for i in (C + 1):NS
+            if (SR[i - 1] + 1) === SR[i]
+                contiguous_ranks[i] = true
+            else
+                break
+            end
+        end
+    end
+
+    N = length(M)
+    out = Expr(:tuple)
+    if C === 1 && (I.parameters[C] <: Base.Slice)
+        push!(out.args, Val(true))
+    else
+        push!(out.args, Val(false))
+    end
+
+    if N > 1
+        for i in 2:N
+            if I.parameters[i] <: Base.Slice &&
+                out.args[i - 1] === Val(true) &&
+                contiguous_ranks[src_map(M[i])]
+                push!(out.args, Val(true))
+            else
+                push!(out.args, Val(false))
+            end
+        end
+    end
+    return out
+end
+
+# TODO should probably create constructor safety checks
+"""
+    DroppedIndexMaps
+
+Wraps a tuple of `IndexMaps` who are besides each other and are dropped in the destination
+array.
+"""
+struct DroppedIndexMaps{M}
+    maps::M
+end
+
+"""
+    dropped_index_maps(index_maps::Tuple)
+
+Iterates through the results of `index_maps(x, inds)` replaces appropriate `IndexMap`s with
+[`DroppedIndexMaps](@ref).
+"""
+@generated function dropped_index_maps(x::T) where {N,T<:Tuple{Vararg{<:Any,N}}}
+    out = Expr(:tuple)
+    for i in 1:N
+        if T.parameters[i] <: IndexMap{<:Any,<:Any,Nothing}
+            if isempty(out.args) || (out.args[end].head !== :call)
+                push!(out.args, Expr(:call, :DroppedIndexMaps, Expr(:tuple)))
+            end
+            push!(out.args[end].args[2].args, :(getfield(x, $i)))
+        else
+            push!(out.args, :(x[$i]))
+        end
+    end
+    Expr(:block, Expr(:meta, :inline), out)
+end
+
+"""
+    combine_slices(index_maps::Tuple, contiguous_rank_slices::Tuple)
+
+Combines `IndexMap`s corresponding to to contiguous rank slices.
+"""
+@generated function combine_slices(x::T, ::CRS) where {N,T<:Tuple{Vararg{<:Any,N}},CRS<:Tuple}
+    out = Expr(:tuple)
+    for i in 1:N
+        if CRS.parameters[i].parameters[1]
+            if isempty(out.args) || (out.args[end].head !== :call)
+                push!(out.args, Expr(:call, :IndexMap, Expr(:tuple), Expr(:tuple), Expr(:tuple)))
+            end
+            push!(out.args[end].args[2].args, :(src_map(getfield(x, $i))))
+            push!(out.args[end].args[3].args, :(idx_map(getfield(x, $i))))
+            push!(out.args[end].args[4].args, :(dst_map(getfield(x, $i))))
+        else
+            push!(out.args, :(getfield(x, $i)))
+        end
+    end
+    Expr(:block, Expr(:meta, :inline), out)
+end
+
+@inline function index_loops(x, inds)
+    maps = index_maps(x, typeof(inds))
+    crs = _contiguous_rank_slices(Val(maps), typeof(inds), contiguous_axis(x), stride_rank(x))
+    return dropped_index_maps(combine_slices(maps, crs))
 end
 
 ###
@@ -450,6 +605,27 @@ function unsafe_get_collection(src, inds; kwargs...)
     return unsafe_get_collection(device(src), src, inds; kwargs...)
 end
 
+function unsafe_get_collection(::CPUIndex, src, inds; kwargs...)
+    axs = to_axes(src, inds)
+    dest = similar(src, axs)
+    if map(Base.unsafe_length, axes(dest)) == map(Base.unsafe_length, axs)
+        # usually a generated function, don't allow it to impact inference result
+        _unsafe_getindex!(dest, src, inds...; kwargs...)
+    else
+        Base.throw_checksize_error(dest, axs)
+    end
+    return dest
+end
+
+function unsafe_get_collection(::CheckParent, src, inds; kwargs...)
+    if isempty(kwargs)
+        # b/c Base.getindex doesn't typically support kwargs it can cause unexpected issues
+        return unsafe_reconstruct(src, @inbounds(Base.getindex(parent(src), inds...)))
+    else
+        return unsafe_reconstruct(src, @inbounds(Base.getindex(parent(src), inds...; kwargs...)))
+    end
+end
+
 can_preserve_indices(::Type{T}) where {T<:AbstractRange} = known_step(T) === 1
 can_preserve_indices(::Type{T}) where {T<:Int} = true
 can_preserve_indices(::Type{T}) where {T} = false
@@ -507,10 +683,6 @@ end
     _generate_unsafe_getindex!_body(N)
 end
 
-function unsafe_get_collection(::CPUIndex, src, inds; kwargs...)
-    return unsafe_get_collection_by_index(IndexStyle(src), src, inds)
-end
-
 # TODO
 function unsafe_get_collection_by_index(::IndexLinear, src, inds; kwargs...)
     dst = similar(src, Base.index_shape(inds...))
@@ -528,31 +700,78 @@ function unsafe_get_collection_by_index(::IndexLinear, src, inds; kwargs...)
     return dst
 end
 
-function unsafe_get_collection_by_index(::IndexStyle, src, inds; kwargs...)
-    axs = to_axes(src, inds)
-    dest = similar(src, axs)
-    if map(Base.unsafe_length, axes(dest)) == map(Base.unsafe_length, axs)
-        # usually a generated function, don't allow it to impact inference result
-        _unsafe_getindex!(dest, src, inds...; kwargs...)
-    else
-        Base.throw_checksize_error(dest, axs)
+combine_strides(index::Integer, s, r) = (index * s) + r
+@generated function combine_strides(index::Base.AbstractCartesianIndex{N}, s, r) where {N}
+    out = :(r)
+    for i in N:-1:1
+        out = :(combine_strides(@inbounds(index[$i]), @inbounds(s[$i])), $out)
     end
-    return dest
+    return out
 end
 
-function unsafe_get_collection(::CPUPointer, src, inds; kwargs...)
-    sz = static_length.(inds)
-    return unsafe_get_collection_by_pointer(          # FIXME not an actual function
-        allocate_memory(src, sz),                     # FIXME not an actual function
-        OptionallyStaticUnitRange(One(), prod(sz)),
-        pointer(src),
-        @inbounds(view(LinearIndices(src), inds...))  # FIXME not ideal iterator
-    )
+function combine_loop_strides_expressions(dims, prev, index_expr)
+    if length(dims) === 1 
+        # iterate along single dimension
+        return :(combine_strides($index_expr, s[$(first(dims))], $prev))
+    else
+        # iterate along multiple dimensions
+        se = Expr(:tuple)
+        for d in dims
+            push!(se.args, :(getfield(s, $d)))
+        end
+        return :(combine_strides($index_expr, $se, $prev))
+    end
 end
 
-function unsafe_get_collection(::CheckParent, src, inds; kwargs...)
-    return unsafe_reconstruct(src, @inbounds(Base.getindex(parent(src), inds...; kwargs...)))
+sub_offset(offset::Integer, index) = index .- offset
+sub_offset(offset::Integer, index::Integer) = index - offset
+sub_offset(offset::Tuple, index::CartesianIndex) = CartesianIndex(index.I .- offset)
+sub_offset(offset::Tuple, index) = map(i -> sub_offset(offset, i), index)
+
+function allocate_memory(x, len)
+    return Base.unsafe_convert(Ptr{eltype(x)}, Libc.malloc(8 * sizeof(eltype(x)) * Int(len)))
 end
+
+@inline function unsafe_get_collection(::CPUPointer, A, inds; kwargs...)
+    return unsafe_get_collection_by_pointer(A, inds, strides(A), offsets(A))
+end
+
+#=
+@generated function unsafe_get_collection_by_pointer!(dst::D, dst_itr, src, inds::I, s::S, f::F, ::Val{IL}) where {D,I,S,F,IL}
+    generate_pointer_index(combine_dropped_with_iterators(index_expr(IL, :inds, I, :s, S, :f, F)), eltype(D))
+end
+=#
+
+@generated function unsafe_get_collection_by_pointer(x::A, inds::I, s::S, f::F) where {A,I,S,F,IL}
+    maps = index_maps(A, I)
+    crs = _contiguous_rank_slices(Val(maps), I, contiguous_axis(A), stride_rank(A))
+    ex = index_expr(dropped_index_maps(combine_slices(maps, crs)), :inds, I, :s, S, :f, F)
+    quote
+        axs = to_axes(x, inds)
+        len = prod(map(length, axs))
+        dst = allocate_memory(x, len)
+        dst_itr = Zero():(len - One())
+        src = pointer(x)
+        dst_i = iterate(dst_itr)
+        @inbounds $(generate_pointer_index(combine_dropped_with_iterators(ex), eltype(A)))
+
+        return unsafe_reconstruct(x, unsafe_wrap(Array, dst, map(length, axs)); axes=axs)
+    end
+end
+
+#=
+@inline function index_loops(::Type{A}, ::Type{I}) where {A,I}
+    maps = _index_maps(Val(argdims(A, I)), I)
+    crs = _contiguous_rank_slices(Val(maps), I, contiguous_axis(A), stride_rank(A))
+    return Val(dropped_index_maps(combine_slices(maps, crs)))
+end
+=#
+
+#=
+@generated function _unsafe_get_collection_by_pointer!(::IndexingMap{I2S,D2I}, dst, dst_itr, src, inds, s, offset1) where {I2S,D2I}
+    _generate_get_index_by_pointer(I2S, D2I)
+end
+=#
 
 ###
 ### setters
@@ -652,3 +871,4 @@ end
 @generated function _unsafe_setindex!(::IndexStyle, A::AbstractArray, x, I::Vararg{Union{Real,AbstractArray}, N}; kwargs...) where N
     _generate_unsafe_setindex!_body(N)
 end
+

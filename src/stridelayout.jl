@@ -294,7 +294,7 @@ end
     strd = stride(parent(x), One())
     (strd, strd)
 end
-                
+
 @generated function _strides(A::AbstractArray{T,N}, s::NTuple{N}, ::Contiguous{C}) where {T,N,C}
     if C ≤ 0 || C > N
         return Expr(:block, Expr(:meta,:inline), :s)
