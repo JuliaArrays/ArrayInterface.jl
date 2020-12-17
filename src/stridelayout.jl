@@ -465,29 +465,6 @@ end
     return Expr(:block, Expr(:meta, :inline), out)
 end
 
-#=
-
-function strides(a::ReinterpretArray)
-    a.parent isa StridedArray || ArgumentError("Parent must be strided.") |> throw
-    size_to_strides(1, size(a)...)
-end
-
-strides(a::Union{DenseArray,StridedReshapedArray,StridedReinterpretArray}) = size_to_strides(1, size(a)...)
-    @generated function _strides(_::Base.ReinterpretArray{T, N, S, A, true}, s::NTuple{N}, ::Contiguous{1}) where {T, N, S, D, A <: Array{S,D}}
-        stup = Expr(:tuple, :(One()))
-        if D < N
-            push!(stup.args, Expr(:call, Expr(:curly, :StaticInt, sizeof(S) ÷ sizeof(T))))
-        end
-        for n ∈ 2+(D < N):N
-            push!(stup.args, Expr(:ref, :s, n))
-        end
-        quote
-            $(Expr(:meta,:inline))
-            @inbounds $stup
-        end
-    end
-    =#
-
 """
     offsets(A) -> Tuple
 
