@@ -392,6 +392,20 @@ end
     @test @inferred(ArrayInterface.size(Mp2)) == size(Mp2)
     @test @inferred(ArrayInterface.size(D)) == size(D)
 
+    @test @inferred(ArrayInterface.known_size(A)) === (nothing, nothing, nothing)
+    @test @inferred(ArrayInterface.known_size(Ap)) === (nothing,nothing)
+
+    @test @inferred(ArrayInterface.known_size(S)) === (2, 3, 4)
+    @test @inferred(ArrayInterface.known_size(Sp)) === (nothing, nothing, 3)
+    @test @inferred(ArrayInterface.known_size(Sp2)) === (nothing, 3, 2)
+    @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(1))) === nothing
+    @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(2))) === 3
+    @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(3))) === 2
+    
+    @test @inferred(ArrayInterface.known_size(M)) === (2, 3, 4)
+    @test @inferred(ArrayInterface.known_size(Mp)) === (3, 4)
+    @test @inferred(ArrayInterface.known_size(Mp2)) === (2, nothing)
+
     @test @inferred(ArrayInterface.strides(A)) === (StaticInt(1), 3, 12)
     @test @inferred(ArrayInterface.strides(Ap)) === (StaticInt(1), 12)
     @test @inferred(ArrayInterface.strides(A)) == strides(A)
@@ -410,10 +424,24 @@ end
     @test @inferred(ArrayInterface.strides(M)) == strides(M)
     @test @inferred(ArrayInterface.strides(Mp)) == strides(Mp)
     @test @inferred(ArrayInterface.strides(Mp2)) == strides(Mp2)
+
+    @test @inferred(ArrayInterface.known_strides(A)) === (1, nothing, nothing)
+    @test @inferred(ArrayInterface.known_strides(Ap)) === (1, nothing)
     
+    @test @inferred(ArrayInterface.known_strides(S)) === (1, 2, 6)
+    @test @inferred(ArrayInterface.known_strides(Sp)) === (6, 1, 2)
+    @test @inferred(ArrayInterface.known_strides(Sp2)) === (6, 2, 1)
+    @test @inferred(ArrayInterface.known_strides(Sp2, StaticInt(1))) === 6
+    @test @inferred(ArrayInterface.known_strides(Sp2, StaticInt(2))) === 2
+    @test @inferred(ArrayInterface.known_strides(Sp2, StaticInt(3))) === 1
+
+    @test @inferred(ArrayInterface.known_strides(M)) === (1, 2, 6)
+    @test @inferred(ArrayInterface.known_strides(Mp)) === (2, 6)
+    @test @inferred(ArrayInterface.known_strides(Mp2)) === (1, 6)
+
     @test @inferred(ArrayInterface.offsets(A)) === (StaticInt(1), StaticInt(1), StaticInt(1))
     @test @inferred(ArrayInterface.offsets(Ap)) === (StaticInt(1), StaticInt(1))
-    
+
     @test @inferred(ArrayInterface.offsets(S)) === (StaticInt(1), StaticInt(1), StaticInt(1))
     @test @inferred(ArrayInterface.offsets(Sp)) === (StaticInt(1), StaticInt(1), StaticInt(1))
     @test @inferred(ArrayInterface.offsets(Sp2)) === (StaticInt(1), StaticInt(1), StaticInt(1))
@@ -422,11 +450,22 @@ end
     @test @inferred(ArrayInterface.offsets(Mp)) === (StaticInt(1), StaticInt(1))
     @test @inferred(ArrayInterface.offsets(Mp2)) === (StaticInt(1), StaticInt(1))
 
+    @test @inferred(ArrayInterface.known_offsets(A)) === (1, 1, 1)
+    @test @inferred(ArrayInterface.known_offsets(Ap)) === (1, 1)
+
+    @test @inferred(ArrayInterface.known_offsets(S)) === (1, 1, 1)
+    @test @inferred(ArrayInterface.known_offsets(Sp)) === (1, 1, 1)
+    @test @inferred(ArrayInterface.known_offsets(Sp2)) === (1, 1, 1)
+
+    @test @inferred(ArrayInterface.known_offsets(M)) === (1, 1, 1)
+    @test @inferred(ArrayInterface.known_offsets(Mp)) === (1, 1)
+    @test @inferred(ArrayInterface.known_offsets(Mp2)) === (1, 1)
+
     O = OffsetArray(A, 3, 7, 10);
     Op = PermutedDimsArray(O,(3,1,2));
     @test @inferred(ArrayInterface.offsets(O)) === (4, 8, 11)
     @test @inferred(ArrayInterface.offsets(Op)) === (11, 4, 8)
-    
+
     @test @inferred(ArrayInterface.offsets((1,2,3))) === (StaticInt(1),)
 end
 
