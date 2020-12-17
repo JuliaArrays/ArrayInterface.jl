@@ -304,11 +304,11 @@ axes_types(::Type{T}) where {T<:Transpose} = _perm_tuple(axes_types(parent_type(
 function axes_types(::Type{T}) where {I1,T<:PermutedDimsArray{<:Any,<:Any,I1}}
     return _perm_tuple(axes_types(parent_type(T)), Val(I1))
 end
-function axes_types(::Type{T}) where {T<:OptionallyStaticRange}
+function axes_types(::Type{T}) where {T<:AbstractRange}
     if known_length(T) === nothing
         return Tuple{OptionallyStaticUnitRange{One,Int}}
     else
-        return Tuple{OptionallyStaticUnitRange{One,StaticInt{known_length(T) - 1}}}
+        return Tuple{OptionallyStaticUnitRange{One,StaticInt{known_length(T)}}}
     end
 end
 
@@ -331,16 +331,15 @@ end
 end
 
 @inline function axes_types(::Type{T}) where {T<:Base.ReinterpretArray}
-    return _reinterpret_axes_types(axes_type(parent_type(T)), eltype(T), eltype(parent_type(T)))
+    return _reinterpret_axes_types(axes_types(parent_type(T)), eltype(T), eltype(parent_type(T)))
 end
 @generated function _reinterpret_axes_types(::Type{I}, ::Type{T}, ::Type{S}) where {I<:Tuple,T,S}
     out = Expr(:curly, :Tuple)
-    for i in 1:length(T.parameters)
+    for i in 1:length(I.parameters)
         if i === 1
-            push!(out.args, :(reinterpret_axis_type($(I.parameters[1]), $T, $S)))
+            push!(out.args, reinterpret_axis_type(I.parameters[1], T, S))
         else
-            # FIXME double check this once I've slept
-            push!(out.args, :($(I.parameters[i])))
+            push!(out.args, I.parameters[i])
         end
     end
     Expr(:block, Expr(:meta, :inline), out)
@@ -362,7 +361,7 @@ end
     if known_length(A) === nothing
         return OptionallyStaticUnitRange{One,Int}
     else
-        return OptionallyStaticUnitRange{One,StaticInt{Int(known_length(A) / (sizeof(T) / sizeof(S))) - 1}}
+        return OptionallyStaticUnitRange{One,StaticInt{Int(known_length(A) / (sizeof(T) / sizeof(S)))}}
     end
 end
 
@@ -531,6 +530,7 @@ end
     Expr(:block, Expr(:meta, :inline), t)
 end
 
+@inline size(v::AbstractVector) = (static_length(axes_types(v, 1)),)
 @inline size(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} = permute(size(parent(B)), Val{(2,1)}())
 @inline size(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} = permute(size(parent(B)), Val{I1}())
 @inline size(A::AbstractArray, ::StaticInt{N}) where {N} = size(A)[N]
