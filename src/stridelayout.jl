@@ -177,7 +177,9 @@ stride_rank(x, i) = stride_rank(x)[i]
 stride_rank(::Type{R}) where {T, N, S, A <: Array{S}, R <: Base.ReinterpretArray{T, N, S, A}} = StrideRank{ntuple(identity, Val{N}())}()
 
 """
-is_column_major(A) -> Val{true/false}()
+    is_column_major(A) -> Val{true/false}()
+
+Returns `Val{true}` if elements of `A` are stored in column major order. Otherwise returns `Val{false}`.
 """
 is_column_major(A) = is_column_major(stride_rank(A), contiguous_batch_size(A))
 is_column_major(::Nothing, ::Any) = Val{false}()
@@ -250,7 +252,7 @@ permute(t::NTuple{N}, I::NTuple{N,Int}) where {N} = ntuple(n -> t[I[n]], Val{N}(
 end
 
 """
-  strides(A)
+    strides(A) -> Tuple
 
 Returns the strides of array `A`. If any strides are known at compile time,
 these should be returned as `Static` numbers. For example:
@@ -399,6 +401,9 @@ end
 
 """
     known_strides(::Type{T}[, d]) -> Tuple
+
+Returns the strides of array `A` known at compile time. Any strides that are not known at
+compile time are represented by `nothing`.
 """
 known_strides(x) = known_strides(typeof(x))
 known_strides(x, d) = known_strides(x)[to_dims(x, d)]
