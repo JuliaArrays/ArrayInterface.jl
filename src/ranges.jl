@@ -464,3 +464,15 @@ end
     lst = _try_static(static_last(x), static_last(y))
     return Base.Slice(OptionallyStaticUnitRange(fst, lst))
 end
+
+function Base.show(io::IO, r::OptionallyStaticRange)
+    print(io, first(r))
+    if known_step(r) === 1
+        print(io, ":")
+    else
+        print(io, ":")
+        print(io, step(r))
+        print(io, ":")
+    end
+    print(io, last(r))
+end
