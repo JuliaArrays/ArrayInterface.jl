@@ -28,7 +28,8 @@ argdims(::ArrayStyle, ::Type{T}) where {T<:AbstractArray} = ndims(T)
 argdims(::ArrayStyle, ::Type{T}) where {N,T<:CartesianIndex{N}} = N
 argdims(::ArrayStyle, ::Type{T}) where {N,T<:AbstractArray{CartesianIndex{N}}} = N
 argdims(::ArrayStyle, ::Type{T}) where {N,T<:AbstractArray{<:Any,N}} = N
-argdims(::ArrayStyle, ::Type{T}) where {N,T<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = N
+argdims(::ArrayStyle, ::Type{T}) where {N,T<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} =
+    N
 @generated function argdims(s::ArrayStyle, ::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
     e = Expr(:tuple)
     for p in T.parameters
@@ -116,20 +117,35 @@ flatten_new_indexer(A::Array2, args) = ...
 @inline function flatten_args(A, args::Tuple{Arg,Vararg{Any}}) where {Arg}
     return (first(args), flatten_args(A, tail(args))...)
 end
-@inline function flatten_args(A, args::Tuple{Arg,Vararg{Any}}) where {N,Arg<:CartesianIndex{N}}
+@inline function flatten_args(
+    A,
+    args::Tuple{Arg,Vararg{Any}},
+) where {N,Arg<:CartesianIndex{N}}
     return (first(args).I..., flatten_args(A, tail(args))...)
 end
-@inline function flatten_args(A, args::Tuple{Arg,Vararg{Any}}) where {N,Arg<:LinearIndices{N}}
+@inline function flatten_args(
+    A,
+    args::Tuple{Arg,Vararg{Any}},
+) where {N,Arg<:LinearIndices{N}}
     return (eachindex(first(args)), flatten_args(A, tail(args))...)
 end
-@inline function flatten_args(A, args::Tuple{Arg,Vararg{Any}}) where {N,Arg<:CartesianIndices{N}}
+@inline function flatten_args(
+    A,
+    args::Tuple{Arg,Vararg{Any}},
+) where {N,Arg<:CartesianIndices{N}}
     return (first(args).indices..., flatten_args(A, tail(args))...)
 end
 # we preserve CartesianIndices{0} for dropping dimensions
-@inline function flatten_args(A, args::Tuple{Arg,Vararg{Any}}) where {Arg<:CartesianIndices{0}}
+@inline function flatten_args(
+    A,
+    args::Tuple{Arg,Vararg{Any}},
+) where {Arg<:CartesianIndices{0}}
     return (first(args), flatten_args(A, tail(args))...)
 end
-@inline function flatten_args(A, args::Tuple{Arg,Vararg{Any}}) where {N,Arg<:AbstractArray{Bool,N}}
+@inline function flatten_args(
+    A,
+    args::Tuple{Arg,Vararg{Any}},
+) where {N,Arg<:AbstractArray{Bool,N}}
     if length(args) === 1
         if IndexStyle(A) isa IndexLinear
             return (LogicalIndex{Int}(first(args)),)
@@ -167,7 +183,7 @@ ArrayInterface.can_flatten(::Type{A}, ::Type{T}) where {A<:ForbiddenArray,T<:New
 can_flatten(A, x) = can_flatten(typeof(A), typeof(x))
 can_flatten(::Type{A}, ::Type{T}) where {A,T} = false
 can_flatten(::Type{A}, ::Type{T}) where {A,I<:CartesianIndex,T<:AbstractArray{I}} = false
-can_flatten(::Type{A}, ::Type{T}) where {A,T<: CartesianIndices} = true
+can_flatten(::Type{A}, ::Type{T}) where {A,T<:CartesianIndices} = true
 can_flatten(::Type{A}, ::Type{T}) where {A,N,T<:AbstractArray{Bool,N}} = N > 1
 can_flatten(::Type{A}, ::Type{T}) where {A,N,T<:CartesianIndex{N}} = true
 @generated function can_flatten(::Type{A}, ::Type{T}) where {A,T<:Tuple}
@@ -196,11 +212,18 @@ be accomplished using `to_index(axis, arg)`.
     end
 end
 @propagate_inbounds to_indices(A, args::Tuple{}) = to_indices(A, axes(A), ())
-@propagate_inbounds function to_indices(A, axs::Tuple, args::Tuple{Arg,Vararg{Any}}) where {Arg}
+@propagate_inbounds function to_indices(
+    A,
+    axs::Tuple,
+    args::Tuple{Arg,Vararg{Any}},
+) where {Arg}
     N = argdims(A, Arg)
     if N > 1
         axes_front, axes_tail = Base.IteratorsMD.split(axs, Val(N))
-        return (to_multi_index(axes_front, first(args)), to_indices(A, axes_tail, tail(args))...)
+        return (
+            to_multi_index(axes_front, first(args)),
+            to_indices(A, axes_tail, tail(args))...,
+        )
     else
         return (to_index(first(axs), first(args)), to_indices(A, tail(axs), tail(args))...)
     end
@@ -211,7 +234,11 @@ end
     end
     return to_indices(A, tail(axs), args)
 end
-@propagate_inbounds function to_indices(A, ::Tuple{}, args::Tuple{Arg,Vararg{Any}}) where {Arg}
+@propagate_inbounds function to_indices(
+    A,
+    ::Tuple{},
+    args::Tuple{Arg,Vararg{Any}},
+) where {Arg}
     return (to_index(OneTo(1), first(args)), to_indices(A, (), tail(args))...)
 end
 to_indices(A, axs::Tuple{}, args::Tuple{}) = ()
@@ -265,13 +292,21 @@ end
     @boundscheck checkbounds(axis, arg)
     return @inbounds(axis[arg])
 end
-@propagate_inbounds function to_index(::IndexStyle, axis, arg::AbstractArray{I}) where {I<:Integer}
+@propagate_inbounds function to_index(
+    ::IndexStyle,
+    axis,
+    arg::AbstractArray{I},
+) where {I<:Integer}
     @boundscheck if !checkindex(Bool, axis, arg)
         throw(BoundsError(axis, arg))
     end
     return arg
 end
-@propagate_inbounds function to_index(::IndexStyle, axis, arg::AbstractRange{I}) where {I<:Integer}
+@propagate_inbounds function to_index(
+    ::IndexStyle,
+    axis,
+    arg::AbstractRange{I},
+) where {I<:Integer}
     @boundscheck if !checkindex(Bool, axis, arg)
         throw(BoundsError(axis, arg))
     end
@@ -291,7 +326,8 @@ function unsafe_reconstruct(A::OneTo, data; kwargs...)
     if can_change_size(A)
         return typeof(A)(data)
     else
-        if data isa Slice || !(known_length(A) === nothing || known_length(A) !== known_length(data))
+        if data isa Slice ||
+           !(known_length(A) === nothing || known_length(A) !== known_length(data))
             return A
         else
             return OneTo(data)
@@ -302,7 +338,8 @@ function unsafe_reconstruct(A::UnitRange, data; kwargs...)
     if can_change_size(A)
         return typeof(A)(data)
     else
-        if data isa Slice || !(known_length(A) === nothing || known_length(A) !== known_length(data))
+        if data isa Slice ||
+           !(known_length(A) === nothing || known_length(A) !== known_length(data))
             return A
         else
             return UnitRange(data)
@@ -313,7 +350,8 @@ function unsafe_reconstruct(A::OptionallyStaticUnitRange, data; kwargs...)
     if can_change_size(A)
         return typeof(A)(data)
     else
-        if data isa Slice || !(known_length(A) === nothing || known_length(A) !== known_length(data))
+        if data isa Slice ||
+           !(known_length(A) === nothing || known_length(A) !== known_length(data))
             return A
         else
             return OptionallyStaticUnitRange(data)
@@ -344,7 +382,11 @@ pair of axes and indices calling [`to_axis`](@ref).
 end
 to_axes(A, ::Tuple{Ax,Vararg{Any}}, ::Tuple{}) where {Ax} = ()
 to_axes(A, ::Tuple{}, ::Tuple{}) = ()
-@propagate_inbounds function to_axes(A, axs::Tuple{Ax,Vararg{Any}}, inds::Tuple{I,Vararg{Any}}) where {Ax,I}
+@propagate_inbounds function to_axes(
+    A,
+    axs::Tuple{Ax,Vararg{Any}},
+    inds::Tuple{I,Vararg{Any}},
+) where {Ax,I}
     N = argdims(A, I)
     if N === 0
         # drop this dimension
@@ -355,7 +397,10 @@ to_axes(A, ::Tuple{}, ::Tuple{}) = ()
         # Only multidimensional AbstractArray{Bool} and AbstractVector{CartesianIndex{N}}
         # make it to this point. They collapse several dimensions into one.
         axes_front, axes_tail = Base.IteratorsMD.split(axs, Val(N))
-        return (to_multi_axis(IndexStyle(A), axes_front, first(inds)), to_axes(A, axes_tail, tail(inds))...)
+        return (
+            to_multi_axis(IndexStyle(A), axes_front, first(inds)),
+            to_axes(A, axes_tail, tail(inds))...,
+        )
     end
 end
 
@@ -368,7 +413,8 @@ previously executed `to_index(old_axis, arg) -> index`. `to_axis` assumes that
 `new_axis` begins at one and extends the length of `index` (i.e., one-based indexing).
 """
 @inline function to_axis(axis, inds)
-    if !can_change_size(axis) && (known_length(inds) !== nothing && known_length(axis) === known_length(inds))
+    if !can_change_size(axis) &&
+       (known_length(inds) !== nothing && known_length(axis) === known_length(inds))
         return axis
     else
         return to_axis(IndexStyle(axis), axis, inds)
@@ -497,8 +543,7 @@ Store the given values at the given key or index within a collection.
     if can_setindex(A)
         return unsafe_setindex!(A, val, to_indices(A, args))
     else
-        error("Instance of type $(typeof(A)) are not mutable and cannot change " *
-              "elements after construction.")
+        error("Instance of type $(typeof(A)) are not mutable and cannot change elements after construction.")
     end
 end
 @propagate_inbounds function setindex!(A, val; kwargs...)
@@ -533,7 +578,7 @@ have been checked for being in bounds. Any new array type using `ArrayInterface.
 must define `unsafe_set_element!(::NewArrayType, val, inds)`.
 """
 function unsafe_set_element!(A, val, inds; kwargs...)
-    throw(MethodError(unsafe_set_element!, (A, val, inds)))
+    return throw(MethodError(unsafe_set_element!, (A, val, inds)))
 end
 function unsafe_set_element!(A::Array{T}, val, inds::Tuple) where {T}
     if length(inds) === 0
@@ -555,7 +600,6 @@ Sets `inds` of `A` to `val`. `inds` is assumed to have been bounds-checked.
     return _unsafe_setindex!(IndexStyle(A), A, val, inds...; kwargs...)
 end
 
-
 # these let us use `@ncall` on getindex/setindex! that have kwargs
 function _setindex_kwargs!(x, val, kwargs, args...)
     @inbounds setindex!(x, val, args...; kwargs...)
@@ -569,7 +613,7 @@ function _generate_unsafe_getindex!_body(N::Int)
         Base.@_inline_meta
         D = eachindex(dest)
         Dy = iterate(D)
-        @inbounds Base.Cartesian.@nloops $N j d->I[d] begin
+        @inbounds Base.Cartesian.@nloops $N j d -> I[d] begin
             # This condition is never hit, but at the moment
             # the optimizer is not clever enough to split the union without it
             Dy === nothing && return dest
@@ -584,11 +628,11 @@ end
 function _generate_unsafe_setindex!_body(N::Int)
     quote
         x′ = Base.unalias(A, x)
-        Base.Cartesian.@nexprs $N d->(I_d = Base.unalias(A, I[d]))
+        Base.Cartesian.@nexprs $N d -> (I_d = Base.unalias(A, I[d]))
         idxlens = Base.Cartesian.@ncall $N Base.index_lengths I
-        Base.Cartesian.@ncall $N Base.setindex_shape_check x′ (d->idxlens[d])
+        Base.Cartesian.@ncall $N Base.setindex_shape_check x′ (d -> idxlens[d])
         Xy = iterate(x′)
-        @inbounds Base.Cartesian.@nloops $N i d->I_d begin
+        @inbounds Base.Cartesian.@nloops $N i d -> I_d begin
             # This is never reached, but serves as an assumption for
             # the optimizer that it does not need to emit error paths
             Xy === nothing && break
@@ -600,11 +644,21 @@ function _generate_unsafe_setindex!_body(N::Int)
     end
 end
 
-@generated function _unsafe_getindex!(dest::AbstractArray, src::AbstractArray, I::Vararg{Union{Real, AbstractArray}, N}; kwargs...) where N
-    _generate_unsafe_getindex!_body(N)
+@generated function _unsafe_getindex!(
+    dest::AbstractArray,
+    src::AbstractArray,
+    I::Vararg{Union{Real,AbstractArray},N};
+    kwargs...,
+) where {N}
+    return _generate_unsafe_getindex!_body(N)
 end
 
-@generated function _unsafe_setindex!(::IndexStyle, A::AbstractArray, x, I::Vararg{Union{Real,AbstractArray}, N}; kwargs...) where N
-    _generate_unsafe_setindex!_body(N)
+@generated function _unsafe_setindex!(
+    ::IndexStyle,
+    A::AbstractArray,
+    x,
+    I::Vararg{Union{Real,AbstractArray},N};
+    kwargs...,
+) where {N}
+    return _generate_unsafe_setindex!_body(N)
 end
-

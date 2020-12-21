@@ -97,7 +97,7 @@ This helps it get optimised out of existance. It is less of an abuse of `@pure` 
 most of the stuff for making `NamedTuples` work.
 """
 Base.@pure function tuple_issubset(
-    lhs::Tuple{Vararg{Symbol,N}}, rhs::Tuple{Vararg{Symbol,M}},
+    lhs::Tuple{Vararg{Symbol,N}}, rhs::Tuple{Vararg{Symbol,M}}
 ) where {N,M}
     N <= M || return false
     for a in lhs
@@ -155,8 +155,12 @@ julia> ArrayInterface.size(A)
 @inline size(A) = Base.size(A)
 @inline size(A, d::Integer) = size(A)[Int(d)]
 @inline size(A, d) = Base.size(A, to_dims(A, d))
-@inline size(x::LinearAlgebra.Adjoint{T,V}) where {T, V <: AbstractVector{T}} = (One(), static_length(x))
-@inline size(x::LinearAlgebra.Transpose{T,V}) where {T, V <: AbstractVector{T}} = (One(), static_length(x))
+@inline function size(x::LinearAlgebra.Adjoint{T,V}) where {T,V<:AbstractVector{T}}
+    return (One(), static_length(x))
+end
+@inline function size(x::LinearAlgebra.Transpose{T,V}) where {T,V<:AbstractVector{T}}
+    return (One(), static_length(x))
+end
 
 """
     axes(A, d)
