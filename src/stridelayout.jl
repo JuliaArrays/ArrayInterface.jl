@@ -422,6 +422,12 @@ end
 end
 
 
+@inline function known_length(::Type{T}) where {T <: Base.ReinterpretArray}
+    _known_length(known_length(parent_type(T)), eltype(T), eltype(parent_type(T)))
+end
+_known_length(::Nothing, _, __) = nothing
+@inline _known_length(L::Integer, ::Type{T}, ::Type{P}) where {T,P} = L * sizeof(P) ÷ sizeof(T)
+
 # These methods help handle identifying axes that dont' directly propagate from the
 # parent array axes. They may be worth making a formal part of the API, as they provide
 # a low traffic spot to change what axes_types produces.
@@ -617,7 +623,7 @@ end
     Expr(:block, Expr(:meta, :inline), t)
 end
 
-@inline size(v::AbstractVector) = (static_length(axes_types(v, 1)),)
+@inline size(v::AbstractVector) = (static_length(v),)
 @inline size(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} =
     permute(size(parent(B)), Val{(2, 1)}())
 @inline size(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} =

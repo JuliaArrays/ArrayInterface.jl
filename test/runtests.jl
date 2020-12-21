@@ -371,14 +371,16 @@ end
     Rr = reinterpret(Int32, R)
     Ar = reinterpret(Float32, A)
 
- 
+    sv5 = @SVector(zeros(5)); v5 = Vector{Float64}(undef, 5);
+    @test @inferred(ArrayInterface.size(sv5)) === (StaticInt(5),)
+    @test @inferred(ArrayInterface.size(v5)) === (5,)
     @test @inferred(ArrayInterface.size(A)) === (3,4,5)
     @test @inferred(ArrayInterface.size(Ap)) === (2,5)
     @test @inferred(ArrayInterface.size(A)) === size(A)
     @test @inferred(ArrayInterface.size(Ap)) === size(Ap)
     @test @inferred(ArrayInterface.size(R)) === (StaticInt(2),)
     @test @inferred(ArrayInterface.size(Rr)) === (StaticInt(4),)
-
+    @test @inferred(ArrayInterface.known_length(Rr)) === 4
 
     @test @inferred(ArrayInterface.size(S)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(Sp)) === (2, 2, StaticInt(3))
