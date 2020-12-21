@@ -24,21 +24,33 @@ Base.Integer(x::StaticInt{N}) where {N} = x
 Base.convert(::Type{StaticInt{N}}, ::StaticInt{N}) where {N} = StaticInt{N}()
 Base.float(::StaticInt{N}) where {N} = Float64(N)
 
-Base.promote_rule(::Type{<:StaticInt}, ::Type{T}) where {T <: Number} = promote_type(Int, T)
-Base.promote_rule(::Type{<:StaticInt}, ::Type{T}) where {T <: AbstractIrrational} = promote_type(Int, T)
-# Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T <: AbstractIrrational} = promote_rule(T, Int)
-for (S,T) ∈ [(:Complex,:Real), (:Rational, :Integer), (:(Base.TwicePrecision),:Any)]
-    @eval Base.promote_rule(::Type{$S{T}}, ::Type{<:StaticInt}) where {T <: $T} = promote_type($S{T}, Int)
+Base.promote_rule(::Type{<:StaticInt}, ::Type{T}) where {T<:Number} = promote_type(Int, T)
+function Base.promote_rule(::Type{<:StaticInt}, ::Type{T}) where {T<:AbstractIrrational}
+    return promote_type(Int, T)
 end
-Base.promote_rule(::Type{Union{Nothing,Missing}}, ::Type{<:StaticInt}) = Union{Nothing, Missing, Int}
-Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T >: Union{Missing,Nothing}} = promote_type(T, Int)
-Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T >: Nothing} = promote_type(T, Int)
-Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T >: Missing} = promote_type(T, Int)
-for T ∈ [:Bool, :Missing, :BigFloat, :BigInt, :Nothing, :Any]
-# let S = :Any    
+# Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T <: AbstractIrrational} = promote_rule(T, Int)
+for (S, T) in [(:Complex, :Real), (:Rational, :Integer), (:(Base.TwicePrecision), :Any)]
+    @eval function Base.promote_rule(::Type{$S{T}}, ::Type{<:StaticInt}) where {T<:$T}
+        return promote_type($S{T}, Int)
+    end
+end
+function Base.promote_rule(::Type{Union{Nothing,Missing}}, ::Type{<:StaticInt})
+    return Union{Nothing,Missing,Int}
+end
+function Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T>:Union{Missing,Nothing}}
+    return promote_type(T, Int)
+end
+Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T>:Nothing} = promote_type(T, Int)
+Base.promote_rule(::Type{T}, ::Type{<:StaticInt}) where {T>:Missing} = promote_type(T, Int)
+for T in [:Bool, :Missing, :BigFloat, :BigInt, :Nothing, :Any]
+    # let S = :Any
     @eval begin
-        Base.promote_rule(::Type{S}, ::Type{$T}) where {S <: StaticInt} = promote_type(Int, $T)
-        Base.promote_rule(::Type{$T}, ::Type{S}) where {S <: StaticInt} = promote_type($T, Int)
+        function Base.promote_rule(::Type{S}, ::Type{$T}) where {S<:StaticInt}
+            return promote_type(Int, $T)
+        end
+        function Base.promote_rule(::Type{$T}, ::Type{S}) where {S<:StaticInt}
+            return promote_type($T, Int)
+        end
     end
 end
 Base.promote_rule(::Type{<:StaticInt}, ::Type{<:StaticInt}) = Int
@@ -52,7 +64,7 @@ Base.isone(::StaticInt) = false
 Base.zero(::Type{T}) where {T<:StaticInt} = Zero()
 Base.one(::Type{T}) where {T<:StaticInt} = One()
 
-for T = [:Real, :Rational, :Integer]
+for T in [:Real, :Rational, :Integer]
     @eval begin
         @inline Base.:(+)(i::$T, ::Zero) = i
         @inline Base.:(+)(i::$T, ::StaticInt{M}) where {M} = i + M
@@ -84,16 +96,18 @@ end
 @inline Base.:(*)(::Zero, ::StaticInt{M}) where {M} = Zero()
 @inline Base.:(*)(::StaticInt{M}, ::One) where {M} = StaticInt{M}()
 @inline Base.:(*)(::One, ::StaticInt{M}) where {M} = StaticInt{M}()
-for f ∈ [:(+), :(-), :(*), :(/), :(÷), :(%), :(<<), :(>>), :(>>>), :(&), :(|), :(⊻)]
-    @eval @generated Base.$f(::StaticInt{M}, ::StaticInt{N}) where {M,N} = Expr(:call, Expr(:curly, :StaticInt, $f(M, N)))
+for f in [:(+), :(-), :(*), :(/), :(÷), :(%), :(<<), :(>>), :(>>>), :(&), :(|), :(⊻)]
+    @eval @generated function Base.$f(::StaticInt{M}, ::StaticInt{N}) where {M,N}
+        return Expr(:call, Expr(:curly, :StaticInt, $f(M, N)))
+    end
 end
-for f ∈ [:(<<), :(>>), :(>>>)]
+for f in [:(<<), :(>>), :(>>>)]
     @eval begin
         @inline Base.$f(::StaticInt{M}, x::UInt) where {M} = $f(M, x)
         @inline Base.$f(x::Integer, ::StaticInt{M}) where {M} = $f(x, M)
     end
 end
-for f ∈ [:(==), :(!=), :(<), :(≤), :(>), :(≥)]
+for f in [:(==), :(!=), :(<), :(≤), :(>), :(≥)]
     @eval begin
         @inline Base.$f(::StaticInt{M}, ::StaticInt{N}) where {M,N} = $f(M, N)
         @inline Base.$f(::StaticInt{M}, x::Int) where {M} = $f(M, x)
@@ -101,9 +115,13 @@ for f ∈ [:(==), :(!=), :(<), :(≤), :(>), :(≥)]
     end
 end
 
-@inline function maybe_static(f::F, g::G, x) where {F, G}
+@inline function maybe_static(f::F, g::G, x) where {F,G}
     L = f(x)
-    isnothing(L) ? g(x) : StaticInt(L)
+    if L === nothing
+        return g(x)
+    else
+        return StaticInt(L)
+    end
 end
 @inline static_length(x) = maybe_static(known_length, length, x)
 @inline static_first(x) = maybe_static(known_first, first, x)
@@ -121,4 +139,3 @@ Base.UnitRange(start, stop::StaticInt) = UnitRange(start, Int(stop))
 function Base.UnitRange(start::StaticInt, stop::StaticInt)
     return UnitRange(Int(start), Int(stop))
 end
-
