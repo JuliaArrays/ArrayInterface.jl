@@ -13,7 +13,7 @@ parameterless_type(x::Type) = __parameterless_type(x)
 """
     parent_type(::Type{T})
 
-Returns the parent array that `x` wraps.
+Returns the parent array that type `T` wraps.
 """
 parent_type(x) = parent_type(typeof(x))
 parent_type(::Type{<:SubArray{T,N,P}}) where {T,N,P} = P
@@ -704,6 +704,12 @@ end
   end
 end
 
+include("static.jl")
+include("ranges.jl")
+include("dimensions.jl")
+include("indexing.jl")
+include("stridelayout.jl")
+
 function __init__()
 
   @require SuiteSparse="4607b0f0-06f3-5cda-b6b1-a6196a1729e9" begin
@@ -746,6 +752,10 @@ function __init__()
     stride_rank(::Type{T}) where {N, T <: StaticArrays.StaticArray{<:Any,<:Any,N}} = StrideRank{ntuple(identity, Val{N}())}()
     dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} = DenseDims{ntuple(_ -> true, Val(N))}()
     defines_strides(::Type{<:StaticArrays.MArray}) = true
+
+    @generated function axes_types(::Type{<:StaticArrays.StaticArray{S}}) where {S}
+        return Tuple{[StaticArrays.SOneTo{s} for s in S.parameters]...}
+    end
     @generated function size(A::StaticArrays.StaticArray{S}) where {S}
         t = Expr(:tuple); Sp = S.parameters
         for n in 1:length(Sp)
@@ -895,11 +905,5 @@ function __init__()
       stride_rank(::Type{A}) where {A <: OffsetArrays.OffsetArray} = stride_rank(parent_type(A))
   end
 end
-
-include("static.jl")
-include("ranges.jl")
-include("dimensions.jl")
-include("indexing.jl")
-include("stridelayout.jl")
 
 end
