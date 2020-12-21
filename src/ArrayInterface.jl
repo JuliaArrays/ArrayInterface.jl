@@ -49,7 +49,7 @@ end
 @inline function known_length(::Type{<:SubArray{T,N,P,I}}) where {T,N,P,I}
     return _known_length(ntuple(i -> known_length(I.parameters[i]), Val(N)))
 end
-_known_length(x::Tuple{Vararg{<:Union{Int,Nothing}}}) = nothing
+_known_length(x::Tuple{Vararg{Union{Nothing,Int}}}) = nothing
 _known_length(x::Tuple{Vararg{Int}}) = prod(x)
 
 
