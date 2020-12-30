@@ -441,6 +441,7 @@ specified, then the indices for visiting each index of `x` are returned.
         return inds
     end
 end
+@inline indices(x::AbstractUnitRange{<:Integer}) = Base.Slice(OptionallyStaticUnitRange(x))
 
 function indices(x::Tuple)
     inds = map(eachindex, x)

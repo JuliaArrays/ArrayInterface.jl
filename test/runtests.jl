@@ -358,6 +358,9 @@ using OffsetArrays
     B = Array{Int8}(undef, 2,2,2,2);
     doubleperm = PermutedDimsArray(PermutedDimsArray(B,(4,2,3,1)), (4,2,1,3));
     @test collect(strides(B))[collect(stride_rank(doubleperm))] == collect(strides(doubleperm))
+
+    @test @inferred(ArrayInterface.indices(OffsetArray(view(PermutedDimsArray(A, (3,1,2)), 1, :, 2:4)', 3, -173),1)) === Base.Slice(ArrayInterface.OptionallyStaticUnitRange(4,6))
+    @test @inferred(ArrayInterface.indices(OffsetArray(view(PermutedDimsArray(A, (3,1,2)), 1, :, 2:4)', 3, -173),2)) === Base.Slice(ArrayInterface.OptionallyStaticUnitRange(-172,-170))
 end
 
 @testset "Static-Dynamic Size, Strides, and Offsets" begin
