@@ -601,6 +601,13 @@ end
     @test ArrayInterface.deleteat((1, 2, 3), [1, 2]) == (3,)
 end
 
+@testset "reduce_tup" begin
+    for n ∈ 2:16
+        x = ntuple(_ -> rand(Bool) ? rand() : (rand(Bool) ? rand(0x00:0x1f) : rand(0:31)), n)
+        @test @inferred(ArrayInterface.reduce_tup(+, x)) ≈ reduce(+, x)
+    end
+end
+
 include("indexing.jl")
 include("dimensions.jl")
 
