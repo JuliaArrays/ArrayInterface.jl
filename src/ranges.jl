@@ -537,11 +537,11 @@ Base.Slice(Static(1):100)
 julia> inds = (Base.OneTo(100), 1:100, 1:UInt(100), Int32(1):Int32(100))
 (Base.OneTo(100), 1:100, 0x0000000000000001:0x0000000000000064, 1:100)
 
-julia> @btime reduce(ArrayInterface._pick_range, $(Ref(inds))[])
+julia> @btime reduce(ArrayInterface._pick_range, \$(Ref(inds))[])
   9.268 ns (0 allocations: 0 bytes)
 Base.Slice(Static(1):100)
 
-julia> @btime ArrayInterface.reduce_tup(ArrayInterface._pick_range, $(Ref(inds))[])
+julia> @btime ArrayInterface.reduce_tup(ArrayInterface._pick_range, \$(Ref(inds))[])
   2.570 ns (0 allocations: 0 bytes)
 Base.Slice(Static(1):100)
 ```
