@@ -132,6 +132,8 @@ end
 @inline static_last(x) = maybe_static(known_last, last, x)
 @inline static_step(x) = maybe_static(known_step, step, x)
 
+@inline Base.widen(::StaticInt{N}) where {N} = widen(N)
+
 Base.UnitRange{T}(start::StaticInt, stop) where {T<:Real} = UnitRange{T}(T(start), stop)
 Base.UnitRange{T}(start, stop::StaticInt) where {T<:Real} = UnitRange{T}(start, T(stop))
 function Base.UnitRange{T}(start::StaticInt, stop::StaticInt) where {T<:Real}

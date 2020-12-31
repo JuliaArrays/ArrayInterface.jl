@@ -553,10 +553,12 @@ end
 @testset "StaticInt" begin
     @test iszero(StaticInt(0))
     @test !iszero(StaticInt(1))
+    @test !isone(StaticInt(0))
+    @test isone(StaticInt(1))
     @test @inferred(one(StaticInt(1))) === StaticInt(1)
     @test @inferred(zero(StaticInt(1))) === StaticInt(0)
     @test @inferred(one(StaticInt)) === StaticInt(1)
-    @test @inferred(zero(StaticInt)) === StaticInt(0)
+    @test @inferred(zero(StaticInt)) === StaticInt(0) === StaticInt(StaticInt(Val(0)))
     @test eltype(one(StaticInt)) <: Int
 
     x = StaticInt(1)
@@ -564,8 +566,8 @@ end
     @test @inferred(BigInt(x)) isa BigInt
     @test @inferred(Integer(x)) === x
     # test for ambiguities and correctness
-    for i ∈ [StaticInt(0), StaticInt(1), StaticInt(2), 3]
-        for j ∈ [StaticInt(0), StaticInt(1), StaticInt(2), 3]
+    for i ∈ Any[StaticInt(0), StaticInt(1), StaticInt(2), 3]
+        for j ∈ Any[StaticInt(0), StaticInt(1), StaticInt(2), 3]
             i === j === 3 && continue
             for f ∈ [+, -, *, ÷, %, <<, >>, >>>, &, |, ⊻, ==, ≤, ≥]
                 (iszero(j) && ((f === ÷) || (f === %))) && continue # integer division error
@@ -574,10 +576,15 @@ end
         end
         i == 3 && break
         for f ∈ [+, -, *, /, ÷, %, ==, ≤, ≥]
-            x = f(convert(Int, i), 1.4)
-            y = f(1.4, convert(Int, i))
-            @test convert(typeof(x), @inferred(f(i, 1.4))) === x
-            @test convert(typeof(y), @inferred(f(1.4, i))) === y # if f is division and i === StaticInt(0), returns `NaN`; hence use of ==== in check.
+            w = f(convert(Int, i), 1.4)
+            x = f(1.4, convert(Int, i))
+            @test convert(typeof(w), @inferred(f(i, 1.4))) === w
+            @test convert(typeof(x), @inferred(f(1.4, i))) === x # if f is division and i === StaticInt(0), returns `NaN`; hence use of ==== in check.
+            (((f === ÷) || (f === %)) && (i === StaticInt(0))) && continue
+            y = f(convert(Int, i), 2 // 7)
+            z = f(2 // 7, convert(Int, i))
+            @test convert(typeof(y), @inferred(f(i, 2 // 7))) === y
+            @test convert(typeof(z), @inferred(f(2 // 7, i))) === z 
         end
     end
 end
