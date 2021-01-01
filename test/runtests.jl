@@ -508,13 +508,20 @@ end
     @test ArrayInterface.known_length((1,)) == 1
     @test ArrayInterface.known_length((a=1,b=2)) == 2
     @test ArrayInterface.known_length([]) == nothing
-
+    
     x = view(SArray{Tuple{3,3,3}}(ones(3,3,3)), :, SOneTo(2), 2)
     @test @inferred(ArrayInterface.known_length(x)) == 6
     @test @inferred(ArrayInterface.known_length(x')) == 6
 
     itr = StaticInt(1):StaticInt(10)
     @inferred(ArrayInterface.known_length((i for i in itr))) == 10
+
+    v = @SVector rand(8);
+    A = @MMatrix rand(7,6);
+    T = SizedArray{Tuple{5,4,3}}(zeros(5,4,3));
+    @test @inferred(ArrayInterface.static_length(v)) === StaticInt(8)
+    @test @inferred(ArrayInterface.static_length(A)) === StaticInt(42)
+    @test @inferred(ArrayInterface.static_length(T)) === StaticInt(60)
 end
 
 @testset "indices" begin

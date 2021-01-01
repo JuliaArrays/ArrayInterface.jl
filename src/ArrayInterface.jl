@@ -790,6 +790,8 @@ function __init__()
         known_first(::Type{<:StaticArrays.SOneTo}) = 1
         known_last(::Type{StaticArrays.SOneTo{N}}) where {N} = N
         known_length(::Type{StaticArrays.SOneTo{N}}) where {N} = N
+        known_length(::Type{StaticArrays.Length{L}}) where {L} = L
+        known_length(::Type{A}) where {A <: StaticArrays.StaticArray} = known_length(StaticArrays.Length(A))
 
         device(::Type{<:StaticArrays.MArray}) = CPUPointer()
         contiguous_axis(::Type{<:StaticArrays.StaticArray}) = Contiguous{1}()
