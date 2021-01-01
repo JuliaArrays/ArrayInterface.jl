@@ -127,6 +127,7 @@ end
         return StaticInt(L)
     end
 end
+@inline static_length(a::UnitRange{T}) where {T} = last(a) - first(a) + oneunit(T)
 @inline static_length(x) = maybe_static(known_length, length, x)
 @inline static_first(x) = maybe_static(known_first, first, x)
 @inline static_last(x) = maybe_static(known_last, last, x)
