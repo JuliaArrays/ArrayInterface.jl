@@ -597,6 +597,13 @@ end
             @test convert(typeof(z), @inferred(f(2 // 7, i))) === z 
         end
     end
+
+    @test UnitRange{Int16}(StaticInt(-9), 17) === Int16(-9):Int16(17)
+    @test UnitRange{Int16}(-7, StaticInt(19)) === Int16(-7):Int16(19)
+    @test UnitRange(-11, StaticInt(15)) === -11:15
+    @test UnitRange(StaticInt(-11), 15) === -11:15
+    @test UnitRange(StaticInt(-11), StaticInt(15)) === -11:15
+    @test float(StaticInt(8)) === 8.0
 end
 
 @testset "insert/deleteat" begin
