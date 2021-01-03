@@ -265,7 +265,10 @@ Base.getindex(::DummyZeros{T}, inds...) where {T} = zero(T)
 
 using OffsetArrays
 @testset "Memory Layout" begin
-    A = zeros(3,4,5);
+    x = zeros(100);
+    # R = reshape(view(x, 1:100), (10,10));
+    # A = zeros(3,4,5);
+    A = reshape(view(x, 1:60), (3,4,5))
     D1 = view(A, 1:2:3, :, :)  # first dimension is discontiguous
     D2 = view(A, :, 2:2:4, :)  # first dimension is contiguous
     @test @inferred(device(A)) === ArrayInterface.CPUPointer()

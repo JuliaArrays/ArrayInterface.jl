@@ -87,7 +87,7 @@ end
 
 
 """
-    contiguous_axis_indicator(::Type{T}) -> Tuple{Vararg{<:Val}}
+    contiguous_axis_indicator(::Type{T}) -> Tuple{Vararg{Val}}
 
 Returns a tuple boolean `Val`s indicating whether that axis is contiguous.
 """
@@ -97,53 +97,6 @@ contiguous_axis_indicator(::A) where {A<:AbstractArray} = contiguous_axis_indica
 contiguous_axis_indicator(::Nothing, ::Val) = nothing
 Base.@pure contiguous_axis_indicator(::Contiguous{N}, ::Val{D}) where {N,D} =
     ntuple(d -> Val{d == N}(), Val{D}())
-
-"""
-If the contiguous dimension is not the dimension with `StrideRank{1}`:
-"""
-struct ContiguousBatch{N} end
-Base.@pure ContiguousBatch(N::Int) = ContiguousBatch{N}()
-_get(::ContiguousBatch{N}) where {N} = N
-
-"""
-    contiguous_batch_size(::Type{T}) -> ContiguousBatch{N}
-
-Returns the Base.size of contiguous batches if `!isone(stride_rank(T, contiguous_axis(T)))`.
-If `isone(stride_rank(T, contiguous_axis(T)))`, then it will return `ContiguousBatch{0}()`.
-If `contiguous_axis(T) == -1`, it will return `ContiguousBatch{-1}()`.
-If unknown, it will return `nothing`.
-"""
-contiguous_batch_size(x) = contiguous_batch_size(typeof(x))
-contiguous_batch_size(::Type) = nothing
-contiguous_batch_size(::Type{Array{T,N}}) where {T,N} = ContiguousBatch{0}()
-contiguous_batch_size(::Type{<:Tuple}) = ContiguousBatch{0}()
-contiguous_batch_size(
-    ::Type{<:Union{Transpose{T,A},Adjoint{T,A}}},
-) where {T,A<:AbstractVecOrMat{T}} = contiguous_batch_size(A)
-contiguous_batch_size(
-    ::Type{<:PermutedDimsArray{T,N,I1,I2,A}},
-) where {T,N,I1,I2,A<:AbstractArray{T,N}} = contiguous_batch_size(A)
-function contiguous_batch_size(
-    ::Type{S},
-) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    _contiguous_batch_size(S, contiguous_batch_size(A), contiguous_axis(A))
-end
-_contiguous_batch_size(::Any, ::Any, ::Any) = nothing
-@generated function _contiguous_batch_size(
-    ::Type{S},
-    ::ContiguousBatch{B},
-    ::Contiguous{C},
-) where {B,C,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    if I.parameters[C] <: AbstractUnitRange
-        Expr(:call, Expr(:curly, :ContiguousBatch, B))
-    else
-        Expr(:call, Expr(:curly, :ContiguousBatch, -1))
-    end
-end
-
-contiguous_batch_size(
-    ::Type{R},
-) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}} = ContiguousBatch{0}()
 
 struct StrideRank{R} end
 Base.@pure StrideRank(R::NTuple{<:Any,Int}) = StrideRank{R}()
@@ -230,6 +183,67 @@ stride_rank(x, i) = stride_rank(x)[i]
 stride_rank(::Type{R}) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}} =
     StrideRank{ntuple(identity, Val{N}())}()
 
+function stride_rank(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.SignedMultiplicativeInverse{Int},M}}}}) where {T,N,P,M}
+    
+    _reshaped_striderank(is_column_major(P), Val{N}(), Val{M}())
+end
+_reshaped_striderank(::Val{true}, ::Val{N}, ::Val{0}) where {N} = StrideRank{ntuple(identity, Val{N}())}()
+_reshaped_striderank(_, __, ___) = nothing
+
+
+"""
+If the contiguous dimension is not the dimension with `StrideRank{1}`:
+"""
+struct ContiguousBatch{N} end
+Base.@pure ContiguousBatch(N::Int) = ContiguousBatch{N}()
+_get(::ContiguousBatch{N}) where {N} = N
+
+"""
+    contiguous_batch_size(::Type{T}) -> ContiguousBatch{N}
+
+Returns the Base.size of contiguous batches if `!isone(stride_rank(T, contiguous_axis(T)))`.
+If `isone(stride_rank(T, contiguous_axis(T)))`, then it will return `ContiguousBatch{0}()`.
+If `contiguous_axis(T) == -1`, it will return `ContiguousBatch{-1}()`.
+If unknown, it will return `nothing`.
+"""
+contiguous_batch_size(x) = contiguous_batch_size(typeof(x))
+contiguous_batch_size(::Type{T}) where {T} = _contiguous_batch_size(contiguous_axis(T), stride_rank(T))
+_contiguous_batch_size(_, __) = nothing
+@generated function _contiguous_batch_size(::Contiguous{D}, ::StrideRank{R}) where {D,R}
+    isone(R[D]) ? :(ContiguousBatch{0}()) : :nothing
+end
+
+contiguous_batch_size(::Type{Array{T,N}}) where {T,N} = ContiguousBatch{0}()
+contiguous_batch_size(::Type{<:Tuple}) = ContiguousBatch{0}()
+contiguous_batch_size(
+    ::Type{<:Union{Transpose{T,A},Adjoint{T,A}}},
+) where {T,A<:AbstractVecOrMat{T}} = contiguous_batch_size(A)
+contiguous_batch_size(
+    ::Type{<:PermutedDimsArray{T,N,I1,I2,A}},
+) where {T,N,I1,I2,A<:AbstractArray{T,N}} = contiguous_batch_size(A)
+function contiguous_batch_size(
+    ::Type{S},
+) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
+    _contiguous_batch_size(S, contiguous_batch_size(A), contiguous_axis(A))
+end
+_contiguous_batch_size(::Any, ::Any, ::Any) = nothing
+@generated function _contiguous_batch_size(
+    ::Type{S},
+    ::ContiguousBatch{B},
+    ::Contiguous{C},
+) where {B,C,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
+    if I.parameters[C] <: AbstractUnitRange
+        Expr(:call, Expr(:curly, :ContiguousBatch, B))
+    else
+        Expr(:call, Expr(:curly, :ContiguousBatch, -1))
+    end
+end
+
+contiguous_batch_size(
+    ::Type{R},
+) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}} = ContiguousBatch{0}()
+
+
 """
     is_column_major(A) -> Val{true/false}()
 
@@ -260,7 +274,8 @@ An axis `i` of array `A` is dense if `stride(A, i) * Base.size(A, i) == stride(A
 """
 dense_dims(x) = dense_dims(typeof(x))
 dense_dims(::Type) = nothing
-dense_dims(::Type{Array{T,N}}) where {T,N} = DenseDims{ntuple(_ -> true, Val{N}())}()
+_all_dense(::Val{N}) where {N} = DenseDims{ntuple(_ -> true, Val{N}())}()
+dense_dims(::Type{Array{T,N}}) where {T,N} = _all_dense(Val{N}())
 dense_dims(::Type{<:Tuple}) = DenseDims{(true,)}()
 function dense_dims(
     ::Type{<:Union{Transpose{T,A},Adjoint{T,A}}},
@@ -304,6 +319,15 @@ _dense_dims(::Any, ::Any) = nothing
     end
     # If n != N, then an axis was indexed by something other than an integer or `AbstractUnitRange`, so we return `nothing`.
     length(dense_tup.args) == N ? Expr(:call, Expr(:curly, :DenseDims, dense_tup)) : nothing
+end
+
+function dense_dims(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.SignedMultiplicativeInverse{Int},M}}}}) where {T,N,P,M}
+    
+    _reshaped_dense_dims(dense_dims(P), is_column_major(P), Val{N}(), Val{M}())
+end
+_reshaped_dense_dims(_, __, ___, ____) = nothing
+@generated function _reshaped_dense_dims(::DenseDims{D}, ::Val{true}, ::Val{N}, ::Val{0}) where {D,N}
+    all(D) ? :(_all_dense(Val{$N}())) : :nothing
 end
 
 permute(t::NTuple{N}, I::NTuple{N,Int}) where {N} = ntuple(n -> t[I[n]], Val{N}())
