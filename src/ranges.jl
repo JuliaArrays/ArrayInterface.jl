@@ -463,49 +463,49 @@ julia> for n ∈ 2:16
        end
 n = 2
   0.863 ns (0 allocations: 0 bytes)
-  0.864 ns (0 allocations: 0 bytes)
-n = 3
   0.863 ns (0 allocations: 0 bytes)
+n = 3
+  0.862 ns (0 allocations: 0 bytes)
   0.863 ns (0 allocations: 0 bytes)
 n = 4
-  0.864 ns (0 allocations: 0 bytes)
-  1.075 ns (0 allocations: 0 bytes)
+  0.862 ns (0 allocations: 0 bytes)
+  0.862 ns (0 allocations: 0 bytes)
 n = 5
+  1.074 ns (0 allocations: 0 bytes)
   0.864 ns (0 allocations: 0 bytes)
-  1.076 ns (0 allocations: 0 bytes)
 n = 6
-  0.865 ns (0 allocations: 0 bytes)
-  1.077 ns (0 allocations: 0 bytes)
+  0.864 ns (0 allocations: 0 bytes)
+  0.862 ns (0 allocations: 0 bytes)
 n = 7
   1.075 ns (0 allocations: 0 bytes)
-  0.866 ns (0 allocations: 0 bytes)
+  0.864 ns (0 allocations: 0 bytes)
 n = 8
-  0.974 ns (0 allocations: 0 bytes)
-  1.076 ns (0 allocations: 0 bytes)
+  1.077 ns (0 allocations: 0 bytes)
+  0.865 ns (0 allocations: 0 bytes)
 n = 9
   1.081 ns (0 allocations: 0 bytes)
-  1.077 ns (0 allocations: 0 bytes)
+  0.865 ns (0 allocations: 0 bytes)
 n = 10
-  1.203 ns (0 allocations: 0 bytes)
-  1.077 ns (0 allocations: 0 bytes)
+  1.195 ns (0 allocations: 0 bytes)
+  0.867 ns (0 allocations: 0 bytes)
 n = 11
-  1.355 ns (0 allocations: 0 bytes)
-  1.292 ns (0 allocations: 0 bytes)
+  1.357 ns (0 allocations: 0 bytes)
+  1.400 ns (0 allocations: 0 bytes)
 n = 12
-  1.539 ns (0 allocations: 0 bytes)
-  1.079 ns (0 allocations: 0 bytes)
+  1.543 ns (0 allocations: 0 bytes)
+  1.074 ns (0 allocations: 0 bytes)
 n = 13
-  1.704 ns (0 allocations: 0 bytes)
-  1.290 ns (0 allocations: 0 bytes)
+  1.702 ns (0 allocations: 0 bytes)
+  1.077 ns (0 allocations: 0 bytes)
 n = 14
-  1.916 ns (0 allocations: 0 bytes)
-  1.185 ns (0 allocations: 0 bytes)
+  1.913 ns (0 allocations: 0 bytes)
+  0.867 ns (0 allocations: 0 bytes)
 n = 15
-  2.072 ns (0 allocations: 0 bytes)
-  1.292 ns (0 allocations: 0 bytes)
+  2.076 ns (0 allocations: 0 bytes)
+  1.077 ns (0 allocations: 0 bytes)
 n = 16
   2.273 ns (0 allocations: 0 bytes)
-  1.076 ns (0 allocations: 0 bytes)
+  1.078 ns (0 allocations: 0 bytes)
 ```
 
 More importantly, `reduce_tup(_pick_range, inds)` often performs better than `reduce(_pick_range, inds)`.
@@ -516,33 +516,33 @@ julia> inds = (Base.OneTo(100), 1:100, 1:ArrayInterface.StaticInt(100))
 (Base.OneTo(100), 1:100, 1:Static(100))
 
 julia> @btime reduce(ArrayInterface._pick_range, \$(Ref(inds))[])
-  6.000 ns (0 allocations: 0 bytes)
+  6.405 ns (0 allocations: 0 bytes)
 Base.Slice(Static(1):Static(100))
 
 julia> @btime ArrayInterface.reduce_tup(ArrayInterface._pick_range, \$(Ref(inds))[])
-  2.578 ns (0 allocations: 0 bytes)
+  2.570 ns (0 allocations: 0 bytes)
 Base.Slice(Static(1):Static(100))
 
 julia> inds = (Base.OneTo(100), 1:100, 1:UInt(100))
 (Base.OneTo(100), 1:100, 0x0000000000000001:0x0000000000000064)
 
 julia> @btime reduce(ArrayInterface._pick_range, \$(Ref(inds))[])
-  6.191 ns (0 allocations: 0 bytes)
+  6.411 ns (0 allocations: 0 bytes)
 Base.Slice(Static(1):100)
 
 julia> @btime ArrayInterface.reduce_tup(ArrayInterface._pick_range, \$(Ref(inds))[])
-  2.591 ns (0 allocations: 0 bytes)
+  2.592 ns (0 allocations: 0 bytes)
 Base.Slice(Static(1):100)
 
 julia> inds = (Base.OneTo(100), 1:100, 1:UInt(100), Int32(1):Int32(100))
 (Base.OneTo(100), 1:100, 0x0000000000000001:0x0000000000000064, 1:100)
 
 julia> @btime reduce(ArrayInterface._pick_range, \$(Ref(inds))[])
-  9.268 ns (0 allocations: 0 bytes)
+  9.048 ns (0 allocations: 0 bytes)
 Base.Slice(Static(1):100)
 
 julia> @btime ArrayInterface.reduce_tup(ArrayInterface._pick_range, \$(Ref(inds))[])
-  2.570 ns (0 allocations: 0 bytes)
+  2.569 ns (0 allocations: 0 bytes)
 Base.Slice(Static(1):100)
 ```
 """
@@ -552,32 +552,25 @@ Base.Slice(Static(1):100)
         push!(q.args, :(inds[1]))
         return q
     end
-    splits = 0
-    _N = N
-    while _N > 1
-        _Nhalf = _N >> 1
-        for n ∈ 1:_Nhalf
-            assign = Symbol(:r_,n,:_,splits)
-            call = if splits == 0
-                Expr(:call, :f, Expr(:ref, :inds, n), Expr(:ref, :inds, n + _Nhalf))
-            else
-                Expr(:call, :f, Symbol(:r_,n,:_,splits-1), Symbol(:r_,n + _Nhalf,:_,splits-1))
-            end
-            push!(q.args, Expr(:(=), assign, call))
-        end
-        for (i,n) ∈ enumerate((_Nhalf<<1)+1:_N)
-            assign = Symbol(:r_,i,:_,splits)
-            call = if _N == N
-                Expr(:call, :f, assign, Expr(:ref, :inds, n))
-            else
-                Expr(:call, :f, assign, Symbol(:r_, n, :_, splits-1))
-            end
-            push!(q.args, Expr(:(=), assign, call))
-        end
-        splits += 1
-        _N = _Nhalf
+    syms = Vector{Symbol}(undef, N)
+    i = 0
+    for n ∈ 1:N
+        syms[n] = iₙ = Symbol(:i_, (i += 1))
+        push!(q.args, Expr(:(=), iₙ, Expr(:ref, :inds, n)))
     end
-    push!(q.args, Symbol(:r_,1,:_,splits - 1))
+    W =  1 << (8sizeof(N) - 2 - leading_zeros(N))
+    while W > 0
+        _N = length(syms)
+        for _ ∈ 2W:W:_N
+            for w ∈ 1:W
+                new_sym = Symbol(:i_, (i += 1))
+                push!(q.args, Expr(:(=), new_sym, Expr(:call, :f, syms[w], syms[w+W])))
+                syms[w] = new_sym
+            end
+            deleteat!(syms, 1+W:2W)
+        end
+        W >>>= 1
+    end
     q
 end
 
