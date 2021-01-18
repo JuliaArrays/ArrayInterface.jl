@@ -301,7 +301,7 @@ end
 @inline function _try_static(::StaticInt{M}, ::StaticInt{N}) where {M,N}
     @assert false "Unequal Indices: StaticInt{$M}() != StaticInt{$N}()"
 end
-@noinline unequal_error(x,y) = throw("Unequal Indices: x == $x != $y == y")
+@noinline unequal_error(x,y) = @assert false "Unequal Indices: x == $x != $y == y"
 @inline function check_equal(x, y)
     x == y || unequal_error(x,y)
 end
