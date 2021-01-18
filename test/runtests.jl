@@ -199,6 +199,20 @@ end
         @test @inferred(1:2:StaticInt(10)) == 1:2:10
         @test @inferred(1:StaticInt(2):10) == 1:2:10
         @test @inferred(StaticInt(1):2:10) == 1:2:10 
+        @test @inferred(StaticInt(1):UInt(10)) === StaticInt(1):10 
+        @test @inferred(UInt(1):StaticInt(1):StaticInt(10)) === 1:StaticInt(10)
+        @test @inferred(ArrayInterface.OptionallyStaticUnitRange{Int,Int}(1:10)) == 1:10
+        @test @inferred(ArrayInterface.OptionallyStaticUnitRange(1:10)) == 1:10
+
+        @inferred(ArrayInterface.OptionallyStaticUnitRange(1:10))
+
+        @test @inferred(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), 1, UInt(10))) == StaticInt(1):1:10 
+        @test @inferred(ArrayInterface.OptionallyStaticStepRange(UInt(1), 1, StaticInt(10))) == StaticInt(1):1:10 
+        @test @inferred(ArrayInterface.OptionallyStaticStepRange(1:10)) == 1:1:10
+
+        @test_throws ArgumentError ArrayInterface.OptionallyStaticUnitRange(1:2:10)
+        @test_throws ArgumentError ArrayInterface.OptionallyStaticUnitRange{Int,Int}(1:2:10)
+        @test_throws ArgumentError ArrayInterface.OptionallyStaticStepRange(1, 0, 10)
 
         @test @inferred(StaticInt(1):StaticInt(1):StaticInt(10)) === ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))
         @test @inferred(StaticInt(1):StaticInt(1):10) === ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10)
@@ -226,13 +240,16 @@ end
     @test isnothing(@inferred(ArrayInterface.known_first(typeof(1:4))))
     @test isone(@inferred(ArrayInterface.known_first(Base.OneTo(4))))
     @test isone(@inferred(ArrayInterface.known_first(typeof(Base.OneTo(4)))))
+    @test isone(@inferred(ArrayInterface.known_first(typeof(StaticInt(1):2:10))))
 
     @test isnothing(@inferred(ArrayInterface.known_last(1:4)))
     @test isnothing(@inferred(ArrayInterface.known_last(typeof(1:4))))
+    @test isone(@inferred(ArrayInterface.known_last(typeof(StaticInt(-1):StaticInt(2):StaticInt(1)))))
 
     @test isnothing(@inferred(ArrayInterface.known_step(typeof(1:0.2:4))))
     @test isone(@inferred(ArrayInterface.known_step(1:4)))
     @test isone(@inferred(ArrayInterface.known_step(typeof(1:4))))
+    @test isone(@inferred(ArrayInterface.known_step(typeof(Base.Slice(1:4)))))
 
     @testset "length" begin
         @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(1, 0))) == 0
@@ -244,6 +261,16 @@ end
 
         @test @inferred(length(StaticInt(1):StaticInt(2):StaticInt(0))) == 0
         @test @inferred(length(StaticInt(0):StaticInt(-2):StaticInt(1))) == 0
+
+        @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), 2, 10)))) === nothing
+        @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), StaticInt(1), StaticInt(10))))) === 10
+        @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(StaticInt(2), StaticInt(1), StaticInt(10))))) === 9
+        @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(StaticInt(2), StaticInt(2), StaticInt(10))))) === 5
+
+        @test @inferred(length(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), 2, 10))) == 5
+        @test @inferred(length(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), StaticInt(1), StaticInt(10)))) == 10
+        @test @inferred(length(ArrayInterface.OptionallyStaticStepRange(StaticInt(2), StaticInt(1), StaticInt(10)))) == 9
+        @test @inferred(length(ArrayInterface.OptionallyStaticStepRange(StaticInt(2), StaticInt(2), StaticInt(10)))) == 5
     end
 
     @test @inferred(getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 1)) == 1
