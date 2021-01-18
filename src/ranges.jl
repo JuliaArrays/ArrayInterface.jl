@@ -301,22 +301,20 @@ end
 @inline function _try_static(::StaticInt{M}, ::StaticInt{N}) where {M,N}
     @assert false "Unequal Indices: StaticInt{$M}() != StaticInt{$N}()"
 end
+@noinline unequal_error(x,y) = throw("Unequal Indices: x == $x != $y == y")
+@inline function check_equal(x, y)
+    x == y || unequal_error(x,y)
+end
 @propagate_inbounds function _try_static(::StaticInt{N}, x) where {N}
-    @boundscheck begin
-        @assert N == x "Unequal Indices: StaticInt{$N}() != x == $x"
-    end
+    @boundscheck check_equal(StaticInt{N}(), x)
     return StaticInt{N}()
 end
 @propagate_inbounds function _try_static(x, ::StaticInt{N}) where {N}
-    @boundscheck begin
-        @assert N == x "Unequal Indices: x == $x != StaticInt{$N}()"
-    end
+    @boundscheck check_equal(x, StaticInt{N}())
     return StaticInt{N}()
 end
 @propagate_inbounds function _try_static(x, y)
-    @boundscheck begin
-        @assert x == y "Unequal Indices: x == $x != $y == y"
-    end
+    @boundscheck check_equal(x, y)
     return x
 end
 
@@ -407,7 +405,7 @@ Base.eachindex(r::OptionallyStaticRange) = r
 Base.to_shape(x::OptionallyStaticRange) = length(x)
 Base.to_shape(x::Slice{T}) where {T<:OptionallyStaticRange} = length(x)
 
-function Base.axes(S::Slice{T}) where {T<:OptionallyStaticRange}
+@inline function Base.axes(S::Slice{T}) where {T<:OptionallyStaticRange}
     if known_first(T) === 1 && known_step(T) === 1
         return (S.indices,)
     else
@@ -415,7 +413,7 @@ function Base.axes(S::Slice{T}) where {T<:OptionallyStaticRange}
     end
 end
 
-function Base.axes1(S::Slice{T}) where {T<:OptionallyStaticRange}
+@inline function Base.axes1(S::Slice{T}) where {T<:OptionallyStaticRange}
     if known_first(T) === 1 && known_step(T) === 1
         return S.indices
     else
