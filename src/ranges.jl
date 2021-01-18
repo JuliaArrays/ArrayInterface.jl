@@ -85,7 +85,7 @@ struct OptionallyStaticUnitRange{F<:Integer,L<:Integer} <: AbstractUnitRange{Int
         if step(x) == 1
             return OptionallyStaticUnitRange(static_first(x), static_last(x))
         else
-            throw(ArgumentError("step must be 1, got $(step(r))"))
+            throw(ArgumentError("step must be 1, got $(step(x))"))
         end
     end
 
@@ -93,7 +93,7 @@ struct OptionallyStaticUnitRange{F<:Integer,L<:Integer} <: AbstractUnitRange{Int
         if step(x) == 1
             return OptionallyStaticUnitRange(static_first(x), static_last(x))
         else
-            throw(ArgumentError("step must be 1, got $(step(r))"))
+            throw(ArgumentError("step must be 1, got $(step(x))"))
         end
     end
 end
@@ -251,6 +251,7 @@ unsafe_isempty_unit_range(fst, lst) = fst > lst
 unsafe_length_one_to(lst::Int) = lst
 unsafe_length_one_to(::StaticInt{L}) where {L} = L
 
+# TODO this should probably be renamed because the point is that it is safe
 @inline function unsafe_length_step_range(start::Int, step::Int, stop::Int)
     if step > 1
         return Base.checked_add(Int(div(unsigned(stop - start), step)), 1)
