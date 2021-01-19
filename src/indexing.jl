@@ -322,40 +322,25 @@ end
 Reconstruct `A` given the values in `data`. New methods using `unsafe_reconstruct`
 should only dispatch on `A`.
 """
-function unsafe_reconstruct(A::OneTo, data; kwargs...)
-    if can_change_size(A)
-        return typeof(A)(data)
+function unsafe_reconstruct(axis::OneTo, data; kwargs...)
+    if axis === data
+        return axis
     else
-        if data isa Slice ||
-           !(known_length(A) === nothing || known_length(A) !== known_length(data))
-            return A
-        else
-            return OneTo(data)
-        end
+        return OneTo(data)
     end
 end
-function unsafe_reconstruct(A::UnitRange, data; kwargs...)
-    if can_change_size(A)
-        return typeof(A)(data)
+function unsafe_reconstruct(axis::UnitRange, data; kwargs...)
+    if axis === data
+        return axis
     else
-        if data isa Slice ||
-           !(known_length(A) === nothing || known_length(A) !== known_length(data))
-            return A
-        else
-            return UnitRange(data)
-        end
+        return UnitRange(first(data), last(data))
     end
 end
-function unsafe_reconstruct(A::OptionallyStaticUnitRange, data; kwargs...)
-    if can_change_size(A)
-        return typeof(A)(data)
+function unsafe_reconstruct(axis::OptionallyStaticUnitRange, data; kwargs...)
+    if axis === data
+        return axis
     else
-        if data isa Slice ||
-           !(known_length(A) === nothing || known_length(A) !== known_length(data))
-            return A
-        else
-            return OptionallyStaticUnitRange(data)
-        end
+        return OptionallyStaticUnitRange(static_first(data), static_last(data))
     end
 end
 function unsafe_reconstruct(A::AbstractUnitRange, data; kwargs...)
@@ -418,6 +403,15 @@ previously executed `to_index(old_axis, arg) -> index`. `to_axis` assumes that
         return axis
     else
         return to_axis(IndexStyle(axis), axis, inds)
+    end
+end
+
+# don't need to check size b/c slice means it's the entire axis
+@inline function to_axis(axis, inds::Slice)
+    if can_change_size(axis)
+        return copy(axis)
+    else
+        return axis
     end
 end
 @inline function to_axis(S::IndexStyle, axis, inds)
