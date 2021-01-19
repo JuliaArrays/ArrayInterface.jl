@@ -324,21 +324,21 @@ should only dispatch on `A`.
 """
 function unsafe_reconstruct(axis::OneTo, data; kwargs...)
     if axis === data
-        return data
+        return axis
     else
         return OneTo(data)
     end
 end
 function unsafe_reconstruct(axis::UnitRange, data; kwargs...)
     if axis === data
-        return data
+        return axis
     else
         return UnitRange(first(data), last(data))
     end
 end
 function unsafe_reconstruct(axis::OptionallyStaticUnitRange, data; kwargs...)
     if axis === data
-        return data
+        return axis
     else
         return OptionallyStaticUnitRange(static_first(data), static_last(data))
     end
