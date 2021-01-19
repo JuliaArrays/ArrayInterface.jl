@@ -322,28 +322,25 @@ end
 Reconstruct `A` given the values in `data`. New methods using `unsafe_reconstruct`
 should only dispatch on `A`.
 """
-function unsafe_reconstruct(A::OneTo, data; kwargs...)
-    if data isa Slice ||
-       !(known_length(A) === nothing || known_length(A) !== known_length(data))
-        return A
+function unsafe_reconstruct(axis::OneTo, data; kwargs...)
+    if axis === data
+        return data
     else
         return OneTo(data)
     end
 end
-function unsafe_reconstruct(A::UnitRange, data; kwargs...)
-    if data isa Slice ||
-       !(known_length(A) === nothing || known_length(A) !== known_length(data))
-        return A
+function unsafe_reconstruct(axis::UnitRange, data; kwargs...)
+    if axis === data
+        return data
     else
-        return UnitRange(data)
+        return UnitRange(first(data), last(data))
     end
 end
-function unsafe_reconstruct(A::OptionallyStaticUnitRange, data; kwargs...)
-    if data isa Slice ||
-       !(known_length(A) === nothing || known_length(A) !== known_length(data))
-        return A
+function unsafe_reconstruct(axis::OptionallyStaticUnitRange, data; kwargs...)
+    if axis === data
+        return data
     else
-        return OptionallyStaticUnitRange(data)
+        return OptionallyStaticUnitRange(static_first(data), static_last(data))
     end
 end
 function unsafe_reconstruct(A::AbstractUnitRange, data; kwargs...)

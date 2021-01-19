@@ -8,7 +8,7 @@
 end
 
 @testset "UnsafeIndex" begin
-    @test @inferred(ArrayInterface.UnsafeIndex(ones(2,2,2), typeof((1,[1,2],1)))) == ArrayInterface.UnsafeGetCollection() 
+    @test @inferred(ArrayInterface.UnsafeIndex(ones(2,2,2), typeof((1,[1,2],1)))) == ArrayInterface.UnsafeGetCollection()
     @test @inferred(ArrayInterface.UnsafeIndex(ones(2,2,2), typeof((1,1,1)))) == ArrayInterface.UnsafeGetElement() 
 end
 
@@ -19,10 +19,24 @@ end
     @test @inferred(ArrayInterface.to_index(axis, [1, 2])) == [1, 2]
     @test @inferred(ArrayInterface.to_index(axis, [true, false, false])) == [1]
 
-    @test_throws BoundsError  ArrayInterface.to_index(axis, 4)
-    @test_throws BoundsError  ArrayInterface.to_index(axis, 1:4)
+    @test_throws BoundsError ArrayInterface.to_index(axis, 4)
+    @test_throws BoundsError ArrayInterface.to_index(axis, 1:4)
     @test_throws BoundsError ArrayInterface.to_index(axis, [1, 2, 5])
-    @test_throws BoundsError  ArrayInterface.to_index(axis, [true, false, false, true])
+    @test_throws BoundsError ArrayInterface.to_index(axis, [true, false, false, true])
+end
+
+@testset "unsafe_reconstruct" begin
+    one_to = Base.OneTo(10)
+    opt_ur = StaticInt(1):10
+    ur = 1:10
+    @test @inferred(ArrayInterface.unsafe_reconstruct(one_to, opt_ur)) === one_to
+    @test @inferred(ArrayInterface.unsafe_reconstruct(one_to, one_to)) === one_to
+
+    @test @inferred(ArrayInterface.unsafe_reconstruct(opt_ur, opt_ur)) === opt_ur
+    @test @inferred(ArrayInterface.unsafe_reconstruct(opt_ur, one_to)) === opt_ur
+
+    @test @inferred(ArrayInterface.unsafe_reconstruct(ur, ur)) === ur
+    @test @inferred(ArrayInterface.unsafe_reconstruct(ur, one_to)) === ur
 end
 
 @testset "to_indices" begin
@@ -69,6 +83,9 @@ end
     @test @inferred(ArrayInterface.to_axes(A, (axis, axis), (inds,))) === (inds,)
     # multidim arg
     @test @inferred(ArrayInterface.to_axes(A, (axis, axis), (multi_inds,))) === (Base.OneTo(2),)
+
+    @test ArrayInterface.to_axis(axis, axis) === axis
+    @test ArrayInterface.to_axis(axis, ArrayInterface.indices(axis)) === axis
 end
 
 @testset "0-dimensional" begin
@@ -96,6 +113,12 @@ end
     # TODO should this be implemented in ArrayInterface with vectorization?
     #@test_throws ArgumentError Base._sub2ind((1:3,), 2)
     #@test_throws ArgumentError Base._ind2sub((1:3,), 2)
+    x = Array{Int,2}(undef, (2, 2))
+    ArrayInterface.unsafe_set_element!(x, 1, (2, 2))
+    @test ArrayInterface.unsafe_get_element(x, (2, 2)) === 1
+
+    @test_throws MethodError ArrayInterface.unsafe_set_element!(x, 1, (:x, :x))
+    @test_throws MethodError ArrayInterface.unsafe_get_element(x, (:x, :x))
 end
 
 @testset "2-dimensional" begin
@@ -154,3 +177,4 @@ end
         @test @inferred(ArrayInterface.getindex(LinearIndices(A),ArrayInterface.getindex(CartesianIndices(A),i))) == i
     end
 end
+
