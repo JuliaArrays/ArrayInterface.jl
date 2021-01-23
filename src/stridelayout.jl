@@ -1,11 +1,9 @@
-struct Contiguous{N} end
-Base.@pure Contiguous(N::Int) = Contiguous{N}()
-_get(::Contiguous{N}) where {N} = N
+
 """
-contiguous_axis(::Type{T}) -> Contiguous{N}
+contiguous_axis(::Type{T}) -> StaticInt{N}
 
 Returns the axis of an array of type `T` containing contiguous data.
-If no axis is contiguous, it returns `Contiguous{-1}`.
+If no axis is contiguous, it returns `StaticInt{-1}`.
 If unknown, it returns `nothing`.
 """
 contiguous_axis(x) = contiguous_axis(typeof(x))
@@ -16,14 +14,14 @@ function contiguous_axis(::Type{T}) where {T}
         return contiguous_axis(parent_type(T))
     end
 end
-contiguous_axis(::Type{<:Array}) = Contiguous{1}()
-contiguous_axis(::Type{<:Tuple}) = Contiguous{1}()
+contiguous_axis(::Type{<:Array}) = StaticInt{1}()
+contiguous_axis(::Type{<:Tuple}) = StaticInt{1}()
 function contiguous_axis(
     ::Type{<:Union{Transpose{T,A},Adjoint{T,A}}},
 ) where {T,A<:AbstractVector{T}}
     c = contiguous_axis(A)
     isnothing(c) && return nothing
-    c === Contiguous{1}() ? Contiguous{2}() : Contiguous{-1}()
+    c === StaticInt{1}() ? StaticInt{2}() : StaticInt{-1}()
 end
 function contiguous_axis(
     ::Type{<:Union{Transpose{T,A},Adjoint{T,A}}},
@@ -32,7 +30,7 @@ function contiguous_axis(
     isnothing(c) && return nothing
     contig = _get(c)
     new_contig = contig == -1 ? -1 : 3 - contig
-    Contiguous{new_contig}()
+    StaticInt{new_contig}()
 end
 function contiguous_axis(
     ::Type{<:PermutedDimsArray{T,N,I1,I2,A}},
@@ -41,7 +39,7 @@ function contiguous_axis(
     isnothing(c) && return nothing
     contig = _get(c)
     new_contig = contig == -1 ? -1 : I2[_get(c)]
-    Contiguous{new_contig}()
+    StaticInt{new_contig}()
 end
 function contiguous_axis(
     ::Type{S},
@@ -51,7 +49,7 @@ end
 _contiguous_axis(::Any, ::Nothing) = nothing
 @generated function _contiguous_axis(
     ::Type{S},
-    ::Contiguous{C},
+    ::StaticInt{C},
 ) where {C,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
     n = 0
     new_contig = contig = C
@@ -73,15 +71,15 @@ _contiguous_axis(::Any, ::Nothing) = nothing
     end
     # If n != N, then an axis was indexed by something other than an integer or `OrdinalRange`, so we return `nothing`.
     n == N || return nothing
-    Expr(:call, Expr(:curly, :Contiguous, new_contig))
+    Expr(:call, Expr(:curly, :StaticInt, new_contig))
 end
 
-# contiguous_if_one(::Contiguous{1}) = Contiguous{1}()
-# contiguous_if_one(::Any) = Contiguous{-1}()
+# contiguous_if_one(::StaticInt{1}) = StaticInt{1}()
+# contiguous_if_one(::Any) = StaticInt{-1}()
 function contiguous_axis(
     ::Type{R},
 ) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}}
-    isbitstype(S) ? Contiguous{1}() : nothing
+    isbitstype(S) ? StaticInt{1}() : nothing
     # contiguous_if_one(contiguous_axis(parent_type(R)))
 end
 
@@ -95,7 +93,7 @@ contiguous_axis_indicator(::Type{A}) where {D,A<:AbstractArray{<:Any,D}} =
     contiguous_axis_indicator(contiguous_axis(A), Val(D))
 contiguous_axis_indicator(::A) where {A<:AbstractArray} = contiguous_axis_indicator(A)
 contiguous_axis_indicator(::Nothing, ::Val) = nothing
-Base.@pure contiguous_axis_indicator(::Contiguous{N}, ::Val{D}) where {N,D} =
+Base.@pure contiguous_axis_indicator(::StaticInt{N}, ::Val{D}) where {N,D} =
     ntuple(d -> Val{d == N}(), Val{D}())
 
 struct StrideRank{R} end
@@ -194,27 +192,24 @@ _reshaped_striderank(_, __, ___) = nothing
 """
 If the contiguous dimension is not the dimension with `StrideRank{1}`:
 """
-struct ContiguousBatch{N} end
-Base.@pure ContiguousBatch(N::Int) = ContiguousBatch{N}()
-_get(::ContiguousBatch{N}) where {N} = N
 
 """
-    contiguous_batch_size(::Type{T}) -> ContiguousBatch{N}
+    contiguous_batch_size(::Type{T}) -> StaticInt{N}
 
 Returns the Base.size of contiguous batches if `!isone(stride_rank(T, contiguous_axis(T)))`.
-If `isone(stride_rank(T, contiguous_axis(T)))`, then it will return `ContiguousBatch{0}()`.
-If `contiguous_axis(T) == -1`, it will return `ContiguousBatch{-1}()`.
+If `isone(stride_rank(T, contiguous_axis(T)))`, then it will return `StaticInt{0}()`.
+If `contiguous_axis(T) == -1`, it will return `StaticInt{-1}()`.
 If unknown, it will return `nothing`.
 """
 contiguous_batch_size(x) = contiguous_batch_size(typeof(x))
 contiguous_batch_size(::Type{T}) where {T} = _contiguous_batch_size(contiguous_axis(T), stride_rank(T))
 _contiguous_batch_size(_, __) = nothing
-@generated function _contiguous_batch_size(::Contiguous{D}, ::StrideRank{R}) where {D,R}
-    isone(R[D]) ? :(ContiguousBatch{0}()) : :nothing
+@generated function _contiguous_batch_size(::StaticInt{D}, ::StrideRank{R}) where {D,R}
+    isone(R[D]) ? :(StaticInt{0}()) : :nothing
 end
 
-contiguous_batch_size(::Type{Array{T,N}}) where {T,N} = ContiguousBatch{0}()
-contiguous_batch_size(::Type{<:Tuple}) = ContiguousBatch{0}()
+contiguous_batch_size(::Type{Array{T,N}}) where {T,N} = StaticInt{0}()
+contiguous_batch_size(::Type{<:Tuple}) = StaticInt{0}()
 contiguous_batch_size(
     ::Type{<:Union{Transpose{T,A},Adjoint{T,A}}},
 ) where {T,A<:AbstractVecOrMat{T}} = contiguous_batch_size(A)
@@ -229,19 +224,19 @@ end
 _contiguous_batch_size(::Any, ::Any, ::Any) = nothing
 @generated function _contiguous_batch_size(
     ::Type{S},
-    ::ContiguousBatch{B},
-    ::Contiguous{C},
+    ::StaticInt{B},
+    ::StaticInt{C},
 ) where {B,C,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
     if I.parameters[C] <: AbstractUnitRange
-        Expr(:call, Expr(:curly, :ContiguousBatch, B))
+        Expr(:call, Expr(:curly, :StaticInt, B))
     else
-        Expr(:call, Expr(:curly, :ContiguousBatch, -1))
+        Expr(:call, Expr(:curly, :StaticInt, -1))
     end
 end
 
 contiguous_batch_size(
     ::Type{R},
-) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}} = ContiguousBatch{0}()
+) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}} = StaticInt{0}()
 
 
 """
@@ -251,7 +246,7 @@ Returns `Val{true}` if elements of `A` are stored in column major order. Otherwi
 """
 is_column_major(A) = is_column_major(stride_rank(A), contiguous_batch_size(A))
 is_column_major(::Nothing, ::Any) = Val{false}()
-@generated function is_column_major(::StrideRank{R}, ::ContiguousBatch{N}) where {R,N}
+@generated function is_column_major(::StrideRank{R}, ::StaticInt{N}) where {R,N}
     N > 0 && return :(Val{false}())
     N = length(R)
     for n ∈ 2:N
@@ -597,7 +592,7 @@ end
 @generated function _strides(
     A::AbstractArray{T,N},
     s::NTuple{N},
-    ::Contiguous{C},
+    ::StaticInt{C},
 ) where {T,N,C}
     if C ≤ 0 || C > N
         return Expr(:block, Expr(:meta, :inline), :s)
@@ -620,7 +615,7 @@ if VERSION ≥ v"1.6.0-DEV.1581"
     @generated function _strides(
         _::Base.ReinterpretArray{T,N,S,A,true},
         s::NTuple{N},
-        ::Contiguous{1},
+        ::StaticInt{1},
     ) where {T,N,S,D,A<:Array{S,D}}
         stup = Expr(:tuple, :(One()))
         if D < N

@@ -1,5 +1,26 @@
 
 """
+    StaticBool(bool::Bool) -> StaticBool{bool}()
+
+"""
+struct StaticBool{bool}
+    StaticBool{bool}() where {bool} = new{bool::Bool}()
+    StaticBool(bool::Bool) = new{bool}()
+end
+
+const True = StaticBool{true}
+const False = StaticBool{false}
+
+"""
+    StaticSymbol(sym::Symbol) -> StaticSymbol{sym}()
+
+"""
+struct StaticSymbol{sym}
+    StaticSymbol{sym}() where {sym} = new{sym::Symbol}()
+    StaticSymbol(sym::Symbol) = new{sym}()
+end
+
+"""
     StaticInt(N::Int) -> StaticInt{N}()
 
 A statically sized `Int`.
@@ -9,7 +30,15 @@ struct StaticInt{N} <: Integer
     StaticInt{N}() where {N} = new{N::Int}()
 end
 
-Base.show(io::IO, ::StaticInt{N}) where {N} = print(io, "Static($N)")
+Base.show(io::IO, ::StaticInt{N}) where {N} = print(io, "static($N)")
+Base.show(io::IO, ::StaticSymbol{sym}) where {sym} = print(io, "static(:$sym)")
+Base.show(io::IO, ::StaticBool{bool}) where {bool} = print(io, "static($bool)")
+
+
+_get(::StaticSymbol{sym}) where {sym} = sym::Symbol
+_get(::StaticInt{n}) where {n} = n::Int
+_get(::StaticBool{bool}) where {bool} = bool::Bool
+
 
 const Zero = StaticInt{0}
 const One = StaticInt{1}

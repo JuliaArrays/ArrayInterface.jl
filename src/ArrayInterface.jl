@@ -794,8 +794,8 @@ function __init__()
         known_length(::Type{A}) where {A <: StaticArrays.StaticArray} = known_length(StaticArrays.Length(A))
 
         device(::Type{<:StaticArrays.MArray}) = CPUPointer()
-        contiguous_axis(::Type{<:StaticArrays.StaticArray}) = Contiguous{1}()
-        contiguous_batch_size(::Type{<:StaticArrays.StaticArray}) = ContiguousBatch{0}()
+        contiguous_axis(::Type{<:StaticArrays.StaticArray}) = StaticInt{1}()
+        contiguous_batch_size(::Type{<:StaticArrays.StaticArray}) = StaticInt{0}()
         stride_rank(::Type{T}) where {N,T<:StaticArrays.StaticArray{<:Any,<:Any,N}} =
             StrideRank{ntuple(identity, Val{N}())}()
         dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} =
