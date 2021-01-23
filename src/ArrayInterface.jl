@@ -10,6 +10,9 @@ Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
 parameterless_type(x::Type) = __parameterless_type(x)
 
+const VecAdjTrans{T,V<:AbstractVector{T}} = Union{Transpose{T,V},Adjoint{T,V}}
+const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
+
 """
     parent_type(::Type{T})
 
@@ -797,7 +800,7 @@ function __init__()
         contiguous_axis(::Type{<:StaticArrays.StaticArray}) = StaticInt{1}()
         contiguous_batch_size(::Type{<:StaticArrays.StaticArray}) = StaticInt{0}()
         stride_rank(::Type{T}) where {N,T<:StaticArrays.StaticArray{<:Any,<:Any,N}} =
-            StrideRank{ntuple(identity, Val{N}())}()
+            ArrayInterface.nstatic(Val(N))
         dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} =
             DenseDims{ntuple(_ -> true, Val(N))}()
         defines_strides(::Type{<:StaticArrays.MArray}) = true

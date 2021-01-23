@@ -3,7 +3,7 @@
     StaticBool(bool::Bool) -> StaticBool{bool}()
 
 """
-struct StaticBool{bool}
+struct StaticBool{bool} <: Integer
     StaticBool{bool}() where {bool} = new{bool::Bool}()
     StaticBool(bool::Bool) = new{bool}()
 end

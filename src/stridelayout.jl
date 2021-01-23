@@ -96,6 +96,7 @@ contiguous_axis_indicator(::Nothing, ::Val) = nothing
 Base.@pure contiguous_axis_indicator(::StaticInt{N}, ::Val{D}) where {N,D} =
     ntuple(d -> Val{d == N}(), Val{D}())
 
+#= FIXME delete
 struct StrideRank{R} end
 Base.@pure StrideRank(R::NTuple{<:Any,Int}) = StrideRank{R}()
 _get(::StrideRank{R}) where {R} = R
@@ -108,7 +109,10 @@ Base.collect(::StrideRank{R}) where {R} = collect(R)
 
 Returns the `sortperm` of the stride ranks.
 """
-function rank_to_sortperm(R::NTuple{N,Int}) where {N}
+
+@generated Base.sortperm(::StrideRank{R}) where {R} = rank_to_sortperm(R)
+=#
+function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
     sp = ntuple(zero, Val{N}())
     r = ntuple(n -> sum(R[n] .≥ R), Val{N}())
     @inbounds for n = 1:N
@@ -116,76 +120,58 @@ function rank_to_sortperm(R::NTuple{N,Int}) where {N}
     end
     sp
 end
-@generated Base.sortperm(::StrideRank{R}) where {R} = rank_to_sortperm(R)
+nstatic(::Val{N}) where {N} = ntuple(i -> StaticInt(i), Val{N}())
 
 stride_rank(x) = stride_rank(typeof(x))
 stride_rank(::Type) = nothing
-stride_rank(::Type{Array{T,N}}) where {T,N} = StrideRank{ntuple(identity, Val{N}())}()
-stride_rank(::Type{<:Tuple}) = StrideRank{(1,)}()
+stride_rank(::Type{Array{T,N}}) where {T,N} = nstatic(Val(N))
+stride_rank(::Type{<:Tuple}) = (One(),)
 
-stride_rank(
-    ::Type{B},
-) where {T,A<:AbstractVector{T},B<:Union{Transpose{T,A},Adjoint{T,A}}} =
-    StrideRank{(2, 1)}()
-stride_rank(
-    ::Type{B},
-) where {T,A<:AbstractMatrix{T},B<:Union{Transpose{T,A},Adjoint{T,A}}} =
-    _stride_rank(B, stride_rank(A))
-_stride_rank(
-    ::Type{<:Union{Transpose{T,A},Adjoint{T,A}}},
-    ::Nothing,
-) where {T,A<:AbstractMatrix{T}} = nothing
-_stride_rank(
-    ::Type{<:Union{Transpose{T,A},Adjoint{T,A}}},
-    rank,
-) where {T,A<:AbstractMatrix{T}} = rank[Val{(2, 1)}()]
+stride_rank(::Type{T}) where {T<:VecAdjTrans} = (StaticInt(2), StaticInt(1))
+stride_rank(::Type{T}) where {T<:MatAdjTrans} = _stride_rank(T, stride_rank(parent_type(T)))
+_stride_rank(::Type{T}, ::Nothing) where {T<:MatAdjTrans} = nothing
+_stride_rank(::Type{T}, rank) where {T<:MatAdjTrans} = (last(rank), first(rank))
 
-stride_rank(
-    ::Type{B},
-) where {T,N,I1,I2,A<:AbstractArray{T,N},B<:PermutedDimsArray{T,N,I1,I2,A}} =
-    _stride_rank(B, stride_rank(A))
-_stride_rank(
-    ::Type{B},
-    ::Nothing,
-) where {T,N,I1,I2,A<:AbstractArray{T,N},B<:PermutedDimsArray{T,N,I1,I2,A}} = nothing
-_stride_rank(
-    ::Type{B},
-    rank,
-) where {T,N,I1,I2,A<:AbstractArray{T,N},B<:PermutedDimsArray{T,N,I1,I2,A}} =
-    rank[Val{I1}()]
+function stride_rank(::Type{T},) where {T<:PermutedDimsArray}
+    return _stride_rank(T, stride_rank(parent_type(T)))
+end
+_stride_rank(::Type{T}, ::Nothing) where {T<:PermutedDimsArray} = nothing
+function _stride_rank(::Type{T}, rank) where {I,T<:PermutedDimsArray{<:Any,<:Any,I}}
+    return permute(rank, Val(I))
+end
+
 function stride_rank(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    _stride_rank(S, stride_rank(A))
+    return _stride_rank(S, stride_rank(A))
 end
 _stride_rank(::Any, ::Any) = nothing
 @generated function _stride_rank(
     ::Type{S},
-    ::StrideRank{R},
+    ::R,
 ) where {R,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    rankv = collect(R)
-    rank_new = Int[]
+    rank_new = []
     n = 0
     for np = 1:NP
-        r = rankv[np]
+        r = R.parameters[np].parameters[1]
         if I.parameters[np] <: AbstractArray
             n += 1
-            push!(rank_new, r)
+            push!(rank_new, :(StaticInt($r)))
         end
     end
     # If n != N, then an axis was indexed by something other than an integer or `AbstractUnitRange`, so we return `nothing`.
     n == N || return nothing
     ranktup = Expr(:tuple)
     append!(ranktup.args, rank_new) # dynamic splats bad
-    Expr(:call, Expr(:curly, :StrideRank, ranktup))
+    return ranktup
 end
 stride_rank(x, i) = stride_rank(x)[i]
-stride_rank(::Type{R}) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}} =
-    StrideRank{ntuple(identity, Val{N}())}()
+function stride_rank(::Type{R}) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}}
+    return nstatic(Val(N))
+end
 
 function stride_rank(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.SignedMultiplicativeInverse{Int},M}}}}) where {T,N,P,M}
-    
     _reshaped_striderank(is_column_major(P), Val{N}(), Val{M}())
 end
-_reshaped_striderank(::Val{true}, ::Val{N}, ::Val{0}) where {N} = StrideRank{ntuple(identity, Val{N}())}()
+_reshaped_striderank(::Val{true}, ::Val{N}, ::Val{0}) where {N} = nstatic(Val(N))
 _reshaped_striderank(_, __, ___) = nothing
 
 
@@ -204,8 +190,12 @@ If unknown, it will return `nothing`.
 contiguous_batch_size(x) = contiguous_batch_size(typeof(x))
 contiguous_batch_size(::Type{T}) where {T} = _contiguous_batch_size(contiguous_axis(T), stride_rank(T))
 _contiguous_batch_size(_, __) = nothing
-@generated function _contiguous_batch_size(::StaticInt{D}, ::StrideRank{R}) where {D,R}
-    isone(R[D]) ? :(StaticInt{0}()) : :nothing
+@generated function _contiguous_batch_size(::StaticInt{D}, ::R) where {D,R}
+    if R.parameters[D].parameters[1] === 1
+        return :(StaticInt{0}())
+    else
+        return :nothing
+    end
 end
 
 contiguous_batch_size(::Type{Array{T,N}}) where {T,N} = StaticInt{0}()
@@ -246,11 +236,11 @@ Returns `Val{true}` if elements of `A` are stored in column major order. Otherwi
 """
 is_column_major(A) = is_column_major(stride_rank(A), contiguous_batch_size(A))
 is_column_major(::Nothing, ::Any) = Val{false}()
-@generated function is_column_major(::StrideRank{R}, ::StaticInt{N}) where {R,N}
+@generated function is_column_major(::R, ::StaticInt{N}) where {R<:Tuple,N}
     N > 0 && return :(Val{false}())
-    N = length(R)
+    N = length(R.parameters)
     for n ∈ 2:N
-        if R[n] ≤ R[n-1]
+        if R.parameters[n].parameters[1] ≤ R.parameters[n-1].parameters[1]
             return :(Val{false}())
         end
     end
@@ -285,13 +275,13 @@ function dense_dims(
     isnothing(dense) ? nothing : dense[Val{I1}()]
 end
 function dense_dims(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    _dense_dims(S, dense_dims(A), stride_rank(A))
+    _dense_dims(S, dense_dims(A), Val(stride_rank(A))) # TODO fix this
 end
 _dense_dims(::Any, ::Any) = nothing
 @generated function _dense_dims(
     ::Type{S},
     ::DenseDims{D},
-    ::StrideRank{R},
+    ::Val{R},
 ) where {D,R,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
     still_dense = true
     sp = rank_to_sortperm(R)
