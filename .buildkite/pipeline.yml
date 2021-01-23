@@ -4,8 +4,8 @@ steps:
       - JuliaCI/julia#v0.6:
           version: "1.5"
       - JuliaCI/julia-test#v0.3:
-      # - JuliaCI/julia-coverage#v0.3:
-      #     codecov: true
+      - JuliaCI/julia-coverage#v0.3:
+          codecov: true
     agents:
       queue: "juliagpu"
       cuda: "*"
@@ -13,4 +13,4 @@ steps:
 
 env:
   JULIA_PKG_SERVER: "" # it often struggles with our large artifacts
-  # SECRET_CODECOV_TOKEN: ""
+  SECRET_CODECOV_TOKEN: "b3VnbGgFLwQ5JLdP+RtluFzff8Iq7OdCr1mQiXIcrRz6w1gH1ZBO74lh5/G8G0DCZ8FcDPExcAU15Bgg1fnuKBUD+pM5+lh75Omd8sIQwy04KuFjya8LYRYTg9Jpi9LiUVFke/EpXnii84WkWGfvNMpLQedLvuM8FUzInFnuXicMgrbcIQQO0M7va/Efwn7yRiBLmgGv8jI5hphHsjF7joU1tnNeJEPTZ/oKzubxta0DlLW4DYaaRZc9RmsXGH2bg1el+ujouf8YZ4ncO7okvsgjSXzKxdGqN74WqlgzLZRtvtDkDRT8jTlugDq9C+oeUDnCfc6VJcSaNw1Kmk5OyQ==;U2FsdGVkX1+l463STh4TdVc8OUkIO2uf1pWXUtVHDZHgxILX1+40v9kVYUGznEE/flndA4dOk6PrND8KnISGsA=="
