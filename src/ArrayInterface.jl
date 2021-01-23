@@ -799,10 +799,12 @@ function __init__()
         device(::Type{<:StaticArrays.MArray}) = CPUPointer()
         contiguous_axis(::Type{<:StaticArrays.StaticArray}) = StaticInt{1}()
         contiguous_batch_size(::Type{<:StaticArrays.StaticArray}) = StaticInt{0}()
-        stride_rank(::Type{T}) where {N,T<:StaticArrays.StaticArray{<:Any,<:Any,N}} =
-            ArrayInterface.nstatic(Val(N))
-        dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} =
-            DenseDims{ntuple(_ -> true, Val(N))}()
+        function stride_rank(::Type{T}) where {N,T<:StaticArrays.StaticArray{<:Any,<:Any,N}}
+            return ArrayInterface.nstatic(Val(N))
+        end
+        function dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N}
+            return ArrayInterface._all_dense(Val(N))
+        end
         defines_strides(::Type{<:StaticArrays.MArray}) = true
 
         @generated function axes_types(::Type{<:StaticArrays.StaticArray{S}}) where {S}

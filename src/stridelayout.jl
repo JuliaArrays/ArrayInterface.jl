@@ -224,10 +224,9 @@ _contiguous_batch_size(::Any, ::Any, ::Any) = nothing
     end
 end
 
-contiguous_batch_size(
-    ::Type{R},
-) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}} = StaticInt{0}()
-
+function contiguous_batch_size(::Type{<:Base.ReinterpretArray{T,N,S,A}}) where {T,N,S,A}
+    return StaticInt{0}()
+end
 
 """
     is_column_major(A) -> Val{true/false}()
@@ -247,10 +246,13 @@ is_column_major(::Nothing, ::Any) = Val{false}()
     :(Val{true}())
 end
 
+#=
 struct DenseDims{D} end
 Base.@pure DenseDims(D::NTuple{<:Any,Bool}) = DenseDims{D}()
 @inline Base.getindex(::DenseDims{D}, i::Integer) where {D} = D[i]
 @inline Base.getindex(::DenseDims{D}, ::Val{I}) where {D,I} = DenseDims{permute(D, I)}()
+=#
+
 """
     dense_dims(::Type{T}) -> NTuple{N,Bool}
 
@@ -259,20 +261,27 @@ An axis `i` of array `A` is dense if `stride(A, i) * Base.size(A, i) == stride(A
 """
 dense_dims(x) = dense_dims(typeof(x))
 dense_dims(::Type) = nothing
-_all_dense(::Val{N}) where {N} = DenseDims{ntuple(_ -> true, Val{N}())}()
+_all_dense(::Val{N}) where {N} = ntuple(_ -> True(), Val{N}())
+
 dense_dims(::Type{Array{T,N}}) where {T,N} = _all_dense(Val{N}())
-dense_dims(::Type{<:Tuple}) = DenseDims{(true,)}()
-function dense_dims(
-    ::Type{<:Union{Transpose{T,A},Adjoint{T,A}}},
-) where {T,A<:AbstractMatrix{T}}
-    dense = dense_dims(A)
-    isnothing(dense) ? nothing : dense[Val{(2, 1)}()]
+dense_dims(::Type{<:Tuple}) = (True(),)
+function dense_dims(::Type{T}) where {T<:MatAdjTrans}
+    dense = dense_dims(parent_type(T))
+    if dense === nothing
+        return nothing
+    else
+        return (last(dense), first(dense))
+    end
 end
 function dense_dims(
     ::Type{<:PermutedDimsArray{T,N,I1,I2,A}},
 ) where {T,N,I1,I2,A<:AbstractArray{T,N}}
     dense = dense_dims(A)
-    isnothing(dense) ? nothing : dense[Val{I1}()]
+    if dense === nothing
+        return nothing
+    else
+        return permute(dense, Val(I1))
+    end
 end
 function dense_dims(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
     _dense_dims(S, dense_dims(A), Val(stride_rank(A))) # TODO fix this
@@ -280,7 +289,7 @@ end
 _dense_dims(::Any, ::Any) = nothing
 @generated function _dense_dims(
     ::Type{S},
-    ::DenseDims{D},
+    ::D,
     ::Val{R},
 ) where {D,R,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
     still_dense = true
@@ -288,7 +297,9 @@ _dense_dims(::Any, ::Any) = nothing
     densev = Vector{Bool}(undef, NP)
     for np = 1:NP
         spₙ = sp[np]
-        still_dense &= D[spₙ]
+        if still_dense
+            still_dense = D.parameters[spₙ] <: True
+        end
         densev[spₙ] = still_dense
         # a dim not being complete makes later dims not dense
         still_dense &= (I.parameters[spₙ] <: Base.Slice)::Bool
@@ -297,22 +308,34 @@ _dense_dims(::Any, ::Any) = nothing
     for np = 1:NP
         Iₙₚ = I.parameters[np]
         if Iₙₚ <: AbstractUnitRange
-            push!(dense_tup.args, densev[np])
+            if densev[np]
+                push!(dense_tup.args, :(True()))
+            else
+                push!(dense_tup.args, :(False()))
+            end
         elseif Iₙₚ <: AbstractVector
-            push!(dense_tup.args, false)
+            push!(dense_tup.args, :(False()))
         end
     end
     # If n != N, then an axis was indexed by something other than an integer or `AbstractUnitRange`, so we return `nothing`.
-    length(dense_tup.args) == N ? Expr(:call, Expr(:curly, :DenseDims, dense_tup)) : nothing
+    if length(dense_tup.args) === N
+        return dense_tup
+    else
+        return nothing
+    end
 end
 
 function dense_dims(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.SignedMultiplicativeInverse{Int},M}}}}) where {T,N,P,M}
-    
     _reshaped_dense_dims(dense_dims(P), is_column_major(P), Val{N}(), Val{M}())
 end
 _reshaped_dense_dims(_, __, ___, ____) = nothing
-@generated function _reshaped_dense_dims(::DenseDims{D}, ::Val{true}, ::Val{N}, ::Val{0}) where {D,N}
-    all(D) ? :(_all_dense(Val{$N}())) : :nothing
+# TODO check for inference and btime
+function _reshaped_dense_dims(dense::D, ::Val{true}, ::Val{N}, ::Val{0}) where {D,N}
+    if _all(dense)
+        return _all_dense(Val{N}())
+    else
+        return nothing
+    end
 end
 
 permute(t::NTuple{N}, I::NTuple{N,Int}) where {N} = ntuple(n -> t[I[n]], Val{N}())

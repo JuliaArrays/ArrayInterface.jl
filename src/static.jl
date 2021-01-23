@@ -1,17 +1,5 @@
 
 """
-    StaticBool(bool::Bool) -> StaticBool{bool}()
-
-"""
-struct StaticBool{bool} <: Integer
-    StaticBool{bool}() where {bool} = new{bool::Bool}()
-    StaticBool(bool::Bool) = new{bool}()
-end
-
-const True = StaticBool{true}
-const False = StaticBool{false}
-
-"""
     StaticSymbol(sym::Symbol) -> StaticSymbol{sym}()
 
 """
@@ -30,18 +18,14 @@ struct StaticInt{N} <: Integer
     StaticInt{N}() where {N} = new{N::Int}()
 end
 
+const Zero = StaticInt{0}
+const One = StaticInt{1}
+
 Base.show(io::IO, ::StaticInt{N}) where {N} = print(io, "static($N)")
 Base.show(io::IO, ::StaticSymbol{sym}) where {sym} = print(io, "static(:$sym)")
-Base.show(io::IO, ::StaticBool{bool}) where {bool} = print(io, "static($bool)")
-
 
 _get(::StaticSymbol{sym}) where {sym} = sym::Symbol
 _get(::StaticInt{n}) where {n} = n::Int
-_get(::StaticBool{bool}) where {bool} = bool::Bool
-
-
-const Zero = StaticInt{0}
-const One = StaticInt{1}
 
 Base.@pure StaticInt(N::Int) = StaticInt{N}()
 StaticInt(N::Integer) = StaticInt(convert(Int, N))
@@ -175,3 +159,110 @@ Base.UnitRange(start, stop::StaticInt) = UnitRange(start, Int(stop))
 function Base.UnitRange(start::StaticInt, stop::StaticInt)
     return UnitRange(Int(start), Int(stop))
 end
+
+
+struct True <: Integer end
+struct False <: Integer end
+
+"""
+    StaticBool(bool::Bool) -> StaticBool{bool}()
+
+"""
+const StaticBool = Union{True,False}
+StaticBool(x::StaticBool) = x
+function StaticBool(x::Bool)
+    if x
+        return True()
+    else
+        return False()
+    end
+end
+
+StaticInt(x::False) = Zero()
+StaticInt(x::True) = One()
+Base.Bool(::True) = true
+Base.Bool(::False) = false
+
+Base.:(~)(::True) = False()
+Base.:(~)(::False) = True()
+Base.:(!)(::True) = False()
+Base.:(!)(::False) = True()
+
+Base.:(|)(x::StaticBool, y::StaticBool) = _or(x, y)
+_or(::True, ::False) = True()
+_or(::False, ::True) = True()
+_or(::True, ::True) = True()
+_or(::False, ::False) = False()
+Base.:(|)(x::Bool, y::StaticBool) = x | Bool(y)
+Base.:(|)(x::StaticBool, y::Bool) = Bool(x) | y
+
+Base.:(&)(x::StaticBool, y::StaticBool) = _and(x, y)
+_and(::True, ::False) = False()
+_and(::False, ::True) = False()
+_and(::True, ::True) = True()
+_and(::False, ::False) = False()
+Base.:(&)(x::Bool, y::StaticBool) = x & Bool(y)
+Base.:(&)(x::StaticBool, y::Bool) = Bool(x) & y
+
+Base.xor(y::StaticBool, x::StaticBool) = _xor(x, y)
+_xor(::True, ::True) = False()
+_xor(::True, ::False) = True()
+_xor(::False, ::True) = True()
+_xor(::False, ::False) = False()
+Base.xor(x::Bool, y::StaticBool) = xor(x, Bool(y))
+Base.xor(x::StaticBool, y::Bool) = xor(Bool(x), y)
+
+Base.sign(x::StaticBool) = x
+Base.abs(x::StaticBool) = x
+Base.abs2(x::StaticBool) = x
+Base.iszero(::True) = False()
+Base.iszero(::False) = True()
+Base.isone(::True) = True()
+Base.isone(::False) = False()
+
+Base.:(<)(x::StaticBool, y::StaticBool) = _lt(x, y)
+_lt(::False, ::True) = True()
+_lt(::True, ::True) = False()
+_lt(::False, ::False) = False()
+_lt(::True, ::False) = False()
+
+Base.:(<=)(x::StaticBool, y::StaticBool) = _lteq(x, y)
+_lteq(::False, ::True) = True()
+_lteq(::True, ::True) = True()
+_lteq(::False, ::False) = True()
+_lteq(::True, ::False) = False()
+
+Base.:(+)(x::True) = One()
+Base.:(+)(x::False) = Zero()
+Base.:(-)(x::True) = -One()
+Base.:(-)(x::False) = Zero()
+
+Base.:(+)(x::StaticBool, y::StaticBool) = StaticInt(x) + StaticInt(y)
+Base.:(-)(x::StaticBool, y::StaticBool) = StaticInt(x) - StaticInt(y)
+Base.:(*)(x::StaticBool, y::StaticBool) = x & y
+
+# from `^(x::Bool, y::Bool) = x | !y`
+Base.:(^)(x::StaticBool, y::False) = True()
+Base.:(^)(x::StaticBool, y::True) = x
+Base.:(^)(x::Integer, y::False) = one(x)
+Base.:(^)(x::Integer, y::True) = x
+Base.:(^)(x::BigInt, y::False) = one(x)
+Base.:(^)(x::BigInt, y::True) = x
+
+Base.div(x::StaticBool, y::False) = throw(DivideError())
+Base.div(x::StaticBool, y::True) = x
+
+Base.rem(x::StaticBool, y::False) = throw(DivideError())
+Base.rem(x::StaticBool, y::True) = False()
+Base.mod(x::StaticBool, y::StaticBool) = rem(x, y)
+
+_all(::T) where {T} = _all(T)
+_all(::Type{T}) where {T<:Tuple{Vararg{True}}} = true
+_all(::Type{T}) where {T} = false
+
+
+Base.promote_rule(::Type{<:StaticBool}, ::Type{<:StaticBool}) = StaticBool
+Base.promote_rule(::Type{<:StaticBool}, ::Type{Bool}) = Bool
+Base.promote_rule(::Type{Bool}, ::Type{<:StaticBool}) = Bool
+
+
