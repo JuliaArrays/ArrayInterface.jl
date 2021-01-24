@@ -1,5 +1,17 @@
 
 """
+    offsets(A) -> Tuple
+
+Returns offsets of indices with respect to 0. If values are known at compile time,
+it should return them as `Static` numbers.
+For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1))`.
+"""
+@inline offsets(x, i) = static_first(indices(x, i))
+# Explicit tuple needed for inference.
+offsets(x) = each_op_x(offsets, x)
+offsets(::Tuple) = (One(),)
+
+"""
 contiguous_axis(::Type{T}) -> StaticInt{N}
 
 Returns the axis of an array of type `T` containing contiguous data.
@@ -16,102 +28,77 @@ function contiguous_axis(::Type{T}) where {T}
 end
 contiguous_axis(::Type{<:Array}) = StaticInt{1}()
 contiguous_axis(::Type{<:Tuple}) = StaticInt{1}()
-function contiguous_axis(
-    ::Type{<:Union{Transpose{T,A},Adjoint{T,A}}},
-) where {T,A<:AbstractVector{T}}
-    c = contiguous_axis(A)
-    isnothing(c) && return nothing
-    c === StaticInt{1}() ? StaticInt{2}() : StaticInt{-1}()
-end
-function contiguous_axis(
-    ::Type{<:Union{Transpose{T,A},Adjoint{T,A}}},
-) where {T,A<:AbstractMatrix{T}}
-    c = contiguous_axis(A)
-    isnothing(c) && return nothing
-    contig = _get(c)
-    new_contig = contig == -1 ? -1 : 3 - contig
-    StaticInt{new_contig}()
-end
-function contiguous_axis(
-    ::Type{<:PermutedDimsArray{T,N,I1,I2,A}},
-) where {T,N,I1,I2,A<:AbstractArray{T,N}}
-    c = contiguous_axis(A)
-    isnothing(c) && return nothing
-    contig = _get(c)
-    new_contig = contig == -1 ? -1 : I2[_get(c)]
-    StaticInt{new_contig}()
-end
-function contiguous_axis(
-    ::Type{S},
-) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    _contiguous_axis(S, contiguous_axis(A))
-end
-_contiguous_axis(::Any, ::Nothing) = nothing
-@generated function _contiguous_axis(
-    ::Type{S},
-    ::StaticInt{C},
-) where {C,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    n = 0
-    new_contig = contig = C
-    for np = 1:NP
-        p = I.parameters[np]
-        if p <: OrdinalRange
-            n += 1
-            if np == contig
-                new_contig = (p <: AbstractUnitRange) ? n : -1
-            end
-        elseif p <: AbstractArray
-            n += 1
-            new_contig = np == contig ? -1 : new_contig
-        elseif p <: Integer
-            if np == contig
-                new_contig = -1
-            end
-        end
+function contiguous_axis(::Type{T}) where {T<:VecAdjTrans}
+    c = contiguous_axis(parent_type(T))
+    if c === nothing
+        return nothing
+    elseif c === One()
+        return StaticInt{2}()
+    else
+        return -c
     end
-    # If n != N, then an axis was indexed by something other than an integer or `OrdinalRange`, so we return `nothing`.
-    n == N || return nothing
-    Expr(:call, Expr(:curly, :StaticInt, new_contig))
+end
+function contiguous_axis(::Type{T}) where {T<:MatAdjTrans}
+    c = contiguous_axis(parent_type(T))
+    if c === nothing
+        return nothing
+    elseif isone(-c)
+        return c
+    else
+        return StaticInt(3) - c
+    end
+end
+function contiguous_axis(::Type{T}) where {I1,I2,T<:PermutedDimsArray{<:Any,<:Any,I1,I2}}
+    c = contiguous_axis(parent_type(T))
+    if c === nothing
+        return nothing
+    elseif isone(-c)
+        return c
+    else
+        return StaticInt(I2[c])
+    end
+end
+function contiguous_axis(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
+    return _contiguous_axis(S, contiguous_axis(A))
+end
+
+_contiguous_axis(::Any, ::Nothing) = nothing
+function _contiguous_axis(::Type{A}, c::StaticInt{C}) where {T,N,P,I,A<:SubArray{T,N,P,I},C}
+    if I.parameters[C] <: AbstractUnitRange
+        return from_parent_dims(A)[C]
+    elseif I.parameters[C] <: AbstractArray
+        return -One()
+    elseif I.parameters[C] <: Integer
+        return -One()
+    else
+        return nothing
+    end
 end
 
 # contiguous_if_one(::StaticInt{1}) = StaticInt{1}()
 # contiguous_if_one(::Any) = StaticInt{-1}()
-function contiguous_axis(
-    ::Type{R},
-) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}}
-    isbitstype(S) ? StaticInt{1}() : nothing
-    # contiguous_if_one(contiguous_axis(parent_type(R)))
+function contiguous_axis(::Type{R}) where {T,N,S,A<:Array{S},R<:ReinterpretArray{T,N,S,A}}
+    if isbitstype(S)
+        return One()
+    else
+        return nothing
+    end
 end
-
 
 """
     contiguous_axis_indicator(::Type{T}) -> Tuple{Vararg{Val}}
 
 Returns a tuple boolean `Val`s indicating whether that axis is contiguous.
 """
-contiguous_axis_indicator(::Type{A}) where {D,A<:AbstractArray{<:Any,D}} =
-    contiguous_axis_indicator(contiguous_axis(A), Val(D))
+function contiguous_axis_indicator(::Type{A}) where {D,A<:AbstractArray{<:Any,D}}
+    return contiguous_axis_indicator(contiguous_axis(A), Val(D))
+end
 contiguous_axis_indicator(::A) where {A<:AbstractArray} = contiguous_axis_indicator(A)
 contiguous_axis_indicator(::Nothing, ::Val) = nothing
-Base.@pure contiguous_axis_indicator(::StaticInt{N}, ::Val{D}) where {N,D} =
-    ntuple(d -> Val{d == N}(), Val{D}())
+Base.@pure function contiguous_axis_indicator(::StaticInt{N}, ::Val{D}) where {N,D}
+    return ntuple(d -> StaticBool(d === N), Val{D}())
+end
 
-#= FIXME delete
-struct StrideRank{R} end
-Base.@pure StrideRank(R::NTuple{<:Any,Int}) = StrideRank{R}()
-_get(::StrideRank{R}) where {R} = R
-Base.collect(::StrideRank{R}) where {R} = collect(R)
-@inline Base.getindex(::StrideRank{R}, i::Integer) where {R} = R[i]
-@inline Base.getindex(::StrideRank{R}, ::Val{I}) where {R,I} = StrideRank{permute(R, I)}()
-
-"""
-    rank_to_sortperm(::StrideRank) -> NTuple{N,Int}
-
-Returns the `sortperm` of the stride ranks.
-"""
-
-@generated Base.sortperm(::StrideRank{R}) where {R} = rank_to_sortperm(R)
-=#
 function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
     sp = ntuple(zero, Val{N}())
     r = ntuple(n -> sum(R[n] .≥ R), Val{N}())
@@ -120,7 +107,6 @@ function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
     end
     sp
 end
-nstatic(::Val{N}) where {N} = ntuple(i -> StaticInt(i), Val{N}())
 
 stride_rank(x) = stride_rank(typeof(x))
 stride_rank(::Type) = nothing
@@ -171,7 +157,7 @@ end
 function stride_rank(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.SignedMultiplicativeInverse{Int},M}}}}) where {T,N,P,M}
     _reshaped_striderank(is_column_major(P), Val{N}(), Val{M}())
 end
-_reshaped_striderank(::Val{true}, ::Val{N}, ::Val{0}) where {N} = nstatic(Val(N))
+_reshaped_striderank(::True, ::Val{N}, ::Val{0}) where {N} = nstatic(Val(N))
 _reshaped_striderank(_, __, ___) = nothing
 
 
@@ -190,68 +176,48 @@ If unknown, it will return `nothing`.
 contiguous_batch_size(x) = contiguous_batch_size(typeof(x))
 contiguous_batch_size(::Type{T}) where {T} = _contiguous_batch_size(contiguous_axis(T), stride_rank(T))
 _contiguous_batch_size(_, __) = nothing
-@generated function _contiguous_batch_size(::StaticInt{D}, ::R) where {D,R}
+function _contiguous_batch_size(::StaticInt{D}, ::R) where {D,R<:Tuple}
     if R.parameters[D].parameters[1] === 1
-        return :(StaticInt{0}())
+        return Zero()
     else
-        return :nothing
+        return nothing
     end
 end
 
 contiguous_batch_size(::Type{Array{T,N}}) where {T,N} = StaticInt{0}()
 contiguous_batch_size(::Type{<:Tuple}) = StaticInt{0}()
-contiguous_batch_size(
-    ::Type{<:Union{Transpose{T,A},Adjoint{T,A}}},
-) where {T,A<:AbstractVecOrMat{T}} = contiguous_batch_size(A)
-contiguous_batch_size(
-    ::Type{<:PermutedDimsArray{T,N,I1,I2,A}},
-) where {T,N,I1,I2,A<:AbstractArray{T,N}} = contiguous_batch_size(A)
-function contiguous_batch_size(
-    ::Type{S},
-) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    _contiguous_batch_size(S, contiguous_batch_size(A), contiguous_axis(A))
+function contiguous_batch_size(::Type{T}) where {T<:Union{Transpose,Adjoint}}
+    return contiguous_batch_size(parent_type(T))
+end
+function contiguous_batch_size(::Type{T}) where {T<:PermutedDimsArray}
+    return contiguous_batch_size(parent_type(T))
+end
+function contiguous_batch_size(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
+    return _contiguous_batch_size(S, contiguous_batch_size(A), contiguous_axis(A))
 end
 _contiguous_batch_size(::Any, ::Any, ::Any) = nothing
-@generated function _contiguous_batch_size(
-    ::Type{S},
-    ::StaticInt{B},
-    ::StaticInt{C},
-) where {B,C,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
+function _contiguous_batch_size(::Type{<:SubArray{T,N,A,I}}, b::StaticInt{B}, c::StaticInt{C}) where {T,N,A,I,B,C}
     if I.parameters[C] <: AbstractUnitRange
-        Expr(:call, Expr(:curly, :StaticInt, B))
+        return b
     else
-        Expr(:call, Expr(:curly, :StaticInt, -1))
+        return -One()
     end
 end
-
-function contiguous_batch_size(::Type{<:Base.ReinterpretArray{T,N,S,A}}) where {T,N,S,A}
-    return StaticInt{0}()
-end
+contiguous_batch_size(::Type{<:Base.ReinterpretArray{T,N,S,A}}) where {T,N,S,A} = Zero()
 
 """
-    is_column_major(A) -> Val{true/false}()
+    is_column_major(A) -> True/False
 
 Returns `Val{true}` if elements of `A` are stored in column major order. Otherwise returns `Val{false}`.
 """
 is_column_major(A) = is_column_major(stride_rank(A), contiguous_batch_size(A))
-is_column_major(::Nothing, ::Any) = Val{false}()
-@generated function is_column_major(::R, ::StaticInt{N}) where {R<:Tuple,N}
-    N > 0 && return :(Val{false}())
-    N = length(R.parameters)
-    for n ∈ 2:N
-        if R.parameters[n].parameters[1] ≤ R.parameters[n-1].parameters[1]
-            return :(Val{false}())
-        end
-    end
-    :(Val{true}())
-end
+is_column_major(sr::Nothing, cbs) = False()
+is_column_major(sr::R, cbs) where {R} = _is_column_major(sr, cbs)
 
-#=
-struct DenseDims{D} end
-Base.@pure DenseDims(D::NTuple{<:Any,Bool}) = DenseDims{D}()
-@inline Base.getindex(::DenseDims{D}, i::Integer) where {D} = D[i]
-@inline Base.getindex(::DenseDims{D}, ::Val{I}) where {D,I} = DenseDims{permute(D, I)}()
-=#
+# cbs > 0
+_is_column_major(sr::R, cbs::StaticInt) where {R} = False()
+# cbs <= 0
+_is_column_major(sr::R, cbs::Union{StaticInt{0},StaticInt{-1}}) where {R} = is_increasing(sr)
 
 """
     dense_dims(::Type{T}) -> NTuple{N,Bool}
@@ -273,9 +239,7 @@ function dense_dims(::Type{T}) where {T<:MatAdjTrans}
         return (last(dense), first(dense))
     end
 end
-function dense_dims(
-    ::Type{<:PermutedDimsArray{T,N,I1,I2,A}},
-) where {T,N,I1,I2,A<:AbstractArray{T,N}}
+function dense_dims(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A}
     dense = dense_dims(A)
     if dense === nothing
         return nothing
@@ -284,8 +248,9 @@ function dense_dims(
     end
 end
 function dense_dims(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    _dense_dims(S, dense_dims(A), Val(stride_rank(A))) # TODO fix this
+    return _dense_dims(S, dense_dims(A), Val(stride_rank(A))) # TODO fix this
 end
+
 _dense_dims(::Any, ::Any) = nothing
 @generated function _dense_dims(
     ::Type{S},
@@ -326,23 +291,15 @@ _dense_dims(::Any, ::Any) = nothing
 end
 
 function dense_dims(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.SignedMultiplicativeInverse{Int},M}}}}) where {T,N,P,M}
-    _reshaped_dense_dims(dense_dims(P), is_column_major(P), Val{N}(), Val{M}())
+    return _reshaped_dense_dims(dense_dims(P), is_column_major(P), Val{N}(), Val{M}())
 end
 _reshaped_dense_dims(_, __, ___, ____) = nothing
-# TODO check for inference and btime
-function _reshaped_dense_dims(dense::D, ::Val{true}, ::Val{N}, ::Val{0}) where {D,N}
-    if _all(dense)
+function _reshaped_dense_dims(dense::D, ::True, ::Val{N}, ::Val{0}) where {D,N}
+    if all(dense)
         return _all_dense(Val{N}())
     else
         return nothing
     end
-end
-
-permute(t::NTuple{N}, I::NTuple{N,Int}) where {N} = ntuple(n -> t[I[n]], Val{N}())
-@generated function permute(t::Tuple{Vararg{Any,N}}, ::Val{I}) where {N,I}
-    t = Expr(:tuple)
-    foreach(i -> push!(t.args, Expr(:ref, :t, i)), I)
-    Expr(:block, Expr(:meta, :inline), t)
 end
 
 """
@@ -370,92 +327,8 @@ while still producing correct behavior when using valid cartesian indices, such 
 strides(A) = Base.strides(A)
 strides(A, d) = strides(A)[to_dims(A, d)]
 
-@generated function _perm_tuple(::Type{T}, ::Val{P}) where {T,P}
-    out = Expr(:curly, :Tuple)
-    for p in P
-        push!(out.args, :(T.parameters[$p]))
-    end
-    Expr(:block, Expr(:meta, :inline), out)
-end
-
-"""
-    axes_types(::Type{T}[, d]) -> Type
-
-Returns the type of the axes for `T`
-"""
-axes_types(x) = axes_types(typeof(x))
-axes_types(x, d) = axes_types(typeof(x), d)
-@inline axes_types(::Type{T}, d) where {T} = axes_types(T).parameters[to_dims(T, d)]
-function axes_types(::Type{T}) where {T}
-    if parent_type(T) <: T
-        return Tuple{Vararg{OptionallyStaticUnitRange{One,Int},ndims(T)}}
-    else
-        return axes_types(parent_type(T))
-    end
-end
-axes_types(::Type{T}) where {T<:Adjoint} =
-    _perm_tuple(axes_types(parent_type(T)), Val((2, 1)))
-axes_types(::Type{T}) where {T<:Transpose} =
-    _perm_tuple(axes_types(parent_type(T)), Val((2, 1)))
-function axes_types(::Type{T}) where {I1,T<:PermutedDimsArray{<:Any,<:Any,I1}}
-    return _perm_tuple(axes_types(parent_type(T)), Val(I1))
-end
-function axes_types(::Type{T}) where {T<:AbstractRange}
-    if known_length(T) === nothing
-        return Tuple{OptionallyStaticUnitRange{One,Int}}
-    else
-        return Tuple{OptionallyStaticUnitRange{One,StaticInt{known_length(T)}}}
-    end
-end
-
-@inline function axes_types(::Type{T}) where {P,I,T<:SubArray{<:Any,<:Any,P,I}}
-    return _sub_axes_types(Val(ArrayStyle(T)), I, axes_types(P))
-end
-@generated function _sub_axes_types(
-    ::Val{S},
-    ::Type{I},
-    ::Type{PI},
-) where {S,I<:Tuple,PI<:Tuple}
-    out = Expr(:curly, :Tuple)
-    d = 1
-    for i in I.parameters
-        ad = argdims(S, i)
-        if ad > 0
-            push!(out.args, :(sub_axis_type($(PI.parameters[d]), $i)))
-            d += ad
-        else
-            d += 1
-        end
-    end
-    Expr(:block, Expr(:meta, :inline), out)
-end
-
-@inline function axes_types(::Type{T}) where {T<:Base.ReinterpretArray}
-    return _reinterpret_axes_types(
-        axes_types(parent_type(T)),
-        eltype(T),
-        eltype(parent_type(T)),
-    )
-end
-@generated function _reinterpret_axes_types(
-    ::Type{I},
-    ::Type{T},
-    ::Type{S},
-) where {I<:Tuple,T,S}
-    out = Expr(:curly, :Tuple)
-    for i = 1:length(I.parameters)
-        if i === 1
-            push!(out.args, reinterpret_axis_type(I.parameters[1], T, S))
-        else
-            push!(out.args, I.parameters[i])
-        end
-    end
-    Expr(:block, Expr(:meta, :inline), out)
-end
-
-
 @inline function known_length(::Type{T}) where {T <: Base.ReinterpretArray}
-    _known_length(known_length(parent_type(T)), eltype(T), eltype(parent_type(T)))
+    return _known_length(known_length(parent_type(T)), eltype(T), eltype(parent_type(T)))
 end
 _known_length(::Nothing, _, __) = nothing
 @inline _known_length(L::Integer, ::Type{T}, ::Type{P}) where {T,P} = L * sizeof(P) ÷ sizeof(T)
@@ -581,46 +454,35 @@ end
     return Expr(:block, Expr(:meta, :inline), out)
 end
 
-"""
-    offsets(A) -> Tuple
-
-Returns offsets of indices with respect to 0. If values are known at compile time,
-it should return them as `Static` numbers.
-For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1))`.
-"""
-offsets(::Any) = (StaticInt{1}(),) # Assume arbitrary Julia data structures use 1-based indexing by default.
 @inline strides(A::Vector{<:Any}) = (StaticInt(1),)
 @inline strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
 @inline strides(A::AbstractArray) = _strides(A, Base.strides(A), contiguous_axis(A))
 
 @inline function strides(x::LinearAlgebra.Adjoint{T,V}) where {T,V<:AbstractVector{T}}
     strd = stride(parent(x), One())
-    (strd, strd)
+    return (strd, strd)
 end
 @inline function strides(x::LinearAlgebra.Transpose{T,V}) where {T,V<:AbstractVector{T}}
     strd = stride(parent(x), One())
-    (strd, strd)
+    return (strd, strd)
 end
 
-@generated function _strides(
-    A::AbstractArray{T,N},
-    s::NTuple{N},
-    ::StaticInt{C},
-) where {T,N,C}
+@generated function _strides(A::AbstractArray{T,N}, s::NTuple{N}, ::StaticInt{C}) where {T,N,C}
     if C ≤ 0 || C > N
         return Expr(:block, Expr(:meta, :inline), :s)
-    end
-    stup = Expr(:tuple)
-    for n ∈ 1:N
-        if n == C
-            push!(stup.args, :(One()))
-        else
-            push!(stup.args, Expr(:ref, :s, n))
+    else
+        stup = Expr(:tuple)
+        for n ∈ 1:N
+            if n == C
+                push!(stup.args, :(One()))
+            else
+                push!(stup.args, Expr(:ref, :s, n))
+            end
         end
-    end
-    quote
-        $(Expr(:meta, :inline))
-        @inbounds $stup
+        return quote
+            $(Expr(:meta, :inline))
+            @inbounds $stup
+        end
     end
 end
 
@@ -644,49 +506,14 @@ if VERSION ≥ v"1.6.0-DEV.1581"
     end
 end
 
-@inline offsets(x, i) = static_first(indices(x, i))
-# @inline offsets(A::AbstractArray{<:Any,N}) where {N} = ntuple(n -> offsets(A, n), Val{N}())
-# Explicit tuple needed for inference.
-@generated function offsets(A::AbstractArray{<:Any,N}) where {N}
-    t = Expr(:tuple)
-    for n ∈ 1:N
-        push!(t.args, :(offsets(A, StaticInt{$n}())))
-    end
-    Expr(:block, Expr(:meta, :inline), t)
+@inline strides(B::MatAdjTrans) = permute(strides(parent(B)), Val{(2, 1)}())
+@inline function strides(B::PermutedDimsArray{T,N,I1,I2}) where {T,N,I1,I2}
+    return permute(strides(parent(B)), Val{I1}())
 end
-
-@inline size(v::AbstractVector) = (static_length(v),)
-@inline size(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} =
-    permute(size(parent(B)), Val{(2, 1)}())
-@inline size(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} =
-    permute(size(parent(B)), Val{I1}())
-@inline size(A::AbstractArray, ::StaticInt{N}) where {N} = size(A)[N]
-@inline size(A::AbstractArray, ::Val{N}) where {N} = size(A)[N]
-@inline strides(B::Union{Transpose{T,A},Adjoint{T,A}}) where {T,A<:AbstractMatrix{T}} =
-    permute(strides(parent(B)), Val{(2, 1)}())
-@inline strides(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A<:AbstractArray{T,N}} =
-    permute(strides(parent(B)), Val{I1}())
 @inline stride(A::AbstractArray, ::StaticInt{N}) where {N} = strides(A)[N]
 @inline stride(A::AbstractArray, ::Val{N}) where {N} = strides(A)[N]
 stride(A, i) = Base.stride(A, i) # for type stability
 
-size(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}} =
-    _size(size(parent(B)), B.indices, map(static_length, B.indices))
-strides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}} =
-    _strides(strides(parent(B)), B.indices)
-@generated function _size(A::Tuple{Vararg{Any,N}}, inds::I, l::L) where {N,I<:Tuple,L}
-    t = Expr(:tuple)
-    for n = 1:N
-        if (I.parameters[n] <: Base.Slice)
-            push!(t.args, :(@inbounds(_try_static(A[$n], l[$n]))))
-        elseif I.parameters[n] <: Number
-            nothing
-        else
-            push!(t.args, Expr(:ref, :l, n))
-        end
-    end
-    Expr(:block, Expr(:meta, :inline), t)
-end
 @generated function _strides(A::Tuple{Vararg{Any,N}}, inds::I) where {N,I<:Tuple}
     t = Expr(:tuple)
     for n = 1:N
@@ -708,3 +535,4 @@ end
     end
     Expr(:block, Expr(:meta, :inline), t)
 end
+

@@ -4,7 +4,7 @@ using Requires
 using LinearAlgebra
 using SparseArrays
 
-using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice
+using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray
 
 Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
@@ -28,11 +28,7 @@ parent_type(::Type{<:LinearAlgebra.AbstractTriangular{T,S}}) where {T,S} = S
 parent_type(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A} = A
 parent_type(::Type{Slice{T}}) where {T} = T
 parent_type(::Type{T}) where {T} = T
-function parent_type(
-    ::Type{R},
-) where {S,T,A<:AbstractArray{S},N,R<:Base.ReinterpretArray{T,N,S,A}}
-    return A
-end
+parent_type(::Type{R}) where {S,T,A,N,R<:Base.ReinterpretArray{T,N,S,A}} = A
 
 """
     known_length(::Type{T})

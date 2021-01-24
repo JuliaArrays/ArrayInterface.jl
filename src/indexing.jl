@@ -28,15 +28,9 @@ argdims(::ArrayStyle, ::Type{T}) where {T<:AbstractArray} = ndims(T)
 argdims(::ArrayStyle, ::Type{T}) where {N,T<:CartesianIndex{N}} = N
 argdims(::ArrayStyle, ::Type{T}) where {N,T<:AbstractArray{CartesianIndex{N}}} = N
 argdims(::ArrayStyle, ::Type{T}) where {N,T<:AbstractArray{<:Any,N}} = N
-argdims(::ArrayStyle, ::Type{T}) where {N,T<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} =
-    N
-@generated function argdims(s::ArrayStyle, ::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
-    e = Expr(:tuple)
-    for p in T.parameters
-        push!(e.args, :(ArrayInterface.argdims(s, $p)))
-    end
-    Expr(:block, Expr(:meta, :inline), e)
-end
+argdims(::ArrayStyle, ::Type{T}) where {N,T<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = N
+_argdims(s::ArrayStyle, ::Type{I}, i::StaticInt) where {I} = argdims(s, _get_tuple(I, i))
+argdims(s::ArrayStyle, ::Type{T}) where {T<:Tuple} = each_op_xy(_argdims, s, T)
 
 """
     UnsafeIndex(::ArrayStyle, ::Type{I})
@@ -186,12 +180,13 @@ can_flatten(::Type{A}, ::Type{T}) where {A,I<:CartesianIndex,T<:AbstractArray{I}
 can_flatten(::Type{A}, ::Type{T}) where {A,T<:CartesianIndices} = true
 can_flatten(::Type{A}, ::Type{T}) where {A,N,T<:AbstractArray{Bool,N}} = N > 1
 can_flatten(::Type{A}, ::Type{T}) where {A,N,T<:CartesianIndex{N}} = true
-@generated function can_flatten(::Type{A}, ::Type{T}) where {A,T<:Tuple}
-    for i in T.parameters
-        can_flatten(A, i) && return true
-    end
-    return false
+function can_flatten(::Type{A}, ::Type{T}) where {A,T<:Tuple}
+    return any(each_op_xy(_can_flat, A, T))
 end
+function _can_flat(::Type{A}, ::Type{T}, i::StaticInt) where {A,T}
+    return StaticBool(can_flatten(A, _get_tuple(T, i)))
+end
+
 
 """
     to_indices(A, args::Tuple) -> to_indices(A, axes(A), args)
@@ -437,6 +432,8 @@ Changing indexing based on a given argument from `args` should be done through
         return unsafe_getindex(A, to_indices(A, ()); kwargs...)
     end
 end
+@propagate_inbounds getindex(x::Tuple, i::Int) = getfield(x, i)
+@propagate_inbounds getindex(x::Tuple, ::StaticInt{i}) where {i} = getfield(x, i)
 
 """
     unsafe_getindex(A, inds)
@@ -495,21 +492,19 @@ function unsafe_get_collection(A, inds; kwargs...)
     return dest
 end
 
-can_preserve_indices(::Type{T}) where {T<:AbstractRange} = known_step(T) === 1
+can_preserve_indices(::Type{T}) where {T<:AbstractRange} = true
 can_preserve_indices(::Type{T}) where {T<:Int} = true
 can_preserve_indices(::Type{T}) where {T} = false
 
-_ints2range(x::Integer) = x:x
-_ints2range(x::AbstractRange) = x
-
 # if linear indexing on multidim or can't reconstruct AbstractUnitRange
 # then construct Array of CartesianIndex/LinearIndices
-@generated function can_preserve_indices(::Type{T}) where {T<:Tuple}
-    for index_type in T.parameters
-        can_preserve_indices(index_type) || return false
-    end
-    return true
+can_preserve_indices(::Type{T}) where {T<:Tuple} = all(each_op_x(_can_preserve_indices, T))
+function _can_preserve_indices(::Type{T}, i::StaticInt) where {T}
+    return StaticBool(can_preserve_indices(_get_tuple(T, i)))
 end
+
+_ints2range(x::Integer) = x:x
+_ints2range(x::AbstractRange) = x
 
 @inline function unsafe_get_collection(A::CartesianIndices{N}, inds) where {N}
     if (length(inds) === 1 && N > 1) || !can_preserve_indices(typeof(inds))

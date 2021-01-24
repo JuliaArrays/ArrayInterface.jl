@@ -24,9 +24,6 @@ const One = StaticInt{1}
 Base.show(io::IO, ::StaticInt{N}) where {N} = print(io, "static($N)")
 Base.show(io::IO, ::StaticSymbol{sym}) where {sym} = print(io, "static(:$sym)")
 
-_get(::StaticSymbol{sym}) where {sym} = sym::Symbol
-_get(::StaticInt{n}) where {n} = n::Int
-
 Base.@pure StaticInt(N::Int) = StaticInt{N}()
 StaticInt(N::Integer) = StaticInt(convert(Int, N))
 StaticInt(::StaticInt{N}) where {N} = StaticInt{N}()
@@ -160,7 +157,6 @@ function Base.UnitRange(start::StaticInt, stop::StaticInt)
     return UnitRange(Int(start), Int(stop))
 end
 
-
 struct True <: Integer end
 struct False <: Integer end
 
@@ -256,13 +252,55 @@ Base.rem(x::StaticBool, y::False) = throw(DivideError())
 Base.rem(x::StaticBool, y::True) = False()
 Base.mod(x::StaticBool, y::StaticBool) = rem(x, y)
 
-_all(::T) where {T} = _all(T)
-_all(::Type{T}) where {T<:Tuple{Vararg{True}}} = true
-_all(::Type{T}) where {T} = false
-
-
 Base.promote_rule(::Type{<:StaticBool}, ::Type{<:StaticBool}) = StaticBool
 Base.promote_rule(::Type{<:StaticBool}, ::Type{Bool}) = Bool
 Base.promote_rule(::Type{Bool}, ::Type{<:StaticBool}) = Bool
 
+Base.@pure _get_tuple(::Type{T}, ::StaticInt{i}) where {T<:Tuple, i} = T.parameters[i]
+
+Base.all(::Tuple{Vararg{True}}) = true
+Base.all(::Tuple{Vararg{Union{True,False}}}) = false
+Base.all(::Tuple{Vararg{False}}) = false
+
+Base.any(::Tuple{Vararg{True}}) = true
+Base.any(::Tuple{Vararg{Union{True,False}}}) = true
+Base.any(::Tuple{Vararg{False}}) = false
+
+nstatic(::Val{N}) where {N} = ntuple(i -> StaticInt(i), Val(N))
+
+function each_op_xy(op, x, ::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
+    return each_op_xy(op, x, T, nstatic(Val(N)))
+end
+function each_op_xy(op, x, y::Tuple{Vararg{Any,N}}) where {N}
+    return each_op_xy(op, x, y, nstatic(Val(N)))
+end
+each_op_xy(op, x, ::Type{T}) where {T} = each_op_xy(op, x, T, nstatic(Val(N)))
+each_op_xy(op, x, y::T) where {T} = each_op_xy(op, x, y, nstatic(Val(ndims(T))))
+
+function each_op_x(op, ::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
+    return each_op_x(op, T, nstatic(Val(N)))
+end
+each_op_x(op, x::Tuple{Vararg{Any,N}}) where {N} = each_op_x(op, x, nstatic(Val(N)))
+each_op_x(op, x::T) where {T} = each_op_x(op, x, nstatic(Val(ndims(T))))
+
+# I is a tuple of Int
+Base.@pure function _val_to_static(::Val{I}) where {I}
+    return ntuple(i -> StaticInt(getfield(I, i)), Val(length(I)))
+end
+permute(x::Tuple, v::Val) = each_op_x(getindex, x, _val_to_static(v))
+
+@generated function each_op_xy(op, x, y, ::I) where {I}
+    t = Expr(:tuple)
+    for p in I.parameters
+        push!(t.args, :(op(x, y, StaticInt{$(p.parameters[1])}())))
+    end
+    Expr(:block, Expr(:meta, :inline), t)
+end
+@generated function each_op_x(op, x, ::I) where {I}
+    t = Expr(:tuple)
+    for p in I.parameters
+        push!(t.args, :(op(x, StaticInt{$(p.parameters[1])}())))
+    end
+    Expr(:block, Expr(:meta, :inline), t)
+end
 

@@ -1,4 +1,54 @@
 
+#julia> @btime ArrayInterface.is_increasing(ArrayInterface.nstatic(Val(10)))
+#  0.045 ns (0 allocations: 0 bytes)
+#ArrayInterface.True()
+function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y},Vararg}) where {X, Y}
+    if X <= Y
+        return is_increasing(tail(perm))
+    else
+        return False()
+    end
+end
+function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y}}) where {X, Y}
+    if X <= Y
+        return True()
+    else
+        return False()
+    end
+end
+is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
+
+from_parent_dims(::Type{T}) where {T<:Transpose} = (StaticInt(2), One())
+from_parent_dims(::Type{T}) where {T<:Adjoint} = (StaticInt(2), One())
+from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A, I)
+@generated function _from_sub_dims(::Type{A}, ::Type{I}) where {A,N,I<:Tuple{Vararg{Any,N}}}
+    out = Expr(:tuple)
+    n = 1
+    for p in I.parameters
+        if argdims(A, p) > 0
+            push!(out.args, :(StaticInt($n)))
+            n += 1
+        else
+            push!(out.args, :(StaticInt(0)))
+        end
+    end
+    out
+end
+
+#=
+@btime ArrayInterface.from_parent_dims(PermutedDimsArray(rand(3,5,4), (3,1,2)))
+  0.045 ns (0 allocations: 0 bytes)
+(static(2), static(3), static(1))
+=#
+from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I} = map(StaticInt, I)
+
+# # julia> @btime ArrayInterface.not_permuting(ArrayInterface.nstatic(Val(10)))
+# #  0.045 ns (0 allocations: 0 bytes)
+# #ArrayInterface.True()
+# _not_permuting(x::Int, y::Int) = y - x === 1
+# _not_permuting(x::Int) = false
+# not_permuting(x::Tuple) = reduce_dims(_not_permuting, x)
+
 """
     has_dimnames(::Type{T}) -> Bool
 
@@ -138,6 +188,91 @@ end
     return Expr(:tuple, exs...)
 end
 
+@generated function _perm_tuple(::Type{T}, ::Val{P}) where {T,P}
+    out = Expr(:curly, :Tuple)
+    for p in P
+        push!(out.args, :(T.parameters[$p]))
+    end
+    Expr(:block, Expr(:meta, :inline), out)
+end
+"""
+    axes_types(::Type{T}[, d]) -> Type
+
+Returns the type of the axes for `T`
+"""
+axes_types(x) = axes_types(typeof(x))
+axes_types(x, d) = axes_types(typeof(x), d)
+@inline axes_types(::Type{T}, d) where {T} = axes_types(T).parameters[to_dims(T, d)]
+function axes_types(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return Tuple{Vararg{OptionallyStaticUnitRange{One,Int},ndims(T)}}
+    else
+        return axes_types(parent_type(T))
+    end
+end
+function axes_types(::Type{T}) where {T<:Adjoint}
+    return _perm_tuple(axes_types(parent_type(T)), Val((2, 1)))
+end
+function axes_types(::Type{T}) where {T<:Transpose}
+    return _perm_tuple(axes_types(parent_type(T)), Val((2, 1)))
+end
+function axes_types(::Type{T}) where {I1,T<:PermutedDimsArray{<:Any,<:Any,I1}}
+    return _perm_tuple(axes_types(parent_type(T)), Val(I1))
+end
+function axes_types(::Type{T}) where {T<:AbstractRange}
+    if known_length(T) === nothing
+        return Tuple{OptionallyStaticUnitRange{One,Int}}
+    else
+        return Tuple{OptionallyStaticUnitRange{One,StaticInt{known_length(T)}}}
+    end
+end
+
+@inline function axes_types(::Type{T}) where {P,I,T<:SubArray{<:Any,<:Any,P,I}}
+    return _sub_axes_types(Val(ArrayStyle(T)), I, axes_types(P))
+end
+@generated function _sub_axes_types(
+    ::Val{S},
+    ::Type{I},
+    ::Type{PI},
+) where {S,I<:Tuple,PI<:Tuple}
+    out = Expr(:curly, :Tuple)
+    d = 1
+    for i in I.parameters
+        ad = argdims(S, i)
+        if ad > 0
+            push!(out.args, :(sub_axis_type($(PI.parameters[d]), $i)))
+            d += ad
+        else
+            d += 1
+        end
+    end
+    Expr(:block, Expr(:meta, :inline), out)
+end
+
+@inline function axes_types(::Type{T}) where {T<:Base.ReinterpretArray}
+    return _reinterpret_axes_types(
+        axes_types(parent_type(T)),
+        eltype(T),
+        eltype(parent_type(T)),
+    )
+end
+@generated function _reinterpret_axes_types(
+    ::Type{I},
+    ::Type{T},
+    ::Type{S},
+) where {I<:Tuple,T,S}
+    out = Expr(:curly, :Tuple)
+    for i = 1:length(I.parameters)
+        if i === 1
+            push!(out.args, reinterpret_axis_type(I.parameters[1], T, S))
+        else
+            push!(out.args, I.parameters[i])
+        end
+    end
+    Expr(:block, Expr(:meta, :inline), out)
+end
+
+
 """
   size(A)
 
@@ -162,6 +297,32 @@ end
     return (One(), static_length(x))
 end
 
+function size(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
+    return _size(size(parent(B)), B.indices, map(static_length, B.indices))
+end
+function strides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
+    return _strides(strides(parent(B)), B.indices)
+end
+@generated function _size(A::Tuple{Vararg{Any,N}}, inds::I, l::L) where {N,I<:Tuple,L}
+    t = Expr(:tuple)
+    for n = 1:N
+        if (I.parameters[n] <: Base.Slice)
+            push!(t.args, :(@inbounds(_try_static(A[$n], l[$n]))))
+        elseif I.parameters[n] <: Number
+            nothing
+        else
+            push!(t.args, Expr(:ref, :l, n))
+        end
+    end
+    Expr(:block, Expr(:meta, :inline), t)
+end
+@inline size(v::AbstractVector) = (static_length(v),)
+@inline size(B::MatAdjTrans) = permute(size(parent(B)), Val{(2, 1)}())
+@inline function size(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A}
+    return permute(size(parent(B)), Val{I1}())
+end
+@inline size(A::AbstractArray, ::StaticInt{N}) where {N} = size(A)[N]
+@inline size(A::AbstractArray, ::Val{N}) where {N} = size(A)[N]
 """
     axes(A, d)
 
