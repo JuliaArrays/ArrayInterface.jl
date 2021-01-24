@@ -650,6 +650,75 @@ end
     @test float(StaticInt(8)) === 8.0
 end
 
+@testset "StaticBool" begin
+    t = True()
+    f = False()
+
+    @test @inferred(StaticInt(t)) === StaticInt(1)
+    @test @inferred(StaticInt(f)) === StaticInt(0)
+
+    @test @inferred(~t) === f
+    @test @inferred(~f) === t
+    @test @inferred(!t) === f
+    @test @inferred(!f) === t
+    @test @inferred(+t) === StaticInt(1)
+    @test @inferred(+f) === StaticInt(0)
+    @test @inferred(-t) === StaticInt(-1)
+    @test @inferred(-f) === StaticInt(0)
+
+    @test @inferred(|(true, f))
+    @test @inferred(|(f, true))
+    @test @inferred(|(f, f)) === f
+    @test @inferred(|(f, t)) === t
+    @test @inferred(|(t, f)) === t
+    @test @inferred(|(t, t)) === t
+
+    @test !@inferred(Base.:(&)(true, f))
+    @test !@inferred(Base.:(&)(f, true))
+    @test @inferred(Base.:(&)(f, f)) === f
+    @test @inferred(Base.:(&)(f, t)) === f
+    @test @inferred(Base.:(&)(t, f)) === f
+    @test @inferred(Base.:(&)(t, t)) === t
+
+    @test @inferred(<(f, f)) === f
+    @test @inferred(<(f, t)) === t
+    @test @inferred(<(t, f)) === f
+    @test @inferred(<(t, t)) === f
+
+    @test @inferred(<=(f, f)) === t
+    @test @inferred(<=(f, t)) === t
+    @test @inferred(<=(t, f)) === f
+    @test @inferred(<=(t, t)) === t
+
+    @test @inferred(*(f, t)) === t & f
+    @test @inferred(-(f, t)) === StaticInt(f) - StaticInt(t)
+    @test @inferred(+(f, t)) === StaticInt(f) + StaticInt(t)
+
+    @test @inferred(^(t, f)) == ^(true, false)
+    @test @inferred(^(t, t)) == ^(true, true)
+
+    @test @inferred(^(2, f)) == 1
+    @test @inferred(^(2, t)) == 2
+
+    @test @inferred(^(BigInt(2), f)) == 1
+    @test @inferred(^(BigInt(2), t)) == 2
+
+    @test div(t, t) === t
+    @test_throws DivideError div(t, f)
+
+    @test rem(t, t) === f
+    @test_throws DivideError rem(t, f)
+    @test mod(t, t) === f
+
+    @test all((t, t, t))
+    @test !all((t, f, t))
+    @test !all((f, f, f))
+
+    @test any((t, t, t))
+    @test any((t, f, t))
+    @test !any((f, f, f))
+end
+
 @testset "insert/deleteat" begin
     @test @inferred(ArrayInterface.insert([1,2,3], 2, -2)) == [1, -2, 2, 3]
     @test @inferred(ArrayInterface.deleteat([1, 2, 3], 2)) == [1, 3]

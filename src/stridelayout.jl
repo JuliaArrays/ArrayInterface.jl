@@ -139,10 +139,10 @@ end
 _reshaped_striderank(::True, ::Val{N}, ::Val{0}) where {N} = nstatic(Val(N))
 _reshaped_striderank(_, __, ___) = nothing
 
+"""
+    If the contiguous dimension is not the dimension with `StrideRank{1}`:
+"""
 
-"""
-If the contiguous dimension is not the dimension with `StrideRank{1}`:
-"""
 
 """
     contiguous_batch_size(::Type{T}) -> StaticInt{N}
@@ -290,14 +290,14 @@ these should be returned as `Static` numbers. For example:
 julia> A = rand(3,4);
 
 julia> ArrayInterface.strides(A)
-(StaticInt{1}(), 3)
+(static(1), 3)
 
 Additionally, the behavior differs from `Base.strides` for adjoint vectors:
 
 julia> x = rand(5);
 
 julia> ArrayInterface.strides(x')
-(StaticInt{1}(), StaticInt{1}())
+(static(1), static(1))
 
 This is to support the pattern of using just the first stride for linear indexing, `x[i]`,
 while still producing correct behavior when using valid cartesian indices, such as `x[1,i]`.
