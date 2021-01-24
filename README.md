@@ -5,8 +5,8 @@
 [![Build status](https://badge.buildkite.com/a2db252d92478e1d7196ee7454004efdfb6ab59496cbac91a2.svg?branch=master)](https://buildkite.com/julialang/arrayinterface-dot-jl)
 [![codecov](https://codecov.io/gh/SciML/ArrayInterface.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/SciML/ArrayInterface.jl)
 
-Julia has only recently reached v1.0 and the AbstractArray interface is still
-quite new. The purpose of this library is to solidify extensions to the current
+The AbstractArray interface in Base Julia is still relatively young.
+The purpose of this library is to solidify extensions to the current
 AbstractArray interface, which are put to use in package ecosystems like
 DifferentialEquations.jl. Since these libraries are live, this package will
 serve as a staging ground for ideas before they are merged into Base Julia. For this
