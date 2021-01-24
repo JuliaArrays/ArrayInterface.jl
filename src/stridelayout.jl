@@ -418,13 +418,10 @@ end
 @inline strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
 @inline strides(A::AbstractArray) = _strides(A, Base.strides(A), contiguous_axis(A))
 
-@inline function strides(x::LinearAlgebra.Adjoint{T,V}) where {T,V<:AbstractVector{T}}
-    strd = stride(parent(x), One())
-    return (strd, strd)
-end
-@inline function strides(x::LinearAlgebra.Transpose{T,V}) where {T,V<:AbstractVector{T}}
-    strd = stride(parent(x), One())
-    return (strd, strd)
+function strides(x::VecAdjTrans)
+    p = parent(x)
+    st = first(strides(p))
+    return (static_length(p) * st, st)
 end
 
 @generated function _strides(A::AbstractArray{T,N}, s::NTuple{N}, ::StaticInt{C}) where {T,N,C}

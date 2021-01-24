@@ -480,10 +480,13 @@ end
     @test @inferred(ArrayInterface.strides(S)) === (StaticInt(1), StaticInt(2), StaticInt(6))
     @test @inferred(ArrayInterface.strides(Sp)) === (StaticInt(6), StaticInt(1), StaticInt(2))
     @test @inferred(ArrayInterface.strides(Sp2)) === (StaticInt(6), StaticInt(2), StaticInt(1))
+
+    @test @inferred(ArrayInterface.strides(view(Sp2, :, 1, 1)')) === (12, StaticInt(6))
+
     @test @inferred(ArrayInterface.stride(Sp2, StaticInt(1))) === StaticInt(6)
     @test @inferred(ArrayInterface.stride(Sp2, StaticInt(2))) === StaticInt(2)
     @test @inferred(ArrayInterface.stride(Sp2, StaticInt(3))) === StaticInt(1)
-    
+
     @test @inferred(ArrayInterface.strides(M)) === (StaticInt(1), StaticInt(2), StaticInt(6))
     @test @inferred(ArrayInterface.strides(Mp)) === (StaticInt(2), StaticInt(6))
     @test @inferred(ArrayInterface.strides(Mp2)) === (StaticInt(1), StaticInt(6))
