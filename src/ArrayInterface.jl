@@ -4,7 +4,7 @@ using Requires
 using LinearAlgebra
 using SparseArrays
 
-using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray
+using Base: @pure, @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray
 
 Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))

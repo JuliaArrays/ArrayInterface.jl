@@ -122,33 +122,12 @@ function stride_rank(::Type{T},) where {T<:PermutedDimsArray}
     return _stride_rank(T, stride_rank(parent_type(T)))
 end
 _stride_rank(::Type{T}, ::Nothing) where {T<:PermutedDimsArray} = nothing
-function _stride_rank(::Type{T}, rank) where {I,T<:PermutedDimsArray{<:Any,<:Any,I}}
-    return permute(rank, Val(I))
-end
+_stride_rank(::Type{T}, r) where {T<:PermutedDimsArray} = permute(r, to_parent_dims(T))
 
-function stride_rank(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    return _stride_rank(S, stride_rank(A))
-end
+stride_rank(::Type{T}) where {T<:SubArray} = _stride_rank(T, stride_rank(parent_type(T)))
 _stride_rank(::Any, ::Any) = nothing
-@generated function _stride_rank(
-    ::Type{S},
-    ::R,
-) where {R,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    rank_new = []
-    n = 0
-    for np = 1:NP
-        r = R.parameters[np].parameters[1]
-        if I.parameters[np] <: AbstractArray
-            n += 1
-            push!(rank_new, :(StaticInt($r)))
-        end
-    end
-    # If n != N, then an axis was indexed by something other than an integer or `AbstractUnitRange`, so we return `nothing`.
-    n == N || return nothing
-    ranktup = Expr(:tuple)
-    append!(ranktup.args, rank_new) # dynamic splats bad
-    return ranktup
-end
+_stride_rank(::Type{T}, r::Tuple) where {T<:SubArray} = permute(r, to_parent_dims(T))
+
 stride_rank(x, i) = stride_rank(x)[i]
 function stride_rank(::Type{R}) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}}
     return nstatic(Val(N))
@@ -379,14 +358,10 @@ have a known size along a dimension then `nothing` is returned in its position.
 """
 @inline known_size(x, d) = known_size(x)[to_dims(x, d)]
 known_size(x) = known_size(typeof(x))
-known_size(::Type{T}) where {T} = _known_size(axes_types(T))
-@generated function _known_size(::Type{Axs}) where {Axs<:Tuple}
-    out = Expr(:tuple)
-    for p in Axs.parameters
-        push!(out.args, :(known_length($p)))
-    end
-    return Expr(:block, Expr(:meta, :inline), out)
+function known_size(::Type{T}) where {T}
+    return eachop(_known_axis_length, axes_types(T), nstatic(Val(ndims(T))))
 end
+_known_axis_length(::Type{T}, c::StaticInt) where {T} = known_length(_get_tuple(T, c))
 
 """
     known_strides(::Type{T}[, d]) -> Tuple
@@ -415,24 +390,8 @@ end
     return permute(known_strides(parent_type(T)), Val{I1}())
 end
 @inline function known_strides(::Type{T}) where {I1,T<:SubArray{<:Any,<:Any,<:Any,I1}}
-    return _sub_strides(Val(ArrayStyle(T)), I1, Val(known_strides(parent_type(T))))
+    return permute(known_strides(parent_type(T)), to_parent_dims(T))
 end
-
-@generated function _sub_strides(::Val{S}, ::Type{I}, ::Val{P}) where {S,I<:Tuple,P}
-    out = Expr(:tuple)
-    d = 1
-    for i in I.parameters
-        ad = argdims(S, i)
-        if ad > 0
-            push!(out.args, P[d])
-            d += ad
-        else
-            d += 1
-        end
-    end
-    Expr(:block, Expr(:meta, :inline), out)
-end
-
 function known_strides(::Type{T}) where {T}
     if ndims(T) === 1
         return (1,)

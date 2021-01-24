@@ -256,13 +256,24 @@ Base.any(::Tuple{Vararg{True}}) = true
 Base.any(::Tuple{Vararg{Union{True,False}}}) = true
 Base.any(::Tuple{Vararg{False}}) = false
 
-nstatic(::Val{N}) where {N} = ntuple(i -> StaticInt(i), Val(N))
+Base.@pure nstatic(::Val{N}) where {N} = ntuple(i -> StaticInt(i), Val(N))
 
 # I is a tuple of Int
-Base.@pure function _val_to_static(::Val{I}) where {I}
+@pure function _val_to_static(::Val{I}) where {I}
     return ntuple(i -> StaticInt(getfield(I, i)), Val(length(I)))
 end
-permute(x::Tuple, v::Val) = eachop(getindex, x, _val_to_static(v))
+
+@pure is_permuting(perm::Tuple{Vararg{StaticInt,N}}) where {N} = perm !== nstatic(Val(N))
+
+permute(x::Tuple, perm::Tuple) = eachop(getindex, x, perm)
+function permute(x::Tuple{Vararg{Any,N}}, perm::Tuple{Vararg{Any,N}}) where {N}
+    if is_permuting(perm)
+        return eachop(getindex, x, perm)
+    else
+        return x
+    end
+end
+permute(x::Tuple, perm::Val) = permute(x, _val_to_static(perm))
 
 @generated function eachop(op, x, y, ::I) where {I}
     t = Expr(:tuple)

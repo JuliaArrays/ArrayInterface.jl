@@ -18,8 +18,8 @@ function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y}}) where {X, Y}
 end
 is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
 
-from_parent_dims(::Type{T}) where {T<:Transpose} = (StaticInt(2), One())
-from_parent_dims(::Type{T}) where {T<:Adjoint} = (StaticInt(2), One())
+from_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
+from_parent_dims(::Type{T}) where {T<:Union{Transpose,Adjoint}} = (StaticInt(2), One())
 from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A, I)
 @generated function _from_sub_dims(::Type{A}, ::Type{I}) where {A,N,I<:Tuple{Vararg{Any,N}}}
     out = Expr(:tuple)
@@ -34,20 +34,26 @@ from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A
     end
     out
 end
+function from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I}
+    return _val_to_static(Val(I))
+end
 
-#=
-@btime ArrayInterface.from_parent_dims(PermutedDimsArray(rand(3,5,4), (3,1,2)))
-  0.045 ns (0 allocations: 0 bytes)
-(static(2), static(3), static(1))
-=#
-from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I} = map(StaticInt, I)
-
-# # julia> @btime ArrayInterface.not_permuting(ArrayInterface.nstatic(Val(10)))
-# #  0.045 ns (0 allocations: 0 bytes)
-# #ArrayInterface.True()
-# _not_permuting(x::Int, y::Int) = y - x === 1
-# _not_permuting(x::Int) = false
-# not_permuting(x::Tuple) = reduce_dims(_not_permuting, x)
+to_parent_dims(x) = to_parent_dims(typeof(x))
+to_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
+to_parent_dims(::Type{T}) where {T<:Union{Transpose,Adjoint}} = (StaticInt(2), One())
+to_parent_dims(::Type{<:PermutedDimsArray{T,N,I}}) where {T,N,I} = _val_to_static(Val(I))
+to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(A, I)
+@generated function _to_sub_dims(::Type{A}, ::Type{I}) where {A,N,I<:Tuple{Vararg{Any,N}}}
+    out = Expr(:tuple)
+    n = 1
+    for p in I.parameters
+        if argdims(A, p) > 0
+            push!(out.args, :(StaticInt($n)))
+        end
+        n += 1
+    end
+    out
+end
 
 """
     has_dimnames(::Type{T}) -> Bool
