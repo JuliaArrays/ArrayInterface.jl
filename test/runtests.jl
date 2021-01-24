@@ -328,7 +328,10 @@ using OffsetArrays
     @test @inferred(contiguous_axis(PermutedDimsArray(@view(A[2,:,:]),(2,1)))) === ArrayInterface.StaticInt(-1)
     @test @inferred(contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === ArrayInterface.StaticInt(-1)
     @test @inferred(contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === ArrayInterface.StaticInt(1)
+    @test @inferred(contiguous_axis((3,4))) === StaticInt(1)
     @test @inferred(contiguous_axis(DummyZeros(3,4))) === nothing
+    @test @inferred(contiguous_axis(rand(4)')) === StaticInt(2)
+    @test @inferred(contiguous_axis(view(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])', :, 1)')) === StaticInt(-1)
 
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@SArray(zeros(2,2,2)))) == (true,false,false)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(A)) == (true,false,false)
@@ -491,6 +494,7 @@ end
     @test @inferred(ArrayInterface.known_strides(A)) === (1, nothing, nothing)
     @test @inferred(ArrayInterface.known_strides(Ap)) === (1, nothing)
     @test @inferred(ArrayInterface.known_strides(Ar)) === (1, nothing, nothing)
+    @test @inferred(ArrayInterface.known_strides(reshape(view(zeros(100), 1:60), (3,4,5)))) === (1, nothing, nothing)
 
     @test @inferred(ArrayInterface.known_strides(S)) === (1, 2, 6)
     @test @inferred(ArrayInterface.known_strides(Sp)) === (6, 1, 2)

@@ -35,7 +35,7 @@ function contiguous_axis(::Type{T}) where {T<:VecAdjTrans}
     elseif c === One()
         return StaticInt{2}()
     else
-        return -c
+        return -One()
     end
 end
 function contiguous_axis(::Type{T}) where {T<:MatAdjTrans}
@@ -62,13 +62,14 @@ function contiguous_axis(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:Su
     return _contiguous_axis(S, contiguous_axis(A))
 end
 
-_contiguous_axis(::Any, ::Nothing) = nothing
+_contiguous_axis(::Type{A}, ::Nothing) where {T,N,P,I,A<:SubArray{T,N,P,I}} = nothing
+_contiguous_axis(::Type{A}, c::StaticInt{-1}) where {T,N,P,I,A<:SubArray{T,N,P,I}} = c
 function _contiguous_axis(::Type{A}, c::StaticInt{C}) where {T,N,P,I,A<:SubArray{T,N,P,I},C}
-    if I.parameters[C] <: AbstractUnitRange
+    if _get_tuple(I, c) <: AbstractUnitRange
         return from_parent_dims(A)[C]
-    elseif I.parameters[C] <: AbstractArray
+    elseif _get_tuple(I, c) <: AbstractArray
         return -One()
-    elseif I.parameters[C] <: Integer
+    elseif _get_tuple(I, c) <: Integer
         return -One()
     else
         return nothing

@@ -278,6 +278,10 @@ end
     Expr(:block, Expr(:meta, :inline), out)
 end
 
+function axes_types(::Type{T}) where {N,T<:Base.ReshapedArray{<:Any,N}}
+    return Tuple{Vararg{OptionallyStaticUnitRange{One,Int},N}}
+end
+
 
 """
   size(A)
