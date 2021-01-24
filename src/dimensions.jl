@@ -187,7 +187,6 @@ end
     end
     return Expr(:tuple, exs...)
 end
-
 @generated function _perm_tuple(::Type{T}, ::Val{P}) where {T,P}
     out = Expr(:curly, :Tuple)
     for p in P
@@ -195,6 +194,7 @@ end
     end
     Expr(:block, Expr(:meta, :inline), out)
 end
+
 """
     axes_types(::Type{T}[, d]) -> Type
 

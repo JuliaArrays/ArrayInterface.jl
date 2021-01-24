@@ -1,14 +1,5 @@
 
 """
-    StaticSymbol(sym::Symbol) -> StaticSymbol{sym}()
-
-"""
-struct StaticSymbol{sym}
-    StaticSymbol{sym}() where {sym} = new{sym::Symbol}()
-    StaticSymbol(sym::Symbol) = new{sym}()
-end
-
-"""
     StaticInt(N::Int) -> StaticInt{N}()
 
 A statically sized `Int`.
@@ -22,7 +13,6 @@ const Zero = StaticInt{0}
 const One = StaticInt{1}
 
 Base.show(io::IO, ::StaticInt{N}) where {N} = print(io, "static($N)")
-Base.show(io::IO, ::StaticSymbol{sym}) where {sym} = print(io, "static(:$sym)")
 
 Base.@pure StaticInt(N::Int) = StaticInt{N}()
 StaticInt(N::Integer) = StaticInt(convert(Int, N))
@@ -268,39 +258,32 @@ Base.any(::Tuple{Vararg{False}}) = false
 
 nstatic(::Val{N}) where {N} = ntuple(i -> StaticInt(i), Val(N))
 
-function each_op_xy(op, x, ::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
-    return each_op_xy(op, x, T, nstatic(Val(N)))
-end
-function each_op_xy(op, x, y::Tuple{Vararg{Any,N}}) where {N}
-    return each_op_xy(op, x, y, nstatic(Val(N)))
-end
-each_op_xy(op, x, ::Type{T}) where {T} = each_op_xy(op, x, T, nstatic(Val(N)))
-each_op_xy(op, x, y::T) where {T} = each_op_xy(op, x, y, nstatic(Val(ndims(T))))
-
-function each_op_x(op, ::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
-    return each_op_x(op, T, nstatic(Val(N)))
-end
-each_op_x(op, x::Tuple{Vararg{Any,N}}) where {N} = each_op_x(op, x, nstatic(Val(N)))
-each_op_x(op, x::T) where {T} = each_op_x(op, x, nstatic(Val(ndims(T))))
-
 # I is a tuple of Int
 Base.@pure function _val_to_static(::Val{I}) where {I}
     return ntuple(i -> StaticInt(getfield(I, i)), Val(length(I)))
 end
-permute(x::Tuple, v::Val) = each_op_x(getindex, x, _val_to_static(v))
+permute(x::Tuple, v::Val) = eachop(getindex, x, _val_to_static(v))
 
-@generated function each_op_xy(op, x, y, ::I) where {I}
+@generated function eachop(op, x, y, ::I) where {I}
     t = Expr(:tuple)
     for p in I.parameters
         push!(t.args, :(op(x, y, StaticInt{$(p.parameters[1])}())))
     end
     Expr(:block, Expr(:meta, :inline), t)
 end
-@generated function each_op_x(op, x, ::I) where {I}
+@generated function eachop(op, x, ::I) where {I}
     t = Expr(:tuple)
     for p in I.parameters
         push!(t.args, :(op(x, StaticInt{$(p.parameters[1])}())))
     end
     Expr(:block, Expr(:meta, :inline), t)
 end
+
+"""
+    static(x)
+
+Returns a static form of `x`.
+"""
+static(x::Int) = StaticInt(x)
+static(x::Bool) = StaticBool(x)
 

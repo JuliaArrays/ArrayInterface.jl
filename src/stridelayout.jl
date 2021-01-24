@@ -8,7 +8,7 @@ For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1)
 """
 @inline offsets(x, i) = static_first(indices(x, i))
 # Explicit tuple needed for inference.
-offsets(x) = each_op_x(offsets, x)
+offsets(x) = eachop(offsets, x, nstatic(Val(ndims(x))))
 offsets(::Tuple) = (One(),)
 
 """

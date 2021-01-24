@@ -1,6 +1,7 @@
 using ArrayInterface, Test
 using Base: setindex
-import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, StaticInt, True, False
+using ArrayInterface: StaticInt, True, False
+import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, static
 @test ArrayInterface.ismutable(rand(3))
 
 using Aqua

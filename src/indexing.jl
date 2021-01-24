@@ -30,7 +30,9 @@ argdims(::ArrayStyle, ::Type{T}) where {N,T<:AbstractArray{CartesianIndex{N}}} =
 argdims(::ArrayStyle, ::Type{T}) where {N,T<:AbstractArray{<:Any,N}} = N
 argdims(::ArrayStyle, ::Type{T}) where {N,T<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = N
 _argdims(s::ArrayStyle, ::Type{I}, i::StaticInt) where {I} = argdims(s, _get_tuple(I, i))
-argdims(s::ArrayStyle, ::Type{T}) where {T<:Tuple} = each_op_xy(_argdims, s, T)
+function argdims(s::ArrayStyle, ::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
+    return eachop(_argdims, s, T, nstatic(Val(N)))
+end
 
 """
     UnsafeIndex(::ArrayStyle, ::Type{I})
@@ -180,13 +182,12 @@ can_flatten(::Type{A}, ::Type{T}) where {A,I<:CartesianIndex,T<:AbstractArray{I}
 can_flatten(::Type{A}, ::Type{T}) where {A,T<:CartesianIndices} = true
 can_flatten(::Type{A}, ::Type{T}) where {A,N,T<:AbstractArray{Bool,N}} = N > 1
 can_flatten(::Type{A}, ::Type{T}) where {A,N,T<:CartesianIndex{N}} = true
-function can_flatten(::Type{A}, ::Type{T}) where {A,T<:Tuple}
-    return any(each_op_xy(_can_flat, A, T))
+function can_flatten(::Type{A}, ::Type{T}) where {A,N,T<:Tuple{Vararg{Any,N}}}
+    return any(eachop(_can_flat, A, T, nstatic(Val(N))))
 end
 function _can_flat(::Type{A}, ::Type{T}, i::StaticInt) where {A,T}
     return StaticBool(can_flatten(A, _get_tuple(T, i)))
 end
-
 
 """
     to_indices(A, args::Tuple) -> to_indices(A, axes(A), args)
@@ -498,7 +499,9 @@ can_preserve_indices(::Type{T}) where {T} = false
 
 # if linear indexing on multidim or can't reconstruct AbstractUnitRange
 # then construct Array of CartesianIndex/LinearIndices
-can_preserve_indices(::Type{T}) where {T<:Tuple} = all(each_op_x(_can_preserve_indices, T))
+function can_preserve_indices(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
+    return all(eachop(_can_preserve_indices, T, nstatic(Val(N))))
+end
 function _can_preserve_indices(::Type{T}, i::StaticInt) where {T}
     return StaticBool(can_preserve_indices(_get_tuple(T, i)))
 end
