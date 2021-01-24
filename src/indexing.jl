@@ -186,7 +186,11 @@ function can_flatten(::Type{A}, ::Type{T}) where {A,N,T<:Tuple{Vararg{Any,N}}}
     return any(eachop(_can_flat, A, T, nstatic(Val(N))))
 end
 function _can_flat(::Type{A}, ::Type{T}, i::StaticInt) where {A,T}
-    return StaticBool(can_flatten(A, _get_tuple(T, i)))
+    if can_flatten(A, _get_tuple(T, i)) === true
+        return True()
+    else
+        return False()
+    end
 end
 
 """
@@ -503,7 +507,11 @@ function can_preserve_indices(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
     return all(eachop(_can_preserve_indices, T, nstatic(Val(N))))
 end
 function _can_preserve_indices(::Type{T}, i::StaticInt) where {T}
-    return StaticBool(can_preserve_indices(_get_tuple(T, i)))
+    if can_preserve_indices(_get_tuple(T, i))
+        return True()
+    else
+        return False()
+    end
 end
 
 _ints2range(x::Integer) = x:x
