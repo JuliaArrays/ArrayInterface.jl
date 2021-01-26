@@ -1,5 +1,28 @@
 @testset "dimensions" begin
 
+@testset "dimension permutations" begin
+    a = ones(2, 2, 2)
+    perm = PermutedDimsArray(a, (3, 1, 2))
+    mview = view(perm, :, 1, :)
+    madj = mview'
+    vview = view(madj, 1, :)
+    vadj = vview'
+
+    @test @inferred(ArrayInterface.to_parent_dims(typeof(a))) == (1, 2, 3)
+    @test @inferred(ArrayInterface.to_parent_dims(typeof(perm))) == (3, 1, 2)
+    @test @inferred(ArrayInterface.to_parent_dims(typeof(mview))) == (1, 3)
+    @test @inferred(ArrayInterface.to_parent_dims(typeof(madj))) == (2, 1)
+    @test @inferred(ArrayInterface.to_parent_dims(typeof(vview))) == (2,)
+    @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj))) == (2, 1)
+
+    @test @inferred(ArrayInterface.from_parent_dims(typeof(a))) == (1, 2, 3)
+    @test @inferred(ArrayInterface.from_parent_dims(typeof(perm))) == (2, 3, 1)
+    @test @inferred(ArrayInterface.from_parent_dims(typeof(mview))) == (1, 0, 2)
+    @test @inferred(ArrayInterface.from_parent_dims(typeof(madj))) == (2, 1)
+    @test @inferred(ArrayInterface.from_parent_dims(typeof(vview))) == (0, 1)
+    @test @inferred(ArrayInterface.from_parent_dims(typeof(vadj))) == (2, 1)
+end
+
 @testset "to_dims" begin
     @testset "small case" begin
         @test ArrayInterface.to_dims((:x, :y), :x) == 1

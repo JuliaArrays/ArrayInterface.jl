@@ -18,6 +18,11 @@ function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y}}) where {X, Y}
 end
 is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
 
+"""
+    from_parent_dims(::Type{T}) -> Bool
+
+Returns the mapping from parent dimensions to child dimensions.
+"""
 from_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
 from_parent_dims(::Type{T}) where {T<:Union{Transpose,Adjoint}} = (StaticInt(2), One())
 from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A, I)
@@ -38,6 +43,11 @@ function from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I
     return _val_to_static(Val(I))
 end
 
+"""
+    to_parent_dims(::Type{T}) -> Bool
+
+Returns the mapping from child dimensions to parent dimensions.
+"""
 to_parent_dims(x) = to_parent_dims(typeof(x))
 to_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
 to_parent_dims(::Type{T}) where {T<:Union{Transpose,Adjoint}} = (StaticInt(2), One())
