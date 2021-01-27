@@ -1,4 +1,3 @@
-
 """
     StaticInt(N::Int) -> StaticInt{N}()
 
@@ -9,7 +8,17 @@ struct StaticInt{N} <: Integer
     StaticInt{N}() where {N} = new{N::Int}()
 end
 
-Base.show(io::IO, ::StaticInt{N}) where {N} = print(io, "Static($N)")
+"""
+    StaticBool(B::Bool) -> StaticBool{B}()
+
+A statically sized `Bool`.
+"""
+struct StaticBool{B} <: Integer
+    StaticBool{B}() where {B} = new{B::Bool}()
+end
+
+Base.show(io::IO, ::StaticBool{N}) where {N} = print(io, "Static($N)")
+Base.show(io::IO, ::StaticBool{B}) where {B} = print(io, "Static($B)")
 
 const Zero = StaticInt{0}
 const One = StaticInt{1}
