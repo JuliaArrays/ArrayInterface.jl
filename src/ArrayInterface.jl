@@ -1,5 +1,6 @@
 module ArrayInterface
 
+using IfElse
 using Requires
 using LinearAlgebra
 using SparseArrays

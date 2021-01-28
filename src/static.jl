@@ -362,6 +362,10 @@ function lt(::StaticInt{X}, ::StaticInt{Y}) where {X,Y}
     end
 end
 
+IfElse.ifelse(::True, x, y) = x
+
+IfElse.ifelse(::False, x, y) = y
+
 """
     static(x)
 

@@ -1,5 +1,6 @@
 using ArrayInterface, Test
 using Base: setindex
+using IfElse
 using ArrayInterface: StaticInt, True, False
 import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, static
 @test ArrayInterface.ismutable(rand(3))
@@ -476,11 +477,9 @@ end
     @test @inferred(ArrayInterface.strides(Ap)) == strides(Ap)
     @test @inferred(ArrayInterface.strides(Ar)) === (StaticInt{1}(), 6, 24)
 
-    
     @test @inferred(ArrayInterface.strides(S)) === (StaticInt(1), StaticInt(2), StaticInt(6))
     @test @inferred(ArrayInterface.strides(Sp)) === (StaticInt(6), StaticInt(1), StaticInt(2))
     @test @inferred(ArrayInterface.strides(Sp2)) === (StaticInt(6), StaticInt(2), StaticInt(1))
-
     @test @inferred(ArrayInterface.strides(view(Sp2, :, 1, 1)')) === (StaticInt(6), StaticInt(6))
 
     @test @inferred(ArrayInterface.stride(Sp2, StaticInt(1))) === StaticInt(6)

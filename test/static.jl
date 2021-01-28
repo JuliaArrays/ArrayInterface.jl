@@ -133,5 +133,10 @@ end
 
     @test @inferred(ArrayInterface.le(y, x)) === t
     @test @inferred(ArrayInterface.le(x, y)) === f
+
+    @test @inferred(IfElse.ifelse(t, x, y)) === x
+    @test @inferred(IfElse.ifelse(f, x, y)) === y
 end
+
+
 
