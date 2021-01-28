@@ -419,9 +419,8 @@ end
 @inline strides(A::AbstractArray) = _strides(A, Base.strides(A), contiguous_axis(A))
 
 function strides(x::VecAdjTrans)
-    p = parent(x)
-    st = first(strides(p))
-    return (static_length(p) * st, st)
+    st = first(strides(parent(x)))
+    return (st, st)
 end
 
 @generated function _strides(A::AbstractArray{T,N}, s::NTuple{N}, ::StaticInt{C}) where {T,N,C}
