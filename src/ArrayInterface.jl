@@ -1,14 +1,18 @@
 module ArrayInterface
 
+using IfElse
 using Requires
 using LinearAlgebra
 using SparseArrays
 
-using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice
+using Base: @pure, @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray
 
 Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
 parameterless_type(x::Type) = __parameterless_type(x)
+
+const VecAdjTrans{T,V<:AbstractVector{T}} = Union{Transpose{T,V},Adjoint{T,V}}
+const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
 
 """
     parent_type(::Type{T})
@@ -25,11 +29,7 @@ parent_type(::Type{<:LinearAlgebra.AbstractTriangular{T,S}}) where {T,S} = S
 parent_type(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A} = A
 parent_type(::Type{Slice{T}}) where {T} = T
 parent_type(::Type{T}) where {T} = T
-function parent_type(
-    ::Type{R},
-) where {S,T,A<:AbstractArray{S},N,R<:Base.ReinterpretArray{T,N,S,A}}
-    return A
-end
+parent_type(::Type{R}) where {S,T,A,N,R<:Base.ReinterpretArray{T,N,S,A}} = A
 
 """
     known_length(::Type{T})
@@ -794,12 +794,14 @@ function __init__()
         known_length(::Type{A}) where {A <: StaticArrays.StaticArray} = known_length(StaticArrays.Length(A))
 
         device(::Type{<:StaticArrays.MArray}) = CPUPointer()
-        contiguous_axis(::Type{<:StaticArrays.StaticArray}) = Contiguous{1}()
-        contiguous_batch_size(::Type{<:StaticArrays.StaticArray}) = ContiguousBatch{0}()
-        stride_rank(::Type{T}) where {N,T<:StaticArrays.StaticArray{<:Any,<:Any,N}} =
-            StrideRank{ntuple(identity, Val{N}())}()
-        dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N} =
-            DenseDims{ntuple(_ -> true, Val(N))}()
+        contiguous_axis(::Type{<:StaticArrays.StaticArray}) = StaticInt{1}()
+        contiguous_batch_size(::Type{<:StaticArrays.StaticArray}) = StaticInt{0}()
+        function stride_rank(::Type{T}) where {N,T<:StaticArrays.StaticArray{<:Any,<:Any,N}}
+            return ArrayInterface.nstatic(Val(N))
+        end
+        function dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N}
+            return ArrayInterface._all_dense(Val(N))
+        end
         defines_strides(::Type{<:StaticArrays.MArray}) = true
 
         @generated function axes_types(::Type{<:StaticArrays.StaticArray{S}}) where {S}

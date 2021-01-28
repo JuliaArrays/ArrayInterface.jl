@@ -183,7 +183,7 @@ julia> using StaticArrays, ArrayInterface
 julia> A = @SMatrix rand(3,4);
 
 julia> ArrayInterface.size(A)
-(StaticInt{3}(), StaticInt{4}())
+(static(3), static(4))
 ```
 
 ## ArrayInterface.strides(A)
@@ -196,7 +196,7 @@ julia> using ArrayInterface
 julia> A = rand(3,4);
 
 julia> ArrayInterface.strides(A)
-(StaticInt{1}(), 3)
+(static(1), 3)
 ```
 ## offsets(A)
 

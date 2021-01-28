@@ -1,4 +1,31 @@
 
+#=
+@btime ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), $((1, CartesianIndex(1,2))))
+  0.045 ns (0 allocations: 0 bytes)
+
+@btime ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), $((1, [CartesianIndex(1,2), CartesianIndex(1,3)])))
+  0.047 ns (0 allocations: 0 bytes)
+
+I = Tuple{
+    CartesianIndices{2, Tuple{Base.OneTo{Int64}, Base.OneTo{Int64}}},
+    Int,
+    Vector{CartesianIndex{3}},
+    AbstractUnitRange,
+    Array{Bool,3},
+    CartesianIndex{3}
+}
+@btime ArrayInterface.can_flatten(Any, $I)
+  0.047 ns (0 allocations: 0 bytes)
+
+=#
+@test @inferred(ArrayInterface.can_flatten(Any, Tuple{
+    CartesianIndices{2, Tuple{Base.OneTo{Int64}, Base.OneTo{Int64}}},
+    Int,
+    Vector{CartesianIndex{3}},
+    AbstractUnitRange,
+    Array{Bool,3},
+    CartesianIndex{3}}))
+
 @testset "argdims" begin
     static_argdims(x) = Val(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), x))
     @test @inferred(static_argdims((1, CartesianIndex(1,2)))) === Val((0, 2))
