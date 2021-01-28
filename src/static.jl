@@ -147,15 +147,19 @@ function Base.UnitRange(start::StaticInt, stop::StaticInt)
     return UnitRange(Int(start), Int(stop))
 end
 
-struct True <: Integer end
-struct False <: Integer end
-
 """
-    StaticBool(bool::Bool) -> StaticBool{bool}()
+    StaticBool(x::Bool) -> True/False
 
+A statically typed `Bool`.
 """
-const StaticBool = Union{True,False}
+abstract type StaticBool <: Integer end
+
 StaticBool(x::StaticBool) = x
+
+struct True <: StaticBool end
+
+struct False <: StaticBool end
+
 function StaticBool(x::Bool)
     if x
         return True()
@@ -288,6 +292,74 @@ end
         push!(t.args, :(op(x, StaticInt{$(p.parameters[1])}())))
     end
     Expr(:block, Expr(:meta, :inline), t)
+end
+
+"""
+    eq(x::StaticInt, y::StaticInt) -> StaticBool
+
+Equivalent to `==` or `isequal` but returns a `StaticBool`.
+"""
+eq(::StaticInt{X}, ::StaticInt{X}) where {X} = True()
+eq(::StaticInt{X}, ::StaticInt{Y}) where {X,Y} = False()
+
+"""
+    ne(x::StaticInt, y::StaticInt) -> StaticBool
+
+Equivalent to `!=` but returns a `StaticBool`.
+"""
+ne(::StaticInt{X}, ::StaticInt{X}) where {X} = False()
+ne(::StaticInt{X}, ::StaticInt{Y}) where {X,Y} = True()
+
+"""
+    gt(x::StaticInt, y::StaticInt) -> StaticBool
+
+Equivalent to `>` but returns a `StaticBool`.
+"""
+function gt(::StaticInt{X}, ::StaticInt{Y}) where {X,Y}
+    if X > Y
+        return True()
+    else
+        return False()
+    end
+end
+
+"""
+    ge(x::StaticInt, y::StaticInt) -> StaticBool
+
+Equivalent to `>=` but returns a `StaticBool`.
+"""
+function ge(::StaticInt{X}, ::StaticInt{Y}) where {X,Y}
+    if X >= Y
+        return True()
+    else
+        return False()
+    end
+end
+
+"""
+    le(x::StaticInt, y::StaticInt) -> StaticBool
+
+Equivalent to `<=` but returns a `StaticBool`.
+"""
+function le(::StaticInt{X}, ::StaticInt{Y}) where {X,Y}
+    if X <= Y
+        return True()
+    else
+        return False()
+    end
+end
+
+"""
+    lt(x::StaticInt, y::StaticInt) -> StaticBool
+
+Equivalent to `<` but returns a `StaticBool`.
+"""
+function lt(::StaticInt{X}, ::StaticInt{Y}) where {X,Y}
+    if X < Y
+        return True()
+    else
+        return False()
+    end
 end
 
 """
