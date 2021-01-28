@@ -228,7 +228,7 @@ function dense_dims(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A
     end
 end
 function dense_dims(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    return _dense_dims(S, dense_dims(A), Val(stride_rank(A))) # TODO fix this
+    return _dense_dims(S, dense_dims(A), Val(stride_rank(A)))
 end
 
 _dense_dims(::Any, ::Any) = nothing

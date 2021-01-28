@@ -206,7 +206,7 @@ end
 @generated function _perm_tuple(::Type{T}, ::Val{P}) where {T,P}
     out = Expr(:curly, :Tuple)
     for p in P
-        push!(out.args, :(T.parameters[$p]))
+        push!(out.args, T.parameters[p])
     end
     Expr(:block, Expr(:meta, :inline), out)
 end
