@@ -1,4 +1,6 @@
-# Simple Array Wrapper
+# Examples
+
+## Simple Array Wrapper
 
 ```julia
 struct Wrapper{T,N,P<:AbstractArray{T,N}} <: AbstractArray{T,N}
@@ -17,7 +19,14 @@ function ArrayInterface.unsafe_get_element(x::Wrapper, inds)
     return ArrayInterface.unsafe_get_element(parent(x), val inds)
 end
 
-Base.getindex(x::Wrapper, args...; kwargs...) = ArrayInterface.getindex(x, args...; kwargs...)
-Base.setindex!(x::Wrapper, val, args...; kwargs...) = ArrayInterface.setindex!(x, val, args...; kwargs...)
+function Base.getindex(x::Wrapper, args...; kwargs...)
+    return ArrayInterface.getindex(x, args...; kwargs...)
+end
+function Base.setindex!(x::Wrapper, val, args...; kwargs...)
+    return ArrayInterface.setindex!(x, val, args...; kwargs...)
+end
 
 ```
+
+
+
