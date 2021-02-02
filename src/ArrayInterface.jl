@@ -744,10 +744,9 @@ end
 
 include("static.jl")
 include("ranges.jl")
-include("dimensions.jl")
 include("indexing.jl")
+include("dimensions.jl")
 include("stridelayout.jl")
-include("generated_funcs.jl")
 
 function __init__()
 
