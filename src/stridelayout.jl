@@ -110,7 +110,13 @@ function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
 end
 
 stride_rank(x) = stride_rank(typeof(x))
-stride_rank(::Type) = nothing
+function stride_rank(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return nothing
+    else
+        return stride_rank(parent_type(T))
+    end
+end
 stride_rank(::Type{Array{T,N}}) where {T,N} = nstatic(Val(N))
 stride_rank(::Type{<:Tuple}) = (One(),)
 
