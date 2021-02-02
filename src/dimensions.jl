@@ -246,6 +246,27 @@ end
 @inline function axes_types(::Type{T}) where {P,I,T<:SubArray{<:Any,<:Any,P,I}}
     return _sub_axes_types(Val(ArrayStyle(T)), I, axes_types(P))
 end
+@inline function axes_types(::Type{T}) where {T<:Base.ReinterpretArray}
+    return _reinterpret_axes_types(
+        axes_types(parent_type(T)),
+        eltype(T),
+        eltype(parent_type(T)),
+    )
+end
+function axes_types(::Type{T}) where {N,T<:Base.ReshapedArray{<:Any,N}}
+    return Tuple{Vararg{OptionallyStaticUnitRange{One,Int},N}}
+end
+
+# These methods help handle identifying axes that don't directly propagate from the
+# parent array axes. They may be worth making a formal part of the API, as they provide
+# a low traffic spot to change what axes_types produces.
+@inline function sub_axis_type(::Type{A}, ::Type{I}) where {A,I}
+    if known_length(I) === nothing
+        return OptionallyStaticUnitRange{One,Int}
+    else
+        return OptionallyStaticUnitRange{One,StaticInt{known_length(I)}}
+    end
+end
 @generated function _sub_axes_types(
     ::Val{S},
     ::Type{I},
@@ -264,13 +285,15 @@ end
     end
     Expr(:block, Expr(:meta, :inline), out)
 end
-
-@inline function axes_types(::Type{T}) where {T<:Base.ReinterpretArray}
-    return _reinterpret_axes_types(
-        axes_types(parent_type(T)),
-        eltype(T),
-        eltype(parent_type(T)),
-    )
+@inline function reinterpret_axis_type(::Type{A}, ::Type{T}, ::Type{S}) where {A,T,S}
+    if known_length(A) === nothing
+        return OptionallyStaticUnitRange{One,Int}
+    else
+        return OptionallyStaticUnitRange{
+            One,
+            StaticInt{Int(known_length(A) / (sizeof(T) / sizeof(S)))},
+        }
+    end
 end
 @generated function _reinterpret_axes_types(
     ::Type{I},
@@ -288,9 +311,6 @@ end
     Expr(:block, Expr(:meta, :inline), out)
 end
 
-function axes_types(::Type{T}) where {N,T<:Base.ReshapedArray{<:Any,N}}
-    return Tuple{Vararg{OptionallyStaticUnitRange{One,Int},N}}
-end
 
 
 """
