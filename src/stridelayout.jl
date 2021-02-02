@@ -343,13 +343,6 @@ not known at compile time `nothing` is returned its position.
 """
 @inline known_offsets(x, d) = known_offsets(x)[to_dims(x, d)]
 known_offsets(x) = known_offsets(typeof(x))
-@generated function known_offsets(::Type{T}) where {T}
-    out = Expr(:tuple)
-    for p in axes_types(T).parameters
-        push!(out.args, known_first(p))
-    end
-    return out
-end
 
 """
     known_size(::Type{T}[, d]) -> Tuple

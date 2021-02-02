@@ -26,19 +26,6 @@ Returns the mapping from parent dimensions to child dimensions.
 from_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
 from_parent_dims(::Type{T}) where {T<:Union{Transpose,Adjoint}} = (StaticInt(2), One())
 from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A, I)
-@generated function _from_sub_dims(::Type{A}, ::Type{I}) where {A,N,I<:Tuple{Vararg{Any,N}}}
-    out = Expr(:tuple)
-    n = 1
-    for p in I.parameters
-        if argdims(A, p) > 0
-            push!(out.args, :(StaticInt($n)))
-            n += 1
-        else
-            push!(out.args, :(StaticInt(0)))
-        end
-    end
-    out
-end
 function from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I}
     return _val_to_static(Val(I))
 end
@@ -53,17 +40,6 @@ to_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
 to_parent_dims(::Type{T}) where {T<:Union{Transpose,Adjoint}} = (StaticInt(2), One())
 to_parent_dims(::Type{<:PermutedDimsArray{T,N,I}}) where {T,N,I} = _val_to_static(Val(I))
 to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(A, I)
-@generated function _to_sub_dims(::Type{A}, ::Type{I}) where {A,N,I<:Tuple{Vararg{Any,N}}}
-    out = Expr(:tuple)
-    n = 1
-    for p in I.parameters
-        if argdims(A, p) > 0
-            push!(out.args, :(StaticInt($n)))
-        end
-        n += 1
-    end
-    out
-end
 
 """
     has_dimnames(::Type{T}) -> Bool
@@ -246,24 +222,6 @@ end
 @inline function axes_types(::Type{T}) where {P,I,T<:SubArray{<:Any,<:Any,P,I}}
     return _sub_axes_types(Val(ArrayStyle(T)), I, axes_types(P))
 end
-@generated function _sub_axes_types(
-    ::Val{S},
-    ::Type{I},
-    ::Type{PI},
-) where {S,I<:Tuple,PI<:Tuple}
-    out = Expr(:curly, :Tuple)
-    d = 1
-    for i in I.parameters
-        ad = argdims(S, i)
-        if ad > 0
-            push!(out.args, :(sub_axis_type($(PI.parameters[d]), $i)))
-            d += ad
-        else
-            d += 1
-        end
-    end
-    Expr(:block, Expr(:meta, :inline), out)
-end
 
 @inline function axes_types(::Type{T}) where {T<:Base.ReinterpretArray}
     return _reinterpret_axes_types(
@@ -271,21 +229,6 @@ end
         eltype(T),
         eltype(parent_type(T)),
     )
-end
-@generated function _reinterpret_axes_types(
-    ::Type{I},
-    ::Type{T},
-    ::Type{S},
-) where {I<:Tuple,T,S}
-    out = Expr(:curly, :Tuple)
-    for i = 1:length(I.parameters)
-        if i === 1
-            push!(out.args, reinterpret_axis_type(I.parameters[1], T, S))
-        else
-            push!(out.args, I.parameters[i])
-        end
-    end
-    Expr(:block, Expr(:meta, :inline), out)
 end
 
 function axes_types(::Type{T}) where {N,T<:Base.ReshapedArray{<:Any,N}}
@@ -322,19 +265,6 @@ function size(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
 end
 function strides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
     return _strides(strides(parent(B)), B.indices)
-end
-@generated function _size(A::Tuple{Vararg{Any,N}}, inds::I, l::L) where {N,I<:Tuple,L}
-    t = Expr(:tuple)
-    for n = 1:N
-        if (I.parameters[n] <: Base.Slice)
-            push!(t.args, :(@inbounds(_try_static(A[$n], l[$n]))))
-        elseif I.parameters[n] <: Number
-            nothing
-        else
-            push!(t.args, Expr(:ref, :l, n))
-        end
-    end
-    Expr(:block, Expr(:meta, :inline), t)
 end
 @inline size(v::AbstractVector) = (static_length(v),)
 @inline size(B::MatAdjTrans) = permute(size(parent(B)), Val{(2, 1)}())

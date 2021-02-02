@@ -747,6 +747,7 @@ include("ranges.jl")
 include("dimensions.jl")
 include("indexing.jl")
 include("stridelayout.jl")
+include("generated_funcs.jl")
 
 function __init__()
 
