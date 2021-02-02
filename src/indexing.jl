@@ -470,7 +470,7 @@ function unsafe_get_element(a::A, val, inds; kwargs...) where {A}
     if parent_type(A) <: A
         throw_unsafe_get_element(a, inds)
     else
-        return @inbounds(a[inds...])
+        return @inbounds(parent(a)[inds...])
     end
 end
 function unsafe_get_element(A::Array, inds)
@@ -594,7 +594,7 @@ function unsafe_set_element!(a::A, val, inds; kwargs...) where {A}
     if parent_type(A) <: A
         throw_unsafe_set_element(a, val, inds)
     else
-        return @inbounds(a[inds...] = val)
+        return @inbounds(parent(a)[inds...] = val)
     end
 end
 function unsafe_set_element!(A::Array{T}, val, inds::Tuple) where {T}
