@@ -313,27 +313,7 @@ end
 _known_length(::Nothing, _, __) = nothing
 @inline _known_length(L::Integer, ::Type{T}, ::Type{P}) where {T,P} = L * sizeof(P) ÷ sizeof(T)
 
-# These methods help handle identifying axes that dont' directly propagate from the
-# parent array axes. They may be worth making a formal part of the API, as they provide
-# a low traffic spot to change what axes_types produces.
-@inline function sub_axis_type(::Type{A}, ::Type{I}) where {A,I}
-    if known_length(I) === nothing
-        return OptionallyStaticUnitRange{One,Int}
-    else
-        return OptionallyStaticUnitRange{One,StaticInt{known_length(I)}}
-    end
-end
 
-@inline function reinterpret_axis_type(::Type{A}, ::Type{T}, ::Type{S}) where {A,T,S}
-    if known_length(A) === nothing
-        return OptionallyStaticUnitRange{One,Int}
-    else
-        return OptionallyStaticUnitRange{
-            One,
-            StaticInt{Int(known_length(A) / (sizeof(T) / sizeof(S)))},
-        }
-    end
-end
 
 """
     known_offsets(::Type{T}[, d]) -> Tuple
