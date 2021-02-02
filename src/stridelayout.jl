@@ -1,17 +1,5 @@
 
 """
-    offsets(A) -> Tuple
-
-Returns offsets of indices with respect to 0. If values are known at compile time,
-it should return them as `Static` numbers.
-For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1))`.
-"""
-@inline offsets(x, i) = static_first(indices(x, i))
-# Explicit tuple needed for inference.
-offsets(x) = eachop(offsets, x, nstatic(Val(ndims(x))))
-offsets(::Tuple) = (One(),)
-
-"""
 contiguous_axis(::Type{T}) -> StaticInt{N}
 
 Returns the axis of an array of type `T` containing contiguous data.
@@ -212,7 +200,13 @@ Returns a tuple of indicators for whether each axis is dense.
 An axis `i` of array `A` is dense if `stride(A, i) * Base.size(A, i) == stride(A, j)` where `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
 """
 dense_dims(x) = dense_dims(typeof(x))
-dense_dims(::Type) = nothing
+function dense_dims(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return nothing
+    else
+        return dense_dims(parent_type(T))
+    end
+end
 _all_dense(::Val{N}) where {N} = ntuple(_ -> True(), Val{N}())
 
 dense_dims(::Type{Array{T,N}}) where {T,N} = _all_dense(Val{N}())
@@ -288,37 +282,23 @@ function _reshaped_dense_dims(dense::D, ::True, ::Val{N}, ::Val{0}) where {D,N}
     end
 end
 
-"""
-    strides(A) -> Tuple
-
-Returns the strides of array `A`. If any strides are known at compile time,
-these should be returned as `Static` numbers. For example:
-```julia
-julia> A = rand(3,4);
-
-julia> ArrayInterface.strides(A)
-(static(1), 3)
-
-Additionally, the behavior differs from `Base.strides` for adjoint vectors:
-
-julia> x = rand(5);
-
-julia> ArrayInterface.strides(x')
-(static(1), static(1))
-
-This is to support the pattern of using just the first stride for linear indexing, `x[i]`,
-while still producing correct behavior when using valid cartesian indices, such as `x[1,i]`.
-```
-"""
-strides(A) = Base.strides(A)
-strides(A, d) = strides(A)[to_dims(A, d)]
-
 @inline function known_length(::Type{T}) where {T <: Base.ReinterpretArray}
     return _known_length(known_length(parent_type(T)), eltype(T), eltype(parent_type(T)))
 end
 _known_length(::Nothing, _, __) = nothing
 @inline _known_length(L::Integer, ::Type{T}, ::Type{P}) where {T,P} = L * sizeof(P) ÷ sizeof(T)
 
+"""
+    offsets(A) -> Tuple
+
+Returns offsets of indices with respect to 0. If values are known at compile time,
+it should return them as `Static` numbers.
+For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1))`.
+"""
+@inline offsets(x, i) = static_first(indices(x, i))
+# Explicit tuple needed for inference.
+offsets(x) = eachop(offsets, x, nstatic(Val(ndims(x))))
+offsets(::Tuple) = (One(),)
 
 
 """
@@ -399,6 +379,31 @@ end
     end
     return Expr(:block, Expr(:meta, :inline), out)
 end
+
+"""
+    strides(A) -> Tuple
+
+Returns the strides of array `A`. If any strides are known at compile time,
+these should be returned as `Static` numbers. For example:
+```julia
+julia> A = rand(3,4);
+
+julia> ArrayInterface.strides(A)
+(static(1), 3)
+
+Additionally, the behavior differs from `Base.strides` for adjoint vectors:
+
+julia> x = rand(5);
+
+julia> ArrayInterface.strides(x')
+(static(1), static(1))
+
+This is to support the pattern of using just the first stride for linear indexing, `x[i]`,
+while still producing correct behavior when using valid cartesian indices, such as `x[1,i]`.
+```
+"""
+strides(A) = Base.strides(A)
+strides(A, d) = strides(A)[to_dims(A, d)]
 
 @inline strides(A::Vector{<:Any}) = (StaticInt(1),)
 @inline strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
