@@ -456,6 +456,9 @@ function unsafe_getindex(::UnsafeGetCollection, A, inds; kwargs...)
     return unsafe_get_collection(A, inds; kwargs...)
 end
 
+function throw_unsafe_get_element(@nospecialize(a), @nospecialize(inds))
+    throw(MethodError(unsafe_get_element, (a, inds)))
+end
 """
     unsafe_get_element(A::AbstractArray{T}, inds::Tuple) -> T
 
@@ -463,7 +466,13 @@ Returns an element of `A` at the indices `inds`. This method assumes all `inds`
 have been checked for being in bounds. Any new array type using `ArrayInterface.getindex`
 must define `unsafe_get_element(::NewArrayType, inds)`.
 """
-unsafe_get_element(A, inds; kwargs...) = throw(MethodError(unsafe_getindex, (A, inds)))
+function unsafe_get_element(a::A, val, inds; kwargs...) where {A}
+    if parent_type(A) <: A
+        throw_unsafe_get_element(a, inds)
+    else
+        return @inbounds(a[inds...])
+    end
+end
 function unsafe_get_element(A::Array, inds)
     if length(inds) === 0
         return Base.arrayref(false, A, 1)
@@ -570,6 +579,10 @@ function unsafe_setindex!(::UnsafeGetCollection, A, val, inds::Tuple; kwargs...)
     return unsafe_set_collection!(A, val, inds; kwargs...)
 end
 
+function throw_unsafe_set_element!(@nospecialize(a), @nospecialize(val), @nospecialize(inds))
+    throw(MethodError(unsafe_set_element!, (a, val, inds)))
+end
+
 """
     unsafe_set_element!(A, val, inds::Tuple)
 
@@ -577,8 +590,12 @@ Sets an element of `A` to `val` at indices `inds`. This method assumes all `inds
 have been checked for being in bounds. Any new array type using `ArrayInterface.setindex!`
 must define `unsafe_set_element!(::NewArrayType, val, inds)`.
 """
-function unsafe_set_element!(A, val, inds; kwargs...)
-    return throw(MethodError(unsafe_set_element!, (A, val, inds)))
+function unsafe_set_element!(a::A, val, inds; kwargs...) where {A}
+    if parent_type(A) <: A
+        throw_unsafe_set_element(a, val, inds)
+    else
+        return @inbounds(a[inds...] = val)
+    end
 end
 function unsafe_set_element!(A::Array{T}, val, inds::Tuple) where {T}
     if length(inds) === 0
