@@ -755,6 +755,7 @@ include("ranges.jl")
 include("indexing.jl")
 include("dimensions.jl")
 include("stridelayout.jl")
+include("reinterpretarray.jl")
 
 function __init__()
 

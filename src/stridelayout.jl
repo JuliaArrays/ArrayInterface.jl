@@ -318,19 +318,6 @@ known_offsets(x) = known_offsets(typeof(x))
 end
 
 """
-    known_size(::Type{T}[, d]) -> Tuple
-
-Returns the size of each dimension for `T` known at compile time. If a dimension does not
-have a known size along a dimension then `nothing` is returned in its position.
-"""
-@inline known_size(x, d) = known_size(x)[to_dims(x, d)]
-known_size(x) = known_size(typeof(x))
-function known_size(::Type{T}) where {T}
-    return eachop(_known_axis_length, axes_types(T), nstatic(Val(ndims(T))))
-end
-_known_axis_length(::Type{T}, c::StaticInt) where {T} = known_length(_get_tuple(T, c))
-
-"""
     known_strides(::Type{T}[, d]) -> Tuple
 
 Returns the strides of array `A` known at compile time. Any strides that are not known at
@@ -419,15 +406,7 @@ function strides(x::VecAdjTrans)
     return (st, st)
 end
 
-function strides(a::ReinterpretArray)
-    defines_strides(parent_type(a)) || ArgumentError("Parent must be strided.") |> throw
-    return size_to_strides(One(), Base.front(size(a))...)
-end
-@inline size_to_strides(s, d, sz...) = (s, size_to_strides(s * d, sz...)...)
-size_to_strides(s, d) = (s,)
-size_to_strides(s) = ()
-
-@generated function _strides(A::AbstractArray{T,N}, s::NTuple{N}, ::StaticInt{C}) where {T,N,C}
+@generated function _strides(A::AbstractArray{T,N}, s::Tuple{Vararg{Any,N}}, ::StaticInt{C}) where {T,N,C}
     if C ≤ 0 || C > N
         return Expr(:block, Expr(:meta, :inline), :s)
     else

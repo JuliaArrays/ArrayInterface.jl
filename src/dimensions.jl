@@ -315,7 +315,18 @@ end
     Expr(:block, Expr(:meta, :inline), out)
 end
 
+"""
+    known_size(::Type{T}[, d]) -> Tuple
 
+Returns the size of each dimension for `T` known at compile time. If a dimension does not
+have a known size along a dimension then `nothing` is returned in its position.
+"""
+@inline known_size(x, d) = known_size(x)[to_dims(x, d)]
+known_size(x) = known_size(typeof(x))
+function known_size(::Type{T}) where {T}
+    return eachop(_known_axis_length, axes_types(T), nstatic(Val(ndims(T))))
+end
+_known_axis_length(::Type{T}, c::StaticInt) where {T} = known_length(_get_tuple(T, c))
 
 """
   size(A)
@@ -393,7 +404,6 @@ Return a valid range that maps to each index along dimension `d` of `A`.
 end
 axes(a::PermutedDimsArray, d) = Base.axes(a, Int(to_dims(a, d)))
 axes(a::SubArray, d) = Base.axes(a, Int(to_dims(a, d)))
-axes(a::Base.ReinterpretArray, d) = Base.axes(a, Int(to_dims(a, d)))
 axes(a::Union{Adjoint,Transpose}, d) = Base.axes(a, Int(to_dims(a, d)))
 
 """
@@ -411,5 +421,4 @@ end
 axes(a::PermutedDimsArray) = Base.axes(a)
 axes(a::SubArray) = Base.axes(a)
 axes(a::Union{Adjoint,Transpose}) = Base.axes(a)
-axes(a::Base.ReinterpretArray) = Base.axes(a)
 
