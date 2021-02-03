@@ -195,7 +195,7 @@ Base.:(&)(x::Bool, y::StaticBool) = x & Bool(y)
 Base.:(&)(x::StaticBool, y::Bool) = Bool(x) & y
 
 Base.xor(y::StaticBool, x::StaticBool) = _xor(x, y)
-p_xor(::True, ::True) = False()
+_xor(::True, ::True) = False()
 _xor(::True, ::False) = True()
 _xor(::False, ::True) = True()
 _xor(::False, ::False) = False()
