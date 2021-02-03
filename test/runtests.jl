@@ -641,3 +641,36 @@ end
 include("indexing.jl")
 include("dimensions.jl")
 
+@testset "simple wrapper array" begin
+    struct Wrapper{T,N,P<:AbstractArray{T,N}} <: AbstractArray{T,N}
+        parent::P
+    end
+    Base.parent(x::Wrapper) = x.parent
+    ArrayInterface.parent_type(::Type{Wrapper{T,N,P}}) where {T,N,P} = P
+
+    Base.getindex(x::Wrapper, args...; kwargs...) = ArrayInterface.getindex(x, args...; kwargs...)
+    Base.setindex!(x::Wrapper, val, args...; kwargs...) = ArrayInterface.setindex!(x, val, args...; kwargs...)
+    Base.size(x::Wrapper) = ArrayInterface.size(x)
+    Base.axes(x::Wrapper) = ArrayInterface.axes(x)
+    Base.strides(x) = ArrayInterface.strides(x)
+
+    S = @SArray zeros(2,3,4);
+    WS = Wrapper(S)
+    Sp = @view(PermutedDimsArray(S,(3,1,2))[2:3,1:2,:]);
+    WSp = Wrapper(Sp)
+    Sp2 = @view(PermutedDimsArray(S,(3,2,1))[2:3,:,:]);
+    WSp2 = Wrapper(Sp2)
+
+    @test @inferred(size(WS)) === ArrayInterface.size(S)
+    @test @inferred(size(WSp)) === ArrayInterface.size(Sp)
+    @test @inferred(size(WSp2)) === ArrayInterface.size(Sp2)
+
+    @test @inferred(axes(WS)) === ArrayInterface.axes(S)
+    @test @inferred(axes(WSp)) === ArrayInterface.axes(Sp)
+    @test @inferred(axes(WSp2)) === ArrayInterface.axes(Sp2)
+
+    @test @inferred(strides(WS)) === ArrayInterface.strides(S)
+    @test @inferred(strides(WSp)) === ArrayInterface.strides(Sp)
+    @test @inferred(strides(WSp2)) === ArrayInterface.strides(Sp2)
+end
+

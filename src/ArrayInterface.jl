@@ -595,7 +595,13 @@ For other `AbstractArray`s and `Tuple`s, returns `ArrayInterface.CPUIndex()`.
 Otherwise, returns `nothing`.
 """
 device(A) = device(typeof(A))
-device(::Type) = nothing
+function device(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return nothing
+    else
+        return device(parent_type(T))
+    end
+end
 device(::Type{<:Tuple}) = CPUIndex()
 # Relies on overloading for GPUArrays that have subtyped `StridedArray`.
 device(::Type{<:StridedArray}) = CPUPointer()
@@ -614,13 +620,15 @@ defines_strides(::Type{T}) -> Bool
 
 Is strides(::T) defined?
 """
-defines_strides(::Type) = false
+function defines_strides(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return false
+    else
+        return defines_strides(parent_type(T))
+    end
+end
 defines_strides(x) = defines_strides(typeof(x))
 defines_strides(::Type{<:StridedArray}) = true
-defines_strides(
-    ::Type{A},
-) where {A<:Union{<:Transpose,<:Adjoint,<:SubArray,<:PermutedDimsArray}} =
-    defines_strides(parent_type(A))
 
 """
 can_avx(f)
@@ -982,23 +990,23 @@ function __init__()
         end
     end
     @require OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881" begin
-        size(A::OffsetArrays.OffsetArray) = size(parent(A))
-        strides(A::OffsetArrays.OffsetArray) = strides(parent(A))
+        #size(A::OffsetArrays.OffsetArray) = size(parent(A))
+        #strides(A::OffsetArrays.OffsetArray) = strides(parent(A))
         # offsets(A::OffsetArrays.OffsetArray) = map(+, A.offsets, offsets(parent(A)))
         function parent_type(
             ::Type{O},
         ) where {T,N,A<:AbstractArray{T,N},O<:OffsetArrays.OffsetArray{T,N,A}}
             return A
         end
-        device(::Type{A}) where {A<:OffsetArrays.OffsetArray} = device(parent_type(A))
-        function contiguous_axis(::Type{A}) where {A<:OffsetArrays.OffsetArray}
-            return contiguous_axis(parent_type(A))
+        ArrayInterface.axes(A::OffsetArrays.OffsetArray) = Base.axes(A)
+        function ArrayInterface.axes(A::OffsetArrays.OffsetArray, d)
+            return Base.axes(A, to_dims(A, d))
         end
+        #=
         function contiguous_batch_size(::Type{A}) where {A<:OffsetArrays.OffsetArray}
             return contiguous_batch_size(parent_type(A))
         end
-        stride_rank(::Type{A}) where {A<:OffsetArrays.OffsetArray} =
-            stride_rank(parent_type(A))
+        =#
     end
 end
 

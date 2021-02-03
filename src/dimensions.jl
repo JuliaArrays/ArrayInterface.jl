@@ -87,7 +87,7 @@ Return the names of the dimensions for `x`.
 """
 @inline dimnames(x) = dimnames(typeof(x))
 @inline dimnames(x, i::Integer) = dimnames(typeof(x), i)
-@inline dimnames(::Type{T}, d::Integer) where {T} = getfield(dimnames(T), to_dims(T, d))
+@inline dimnames(::Type{T}, d::Integer) where {T} = getfield(dimnames(T), Int(d))
 @inline function dimnames(::Type{T}) where {T}
     if parent_type(T) <: T
         return ntuple(i -> :_, Val(ndims(T)))
@@ -132,13 +132,17 @@ end
     return e
 end
 
+_int_or_sint(x::Integer) = Int(x)
+_int_or_sint(x::StaticInt) = x
+
 """
     to_dims(x[, d])
 
 This returns the dimension(s) of `x` corresponding to `d`.
 """
 to_dims(x, d) = to_dims(dimnames(x), d)
-to_dims(x::Tuple{Vararg{Symbol}}, d::Integer) = Int(d)
+to_dims(x, d::Integer) = _int_or_sint(d)
+to_dims(x::Tuple{Vararg{Symbol}}, d::Integer) = _int_or_sint(d)
 to_dims(x::Tuple{Vararg{Symbol}}, d::Colon) = d   # `:` is the default for most methods that take `dims`
 @inline to_dims(x::Tuple{Vararg{Symbol}}, d::Tuple) = map(i -> to_dims(x, i), d)
 @inline function to_dims(x::Tuple{Vararg{Symbol}}, d::Symbol)::Int
@@ -327,9 +331,20 @@ julia> ArrayInterface.size(A)
 (StaticInt{3}(), StaticInt{4}())
 ```
 """
-@inline size(A) = Base.size(A)
-@inline size(A, d::Integer) = size(A)[Int(d)]
-@inline size(A, d) = Base.size(A, to_dims(A, d))
+@inline function size(a::A) where {A}
+    if parent_type(A) <: A
+        return Base.size(a)  # TODO should this throw an error instead?
+    else
+        return size(parent(a))
+    end
+end
+@inline function size(a::A, d) where {A}
+    if parent_type(A) <: A
+        return Base.size(a, to_dims(A, d))
+    else
+        return size(parent(a), to_dims(A, d)) 
+    end
+end
 @inline function size(x::LinearAlgebra.Adjoint{T,V}) where {T,V<:AbstractVector{T}}
     return (One(), static_length(x))
 end
@@ -363,18 +378,38 @@ end
 end
 @inline size(A::AbstractArray, ::StaticInt{N}) where {N} = size(A)[N]
 @inline size(A::AbstractArray, ::Val{N}) where {N} = size(A)[N]
+
 """
     axes(A, d)
 
 Return a valid range that maps to each index along dimension `d` of `A`.
 """
-@inline axes(A, d) = axes(A, to_dims(A, d))
-@inline axes(A, d::Integer) = axes(A)[Int(d)]
+@inline function axes(a::A, d) where {A}
+    if parent_type(A) <: A
+        return Base.axes(a, Int(to_dims(A, d)))
+    else
+        return axes(parent(a), to_dims(A, d))
+    end
+end
+axes(a::PermutedDimsArray, d) = Base.axes(a, Int(to_dims(a, d)))
+axes(a::SubArray, d) = Base.axes(a, Int(to_dims(a, d)))
+axes(a::Base.ReinterpretArray, d) = Base.axes(a, Int(to_dims(a, d)))
+axes(a::Union{Adjoint,Transpose}, d) = Base.axes(a, Int(to_dims(a, d)))
 
 """
     axes(A)
 
 Return a tuple of ranges where each range maps to each element along a dimension of `A`.
 """
-@inline axes(A) = Base.axes(A)
+@inline function axes(a::A) where {A}
+    if parent_type(A) <: A
+        return Base.axes(a)
+    else
+        return axes(parent(a))
+    end
+end
+axes(a::PermutedDimsArray) = Base.axes(a)
+axes(a::SubArray) = Base.axes(a)
+axes(a::Union{Adjoint,Transpose}) = Base.axes(a)
+axes(a::Base.ReinterpretArray) = Base.axes(a)
 

@@ -402,17 +402,30 @@ This is to support the pattern of using just the first stride for linear indexin
 while still producing correct behavior when using valid cartesian indices, such as `x[1,i]`.
 ```
 """
-strides(A) = Base.strides(A)
 strides(A, d) = strides(A)[to_dims(A, d)]
 
 @inline strides(A::Vector{<:Any}) = (StaticInt(1),)
 @inline strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
-@inline strides(A::AbstractArray) = _strides(A, Base.strides(A), contiguous_axis(A))
+@inline function strides(a::A) where {A}
+    if parent_type(A) <: A
+        return Base.strides(a)
+    else
+        return _strides(a, strides(parent(a)), contiguous_axis(a))
+    end
+end
 
 function strides(x::VecAdjTrans)
     st = first(strides(parent(x)))
     return (st, st)
 end
+
+function strides(a::ReinterpretArray)
+    defines_strides(parent_type(a)) || ArgumentError("Parent must be strided.") |> throw
+    return size_to_strides(One(), Base.front(size(a))...)
+end
+@inline size_to_strides(s, d, sz...) = (s, size_to_strides(s * d, sz...)...)
+size_to_strides(s, d) = (s,)
+size_to_strides(s) = ()
 
 @generated function _strides(A::AbstractArray{T,N}, s::NTuple{N}, ::StaticInt{C}) where {T,N,C}
     if C ≤ 0 || C > N

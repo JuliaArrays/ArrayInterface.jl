@@ -466,7 +466,7 @@ Returns an element of `A` at the indices `inds`. This method assumes all `inds`
 have been checked for being in bounds. Any new array type using `ArrayInterface.getindex`
 must define `unsafe_get_element(::NewArrayType, inds)`.
 """
-function unsafe_get_element(a::A, val, inds; kwargs...) where {A}
+function unsafe_get_element(a::A, inds; kwargs...) where {A}
     if parent_type(A) <: A
         throw_unsafe_get_element(a, inds)
     else
@@ -679,3 +679,4 @@ end
 ) where {N}
     return _generate_unsafe_setindex!_body(N)
 end
+
