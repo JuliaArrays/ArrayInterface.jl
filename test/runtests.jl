@@ -544,6 +544,13 @@ end
     @test @inferred(ArrayInterface.offsets(Op)) === (11, 4, 8)
 
     @test @inferred(ArrayInterface.offsets((1,2,3))) === (StaticInt(1),)
+
+    if VERSION ≥ v"1.6.0-DEV.1581"
+        colors = [(R = rand(), G = rand(), B = rand()) for i ∈ 1:100];
+
+        colormat = reinterpret(reshape, Float64, colors)
+        @test @inferred(ArrayInterface.strides(colormat)) === (StaticInt(1), StaticInt(3))
+    end
 end
 
 @test ArrayInterface.can_avx(ArrayInterface.can_avx) == false
