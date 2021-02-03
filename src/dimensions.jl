@@ -148,32 +148,35 @@ to_dims(x::Tuple{Vararg{Symbol}}, d::Colon) = d   # `:` is the default for most 
     end
     return i
 end
-Base.@pure function _sym_to_dim(x::Tuple{Vararg{Symbol,N}}, sym::Symbol) where {N}
-    for i in 1:N
-        getfield(x, i) === sym && return i
+@generated function _sym_to_dim(x::Tuple{Vararg{Symbol,N}}, sym::Symbol) where {N}
+    quote
+        $(Expr(:meta,:inline))
+        Base.Cartesian.@nexprs $N n -> getfield(x, n) === sym && return n
+        return 0
     end
-    return 0
 end
 
 """
     tuple_issubset
 
-A version of `issubset` sepecifically for `Tuple`s of `Symbol`s, that is `@pure`.
-This helps it get optimised out of existance. It is less of an abuse of `@pure` than
-most of the stuff for making `NamedTuples` work.
+A version of `issubset` sepecifically for `Tuple`s of `Symbol`s.
 """
-Base.@pure function tuple_issubset(
+@generated function tuple_issubset(
     lhs::Tuple{Vararg{Symbol,N}}, rhs::Tuple{Vararg{Symbol,M}}
 ) where {N,M}
     N <= M || return false
-    for a in lhs
-        found = false
-        for b in rhs
-            found |= a === b
+    quote
+        $(Expr(:meta,:inline))
+        Base.Cartesian.@nexprs $N n -> begin
+            a = lhs[n]
+            found = false
+            Base.Cartesian.@nexprs $M m -> begin
+                found |= a === rhs[m]
+            end
+            found || return false
         end
-        found || return false
+        return true
     end
-    return true
 end
 
 """

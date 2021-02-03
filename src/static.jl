@@ -14,7 +14,7 @@ const One = StaticInt{1}
 
 Base.show(io::IO, ::StaticInt{N}) where {N} = print(io, "static($N)")
 
-Base.@pure StaticInt(N::Int) = StaticInt{N}()
+@inline StaticInt(N::Int) = StaticInt{N}()
 StaticInt(N::Integer) = StaticInt(convert(Int, N))
 StaticInt(::StaticInt{N}) where {N} = StaticInt{N}()
 StaticInt(::Val{N}) where {N} = StaticInt{N}()
@@ -195,7 +195,7 @@ Base.:(&)(x::Bool, y::StaticBool) = x & Bool(y)
 Base.:(&)(x::StaticBool, y::Bool) = Bool(x) & y
 
 Base.xor(y::StaticBool, x::StaticBool) = _xor(x, y)
-_xor(::True, ::True) = False()
+p_xor(::True, ::True) = False()
 _xor(::True, ::False) = True()
 _xor(::False, ::True) = True()
 _xor(::False, ::False) = False()
@@ -250,7 +250,7 @@ Base.promote_rule(::Type{<:StaticBool}, ::Type{<:StaticBool}) = StaticBool
 Base.promote_rule(::Type{<:StaticBool}, ::Type{Bool}) = Bool
 Base.promote_rule(::Type{Bool}, ::Type{<:StaticBool}) = Bool
 
-Base.@pure _get_tuple(::Type{T}, ::StaticInt{i}) where {T<:Tuple, i} = T.parameters[i]
+@generated _get_tuple(::Type{T}, ::StaticInt{i}) where {T<:Tuple, i} = T.parameters[i]
 
 Base.all(::Tuple{Vararg{True}}) = true
 Base.all(::Tuple{Vararg{Union{True,False}}}) = false
@@ -260,14 +260,14 @@ Base.any(::Tuple{Vararg{True}}) = true
 Base.any(::Tuple{Vararg{Union{True,False}}}) = true
 Base.any(::Tuple{Vararg{False}}) = false
 
-Base.@pure nstatic(::Val{N}) where {N} = ntuple(i -> StaticInt(i), Val(N))
+@generated nstatic(::Val{N}) where {N} = ntuple(StaticInt, Val(N))
 
 # I is a tuple of Int
-@pure function _val_to_static(::Val{I}) where {I}
+@inline function _val_to_static(::Val{I}) where {I}
     return ntuple(i -> StaticInt(getfield(I, i)), Val(length(I)))
 end
 
-@pure is_permuting(perm::Tuple{Vararg{StaticInt,N}}) where {N} = perm !== nstatic(Val(N))
+@inline is_permuting(perm::Tuple{Vararg{StaticInt,N}}) where {N} = perm !== nstatic(Val(N))
 
 permute(x::Tuple, perm::Tuple) = eachop(getindex, x, perm)
 function permute(x::Tuple{Vararg{Any,N}}, perm::Tuple{Vararg{Any,N}}) where {N}

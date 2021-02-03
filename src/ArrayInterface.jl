@@ -5,9 +5,9 @@ using Requires
 using LinearAlgebra
 using SparseArrays
 
-using Base: @pure, @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray
+using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray
 
-Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
+@generated __parameterless_type(::Type{T}) where {T} = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
 parameterless_type(x::Type) = __parameterless_type(x)
 
