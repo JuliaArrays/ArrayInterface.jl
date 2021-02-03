@@ -812,6 +812,7 @@ function __init__()
             return ArrayInterface._all_dense(Val(N))
         end
         defines_strides(::Type{<:StaticArrays.MArray}) = true
+        defines_strides(::Type{<:StaticArrays.SArray}) = true
 
         @generated function axes_types(::Type{<:StaticArrays.StaticArray{S}}) where {S}
             return Tuple{[StaticArrays.SOneTo{s} for s in S.parameters]...}
