@@ -64,16 +64,6 @@ function _contiguous_axis(::Type{A}, c::StaticInt{C}) where {T,N,P,I,A<:SubArray
     end
 end
 
-# contiguous_if_one(::StaticInt{1}) = StaticInt{1}()
-# contiguous_if_one(::Any) = StaticInt{-1}()
-function contiguous_axis(::Type{R}) where {T,N,S,A<:Array{S},R<:ReinterpretArray{T,N,S,A}}
-    if isbitstype(S)
-        return One()
-    else
-        return nothing
-    end
-end
-
 """
     contiguous_axis_indicator(::Type{T}) -> Tuple{Vararg{Val}}
 
@@ -124,10 +114,6 @@ _stride_rank(::Any, ::Any) = nothing
 _stride_rank(::Type{T}, r::Tuple) where {T<:SubArray} = permute(r, to_parent_dims(T))
 
 stride_rank(x, i) = stride_rank(x)[i]
-function stride_rank(::Type{R}) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}}
-    return nstatic(Val(N))
-end
-
 function stride_rank(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.SignedMultiplicativeInverse{Int},M}}}}) where {T,N,P,M}
     _reshaped_striderank(is_column_major(P), Val{N}(), Val{M}())
 end
@@ -177,7 +163,6 @@ function _contiguous_batch_size(::Type{<:SubArray{T,N,A,I}}, b::StaticInt{B}, c:
         return -One()
     end
 end
-contiguous_batch_size(::Type{<:Base.ReinterpretArray{T,N,S,A}}) where {T,N,S,A} = Zero()
 
 """
     is_column_major(A) -> True/False
@@ -281,12 +266,6 @@ function _reshaped_dense_dims(dense::D, ::True, ::Val{N}, ::Val{0}) where {D,N}
         return nothing
     end
 end
-
-@inline function known_length(::Type{T}) where {T <: Base.ReinterpretArray}
-    return _known_length(known_length(parent_type(T)), eltype(T), eltype(parent_type(T)))
-end
-_known_length(::Nothing, _, __) = nothing
-@inline _known_length(L::Integer, ::Type{T}, ::Type{P}) where {T,P} = L * sizeof(P) ÷ sizeof(T)
 
 """
     offsets(A) -> Tuple
@@ -397,6 +376,7 @@ strides(A, d) = strides(A)[to_dims(A, d)]
     if parent_type(A) <: A
         return Base.strides(a)
     else
+        defines_strides(parent_type(a)) || ArgumentError("Parent must be strided.") |> throw
         return _strides(a, strides(parent(a)), contiguous_axis(a))
     end
 end
@@ -419,26 +399,6 @@ end
             end
         end
         return quote
-            $(Expr(:meta, :inline))
-            @inbounds $stup
-        end
-    end
-end
-
-if VERSION ≥ v"1.6.0-DEV.1581"
-    @generated function _strides(
-        _::Base.ReinterpretArray{T,N,S,A,true},
-        s::NTuple{N},
-        ::StaticInt{1},
-    ) where {T,N,S,D,A<:Array{S,D}}
-        stup = Expr(:tuple, :(One()))
-        if D < N
-            push!(stup.args, Expr(:call, Expr(:curly, :StaticInt, sizeof(S) ÷ sizeof(T))))
-        end
-        for n ∈ 2+(D<N):N
-            push!(stup.args, Expr(:ref, :s, n))
-        end
-        quote
             $(Expr(:meta, :inline))
             @inbounds $stup
         end
