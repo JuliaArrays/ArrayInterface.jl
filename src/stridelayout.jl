@@ -74,7 +74,7 @@ function contiguous_axis_indicator(::Type{A}) where {D,A<:AbstractArray{<:Any,D}
 end
 contiguous_axis_indicator(::A) where {A<:AbstractArray} = contiguous_axis_indicator(A)
 contiguous_axis_indicator(::Nothing, ::Val) = nothing
-Base.@pure function contiguous_axis_indicator(::StaticInt{N}, ::Val{D}) where {N,D}
+@generated function contiguous_axis_indicator(::StaticInt{N}, ::Val{D}) where {N,D}
     return ntuple(d -> StaticBool(d === N), Val{D}())
 end
 

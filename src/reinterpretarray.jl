@@ -9,13 +9,16 @@ end
 # this handles resizing the first dimension for ReinterpretArray
 resize_reinterpreted(::Nothing, ::Type{S}, ::Type{T}) where {S,T} = nothing
 function resize_reinterpreted(::StaticInt{p}, ::Type{S}, ::Type{T}) where {p,S,T}
-    return StaticInt(_resize_reinterpreted(p, sizeof(S), sizeof(T)))
+    return StaticInt(_resize_reinterpreted(p, S, T))
 end
 function resize_reinterpreted(p::Int, ::Type{S}, ::Type{T}) where {S,T}
-    return _resize_reinterpreted(p, sizeof(S), sizeof(T))
+    return _resize_reinterpreted(p, S, T)
 end
-@pure function _resize_reinterpreted(p::Int, s::Int, t::Int)::Int
-    return Core.Intrinsics.checked_sdiv_int(Core.Intrinsics.mul_int(p, s), t)
+@pure function _resize_reinterpreted(p::Int, ::Type{S}, ::Type{T})::Int where {S,T}
+    # div(p * sizeof(S), sizeof(T))
+    return Core.Intrinsics.checked_sdiv_int(
+        Core.Intrinsics.mul_int(p, Core.sizeof(S)), Core.sizeof(T)
+    )
 end
 
 

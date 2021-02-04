@@ -1,23 +1,4 @@
 
-#julia> @btime ArrayInterface.is_increasing(ArrayInterface.nstatic(Val(10)))
-#  0.045 ns (0 allocations: 0 bytes)
-#ArrayInterface.True()
-function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y},Vararg}) where {X, Y}
-    if X <= Y
-        return is_increasing(tail(perm))
-    else
-        return False()
-    end
-end
-function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y}}) where {X, Y}
-    if X <= Y
-        return True()
-    else
-        return False()
-    end
-end
-is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
-
 """
     from_parent_dims(::Type{T}) -> Bool
 
@@ -153,10 +134,17 @@ to_dims(x::Tuple{Vararg{Symbol}}, d::Colon) = d   # `:` is the default for most 
     return i
 end
 Base.@pure function _sym_to_dim(x::Tuple{Vararg{Symbol,N}}, sym::Symbol) where {N}
-    for i in 1:N
-        getfield(x, i) === sym && return i
+    i = 1
+    out = 0
+    while Core.sle_int(i, N)
+        if getfield(x, i) === sym
+            out = i
+            i = Core.Intrinsics.add_int(N, 1)
+        else
+            i = Core.Intrinsics.add_int(i, 1)
+        end
     end
-    return 0
+    return out
 end
 
 """
@@ -169,15 +157,18 @@ most of the stuff for making `NamedTuples` work.
 Base.@pure function tuple_issubset(
     lhs::Tuple{Vararg{Symbol,N}}, rhs::Tuple{Vararg{Symbol,M}}
 ) where {N,M}
-    N <= M || return false
-    for a in lhs
-        found = false
-        for b in rhs
-            found |= a === b
+    if Core.sle_int(N, M)
+        for a in lhs
+            found = false
+            for b in rhs
+                found |= a === b
+            end
+            found || return false
         end
-        found || return false
+        return true
+    else
+        return false
     end
-    return true
 end
 
 """

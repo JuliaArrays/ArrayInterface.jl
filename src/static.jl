@@ -14,7 +14,7 @@ const One = StaticInt{1}
 
 Base.show(io::IO, ::StaticInt{N}) where {N} = print(io, "static($N)")
 
-Base.@pure StaticInt(N::Int) = StaticInt{N}()
+StaticInt(N::Int) = StaticInt{N}()
 StaticInt(N::Integer) = StaticInt(convert(Int, N))
 StaticInt(::StaticInt{N}) where {N} = StaticInt{N}()
 StaticInt(::Val{N}) where {N} = StaticInt{N}()
@@ -250,7 +250,9 @@ Base.promote_rule(::Type{<:StaticBool}, ::Type{<:StaticBool}) = StaticBool
 Base.promote_rule(::Type{<:StaticBool}, ::Type{Bool}) = Bool
 Base.promote_rule(::Type{Bool}, ::Type{<:StaticBool}) = Bool
 
-Base.@pure _get_tuple(::Type{T}, ::StaticInt{i}) where {T<:Tuple, i} = T.parameters[i]
+Base.@pure function _get_tuple(::Type{T}, ::StaticInt{i}) where {T<:Tuple, i}
+    T.parameters[i]
+end
 
 Base.all(::Tuple{Vararg{True}}) = true
 Base.all(::Tuple{Vararg{Union{True,False}}}) = false
@@ -260,18 +262,35 @@ Base.any(::Tuple{Vararg{True}}) = true
 Base.any(::Tuple{Vararg{Union{True,False}}}) = true
 Base.any(::Tuple{Vararg{False}}) = false
 
-Base.@pure nstatic(::Val{N}) where {N} = ntuple(i -> StaticInt(i), Val(N))
+@inline nstatic(::Val{N}) where {N} = ntuple(i -> StaticInt(i), Val(N))
 
 # I is a tuple of Int
-@pure function _val_to_static(::Val{I}) where {I}
+@generated function _val_to_static(::Val{I}) where {I}
     return ntuple(i -> StaticInt(getfield(I, i)), Val(length(I)))
 end
 
-@pure is_permuting(perm::Tuple{Vararg{StaticInt,N}}) where {N} = perm !== nstatic(Val(N))
+#julia> @btime ArrayInterface.is_increasing(ArrayInterface.nstatic(Val(10)))
+#  0.045 ns (0 allocations: 0 bytes)
+#ArrayInterface.True()
+function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y},Vararg}) where {X, Y}
+    if X <= Y
+        return is_increasing(tail(perm))
+    else
+        return False()
+    end
+end
+function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y}}) where {X, Y}
+    if X <= Y
+        return True()
+    else
+        return False()
+    end
+end
+is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
 
 permute(x::Tuple, perm::Tuple) = eachop(getindex, x, perm)
 function permute(x::Tuple{Vararg{Any,N}}, perm::Tuple{Vararg{Any,N}}) where {N}
-    if is_permuting(perm)
+    if perm !== nstatic(Val(N))
         return eachop(getindex, x, perm)
     else
         return x
