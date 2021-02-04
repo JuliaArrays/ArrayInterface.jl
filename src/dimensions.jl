@@ -1,10 +1,21 @@
 
+function _throw_mismatch_ndims(@nospecialize(x))
+    error("The number of child and parent dimensions for $x does not match. ArrayInterface.to_parent_dims and ArrayInterface.from_parent_dims must be specified for $x")
+end
+
 """
     from_parent_dims(::Type{T}) -> Bool
 
 Returns the mapping from parent dimensions to child dimensions.
 """
 from_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
+function from_parent_dims(::Type{T}) where {T}
+    if ndims(T) === ndims(parent_type(T))
+        return nstatic(Val(ndims(T)))
+    else
+        return _throw_mismatch_ndims(T)
+    end
+end
 from_parent_dims(::Type{T}) where {T<:Union{Transpose,Adjoint}} = (StaticInt(2), One())
 from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A, I)
 @generated function _from_sub_dims(::Type{A}, ::Type{I}) where {A,N,I<:Tuple{Vararg{Any,N}}}
@@ -30,7 +41,13 @@ end
 Returns the mapping from child dimensions to parent dimensions.
 """
 to_parent_dims(x) = to_parent_dims(typeof(x))
-to_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
+function to_parent_dims(::Type{T}) where {T}
+    if ndims(T) === ndims(parent_type(T))
+        return nstatic(Val(ndims(T)))
+    else
+        return _throw_mismatch_ndims(T)
+    end
+end
 to_parent_dims(::Type{T}) where {T<:Union{Transpose,Adjoint}} = (StaticInt(2), One())
 to_parent_dims(::Type{<:PermutedDimsArray{T,N,I}}) where {T,N,I} = _val_to_static(Val(I))
 to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(A, I)
@@ -117,12 +134,14 @@ _int_or_sint(x::Integer) = Int(x)
 _int_or_sint(x::StaticInt) = x
 
 """
-    to_dims(x[, d])
+    to_dims(x[, dim])
 
-This returns the dimension(s) of `x` corresponding to `d`.
+This returns the dimension(s) of `x` corresponding to `dim`.
 """
-to_dims(x, d) = to_dims(dimnames(x), d)
+to_dims(x, d::Symbol) = to_dims(dimnames(x), d)
+to_dims(x, d::Tuple) = to_dims(dimnames(x), d)
 to_dims(x, d::Integer) = _int_or_sint(d)
+to_dims(x, d::Colon) = d
 to_dims(x::Tuple{Vararg{Symbol}}, d::Integer) = _int_or_sint(d)
 to_dims(x::Tuple{Vararg{Symbol}}, d::Colon) = d   # `:` is the default for most methods that take `dims`
 @inline to_dims(x::Tuple{Vararg{Symbol}}, d::Tuple) = map(i -> to_dims(x, i), d)
@@ -340,13 +359,6 @@ julia> ArrayInterface.size(A)
         return size(parent(a))
     end
 end
-@inline function size(a::A, d) where {A}
-    if parent_type(A) <: A
-        return Base.size(a, to_dims(A, d))
-    else
-        return size(parent(a), to_dims(A, d)) 
-    end
-end
 @inline function size(x::LinearAlgebra.Adjoint{T,V}) where {T,V<:AbstractVector{T}}
     return (One(), static_length(x))
 end
@@ -380,6 +392,19 @@ end
 end
 @inline size(A::AbstractArray, ::StaticInt{N}) where {N} = size(A)[N]
 @inline size(A::AbstractArray, ::Val{N}) where {N} = size(A)[N]
+
+"""
+    size(A, dim)
+
+Return the length of of dimensions `dim` of `A`.
+"""
+@inline function size(a::A, d) where {A}
+    if parent_type(A) <: A
+        return Base.size(a, to_dims(A, d))
+    else
+        return size(parent(a), to_dims(A, d)) 
+    end
+end
 
 """
     axes(A, d)
