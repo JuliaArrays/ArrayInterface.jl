@@ -4,9 +4,19 @@ function _throw_mismatch_ndims(@nospecialize(x))
 end
 
 """
-    from_parent_dims(::Type{T}) -> Bool
+    from_parent_dims(::Type{T}) -> Tuple
 
-Returns the mapping from parent dimensions to child dimensions.
+Returns a tuple where the position of each element corresponds to the dimension of `T`'s
+parent and the value corresponds to the dimensions of `T`. The default value
+(i.e., `ntuple(i -> StaticInt(i), ndims(T))`) is returned if there is no parent type for `T`
+or if the parent type has the same number of dimensions. Otherwise an error is thrown.
+
+If a parent dimension is dropped (such as the first dimension of `view(a, 1, :)`)
+then that position should be `StaticInt(0)` because it doesn't map to any dimensions.
+Note that added dimensions are represented by the return value of `from_parent_dims` also.
+For example, `view(ones(2,2), :, :, :)` would return `(static(1), static(2), static(3))`.
+
+See also: [`ArrayInterface.to_parent_dims`](@ref)
 """
 from_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
 function from_parent_dims(::Type{T}) where {T}
@@ -36,9 +46,14 @@ function from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I
 end
 
 """
-    to_parent_dims(::Type{T}) -> Bool
+    to_parent_dims(::Type{T}) -> Tuple
 
-Returns the mapping from child dimensions to parent dimensions.
+Returns a tuple where the position of each element corresponds to the dimension of `T`
+and the value corresponds to the parent dimensions. The default value (i.e., `ntuple(i -> StaticInt(i), ndims(T))`)
+is returned if there is no parent type for `T` or if the parent type has the same number of
+dimensions. Otherwise an error is thrown.
+
+See also: [`ArrayInterface.from_parent_dims`](@ref)
 """
 to_parent_dims(x) = to_parent_dims(typeof(x))
 function to_parent_dims(::Type{T}) where {T}
