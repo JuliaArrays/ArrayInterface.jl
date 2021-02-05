@@ -250,7 +250,7 @@ Base.promote_rule(::Type{<:StaticBool}, ::Type{<:StaticBool}) = StaticBool
 Base.promote_rule(::Type{<:StaticBool}, ::Type{Bool}) = Bool
 Base.promote_rule(::Type{Bool}, ::Type{<:StaticBool}) = Bool
 
-Base.@pure _get_tuple(::Type{T}, ::StaticInt{i}) where {T<:Tuple, i} = T.parameters[i]
+@generated _get_tuple(::Type{T}, ::StaticInt{i}) where {T<:Tuple, i} = T.parameters[i]
 
 Base.all(::Tuple{Vararg{True}}) = true
 Base.all(::Tuple{Vararg{Union{True,False}}}) = false
@@ -260,19 +260,26 @@ Base.any(::Tuple{Vararg{True}}) = true
 Base.any(::Tuple{Vararg{Union{True,False}}}) = true
 Base.any(::Tuple{Vararg{False}}) = false
 
-Base.@pure nstatic(::Val{N}) where {N} = ntuple(i -> StaticInt(i), Val(N))
+@inline nstatic(::Val{N}) where {N} = ntuple(i -> StaticInt(i), Val(N))
 
-@pure is_permuting(perm::Tuple{Vararg{StaticInt,N}}) where {N} = perm !== nstatic(Val(N))
+invariant_permutation(::Any, ::Any) = False()
+function invariant_permutation(x::T, y::T) where {N,T<:Tuple{Vararg{StaticInt,N}}}
+    if x === nstatic(Val(N))
+        return True()
+    else
+        return False()
+    end
+end
 
-permute(x::Tuple, perm::Tuple) = eachop(getindex, x, perm)
-function permute(x::Tuple{Vararg{Any,N}}, perm::Tuple{Vararg{Any,N}}) where {N}
-    if is_permuting(perm)
+permute(x::Tuple, perm::Val) = permute(x, static(perm))
+# TODO delete this? permute(x::Tuple, perm::Tuple) = eachop(getindex, x, perm)
+function permute(x::Tuple{Vararg{Any,N}}, perm::Tuple{Vararg{StaticInt,N}}) where {N}
+    if invariant_permutation(perm, perm) <: False
         return eachop(getindex, x, perm)
     else
         return x
     end
 end
-permute(x::Tuple, perm::Val) = permute(x, static(perm))
 
 @generated function eachop(op, x, y, ::I) where {I}
     t = Expr(:tuple)
