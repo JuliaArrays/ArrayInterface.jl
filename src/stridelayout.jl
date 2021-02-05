@@ -87,7 +87,7 @@ function contiguous_axis(::Type{R}) where {T,N,S,A<:Array{S},R<:ReinterpretArray
 end
 
 """
-    contiguous_axis_indicator(::Type{T}) -> Tuple{Vararg{Val}}
+    contiguous_axis_indicator(::Type{T}) -> Tuple{Vararg{StaticBool}}
 
 Returns a tuple boolean `Val`s indicating whether that axis is contiguous.
 """
@@ -96,8 +96,8 @@ function contiguous_axis_indicator(::Type{A}) where {D,A<:AbstractArray{<:Any,D}
 end
 contiguous_axis_indicator(::A) where {A<:AbstractArray} = contiguous_axis_indicator(A)
 contiguous_axis_indicator(::Nothing, ::Val) = nothing
-Base.@pure function contiguous_axis_indicator(::StaticInt{N}, ::Val{D}) where {N,D}
-    return ntuple(d -> StaticBool(d === N), Val{D}())
+function contiguous_axis_indicator(c::StaticInt{N}, dim::Val{D}) where {N,D}
+    return map(i -> eq(c, i), dim)
 end
 
 function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
@@ -106,7 +106,7 @@ function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
     @inbounds for n = 1:N
         sp = Base.setindex(sp, n, r[n])
     end
-    sp
+    return sp
 end
 
 stride_rank(x) = stride_rank(typeof(x))
