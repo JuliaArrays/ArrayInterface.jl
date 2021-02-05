@@ -39,9 +39,7 @@ from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A
     end
     out
 end
-function from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I}
-    return _val_to_static(Val(I))
-end
+from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I} = static(Val(I))
 
 """
     to_parent_dims(::Type{T}) -> Bool
@@ -51,7 +49,7 @@ Returns the mapping from child dimensions to parent dimensions.
 to_parent_dims(x) = to_parent_dims(typeof(x))
 to_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
 to_parent_dims(::Type{T}) where {T<:Union{Transpose,Adjoint}} = (StaticInt(2), One())
-to_parent_dims(::Type{<:PermutedDimsArray{T,N,I}}) where {T,N,I} = _val_to_static(Val(I))
+to_parent_dims(::Type{<:PermutedDimsArray{T,N,I}}) where {T,N,I} = static(Val(I))
 to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(A, I)
 @generated function _to_sub_dims(::Type{A}, ::Type{I}) where {A,N,I<:Tuple{Vararg{Any,N}}}
     out = Expr(:tuple)
@@ -79,18 +77,35 @@ function has_dimnames(::Type{T}) where {T}
     end
 end
 
+# this takes the place of dimension names that aren't defined
+const SUnderscore = StaticSymbol(:_)
+
 """
-    dimnames(::Type{T}) -> Tuple{Vararg{Symbol}}
-    dimnames(::Type{T}, d) -> Symbol
+    dimnames(::Type{T}) -> Tuple{Vararg{StaticSymbol}}
+    dimnames(::Type{T}, dim) -> StaticSymbol
 
 Return the names of the dimensions for `x`.
 """
 @inline dimnames(x) = dimnames(typeof(x))
-@inline dimnames(x, i::Integer) = dimnames(typeof(x), i)
-@inline dimnames(::Type{T}, d::Integer) where {T} = getfield(dimnames(T), to_dims(T, d))
+@inline dimnames(x, dim::Int) = dimnames(typeof(x), dim)
+@inline dimnames(x, dim::StaticInt) = dimnames(typeof(x), dim)
+@inline function dimnames(::Type{T}, ::StaticInt{dim}) where {T,dim}
+    if ndims(T) < dim
+        return SUnderscore
+    else
+        return getfield(dimnames(T), dim)
+    end
+end
+@inline function dimnames(::Type{T}, dim::Int) where {T}
+    if ndims(T) < dim
+        return SUnderscore
+    else
+        return getfield(dimnames(T), dim)
+    end
+end
 @inline function dimnames(::Type{T}) where {T}
     if parent_type(T) <: T
-        return ntuple(i -> :_, Val(ndims(T)))
+        return ntuple(SUnderscore, Val(ndims(T)))
     else
         return dimnames(parent_type(T))
     end
@@ -132,58 +147,57 @@ end
     return e
 end
 
+_to_int(x::Integer) = Int(x)
+_to_int(x::StaticInt) = x
+
+function no_dimname_error(@nospecialize(x), @nospecialize(dim))
+    throw(ArgumentError("Specified name ($(repr(dim))) does not match any dimension names of ($(x))"))
+end
+
 """
-    to_dims(x[, d])
+    to_dims(::Type{T}, dim)
 
 This returns the dimension(s) of `x` corresponding to `d`.
 """
-to_dims(x, d) = to_dims(dimnames(x), d)
-to_dims(x::Tuple{Vararg{Symbol}}, d::Integer) = Int(d)
-to_dims(x::Tuple{Vararg{Symbol}}, d::Colon) = d   # `:` is the default for most methods that take `dims`
-@inline to_dims(x::Tuple{Vararg{Symbol}}, d::Tuple) = map(i -> to_dims(x, i), d)
-@inline function to_dims(x::Tuple{Vararg{Symbol}}, d::Symbol)::Int
-    i = _sym_to_dim(x, d)
-    if i === 0
-        throw(ArgumentError("Specified name ($(repr(d))) does not match any dimension name ($(x))"))
+to_dims(x, dim) = to_dims(dimnames(x), dim)
+to_dims(::Type{T}, dim::Integer) where {T} = _to_int(dim)
+to_dims(::Type{T}, ::Colon) = :
+to_dims(::Type{T}, dims::Tuple) = map(i -> to_dims(T, i), dims)
+function to_dims(::Type{T}, dim::StaticSymbol) where {T}
+    i = static_find_first_eq(dim, dimnames(T))
+    if i === Zero()
+        no_dimname_error()
+    else
+        return i
     end
-    return i
+    return _dimcheck(s)
 end
-Base.@pure function _sym_to_dim(x::Tuple{Vararg{Symbol,N}}, sym::Symbol) where {N}
-    for i in 1:N
-        getfield(x, i) === sym && return i
-    end
-    return 0
-end
-
-"""
-    tuple_issubset
-
-A version of `issubset` sepecifically for `Tuple`s of `Symbol`s, that is `@pure`.
-This helps it get optimised out of existance. It is less of an abuse of `@pure` than
-most of the stuff for making `NamedTuples` work.
-"""
-Base.@pure function tuple_issubset(
-    lhs::Tuple{Vararg{Symbol,N}}, rhs::Tuple{Vararg{Symbol,M}}
-) where {N,M}
-    N <= M || return false
-    for a in lhs
-        found = false
-        for b in rhs
-            found |= a === b
+@inline function to_dims(::Tuple{T}, dim::Symbol)::Int where {T}
+    i = 1
+    out = 0
+    for s in dimnames(T)
+        if Symbol(s) === dim
+            out = i
+            break
+        else
+            i += i
         end
-        found || return false
     end
-    return true
+    if out === 0
+        no_dimname_error(T, dim)
+    else
+        return out
+    end
 end
 
-"""
+#=
     order_named_inds(Val(names); kwargs...)
     order_named_inds(Val(names), namedtuple)
 
 Returns the tuple of index values for an array with `names`, when indexed by keywords.
 Any dimensions not fixed are given as `:`, to make a slice.
 An error is thrown if any keywords are used which do not occur in `nda`'s names.
-"""
+=#
 @inline function order_named_inds(val::Val{L}; kwargs...) where {L}
     if isempty(kwargs)
         return ()
@@ -191,6 +205,14 @@ An error is thrown if any keywords are used which do not occur in `nda`'s names.
         return order_named_inds(val, kwargs.data)
     end
 end
+order_named_inds(x::Tuple, ::NamedTuple{(),Tuple{}}) = ()
+function order_named_inds(x::Tuple, nd::NamedTuple{L}) where {L}
+    return order_named_inds(x, static(Val(L)), Tuple(nd))
+end
+function order_named_inds(x::Tuple, nd::Tuple, inds::Tuple)
+    return permute(inds, static_find_all_in(nd, x))
+end
+
 @generated function order_named_inds(val::Val{L}, ni::NamedTuple{K}) where {L,K}
     tuple_issubset(K, L) || throw(DimensionMismatch("Expected subset of $L, got $K"))
     exs = map(L) do n
@@ -310,8 +332,6 @@ end
     end
     Expr(:block, Expr(:meta, :inline), out)
 end
-
-
 
 """
   size(A)
