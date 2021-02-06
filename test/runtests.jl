@@ -405,6 +405,8 @@ using OffsetArrays
     @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) == ((true,false))
     @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,:,[1,2]]))) == ((false,true,false))
     @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,[1,2,3],:]))) == ((false,false,false))
+    @test @inferred(dense_dims(vec(A))) == ((true,))
+    @test @inferred(dense_dims(vec(A)')) == ((true,true))
 
     B = Array{Int8}(undef, 2,2,2,2);
     doubleperm = PermutedDimsArray(PermutedDimsArray(B,(4,2,3,1)), (4,2,1,3));
