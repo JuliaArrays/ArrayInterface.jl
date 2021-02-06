@@ -22,7 +22,7 @@ StaticInt(::Val{N}) where {N} = StaticInt{N}()
 Base.convert(::Type{T}, ::StaticInt{N}) where {T<:Number,N} = convert(T, N)
 Base.Bool(x::StaticInt{N}) where {N} = Bool(N)
 Base.BigInt(x::StaticInt{N}) where {N} = BigInt(N)
-Base.Integer(x::StaticInt{N}) where {N} = x::Int
+Base.Integer(x::StaticInt{N}) where {N} = x
 (::Type{T})(x::StaticInt{N}) where {T<:Integer,N} = T(N)
 (::Type{T})(x::Int) where {T<:StaticInt} = StaticInt(x)
 Base.convert(::Type{StaticInt{N}}, ::StaticInt{N}) where {N} = StaticInt{N}()
@@ -273,14 +273,15 @@ end
 
 permute(x::Tuple, perm::Val) = permute(x, static(perm))
 # TODO delete this? permute(x::Tuple, perm::Tuple) = eachop(getindex, x, perm)
-function permute(x::Tuple{Vararg{Any,N}}, perm::Tuple{Vararg{StaticInt,N}}) where {N}
-    if invariant_permutation(perm, perm) <: False
+function permute(x::Tuple{Vararg{Any}}, perm::Tuple{Vararg{StaticInt}})
+    if invariant_permutation(perm, perm) isa False
         return eachop(getindex, x, perm)
     else
         return x
     end
 end
 
+@inline eachop(op, x::Tuple{Vararg{Any,N}}) where {N} = eachop(op, x, nstatic(Val(N)))
 @generated function eachop(op, x, y, ::I) where {I}
     t = Expr(:tuple)
     for p in I.parameters
@@ -388,8 +389,9 @@ is_static(::Type{T}) where {T<:StaticBool} = True()
 is_static(::Type{T}) where {T<:StaticSymbol} = True()
 is_static(::Type{T}) where {T} = False()
 
-function _no_static_type(@nospecialize(x))
-    error("There is no static alternative for type $(typeof(x)).")
+_tuple_static(::Type{T}, i) where {T} = is_static(_get_tuple(T, i))
+function is_static(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
+    return all(eachop(_tuple_static, T, nstatic(Val(N))))
 end
 
 """
@@ -398,7 +400,7 @@ end
 Returns a static form of `x`.
 """
 function static(x)
-    if is_static(x)
+    if is_static(x) isa True
         return x
     else
         _no_static_type(x)
@@ -409,7 +411,9 @@ static(x::Bool) = StaticBool(x)
 static(x::Symbol) = StaticSymbol(x)
 static(x::Tuple{Vararg{Any}}) = map(static, x)
 @generated static(::Val{V}) where {V} = :($(static(V)))
-
+function _no_static_type(@nospecialize(x))
+    error("There is no static alternative for type $(typeof(x)).")
+end
 
 #=
     static_issubset
@@ -435,25 +439,20 @@ compile time.
 end
 
 #=
-    static_find_first_eq(::EQ, ::T) -> StaticInt
+    find_first_eq(x, collection::Tuple)
 
-Finds the position in the tuple `T` that is exactly equal to `EQ`. If `EQ` is not found
-then `Zero()` is returned.
+Finds the position in the tuple `collection` that is exactly equal (i.e. `===`) to `x`.
+If `x` and `collection` are static (`is_static`) and `x` is in `collection` then the return
+value is a `StaticInt`.
 =#
-@generated function static_find_first_eq(::EQ, ::T) where {T<:Tuple}
-    loop = true
-    i = 1
-    out = 0
-    while loop
-        p = T.parameters[i]
-        if p === EQ
-            out = i
-            loop = false
-        else
-            i += 1
-        end
+@generated function find_first_eq(x::X, itr::I) where {X,N,I<:Tuple{Vararg{Any,N}}}
+    if (is_static(X) & is_static(I)) isa True
+        return Expr(:block, Expr(:meta, :inline),
+            :(@nif $(N + 1) d->(x === getfield(itr, d)) d->(static(d)) d->(nothing)))
+    else
+        return Expr(:block, Expr(:meta, :inline),
+            :(@nif $(N + 1) d->(x === getfield(itr, d)) d->(d) d->(nothing)))
     end
-    return :(StaticInt($i))
 end
 
 #=
@@ -462,6 +461,6 @@ end
 Finds the position in the tuple `collection` that is exactly equal to each element of `x`.
 =#
 @inline function static_find_all_in(x::Tuple{Vararg{Any,N}}, collection::Tuple) where {N}
-    return ntuple(i -> static_find_first_eq(getfield(x, i), collection), Val(N))
+    return ntuple(i -> static(find_first_eq(getfield(x, i), collection)), Val(N))
 end
 

@@ -565,10 +565,10 @@ end
 
 @testset "known_length" begin
     @test ArrayInterface.known_length(@inferred(ArrayInterface.indices(SOneTo(7)))) == 7
-    @test ArrayInterface.known_length(1:2) == nothing
+    @test ArrayInterface.known_length(1:2) === nothing
     @test ArrayInterface.known_length((1,)) == 1
     @test ArrayInterface.known_length((a=1,b=2)) == 2
-    @test ArrayInterface.known_length([]) == nothing
+    @test ArrayInterface.known_length([]) === nothing
     
     x = view(SArray{Tuple{3,3,3}}(ones(3,3,3)), :, SOneTo(2), 2)
     @test @inferred(ArrayInterface.known_length(x)) == 6
