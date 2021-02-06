@@ -211,6 +211,14 @@ _all_dense(::Val{N}) where {N} = ntuple(_ -> True(), Val{N}())
 
 dense_dims(::Type{Array{T,N}}) where {T,N} = _all_dense(Val{N}())
 dense_dims(::Type{<:Tuple}) = (True(),)
+function dense_dims(::Type{T}) where {T<:VecAdjTrans}
+    dense = dense_dims(parent_type(T))
+    if dense === nothing
+        return nothing
+    else
+        return (True(), first(dense))
+    end
+end
 function dense_dims(::Type{T}) where {T<:MatAdjTrans}
     dense = dense_dims(parent_type(T))
     if dense === nothing
