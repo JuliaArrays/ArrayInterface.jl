@@ -432,7 +432,7 @@ Changing indexing based on a given argument from `args` should be done through
 @propagate_inbounds getindex(A, args...) = unsafe_getindex(A, to_indices(A, args))
 @propagate_inbounds function getindex(A; kwargs...)
     if has_dimnames(A)
-        return A[order_named_inds(dimnames(A), kwargs.data)...]
+        return A[order_named_inds(Val(dimnames(A)); kwargs...)...]
     else
         return unsafe_getindex(A, to_indices(A, ()); kwargs...)
     end
@@ -548,7 +548,7 @@ Store the given values at the given key or index within a collection.
 end
 @propagate_inbounds function setindex!(A, val; kwargs...)
     if has_dimnames(A)
-        A[order_named_inds(dimnames(A), kwargs.data)...] = val
+        A[order_named_inds(Val(dimnames(A)); kwargs...)...] = val
     else
         return unsafe_setindex!(A, val, to_indices(A, ()); kwargs...)
     end

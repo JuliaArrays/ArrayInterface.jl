@@ -14,7 +14,7 @@ const One = StaticInt{1}
 
 Base.show(io::IO, ::StaticInt{N}) where {N} = print(io, "static($N)")
 
-StaticInt(N::Int) = StaticInt{N}()
+Base.@pure StaticInt(N::Int) = StaticInt{N}()
 StaticInt(N::Integer) = StaticInt(convert(Int, N))
 StaticInt(::StaticInt{N}) where {N} = StaticInt{N}()
 StaticInt(::Val{N}) where {N} = StaticInt{N}()
@@ -250,7 +250,7 @@ Base.promote_rule(::Type{<:StaticBool}, ::Type{<:StaticBool}) = StaticBool
 Base.promote_rule(::Type{<:StaticBool}, ::Type{Bool}) = Bool
 Base.promote_rule(::Type{Bool}, ::Type{<:StaticBool}) = Bool
 
-@generated _get_tuple(::Type{T}, ::StaticInt{i}) where {T<:Tuple, i} = T.parameters[i]
+Base.@pure _get_tuple(::Type{T}, ::StaticInt{i}) where {T<:Tuple, i} = T.parameters[i]
 
 Base.all(::Tuple{Vararg{True}}) = true
 Base.all(::Tuple{Vararg{Union{True,False}}}) = false
@@ -260,28 +260,25 @@ Base.any(::Tuple{Vararg{True}}) = true
 Base.any(::Tuple{Vararg{Union{True,False}}}) = true
 Base.any(::Tuple{Vararg{False}}) = false
 
-@inline nstatic(::Val{N}) where {N} = ntuple(i -> StaticInt(i), Val(N))
+Base.@pure nstatic(::Val{N}) where {N} = ntuple(i -> StaticInt(i), Val(N))
 
-invariant_permutation(::Any, ::Any) = False()
-function invariant_permutation(x::T, y::T) where {N,T<:Tuple{Vararg{StaticInt,N}}}
-    if x === nstatic(Val(N))
-        return True()
-    else
-        return False()
-    end
+# I is a tuple of Int
+@pure function _val_to_static(::Val{I}) where {I}
+    return ntuple(i -> StaticInt(getfield(I, i)), Val(length(I)))
 end
 
-permute(x::Tuple, perm::Val) = permute(x, static(perm))
-# TODO delete this? permute(x::Tuple, perm::Tuple) = eachop(getindex, x, perm)
-function permute(x::Tuple{Vararg{Any}}, perm::Tuple{Vararg{StaticInt}})
-    if invariant_permutation(perm, perm) isa False
+@pure is_permuting(perm::Tuple{Vararg{StaticInt,N}}) where {N} = perm !== nstatic(Val(N))
+
+permute(x::Tuple, perm::Tuple) = eachop(getindex, x, perm)
+function permute(x::Tuple{Vararg{Any,N}}, perm::Tuple{Vararg{Any,N}}) where {N}
+    if is_permuting(perm)
         return eachop(getindex, x, perm)
     else
         return x
     end
 end
+permute(x::Tuple, perm::Val) = permute(x, _val_to_static(perm))
 
-@inline eachop(op, x::Tuple{Vararg{Any,N}}) where {N} = eachop(op, x, nstatic(Val(N)))
 @generated function eachop(op, x, y, ::I) where {I}
     t = Expr(:tuple)
     for p in I.parameters
@@ -370,97 +367,10 @@ IfElse.ifelse(::True, x, y) = x
 IfElse.ifelse(::False, x, y) = y
 
 """
-    StaticSymbol
-
-A statically typed `Symbol`.
-"""
-struct StaticSymbol{s}
-    StaticSymbol{s}() where {s} = new{s::Symbol}()
-    StaticSymbol(s::Symbol) = new{s}()
-end
-
-Base.Symbol(::StaticSymbol{s}) where {s} = s::Symbol
-
-Base.show(io::IO, ::StaticSymbol{s}) where {s} = print(io, "static(:$s)")
-
-is_static(x) = is_static(typeof(x))
-is_static(::Type{T}) where {T<:StaticInt} = True()
-is_static(::Type{T}) where {T<:StaticBool} = True()
-is_static(::Type{T}) where {T<:StaticSymbol} = True()
-is_static(::Type{T}) where {T} = False()
-
-_tuple_static(::Type{T}, i) where {T} = is_static(_get_tuple(T, i))
-function is_static(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
-    return all(eachop(_tuple_static, T, nstatic(Val(N))))
-end
-
-"""
     static(x)
 
 Returns a static form of `x`.
 """
-function static(x)
-    if is_static(x) isa True
-        return x
-    else
-        _no_static_type(x)
-    end
-end
 static(x::Int) = StaticInt(x)
 static(x::Bool) = StaticBool(x)
-static(x::Symbol) = StaticSymbol(x)
-static(x::Tuple{Vararg{Any}}) = map(static, x)
-@generated static(::Val{V}) where {V} = :($(static(V)))
-function _no_static_type(@nospecialize(x))
-    error("There is no static alternative for type $(typeof(x)).")
-end
-
-#=
-    static_issubset
-
-A version of `issubset` sepecifically for `Tuple`s of static types, that is generated at
-compile time.
-=#
-@generated function static_issubset(::L, ::R) where {L<:Tuple,R<:Tuple}
-    N = length(L.parameters)
-    R = length(R.parameters)
-    if N <+ M
-        return :(ArrayInterface.False())
-    else
-        for l in L.parameters
-            found = false
-            for b in rhs
-                found |= a === b
-            end
-            found || return :(ArrayInterface.False())
-        end
-        return :(ArrayInterface.True())
-    end
-end
-
-#=
-    find_first_eq(x, collection::Tuple)
-
-Finds the position in the tuple `collection` that is exactly equal (i.e. `===`) to `x`.
-If `x` and `collection` are static (`is_static`) and `x` is in `collection` then the return
-value is a `StaticInt`.
-=#
-@generated function find_first_eq(x::X, itr::I) where {X,N,I<:Tuple{Vararg{Any,N}}}
-    if (is_static(X) & is_static(I)) isa True
-        return Expr(:block, Expr(:meta, :inline),
-            :(@nif $(N + 1) d->(x === getfield(itr, d)) d->(static(d)) d->(nothing)))
-    else
-        return Expr(:block, Expr(:meta, :inline),
-            :(@nif $(N + 1) d->(x === getfield(itr, d)) d->(d) d->(nothing)))
-    end
-end
-
-#=
-    static_find_all_in(x::Tuple, collection::Tuple) -> StaticInt
-
-Finds the position in the tuple `collection` that is exactly equal to each element of `x`.
-=#
-@inline function static_find_all_in(x::Tuple{Vararg{Any,N}}, collection::Tuple) where {N}
-    return ntuple(i -> static(find_first_eq(getfield(x, i), collection)), Val(N))
-end
 

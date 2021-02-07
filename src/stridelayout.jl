@@ -87,7 +87,7 @@ function contiguous_axis(::Type{R}) where {T,N,S,A<:Array{S},R<:ReinterpretArray
 end
 
 """
-    contiguous_axis_indicator(::Type{T}) -> Tuple{Vararg{StaticBool}}
+    contiguous_axis_indicator(::Type{T}) -> Tuple{Vararg{Val}}
 
 Returns a tuple boolean `Val`s indicating whether that axis is contiguous.
 """
@@ -96,8 +96,8 @@ function contiguous_axis_indicator(::Type{A}) where {D,A<:AbstractArray{<:Any,D}
 end
 contiguous_axis_indicator(::A) where {A<:AbstractArray} = contiguous_axis_indicator(A)
 contiguous_axis_indicator(::Nothing, ::Val) = nothing
-function contiguous_axis_indicator(c::StaticInt{N}, dim::Val{D}) where {N,D}
-    return map(i -> eq(c, i), nstatic(dim))
+Base.@pure function contiguous_axis_indicator(::StaticInt{N}, ::Val{D}) where {N,D}
+    return ntuple(d -> StaticBool(d === N), Val{D}())
 end
 
 function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
@@ -106,7 +106,7 @@ function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
     @inbounds for n = 1:N
         sp = Base.setindex(sp, n, r[n])
     end
-    return sp
+    sp
 end
 
 stride_rank(x) = stride_rank(typeof(x))
@@ -117,9 +117,7 @@ stride_rank(::Type{<:Tuple}) = (One(),)
 stride_rank(::Type{T}) where {T<:VecAdjTrans} = (StaticInt(2), StaticInt(1))
 stride_rank(::Type{T}) where {T<:MatAdjTrans} = _stride_rank(T, stride_rank(parent_type(T)))
 _stride_rank(::Type{T}, ::Nothing) where {T<:MatAdjTrans} = nothing
-function _stride_rank(::Type{T}, rank) where {T<:MatAdjTrans}
-    return (getfield(rank, 2), getfield(rank, 1))
-end
+_stride_rank(::Type{T}, rank) where {T<:MatAdjTrans} = (last(rank), first(rank))
 
 function stride_rank(::Type{T},) where {T<:PermutedDimsArray}
     return _stride_rank(T, stride_rank(parent_type(T)))
