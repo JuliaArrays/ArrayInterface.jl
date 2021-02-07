@@ -167,7 +167,7 @@ Returns the rank of each stride.
 
 ## is_column_major(A)
 
-Returns a `Val{true}()` if `A` is column major, and a `Val{false}()` otherwise.`
+Returns a `Val{true}()` if `A` is column major, and a `Val{false}()` otherwise.
 
 ## dense_dims(::Type{T})
 Returns a tuple of indicators for whether each axis is dense.
@@ -207,6 +207,10 @@ For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1)
 ## can_avx(f)
 
 Is the function `f` whitelisted for `LoopVectorization.@avx`?
+
+## static(x)
+Returns a static form of `x`. If `x` is already in a static form then `x` is returned. If
+there is no static alternative for `x` then an error is thrown.
 
 ## StaticInt(N::Int)
 
