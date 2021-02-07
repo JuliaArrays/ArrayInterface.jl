@@ -111,21 +111,11 @@ end
         return dimnames(parent_type(T))
     end
 end
-@inline function dimnames(::Type{T}) where {T<:Union{Transpose,Adjoint}}
-    return _transpose_dimnames(Val(dimnames(parent_type(T))))
+@inline function dimnames(::Type{T}) where {T<:Union{Adjoint,Transpose}}
+    _transpose_dimnames(dimnames(parent_type(T)))
 end
-# inserting the Val here seems to help inferability; I got a test failure without it.
-function _transpose_dimnames(::Val{S}) where {S}
-    if length(S) == 1
-        (SUnderscore, first(S))
-    elseif length(S) == 2
-        (last(S), first(S))
-    else
-        throw("Can't transpose $S of dim $(length(S)).")
-    end
-end
-@inline _transpose_dimnames(x::Tuple{Symbol,Symbol}) = (last(x), first(x))
-@inline _transpose_dimnames(x::Tuple{Symbol}) = (SUnderscore, first(x))
+@inline _transpose_dimnames(x::Tuple{Any,Any}) = (last(x), first(x))
+@inline _transpose_dimnames(x::Tuple{Any}) = (SUnderscore, first(x))
 
 @inline function dimnames(::Type{T}) where {I,T<:PermutedDimsArray{<:Any,<:Any,I}}
     return map(i -> dimnames(parent_type(T), i), I)

@@ -474,3 +474,4 @@ stride(A, i) = Base.stride(A, i) # for type stability
     end
     Expr(:block, Expr(:meta, :inline), t)
 end
+

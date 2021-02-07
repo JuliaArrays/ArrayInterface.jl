@@ -1,5 +1,6 @@
 
 @testset "StaticInt" begin
+    @test StaticInt(UInt(8)) === StaticInt{8}()
     @test iszero(StaticInt(0))
     @test !iszero(StaticInt(1))
     @test !isone(StaticInt(0))
@@ -46,8 +47,8 @@
 end
 
 @testset "StaticBool" begin
-    t = True()
-    f = False()
+    t = static(static(true))
+    f = static(false)
 
     @test @inferred(StaticInt(t)) === StaticInt(1)
     @test @inferred(StaticInt(f)) === StaticInt(0)
@@ -60,6 +61,13 @@ end
     @test @inferred(+f) === StaticInt(0)
     @test @inferred(-t) === StaticInt(-1)
     @test @inferred(-f) === StaticInt(0)
+
+    @test @inferred(xor(true, f))
+    @test @inferred(xor(f, true))
+    @test @inferred(xor(f, f)) === f
+    @test @inferred(xor(f, t)) === t
+    @test @inferred(xor(t, f)) === t
+    @test @inferred(xor(t, t)) === f
 
     @test @inferred(|(true, f))
     @test @inferred(|(f, true))
@@ -138,5 +146,5 @@ end
     @test @inferred(IfElse.ifelse(f, x, y)) === y
 end
 
-
+@test_throws ErrorException static("a")
 

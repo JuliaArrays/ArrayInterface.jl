@@ -447,7 +447,7 @@ end
     @test @inferred(ArrayInterface.size(Sp2, StaticInt(1))) === 2
     @test @inferred(ArrayInterface.size(Sp2, StaticInt(2))) === StaticInt(3)
     @test @inferred(ArrayInterface.size(Sp2, StaticInt(3))) === StaticInt(2)
-    
+
     @test @inferred(ArrayInterface.size(M)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(Mp)) === (StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(Mp2)) === (StaticInt(2), 2)
@@ -468,7 +468,7 @@ end
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(1))) === nothing
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(2))) === 3
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(3))) === 2
-    
+
     @test @inferred(ArrayInterface.known_size(M)) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(Mp)) === (3, 4)
     @test @inferred(ArrayInterface.known_size(Mp2)) === (2, nothing)
@@ -519,7 +519,7 @@ end
     @test @inferred(ArrayInterface.offsets(S)) === (StaticInt(1), StaticInt(1), StaticInt(1))
     @test @inferred(ArrayInterface.offsets(Sp)) === (StaticInt(1), StaticInt(1), StaticInt(1))
     @test @inferred(ArrayInterface.offsets(Sp2)) === (StaticInt(1), StaticInt(1), StaticInt(1))
-    
+
     @test @inferred(ArrayInterface.offsets(M)) === (StaticInt(1), StaticInt(1), StaticInt(1))
     @test @inferred(ArrayInterface.offsets(Mp)) === (StaticInt(1), StaticInt(1))
     @test @inferred(ArrayInterface.offsets(Mp2)) === (StaticInt(1), StaticInt(1))
@@ -571,7 +571,7 @@ end
     @test ArrayInterface.known_length((1,)) == 1
     @test ArrayInterface.known_length((a=1,b=2)) == 2
     @test ArrayInterface.known_length([]) == nothing
-    
+
     x = view(SArray{Tuple{3,3,3}}(ones(3,3,3)), :, SOneTo(2), 2)
     @test @inferred(ArrayInterface.known_length(x)) == 6
     @test @inferred(ArrayInterface.known_length(x')) == 6
