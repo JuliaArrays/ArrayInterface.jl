@@ -272,7 +272,6 @@ function invariant_permutation(x::T, y::T) where {N,T<:Tuple{Vararg{StaticInt,N}
 end
 
 permute(x::Tuple, perm::Val) = permute(x, static(perm))
-# TODO delete this? permute(x::Tuple, perm::Tuple) = eachop(getindex, x, perm)
 function permute(x::Tuple{Vararg{Any}}, perm::Tuple{Vararg{StaticInt}})
     if invariant_permutation(perm, perm) isa False
         return eachop(getindex, x, perm)
@@ -291,6 +290,14 @@ end
 end
 @generated function eachop(op, x, ::I) where {I}
     t = Expr(:tuple)
+    for p in I.parameters
+        push!(t.args, :(op(x, StaticInt{$(p.parameters[1])}())))
+    end
+    Expr(:block, Expr(:meta, :inline), t)
+end
+
+@generated function eachop_tuple(op, x, ::I) where {I}
+    t = Expr(:curly, :Tuple)
     for p in I.parameters
         push!(t.args, :(op(x, StaticInt{$(p.parameters[1])}())))
     end

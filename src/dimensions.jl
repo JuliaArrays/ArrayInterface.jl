@@ -172,26 +172,8 @@ end
     i === nothing && no_dimname_error(T, dim)
     return i
 end
-#=
-    return i
-    i = 1
-    out = 0
-    for s in dimnames(T)
-        if Symbol(s) === dim
-            out = i
-            break
-        else
-            i += i
-        end
-    end
-    if out === 0
-        no_dimname_error(T, dim)
-    end
-    return out
-end
-=#
-
 to_dims(::Type{T}, dims::Tuple) where {T} = map(i -> to_dims(T, i), dims)
+
 #=
     order_named_inds(names, namedtuple)
     order_named_inds(names, subnames, inds)
@@ -235,49 +217,6 @@ function _order_named_inds_check(inds::Tuple{Vararg{Any,N}}, nkwargs::Int) where
     return nothing
 end
 
-
-#=
-name_to_idx(name::StaticSymbol, kwargs::Tuple, inds::Tuple, )
-name_to_idx(name::StaticSymbol, kwargs::Tuple, inds::Tuple) = _name_to_index(find_first_eq(), inds)
-_name_to_index(::Zero, ::Tuple) = Colon()
-_name_to_index(::StaticInt{N}, inds::Tuple) where {N} = getfield(inds, N)
-
-#    return permute(inds, static_find_all_in(nd, x))
-_colon_or_inds(inds::Tuple, ::Zero) = :
-_colon_or_inds(inds::Tuple, ::StaticInt{I}) where {I} = getfield(inds, I)
-
-n_i -> _colon_or_inds(inds, find_first_eq(n_i, x))
-# FIXME this needs to insert a colon on missing names
-
-@inline function order_named_inds(val::Val{L}; kwargs...) where {L}
-    if isempty(kwargs)
-        return ()
-    else
-        return order_named_inds(val, kwargs.data)
-    end
-end
-@generated function order_named_inds(val::Val{L}, ni::NamedTuple{K}) where {L,K}
-    tuple_issubset(K, L) || throw(DimensionMismatch("Expected subset of $L, got $K"))
-    exs = map(L) do n
-        if Base.sym_in(n, K)
-            qn = QuoteNode(n)
-            :(getfield(ni, $qn))
-        else
-            :(Colon())
-        end
-    end
-    return Expr(:tuple, exs...)
-end
-=#
-
-@generated function _perm_tuple(::Type{T}, ::Val{P}) where {T,P}
-    out = Expr(:curly, :Tuple)
-    for p in P
-        push!(out.args, T.parameters[p])
-    end
-    Expr(:block, Expr(:meta, :inline), out)
-end
-
 """
     axes_types(::Type{T}[, d]) -> Type
 
@@ -293,14 +232,11 @@ function axes_types(::Type{T}) where {T}
         return axes_types(parent_type(T))
     end
 end
-function axes_types(::Type{T}) where {T<:Adjoint}
-    return _perm_tuple(axes_types(parent_type(T)), Val((2, 1)))
+function axes_types(::Type{T}) where {T<:MatAdjTrans}
+    return eachop_tuple(_get_tuple, axes_types(parent_type(T)), to_parent_dims(T))
 end
-function axes_types(::Type{T}) where {T<:Transpose}
-    return _perm_tuple(axes_types(parent_type(T)), Val((2, 1)))
-end
-function axes_types(::Type{T}) where {I1,T<:PermutedDimsArray{<:Any,<:Any,I1}}
-    return _perm_tuple(axes_types(parent_type(T)), Val(I1))
+function axes_types(::Type{T}) where {T<:PermutedDimsArray}
+    return eachop_tuple(_get_tuple, axes_types(parent_type(T)), to_parent_dims(T))
 end
 function axes_types(::Type{T}) where {T<:AbstractRange}
     if known_length(T) === nothing
