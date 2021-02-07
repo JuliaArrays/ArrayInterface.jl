@@ -4,7 +4,6 @@ using IfElse
 using Requires
 using LinearAlgebra
 using SparseArrays
-using Base.Cartesian
 
 using Base: @pure, @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray
 

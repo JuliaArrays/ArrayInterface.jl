@@ -97,7 +97,7 @@ end
 contiguous_axis_indicator(::A) where {A<:AbstractArray} = contiguous_axis_indicator(A)
 contiguous_axis_indicator(::Nothing, ::Val) = nothing
 function contiguous_axis_indicator(c::StaticInt{N}, dim::Val{D}) where {N,D}
-    return map(i -> eq(c, i), nstatic(dim))
+    return map(i -> eq(c, i), dim)
 end
 
 function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
@@ -117,9 +117,7 @@ stride_rank(::Type{<:Tuple}) = (One(),)
 stride_rank(::Type{T}) where {T<:VecAdjTrans} = (StaticInt(2), StaticInt(1))
 stride_rank(::Type{T}) where {T<:MatAdjTrans} = _stride_rank(T, stride_rank(parent_type(T)))
 _stride_rank(::Type{T}, ::Nothing) where {T<:MatAdjTrans} = nothing
-function _stride_rank(::Type{T}, rank) where {T<:MatAdjTrans}
-    return (getfield(rank, 2), getfield(rank, 1))
-end
+_stride_rank(::Type{T}, rank) where {T<:MatAdjTrans} = (last(rank), first(rank))
 
 function stride_rank(::Type{T},) where {T<:PermutedDimsArray}
     return _stride_rank(T, stride_rank(parent_type(T)))

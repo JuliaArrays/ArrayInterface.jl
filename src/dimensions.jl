@@ -105,7 +105,7 @@ end
 end
 @inline function dimnames(::Type{T}) where {T}
     if parent_type(T) <: T
-        return ntuple(_ -> SUnderscore, Val(ndims(T)))
+        return ntuple(SUnderscore, Val(ndims(T)))
     else
         return dimnames(parent_type(T))
     end
@@ -116,7 +116,7 @@ end
 # inserting the Val here seems to help inferability; I got a test failure without it.
 function _transpose_dimnames(::Val{S}) where {S}
     if length(S) == 1
-        (SUnderscore, first(S))
+        (:_, first(S))
     elseif length(S) == 2
         (last(S), first(S))
     else
@@ -124,7 +124,7 @@ function _transpose_dimnames(::Val{S}) where {S}
     end
 end
 @inline _transpose_dimnames(x::Tuple{Symbol,Symbol}) = (last(x), first(x))
-@inline _transpose_dimnames(x::Tuple{Symbol}) = (SUnderscore, first(x))
+@inline _transpose_dimnames(x::Tuple{Symbol}) = (:_, first(x))
 
 @inline function dimnames(::Type{T}) where {I,T<:PermutedDimsArray{<:Any,<:Any,I}}
     return map(i -> dimnames(parent_type(T), i), I)
@@ -138,7 +138,7 @@ end
     for i in 1:length(I)
         if I[i] > 0
             if nl < i
-                push!(e.args, :(ArrayInterface.SUnderscore))
+                push!(e.args, QuoteNode(:_))
             else
                 push!(e.args, QuoteNode(L[i]))
             end
@@ -151,29 +151,28 @@ _to_int(x::Integer) = Int(x)
 _to_int(x::StaticInt) = x
 
 function no_dimname_error(@nospecialize(x), @nospecialize(dim))
-    throw(ArgumentError("($(repr(dim))) does not correspond to any dimension of ($(x))"))
+    throw(ArgumentError("Specified name ($(repr(dim))) does not match any dimension names of ($(x))"))
 end
 
 """
-    to_dims(::Type{T}, dim) -> Integer
+    to_dims(::Type{T}, dim)
 
 This returns the dimension(s) of `x` corresponding to `d`.
 """
-to_dims(x, dim) = to_dims(typeof(x), dim)
+to_dims(x, dim) = to_dims(dimnames(x), dim)
 to_dims(::Type{T}, dim::Integer) where {T} = _to_int(dim)
-to_dims(::Type{T}, dim::Colon) where {T} = dim
+to_dims(::Type{T}, ::Colon) = :
+to_dims(::Type{T}, dims::Tuple) = map(i -> to_dims(T, i), dims)
 function to_dims(::Type{T}, dim::StaticSymbol) where {T}
-    i = find_first_eq(dim, dimnames(T))
-    i === nothing && no_dimname_error(T, dim)
-    return i
+    i = static_find_first_eq(dim, dimnames(T))
+    if i === Zero()
+        no_dimname_error()
+    else
+        return i
+    end
+    return _dimcheck(s)
 end
-@inline function to_dims(::Type{T}, dim::Symbol) where {T}
-    i = find_first_eq(dim, Symbol.(dimnames(T)))
-    i === nothing && no_dimname_error(T, dim)
-    return i
-end
-#=
-    return i
+@inline function to_dims(::Tuple{T}, dim::Symbol)::Int where {T}
     i = 1
     out = 0
     for s in dimnames(T)
@@ -186,69 +185,19 @@ end
     end
     if out === 0
         no_dimname_error(T, dim)
+    else
+        return out
     end
-    return out
 end
-=#
 
-to_dims(::Type{T}, dims::Tuple) where {T} = map(i -> to_dims(T, i), dims)
 #=
-    order_named_inds(names, namedtuple)
-    order_named_inds(names, subnames, inds)
+    order_named_inds(Val(names); kwargs...)
+    order_named_inds(Val(names), namedtuple)
 
 Returns the tuple of index values for an array with `names`, when indexed by keywords.
 Any dimensions not fixed are given as `:`, to make a slice.
 An error is thrown if any keywords are used which do not occur in `nda`'s names.
-
-
-1. parse into static dimnension names and key words.
-2. find each dimnames in key words
-3. if nothing is found use Colon()
-4. if (ndims - ncolon) === nkwargs then all were found, else error
 =#
-order_named_inds(x::Tuple, ::NamedTuple{(),Tuple{}}) = ()
-function order_named_inds(x::Tuple, nd::NamedTuple{L}) where {L}
-    return order_named_inds(x, static(Val(L)), Tuple(nd))
-end
-function order_named_inds(x::Tuple{Vararg{Any,N}}, nd::Tuple, inds::Tuple) where {N}
-    out = eachop(((x, nd, inds), i) -> order_named_inds(x, nd, inds, i), (x, nd, inds), nstatic(Val(N)))
-    _order_named_inds_check(out, length(nd))
-    return out
-end
-function order_named_inds(x::Tuple, nd::Tuple, inds::Tuple, ::StaticInt{dim}) where {dim}
-    index = find_first_eq(getfield(x, dim), nd)
-    if index === nothing
-        return Colon()
-    else
-        return @inbounds(inds[index])
-    end
-end
-
-ncolon(x::Tuple{Colon,Vararg}, n::Int) = ncolon(tail(x), n + 1)
-ncolon(x::Tuple{Any,Vararg}, n::Int) = ncolon(tail(x), n)
-ncolon(x::Tuple{Colon}, n::Int) = n + 1
-ncolon(x::Tuple{Any}, n::Int) = n
-function _order_named_inds_check(inds::Tuple{Vararg{Any,N}}, nkwargs::Int) where {N}
-    if (N - ncolon(inds, 0)) !== nkwargs
-        error("Not all keywords matched dimension names.")
-    end
-    return nothing
-end
-
-
-#=
-name_to_idx(name::StaticSymbol, kwargs::Tuple, inds::Tuple, )
-name_to_idx(name::StaticSymbol, kwargs::Tuple, inds::Tuple) = _name_to_index(find_first_eq(), inds)
-_name_to_index(::Zero, ::Tuple) = Colon()
-_name_to_index(::StaticInt{N}, inds::Tuple) where {N} = getfield(inds, N)
-
-#    return permute(inds, static_find_all_in(nd, x))
-_colon_or_inds(inds::Tuple, ::Zero) = :
-_colon_or_inds(inds::Tuple, ::StaticInt{I}) where {I} = getfield(inds, I)
-
-n_i -> _colon_or_inds(inds, find_first_eq(n_i, x))
-# FIXME this needs to insert a colon on missing names
-
 @inline function order_named_inds(val::Val{L}; kwargs...) where {L}
     if isempty(kwargs)
         return ()
@@ -256,6 +205,14 @@ n_i -> _colon_or_inds(inds, find_first_eq(n_i, x))
         return order_named_inds(val, kwargs.data)
     end
 end
+order_named_inds(x::Tuple, ::NamedTuple{(),Tuple{}}) = ()
+function order_named_inds(x::Tuple, nd::NamedTuple{L}) where {L}
+    return order_named_inds(x, static(Val(L)), Tuple(nd))
+end
+function order_named_inds(x::Tuple, nd::Tuple, inds::Tuple)
+    return permute(inds, static_find_all_in(nd, x))
+end
+
 @generated function order_named_inds(val::Val{L}, ni::NamedTuple{K}) where {L,K}
     tuple_issubset(K, L) || throw(DimensionMismatch("Expected subset of $L, got $K"))
     exs = map(L) do n
@@ -268,8 +225,6 @@ end
     end
     return Expr(:tuple, exs...)
 end
-=#
-
 @generated function _perm_tuple(::Type{T}, ::Val{P}) where {T,P}
     out = Expr(:curly, :Tuple)
     for p in P
@@ -395,7 +350,12 @@ julia> ArrayInterface.size(A)
 @inline size(A) = Base.size(A)
 @inline size(A, d::Integer) = size(A)[Int(d)]
 @inline size(A, d) = Base.size(A, to_dims(A, d))
-@inline size(x::VecAdjTrans) = (One(), static_length(x))
+@inline function size(x::LinearAlgebra.Adjoint{T,V}) where {T,V<:AbstractVector{T}}
+    return (One(), static_length(x))
+end
+@inline function size(x::LinearAlgebra.Transpose{T,V}) where {T,V<:AbstractVector{T}}
+    return (One(), static_length(x))
+end
 
 function size(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
     return _size(size(parent(B)), B.indices, map(static_length, B.indices))
