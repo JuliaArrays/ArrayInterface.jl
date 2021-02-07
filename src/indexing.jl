@@ -548,7 +548,7 @@ Store the given values at the given key or index within a collection.
 end
 @propagate_inbounds function setindex!(A, val; kwargs...)
     if has_dimnames(A)
-        A[order_named_inds(dimnames(A), kwargs.data)...] = val
+        A[order_named_inds(Val(dimnames(A)); kwargs...)...] = val
     else
         return unsafe_setindex!(A, val, to_indices(A, ()); kwargs...)
     end
