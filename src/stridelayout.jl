@@ -87,7 +87,7 @@ function contiguous_axis(::Type{R}) where {T,N,S,A<:Array{S},R<:ReinterpretArray
 end
 
 """
-    contiguous_axis_indicator(::Type{T}) -> Tuple{Vararg{Val}}
+    contiguous_axis_indicator(::Type{T}) -> Tuple{Vararg{StaticBool}}
 
 Returns a tuple boolean `Val`s indicating whether that axis is contiguous.
 """
@@ -96,8 +96,8 @@ function contiguous_axis_indicator(::Type{A}) where {D,A<:AbstractArray{<:Any,D}
 end
 contiguous_axis_indicator(::A) where {A<:AbstractArray} = contiguous_axis_indicator(A)
 contiguous_axis_indicator(::Nothing, ::Val) = nothing
-Base.@pure function contiguous_axis_indicator(::StaticInt{N}, ::Val{D}) where {N,D}
-    return ntuple(d -> StaticBool(d === N), Val{D}())
+function contiguous_axis_indicator(c::StaticInt{N}, dim::Val{D}) where {N,D}
+    return map(i -> eq(c, i), nstatic(dim))
 end
 
 function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
@@ -106,7 +106,7 @@ function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
     @inbounds for n = 1:N
         sp = Base.setindex(sp, n, r[n])
     end
-    sp
+    return sp
 end
 
 stride_rank(x) = stride_rank(typeof(x))
@@ -117,7 +117,9 @@ stride_rank(::Type{<:Tuple}) = (One(),)
 stride_rank(::Type{T}) where {T<:VecAdjTrans} = (StaticInt(2), StaticInt(1))
 stride_rank(::Type{T}) where {T<:MatAdjTrans} = _stride_rank(T, stride_rank(parent_type(T)))
 _stride_rank(::Type{T}, ::Nothing) where {T<:MatAdjTrans} = nothing
-_stride_rank(::Type{T}, rank) where {T<:MatAdjTrans} = (last(rank), first(rank))
+function _stride_rank(::Type{T}, rank) where {T<:MatAdjTrans}
+    return (getfield(rank, 2), getfield(rank, 1))
+end
 
 function stride_rank(::Type{T},) where {T<:PermutedDimsArray}
     return _stride_rank(T, stride_rank(parent_type(T)))
@@ -227,12 +229,12 @@ function dense_dims(::Type{T}) where {T<:MatAdjTrans}
         return (last(dense), first(dense))
     end
 end
-function dense_dims(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A}
-    dense = dense_dims(A)
+function dense_dims(::Type{T}) where {T<:PermutedDimsArray}
+    dense = dense_dims(parent_type(T))
     if dense === nothing
         return nothing
     else
-        return permute(dense, Val(I1))
+        return permute(dense, to_parent_dims(T))
     end
 end
 function dense_dims(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
@@ -361,17 +363,10 @@ compile time are represented by `nothing`.
 known_strides(x) = known_strides(typeof(x))
 known_strides(x, d) = known_strides(x)[to_dims(x, d)]
 known_strides(::Type{T}) where {T<:Vector} = (1,)
-@inline function known_strides(::Type{T}) where {T<:Adjoint{<:Any,<:AbstractVector}}
-    strd = first(known_strides(parent_type(T)))
-    return (strd, strd)
+function known_strides(::Type{T}) where {T<:MatAdjTrans}
+    return permute(known_strides(parent_type(T)), to_parent_dims(T))
 end
-function known_strides(::Type{T}) where {T<:Adjoint}
-    return permute(known_strides(parent_type(T)), Val{(2, 1)}())
-end
-function known_strides(::Type{T}) where {T<:Transpose}
-    return permute(known_strides(parent_type(T)), Val{(2, 1)}())
-end
-@inline function known_strides(::Type{T}) where {T<:Transpose{<:Any,<:AbstractVector}}
+@inline function known_strides(::Type{T}) where {T<:VecAdjTrans}
     strd = first(known_strides(parent_type(T)))
     return (strd, strd)
 end
@@ -450,9 +445,9 @@ if VERSION ≥ v"1.6.0-DEV.1581"
     end
 end
 
-@inline strides(B::MatAdjTrans) = permute(strides(parent(B)), Val{(2, 1)}())
-@inline function strides(B::PermutedDimsArray{T,N,I1,I2}) where {T,N,I1,I2}
-    return permute(strides(parent(B)), Val{I1}())
+@inline strides(B::MatAdjTrans) = permute(strides(parent(B)), to_parent_dims(B))
+@inline function strides(B::PermutedDimsArray)
+    return permute(strides(parent(B)), to_parent_dims(B))
 end
 @inline stride(A::AbstractArray, ::StaticInt{N}) where {N} = strides(A)[N]
 @inline stride(A::AbstractArray, ::Val{N}) where {N} = strides(A)[N]

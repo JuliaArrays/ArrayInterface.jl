@@ -4,8 +4,17 @@ using IfElse
 using Requires
 using LinearAlgebra
 using SparseArrays
+using Base.Cartesian
 
-using Base: @pure, @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray
+using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray
+
+@static if VERSION >= v"1.7.0-DEV.421"
+    using Base: @aggressive_constprop
+else
+    macro aggressive_constprop(ex)
+        ex
+    end
+end
 
 Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))

@@ -39,9 +39,7 @@ from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A
     end
     out
 end
-function from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I}
-    return _val_to_static(Val(I))
-end
+from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I} = static(Val(I))
 
 """
     to_parent_dims(::Type{T}) -> Bool
@@ -51,7 +49,7 @@ Returns the mapping from child dimensions to parent dimensions.
 to_parent_dims(x) = to_parent_dims(typeof(x))
 to_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
 to_parent_dims(::Type{T}) where {T<:Union{Transpose,Adjoint}} = (StaticInt(2), One())
-to_parent_dims(::Type{<:PermutedDimsArray{T,N,I}}) where {T,N,I} = _val_to_static(Val(I))
+to_parent_dims(::Type{<:PermutedDimsArray{T,N,I}}) where {T,N,I} = static(Val(I))
 to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(A, I)
 @generated function _to_sub_dims(::Type{A}, ::Type{I}) where {A,N,I<:Tuple{Vararg{Any,N}}}
     out = Expr(:tuple)
@@ -79,37 +77,44 @@ function has_dimnames(::Type{T}) where {T}
     end
 end
 
+# this takes the place of dimension names that aren't defined
+const SUnderscore = StaticSymbol(:_)
+
 """
-    dimnames(::Type{T}) -> Tuple{Vararg{Symbol}}
-    dimnames(::Type{T}, d) -> Symbol
+    dimnames(::Type{T}) -> Tuple{Vararg{StaticSymbol}}
+    dimnames(::Type{T}, dim) -> StaticSymbol
 
 Return the names of the dimensions for `x`.
 """
 @inline dimnames(x) = dimnames(typeof(x))
-@inline dimnames(x, i::Integer) = dimnames(typeof(x), i)
-@inline dimnames(::Type{T}, d::Integer) where {T} = getfield(dimnames(T), to_dims(T, d))
+@inline dimnames(x, dim::Int) = dimnames(typeof(x), dim)
+@inline dimnames(x, dim::StaticInt) = dimnames(typeof(x), dim)
+@inline function dimnames(::Type{T}, ::StaticInt{dim}) where {T,dim}
+    if ndims(T) < dim
+        return SUnderscore
+    else
+        return getfield(dimnames(T), dim)
+    end
+end
+@inline function dimnames(::Type{T}, dim::Int) where {T}
+    if ndims(T) < dim
+        return SUnderscore
+    else
+        return getfield(dimnames(T), dim)
+    end
+end
 @inline function dimnames(::Type{T}) where {T}
     if parent_type(T) <: T
-        return ntuple(i -> :_, Val(ndims(T)))
+        return ntuple(_ -> SUnderscore, Val(ndims(T)))
     else
         return dimnames(parent_type(T))
     end
 end
-@inline function dimnames(::Type{T}) where {T<:Union{Transpose,Adjoint}}
-    return _transpose_dimnames(Val(dimnames(parent_type(T))))
+@inline function dimnames(::Type{T}) where {T<:Union{Adjoint,Transpose}}
+    _transpose_dimnames(dimnames(parent_type(T)))
 end
-# inserting the Val here seems to help inferability; I got a test failure without it.
-function _transpose_dimnames(::Val{S}) where {S}
-    if length(S) == 1
-        (:_, first(S))
-    elseif length(S) == 2
-        (last(S), first(S))
-    else
-        throw("Can't transpose $S of dim $(length(S)).")
-    end
-end
-@inline _transpose_dimnames(x::Tuple{Symbol,Symbol}) = (last(x), first(x))
-@inline _transpose_dimnames(x::Tuple{Symbol}) = (:_, first(x))
+@inline _transpose_dimnames(x::Tuple{Any,Any}) = (last(x), first(x))
+@inline _transpose_dimnames(x::Tuple{Any}) = (SUnderscore, first(x))
 
 @inline function dimnames(::Type{T}) where {I,T<:PermutedDimsArray{<:Any,<:Any,I}}
     return map(i -> dimnames(parent_type(T), i), I)
@@ -123,7 +128,7 @@ end
     for i in 1:length(I)
         if I[i] > 0
             if nl < i
-                push!(e.args, QuoteNode(:_))
+                push!(e.args, :(ArrayInterface.SUnderscore))
             else
                 push!(e.args, QuoteNode(L[i]))
             end
@@ -132,83 +137,79 @@ end
     return e
 end
 
+_to_int(x::Integer) = Int(x)
+_to_int(x::StaticInt) = x
+
+function no_dimname_error(@nospecialize(x), @nospecialize(dim))
+    throw(ArgumentError("($(repr(dim))) does not correspond to any dimension of ($(x))"))
+end
+
 """
-    to_dims(x[, d])
+    to_dims(::Type{T}, dim) -> Integer
 
 This returns the dimension(s) of `x` corresponding to `d`.
 """
-to_dims(x, d) = to_dims(dimnames(x), d)
-to_dims(x::Tuple{Vararg{Symbol}}, d::Integer) = Int(d)
-to_dims(x::Tuple{Vararg{Symbol}}, d::Colon) = d   # `:` is the default for most methods that take `dims`
-@inline to_dims(x::Tuple{Vararg{Symbol}}, d::Tuple) = map(i -> to_dims(x, i), d)
-@inline function to_dims(x::Tuple{Vararg{Symbol}}, d::Symbol)::Int
-    i = _sym_to_dim(x, d)
-    if i === 0
-        throw(ArgumentError("Specified name ($(repr(d))) does not match any dimension name ($(x))"))
-    end
+to_dims(x, dim) = to_dims(typeof(x), dim)
+to_dims(::Type{T}, dim::Integer) where {T} = _to_int(dim)
+to_dims(::Type{T}, dim::Colon) where {T} = dim
+function to_dims(::Type{T}, dim::StaticSymbol) where {T}
+    i = find_first_eq(dim, dimnames(T))
+    i === nothing && no_dimname_error(T, dim)
     return i
 end
-Base.@pure function _sym_to_dim(x::Tuple{Vararg{Symbol,N}}, sym::Symbol) where {N}
-    for i in 1:N
-        getfield(x, i) === sym && return i
-    end
-    return 0
+@inline function to_dims(::Type{T}, dim::Symbol) where {T}
+    i = find_first_eq(dim, Symbol.(dimnames(T)))
+    i === nothing && no_dimname_error(T, dim)
+    return i
 end
+to_dims(::Type{T}, dims::Tuple) where {T} = map(i -> to_dims(T, i), dims)
 
-"""
-    tuple_issubset
-
-A version of `issubset` sepecifically for `Tuple`s of `Symbol`s, that is `@pure`.
-This helps it get optimised out of existance. It is less of an abuse of `@pure` than
-most of the stuff for making `NamedTuples` work.
-"""
-Base.@pure function tuple_issubset(
-    lhs::Tuple{Vararg{Symbol,N}}, rhs::Tuple{Vararg{Symbol,M}}
-) where {N,M}
-    N <= M || return false
-    for a in lhs
-        found = false
-        for b in rhs
-            found |= a === b
-        end
-        found || return false
-    end
-    return true
-end
-
-"""
-    order_named_inds(Val(names); kwargs...)
-    order_named_inds(Val(names), namedtuple)
+#=
+    order_named_inds(names, namedtuple)
+    order_named_inds(names, subnames, inds)
 
 Returns the tuple of index values for an array with `names`, when indexed by keywords.
 Any dimensions not fixed are given as `:`, to make a slice.
 An error is thrown if any keywords are used which do not occur in `nda`'s names.
-"""
-@inline function order_named_inds(val::Val{L}; kwargs...) where {L}
-    if isempty(kwargs)
-        return ()
+
+
+1. parse into static dimnension names and key words.
+2. find each dimnames in key words
+3. if nothing is found use Colon()
+4. if (ndims - ncolon) === nkwargs then all were found, else error
+=#
+order_named_inds(x::Tuple, ::NamedTuple{(),Tuple{}}) = ()
+function order_named_inds(x::Tuple, nd::NamedTuple{L}) where {L}
+    return order_named_inds(x, static(Val(L)), Tuple(nd))
+end
+@aggressive_constprop function order_named_inds(
+    x::Tuple{Vararg{Any,N}},
+    nd::Tuple,
+    inds::Tuple
+) where {N}
+
+    out = eachop(((x, nd, inds), i) -> order_named_inds(x, nd, inds, i), (x, nd, inds), nstatic(Val(N)))
+    _order_named_inds_check(out, length(nd))
+    return out
+end
+function order_named_inds(x::Tuple, nd::Tuple, inds::Tuple, ::StaticInt{dim}) where {dim}
+    index = find_first_eq(getfield(x, dim), nd)
+    if index === nothing
+        return Colon()
     else
-        return order_named_inds(val, kwargs.data)
+        return @inbounds(inds[index])
     end
 end
-@generated function order_named_inds(val::Val{L}, ni::NamedTuple{K}) where {L,K}
-    tuple_issubset(K, L) || throw(DimensionMismatch("Expected subset of $L, got $K"))
-    exs = map(L) do n
-        if Base.sym_in(n, K)
-            qn = QuoteNode(n)
-            :(getfield(ni, $qn))
-        else
-            :(Colon())
-        end
+
+ncolon(x::Tuple{Colon,Vararg}, n::Int) = ncolon(tail(x), n + 1)
+ncolon(x::Tuple{Any,Vararg}, n::Int) = ncolon(tail(x), n)
+ncolon(x::Tuple{Colon}, n::Int) = n + 1
+ncolon(x::Tuple{Any}, n::Int) = n
+function _order_named_inds_check(inds::Tuple{Vararg{Any,N}}, nkwargs::Int) where {N}
+    if (N - ncolon(inds, 0)) !== nkwargs
+        error("Not all keywords matched dimension names.")
     end
-    return Expr(:tuple, exs...)
-end
-@generated function _perm_tuple(::Type{T}, ::Val{P}) where {T,P}
-    out = Expr(:curly, :Tuple)
-    for p in P
-        push!(out.args, T.parameters[p])
-    end
-    Expr(:block, Expr(:meta, :inline), out)
+    return nothing
 end
 
 """
@@ -226,14 +227,11 @@ function axes_types(::Type{T}) where {T}
         return axes_types(parent_type(T))
     end
 end
-function axes_types(::Type{T}) where {T<:Adjoint}
-    return _perm_tuple(axes_types(parent_type(T)), Val((2, 1)))
+function axes_types(::Type{T}) where {T<:MatAdjTrans}
+    return eachop_tuple(_get_tuple, axes_types(parent_type(T)), to_parent_dims(T))
 end
-function axes_types(::Type{T}) where {T<:Transpose}
-    return _perm_tuple(axes_types(parent_type(T)), Val((2, 1)))
-end
-function axes_types(::Type{T}) where {I1,T<:PermutedDimsArray{<:Any,<:Any,I1}}
-    return _perm_tuple(axes_types(parent_type(T)), Val(I1))
+function axes_types(::Type{T}) where {T<:PermutedDimsArray}
+    return eachop_tuple(_get_tuple, axes_types(parent_type(T)), to_parent_dims(T))
 end
 function axes_types(::Type{T}) where {T<:AbstractRange}
     if known_length(T) === nothing
@@ -311,8 +309,6 @@ end
     Expr(:block, Expr(:meta, :inline), out)
 end
 
-
-
 """
   size(A)
 
@@ -330,12 +326,7 @@ julia> ArrayInterface.size(A)
 @inline size(A) = Base.size(A)
 @inline size(A, d::Integer) = size(A)[Int(d)]
 @inline size(A, d) = Base.size(A, to_dims(A, d))
-@inline function size(x::LinearAlgebra.Adjoint{T,V}) where {T,V<:AbstractVector{T}}
-    return (One(), static_length(x))
-end
-@inline function size(x::LinearAlgebra.Transpose{T,V}) where {T,V<:AbstractVector{T}}
-    return (One(), static_length(x))
-end
+@inline size(x::VecAdjTrans) = (One(), static_length(x))
 
 function size(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
     return _size(size(parent(B)), B.indices, map(static_length, B.indices))
@@ -357,9 +348,9 @@ end
     Expr(:block, Expr(:meta, :inline), t)
 end
 @inline size(v::AbstractVector) = (static_length(v),)
-@inline size(B::MatAdjTrans) = permute(size(parent(B)), Val{(2, 1)}())
+@inline size(B::MatAdjTrans) = permute(size(parent(B)), to_parent_dims(B))
 @inline function size(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A}
-    return permute(size(parent(B)), Val{I1}())
+    return permute(size(parent(B)), to_parent_dims(B))
 end
 @inline size(A::AbstractArray, ::StaticInt{N}) where {N} = size(A)[N]
 @inline size(A::AbstractArray, ::Val{N}) where {N} = size(A)[N]

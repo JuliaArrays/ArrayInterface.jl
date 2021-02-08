@@ -152,7 +152,7 @@ If unknown, it returns `nothing`.
 
 ## contiguous_axis_indicator(::Type{T})
 
-Returns a tuple of boolean `Val`s indicating whether that axis is contiguous.
+Returns a tuple of boolean `StaticBool`s indicating whether that axis is contiguous.
 
 ## contiguous_batch_size(::Type{T})
 
@@ -167,7 +167,7 @@ Returns the rank of each stride.
 
 ## is_column_major(A)
 
-Returns a `Val{true}()` if `A` is column major, and a `Val{false}()` otherwise.`
+Returns a `True` if `A` is column major, and a `True/False` otherwise.
 
 ## dense_dims(::Type{T})
 Returns a tuple of indicators for whether each axis is dense.
@@ -207,6 +207,10 @@ For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1)
 ## can_avx(f)
 
 Is the function `f` whitelisted for `LoopVectorization.@avx`?
+
+## static(x)
+Returns a static form of `x`. If `x` is already in a static form then `x` is returned. If
+there is no static alternative for `x` then an error is thrown.
 
 ## StaticInt(N::Int)
 
