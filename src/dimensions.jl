@@ -1,5 +1,4 @@
 
-
 #julia> @btime ArrayInterface.is_increasing(ArrayInterface.nstatic(Val(10)))
 #  0.045 ns (0 allocations: 0 bytes)
 #ArrayInterface.True()
@@ -183,7 +182,12 @@ order_named_inds(x::Tuple, ::NamedTuple{(),Tuple{}}) = ()
 function order_named_inds(x::Tuple, nd::NamedTuple{L}) where {L}
     return order_named_inds(x, static(Val(L)), Tuple(nd))
 end
-function order_named_inds(x::Tuple{Vararg{Any,N}}, nd::Tuple, inds::Tuple) where {N}
+@aggressive_constprop function order_named_inds(
+    x::Tuple{Vararg{Any,N}},
+    nd::Tuple,
+    inds::Tuple
+) where {N}
+
     out = eachop(((x, nd, inds), i) -> order_named_inds(x, nd, inds, i), (x, nd, inds), nstatic(Val(N)))
     _order_named_inds_check(out, length(nd))
     return out

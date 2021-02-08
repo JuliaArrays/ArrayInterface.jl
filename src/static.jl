@@ -260,7 +260,7 @@ Base.any(::Tuple{Vararg{True}}) = true
 Base.any(::Tuple{Vararg{Union{True,False}}}) = true
 Base.any(::Tuple{Vararg{False}}) = false
 
-@inline nstatic(::Val{N}) where {N} = ntuple(i -> StaticInt(i), Val(N))
+@inline nstatic(::Val{N}) where {N} = ntuple(StaticInt, Val(N))
 
 invariant_permutation(::Any, ::Any) = False()
 function invariant_permutation(x::T, y::T) where {N,T<:Tuple{Vararg{StaticInt,N}}}
@@ -421,6 +421,11 @@ static(:x)
 
 ```
 """
+function static end
+@aggressive_constprop static(x::Int) = StaticInt(x)
+@aggressive_constprop static(x::Bool) = StaticBool(x)
+@aggressive_constprop static(x::Symbol) = StaticSymbol(x)
+@aggressive_constprop static(x::Tuple{Vararg{Any}}) = map(static, x)
 function static(x)
     if is_static(x) isa True
         return x
@@ -428,11 +433,7 @@ function static(x)
         _no_static_type(x)
     end
 end
-static(x::Int) = StaticInt(x)
-static(x::Bool) = StaticBool(x)
-static(x::Symbol) = StaticSymbol(x)
-static(x::Tuple{Vararg{Any}}) = map(static, x)
-@generated static(::Val{V}) where {V} = :($(static(V)))
+@generated static(::Val{V}) where {V} = static(V)
 function _no_static_type(@nospecialize(x))
     error("There is no static alternative for type $(typeof(x)).")
 end
@@ -453,5 +454,4 @@ value is a `StaticInt`.
             :(@nif $(N + 1) d->(x === getfield(itr, d)) d->(d) d->(nothing)))
     end
 end
-
 
