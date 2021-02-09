@@ -272,7 +272,8 @@ function invariant_permutation(x::T, y::T) where {N,T<:Tuple{Vararg{StaticInt,N}
 end
 
 permute(x::Tuple, perm::Val) = permute(x, static(perm))
-function permute(x::Tuple{Vararg{Any}}, perm::Tuple{Vararg{StaticInt}})
+permute(x::Tuple{Vararg{Any}}, perm::Tuple{Vararg{StaticInt}}) = eachop(getindex, x, perm)
+function permute(x::Tuple{Vararg{Any,K}}, perm::Tuple{Vararg{StaticInt,K}}) where {K}
     if invariant_permutation(perm, perm) isa False
         return eachop(getindex, x, perm)
     else

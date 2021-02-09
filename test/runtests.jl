@@ -358,6 +358,8 @@ using OffsetArrays
 
     @test @inferred(stride_rank(@SArray(zeros(2,2,2)))) == ((1, 2, 3))
     @test @inferred(stride_rank(A)) == ((1,2,3))
+    @test @inferred(stride_rank(view(A,:,:,1))) == ((1,2))
+    @test @inferred(stride_rank(view(A,:,:,1))) === ((ArrayInterface.StaticInt(1),ArrayInterface.StaticInt(2)))
     @test @inferred(stride_rank(PermutedDimsArray(A,(3,1,2)))) == ((3, 1, 2))
     @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) == ((1, 2))
     @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) == ((2, 1))
