@@ -6,31 +6,15 @@ using ArrayInterface: dimnames
 ### define wrapper with dimnames
 ###
 
-struct NamedDimsWrapper{L,T,N,P<:AbstractArray{T,N}} <: AbstractArray{T,N}
+struct NamedDimsWrapper{L,T,N,P<:AbstractArray{T,N}} <: ArrayInterface.AbstractArray2{T,N}
     parent::P
     NamedDimsWrapper{L}(p) where {L} = new{L,eltype(p),ndims(p),typeof(p)}(p)
 end
 ArrayInterface.parent_type(::Type{T}) where {P,T<:NamedDimsWrapper{<:Any,<:Any,<:Any,P}} = P
 ArrayInterface.has_dimnames(::Type{T}) where {T<:NamedDimsWrapper} = true
 ArrayInterface.dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L}} = static(Val(L))
+ArrayInterface.has_dimnames(::Type{T}) where {T} = true
 Base.parent(x::NamedDimsWrapper) = x.parent
-Base.size(x::NamedDimsWrapper) = size(parent(x))
-Base.size(x::NamedDimsWrapper, d) = ArrayInterface.size(x, d)
-Base.axes(x::NamedDimsWrapper) = axes(parent(x))
-Base.axes(x::NamedDimsWrapper, d) = ArrayInterface.axes(x, d)
-Base.strides(x::NamedDimsWrapper) = Base.strides(parent(x))
-Base.strides(x::NamedDimsWrapper, d) =  ArrayInterface.strides(x, d)
-
-Base.getindex(x::NamedDimsWrapper; kwargs...) = ArrayInterface.getindex(x; kwargs...)
-Base.getindex(x::NamedDimsWrapper, args...) = ArrayInterface.getindex(x, args...)
-Base.setindex!(x::NamedDimsWrapper, val; kwargs...) = ArrayInterface.setindex!(x, val; kwargs...)
-Base.setindex!(x::NamedDimsWrapper, val, args...) = ArrayInterface.setindex!(x, val, args...)
-function ArrayInterface.unsafe_get_element(x::NamedDimsWrapper, inds; kwargs...)
-    return @inbounds(parent(x)[inds...])
-end
-function ArrayInterface.unsafe_set_element!(x::NamedDimsWrapper, val, inds; kwargs...)
-    return @inbounds(parent(x)[inds...] = val)
-end
 
 @testset "dimension permutations" begin
     a = ones(2, 2, 2)

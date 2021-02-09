@@ -314,16 +314,21 @@ This is to support the pattern of using just the first stride for linear indexin
 while still producing correct behavior when using valid cartesian indices, such as `x[1,i]`.
 ```
 """
-strides(A) = Base.strides(A)
-strides(A, d) = strides(A)[to_dims(A, d)]
-
-@inline function known_length(::Type{T}) where {T <: Base.ReinterpretArray}
-    return _known_length(known_length(parent_type(T)), eltype(T), eltype(parent_type(T)))
+function strides(a::A) where {A}
+    if parent_type(A) <: A
+        return Base.strides(a)
+    else
+        return strides(parent(a))
+    end
 end
-_known_length(::Nothing, _, __) = nothing
-@inline _known_length(L::Integer, ::Type{T}, ::Type{P}) where {T,P} = L * sizeof(P) ÷ sizeof(T)
-
-
+strides(a, dim) = strides(a, to_dims(a, dim))
+function strides(a::A, dim::Integer) where {A}
+    if parent_type(A) <: A
+        return Base.stride(a, Int(dim))
+    else
+        return strides(parent(a), to_parent_dims(A, dim))
+    end
+end
 
 """
     known_offsets(::Type{T}[, d]) -> Tuple
@@ -340,19 +345,6 @@ known_offsets(x) = known_offsets(typeof(x))
     end
     return out
 end
-
-"""
-    known_size(::Type{T}[, d]) -> Tuple
-
-Returns the size of each dimension for `T` known at compile time. If a dimension does not
-have a known size along a dimension then `nothing` is returned in its position.
-"""
-@inline known_size(x, d) = known_size(x)[to_dims(x, d)]
-known_size(x) = known_size(typeof(x))
-function known_size(::Type{T}) where {T}
-    return eachop(_known_axis_length, axes_types(T), nstatic(Val(ndims(T))))
-end
-_known_axis_length(::Type{T}, c::StaticInt) where {T} = known_length(_get_tuple(T, c))
 
 """
     known_strides(::Type{T}[, d]) -> Tuple
@@ -404,6 +396,10 @@ end
 function strides(x::VecAdjTrans)
     st = first(strides(parent(x)))
     return (st, st)
+end
+
+function strides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
+    return _strides(strides(parent(B)), B.indices)
 end
 
 @generated function _strides(A::AbstractArray{T,N}, s::NTuple{N}, ::StaticInt{C}) where {T,N,C}

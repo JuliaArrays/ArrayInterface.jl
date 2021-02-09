@@ -16,6 +16,13 @@ else
     end
 end
 
+if VERSION ≥ v"1.6.0-DEV.1581"
+    _is_reshaped(::Type{ReinterpretArray{T,N,S,A,true}}) where {T,N,S,A} = True()
+    _is_reshaped(::Type{ReinterpretArray{T,N,S,A,false}}) where {T,N,S,A} = False()
+else
+    _is_reshaped(::Type{ReinterpretArray{T,N,S,A}}) where {T,N,S,A} = False()
+end
+
 Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
 parameterless_type(x::Type) = __parameterless_type(x)
@@ -56,11 +63,8 @@ function known_length(::Type{T}) where {T}
     if parent_type(T) <: T
         return nothing
     else
-        return known_length(parent_type(T))
+        return _known_length(known_size(T))
     end
-end
-@inline function known_length(::Type{<:SubArray{T,N,P,I}}) where {T,N,P,I}
-    return _known_length(ntuple(i -> known_length(I.parameters[i]), Val(N)))
 end
 _known_length(x::Tuple{Vararg{Union{Nothing,Int}}}) = nothing
 _known_length(x::Tuple{Vararg{Int}}) = prod(x)
@@ -755,7 +759,40 @@ include("static.jl")
 include("ranges.jl")
 include("indexing.jl")
 include("dimensions.jl")
+include("axes.jl")
+include("size.jl")
 include("stridelayout.jl")
+
+
+abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
+
+Base.size(A::AbstractArray2) = ArrayInterface.size(A)
+Base.size(A::AbstractArray2, dim) = ArrayInterface.size(A, dim)
+
+Base.axes(A::AbstractArray2) = ArrayInterface.axes(A)
+Base.axes(A::AbstractArray2, dim) = ArrayInterface.axes(A, dim)
+
+Base.strides(A::AbstractArray2) = ArrayInterface.strides(A)
+Base.strides(A::AbstractArray2, dim) = ArrayInterface.strides(A, dim)
+
+function Base.length(A::AbstractArray2)
+    len = known_length(A)
+    if len === nothing
+        return prod(size(A))
+    else
+        return static(len)
+    end
+end
+
+@propagate_inbounds Base.getindex(A::AbstractArray2, args...) = getindex(A, args...)
+@propagate_inbounds Base.getindex(A::AbstractArray2; kwargs...) = getindex(A; kwargs...)
+
+@propagate_inbounds function Base.setindex!(A::AbstractArray2, val, args...)
+    return setindex!(A, val, args...)
+end
+@propagate_inbounds function Base.setindex!(A::AbstractArray2, val; kwargs...)
+    return setindex!(A, val; kwargs...)
+end
 
 function __init__()
 
@@ -1008,6 +1045,8 @@ function __init__()
         end
         stride_rank(::Type{A}) where {A<:OffsetArrays.OffsetArray} =
             stride_rank(parent_type(A))
+        ArrayInterface.axes(A::OffsetArrays.OffsetArray) = Base.axes(A)
+        ArrayInterface.axes(A::OffsetArrays.OffsetArray, dim::Integer) = Base.axes(A, dim)
     end
 end
 

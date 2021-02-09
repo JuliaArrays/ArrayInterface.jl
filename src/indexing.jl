@@ -456,6 +456,8 @@ function unsafe_getindex(::UnsafeGetCollection, A, inds; kwargs...)
     return unsafe_get_collection(A, inds; kwargs...)
 end
 
+unsafe_get_element_error(A, inds) = throw(MethodError(unsafe_get_element, (A, inds)))
+
 """
     unsafe_get_element(A::AbstractArray{T}, inds::Tuple) -> T
 
@@ -463,7 +465,13 @@ Returns an element of `A` at the indices `inds`. This method assumes all `inds`
 have been checked for being in bounds. Any new array type using `ArrayInterface.getindex`
 must define `unsafe_get_element(::NewArrayType, inds)`.
 """
-unsafe_get_element(A, inds; kwargs...) = throw(MethodError(unsafe_getindex, (A, inds)))
+function unsafe_get_element(a::A, inds) where {A}
+    if parent_type(A) <: A
+        unsafe_get_element_error(a, inds)
+    else
+        return @inbounds(parent(a)[inds...])
+    end
+end
 function unsafe_get_element(A::Array, inds)
     if length(inds) === 0
         return Base.arrayref(false, A, 1)
@@ -570,6 +578,10 @@ function unsafe_setindex!(::UnsafeGetCollection, A, val, inds::Tuple; kwargs...)
     return unsafe_set_collection!(A, val, inds; kwargs...)
 end
 
+function unsafe_set_element_error(A, val, inds)
+    throw(MethodError(unsafe_set_element!, (A, val, inds)))
+end
+
 """
     unsafe_set_element!(A, val, inds::Tuple)
 
@@ -577,8 +589,12 @@ Sets an element of `A` to `val` at indices `inds`. This method assumes all `inds
 have been checked for being in bounds. Any new array type using `ArrayInterface.setindex!`
 must define `unsafe_set_element!(::NewArrayType, val, inds)`.
 """
-function unsafe_set_element!(A, val, inds; kwargs...)
-    return throw(MethodError(unsafe_set_element!, (A, val, inds)))
+function unsafe_set_element!(a::A, val, inds; kwargs...) where {A}
+    if parent_type(A) <: A
+        unsafe_set_element_error(a, val, inds)
+    else
+        return @inbounds(parent(a)[inds...] = val)
+    end
 end
 function unsafe_set_element!(A::Array{T}, val, inds::Tuple) where {T}
     if length(inds) === 0
