@@ -598,6 +598,7 @@ struct CPUPointer <: AbstractCPU end
 struct CheckParent end
 struct CPUIndex <: AbstractCPU end
 struct GPU <: AbstractDevice end
+
 """
 device(::Type{T})
 
@@ -627,13 +628,15 @@ defines_strides(::Type{T}) -> Bool
 
 Is strides(::T) defined?
 """
-defines_strides(::Type) = false
+function defines_strides(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return false
+    else
+        return defines_strides(parent_type(T))
+    end
+end
 defines_strides(x) = defines_strides(typeof(x))
 defines_strides(::Type{<:StridedArray}) = true
-defines_strides(
-    ::Type{A},
-) where {A<:Union{<:Transpose,<:Adjoint,<:SubArray,<:PermutedDimsArray}} =
-    defines_strides(parent_type(A))
 
 """
 can_avx(f)

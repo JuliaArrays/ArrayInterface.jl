@@ -110,7 +110,13 @@ function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
 end
 
 stride_rank(x) = stride_rank(typeof(x))
-stride_rank(::Type) = nothing
+function stride_rank(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return nothing
+    else
+        return stride_rank(parent_type(T))
+    end
+end
 stride_rank(::Type{Array{T,N}}) where {T,N} = nstatic(Val(N))
 stride_rank(::Type{<:Tuple}) = (One(),)
 
@@ -208,7 +214,13 @@ Returns a tuple of indicators for whether each axis is dense.
 An axis `i` of array `A` is dense if `stride(A, i) * Base.size(A, i) == stride(A, j)` where `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
 """
 dense_dims(x) = dense_dims(typeof(x))
-dense_dims(::Type) = nothing
+function dense_dims(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return nothing
+    else
+        return dense_dims(parent_type(T))
+    end
+end
 _all_dense(::Val{N}) where {N} = ntuple(_ -> True(), Val{N}())
 
 dense_dims(::Type{Array{T,N}}) where {T,N} = _all_dense(Val{N}())

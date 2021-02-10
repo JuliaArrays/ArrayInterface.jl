@@ -5,6 +5,7 @@ using ArrayInterface: StaticInt, True, False
 import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, static
 @test ArrayInterface.ismutable(rand(3))
 
+
 using Aqua
 Aqua.test_all(ArrayInterface)
 
@@ -292,12 +293,18 @@ DummyZeros(dims...) = DummyZeros{Float64}(dims...)
 Base.size(x::DummyZeros) = x.dims
 Base.getindex(::DummyZeros{T}, inds...) where {T} = zero(T)
 
+struct Wrapper{T,N,P<:AbstractArray{T,N}} <: ArrayInterface.AbstractArray2{T,N}
+    parent::P
+end
+ArrayInterface.parent_type(::Type{<:Wrapper{T,N,P}}) where {T,N,P} = P
+Base.parent(x::Wrapper) = x.parent
+
 using OffsetArrays
 @testset "Memory Layout" begin
     x = zeros(100);
     # R = reshape(view(x, 1:100), (10,10));
     # A = zeros(3,4,5);
-    A = reshape(view(x, 1:60), (3,4,5))
+    A = Wrapper(reshape(view(x, 1:60), (3,4,5)))
     D1 = view(A, 1:2:3, :, :)  # first dimension is discontiguous
     D2 = view(A, :, 2:2:4, :)  # first dimension is contiguous
     @test @inferred(device(A)) === ArrayInterface.CPUPointer()
@@ -333,6 +340,7 @@ using OffsetArrays
     @test @inferred(contiguous_axis(DummyZeros(3,4))) === nothing
     @test @inferred(contiguous_axis(rand(4)')) === StaticInt(2)
     @test @inferred(contiguous_axis(view(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])', :, 1)')) === StaticInt(-1)
+
 
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@SArray(zeros(2,2,2)))) == (true,false,false)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(A)) == (true,false,false)
@@ -395,20 +403,23 @@ using OffsetArrays
     @test @inferred(ArrayInterface.is_column_major(1:10)) === False()
     @test @inferred(ArrayInterface.is_column_major(2.3)) === False()
 
-    @test @inferred(dense_dims(@SArray(zeros(2,2,2)))) == ((true,true,true))
-    @test @inferred(dense_dims(A)) == ((true,true,true))
-    @test @inferred(dense_dims(PermutedDimsArray(A,(3,1,2)))) == ((true,true,true))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) == ((true,false))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) == ((false,true))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:]))) == ((false,true,false))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,:,1:2]))) == ((false,true,true))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))) == ((false,false))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) == ((false,false))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) == ((true,false))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,:,[1,2]]))) == ((false,true,false))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,[1,2,3],:]))) == ((false,false,false))
-    @test @inferred(dense_dims(vec(A))) == ((true,))
-    @test @inferred(dense_dims(vec(A)')) == ((true,true))
+    @test @inferred(dense_dims(@SArray(zeros(2,2,2)))) == (true,true,true)
+    @test @inferred(dense_dims(A)) == (true,true,true)
+    @test @inferred(dense_dims(PermutedDimsArray(A,(3,1,2)))) == (true,true,true)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) == (true,false)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) == (false,true)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:]))) == (false,true,false)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,:,1:2]))) == (false,true,true)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))) == (false,false)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) == (false,false)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) == (true,false)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,:,[1,2]]))) == (false,true,false)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,[1,2,3],:]))) == (false,false,false)
+    # TODO Currently Wrapper can't function the same as Array because Array can change
+    # the dimensions on reshape. We should be rewrapping the result in `Wrapper` but we
+    # first need to develop a standard method for reconstructing arrays
+    @test @inferred(dense_dims(vec(parent(A)))) == (true,)
+    @test @inferred(dense_dims(vec(parent(A))')) == (true,true)
 
     B = Array{Int8}(undef, 2,2,2,2);
     doubleperm = PermutedDimsArray(PermutedDimsArray(B,(4,2,3,1)), (4,2,1,3));

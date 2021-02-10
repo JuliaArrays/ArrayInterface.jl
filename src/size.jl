@@ -24,22 +24,8 @@ size(a::AbstractVector) = (size(a, One()),)
 
 @inline size(x::VecAdjTrans) = (One(), static_length(parent(x)))
 
-function size(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    return _size(size(parent(B)), B.indices, map(static_length, B.indices))
-end
-@generated function _size(A::Tuple{Vararg{Any,N}}, inds::I, l::L) where {N,I<:Tuple,L}
-    t = Expr(:tuple)
-    for n = 1:N
-        if (I.parameters[n] <: Base.Slice)
-            push!(t.args, :(@inbounds(_try_static(A[$n], l[$n]))))
-        elseif I.parameters[n] <: Number
-            nothing
-        else
-            push!(t.args, Expr(:ref, :l, n))
-        end
-    end
-    Expr(:block, Expr(:meta, :inline), t)
-end
+size(x::SubArray) = eachop(_sub_size, x.indices, to_parent_dims(x))
+_sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = static_length(getfield(x, dim))
 @inline size(B::MatAdjTrans) = permute(size(parent(B)), to_parent_dims(B))
 @inline function size(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A}
     return permute(size(parent(B)), to_parent_dims(B))
@@ -75,6 +61,7 @@ function size(A::SubArray, dim::Integer)
         return static_length(A.indices[pdim])
     end
 end
+size(A::Base.ReshapedArray) = A.dims
 
 """
     known_size(::Type{T}) -> Tuple

@@ -13,6 +13,13 @@ end
 ArrayInterface.parent_type(::Type{T}) where {P,T<:NamedDimsWrapper{<:Any,<:Any,<:Any,P}} = P
 ArrayInterface.has_dimnames(::Type{T}) where {T<:NamedDimsWrapper} = true
 ArrayInterface.dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L}} = static(Val(L))
+function ArrayInterface.dimnames(::Type{T}, dim) where {L,T<:NamedDimsWrapper{L}}
+    if ndims(T) < dim
+        return static(:_)
+    else
+        return static(L[dim])
+    end
+end
 ArrayInterface.has_dimnames(::Type{T}) where {T} = true
 Base.parent(x::NamedDimsWrapper) = x.parent
 
@@ -68,6 +75,7 @@ val_has_dimnames(x) = Val(ArrayInterface.has_dimnames(x))
     @test @inferred(dimnames(x')) === reverse(d)
     @test @inferred(dimnames(y')) === (static(:_), static(:x))
     @test @inferred(dimnames(PermutedDimsArray(x, (2, 1)))) === reverse(d)
+    @test @inferred(dimnames(PermutedDimsArray(x', (2, 1)))) === d
     @test @inferred(dimnames(view(x, :, 1))) === (static(:x),)
     @test @inferred(dimnames(view(x, :, :, :))) === (static(:x),static(:y), static(:_))
     @test @inferred(dimnames(view(x, :, 1, :))) === (static(:x), static(:_))
@@ -85,14 +93,14 @@ end
         @test @inferred(ArrayInterface.to_dims(x, (:y, :x))) == (2, 1)
         @test @inferred(ArrayInterface.to_dims(x, :x)) == 1
         @test @inferred(ArrayInterface.to_dims(x, :y)) == 2
-        @test_throws ArgumentError ArrayInterface.to_dims(x, :z)  # not found
+        @test_throws DimensionMismatch ArrayInterface.to_dims(x, :z)  # not found
     end
 
     @testset "large case" begin
         @test @inferred(ArrayInterface.to_dims(y, :x)) == 1
         @test @inferred(ArrayInterface.to_dims(y, :a)) == 3
         @test @inferred(ArrayInterface.to_dims(y, :d)) == 6
-        @test_throws ArgumentError ArrayInterface.to_dims(y, :z) # not found
+        @test_throws DimensionMismatch ArrayInterface.to_dims(y, :z) # not found
     end
 end
 

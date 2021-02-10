@@ -131,6 +131,7 @@ function axes(a::A, dim::Integer) where {A}
 end
 axes(A::SubArray, dim::Integer) = Base.axes(A, dim)  # TODO implement ArrayInterface version
 axes(A::ReinterpretArray, dim::Integer) = Base.axes(A, dim)  # TODO implement ArrayInterface version
+axes(A::Base.ReshapedArray, dim::Integer) = Base.axes(A, dim)  # TODO implement ArrayInterface version
 
 """
     axes(A)
@@ -148,4 +149,5 @@ axes(A::PermutedDimsArray) = permute(axes(parent(A)), to_parent_dims(A))
 axes(A::Union{Transpose,Adjoint}) = Base.axes(A)  # TODO implement ArrayInterface version
 axes(A::SubArray) = Base.axes(A)  # TODO implement ArrayInterface version
 axes(A::ReinterpretArray) = Base.axes(A)  # TODO implement ArrayInterface version
+axes(A::Base.ReshapedArray) = Base.axes(A)  # TODO implement ArrayInterface version
 
