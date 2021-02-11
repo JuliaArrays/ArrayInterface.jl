@@ -16,7 +16,6 @@ x = @SVector [1,2,3]
 x = @MVector [1,2,3]
 @test ArrayInterface.ismutable(x) == true
 @test ArrayInterface.ismutable(view(x, 1:2)) == true
-@test ArrayInterface.ismutable(1:10) == false
 @test ArrayInterface.ismutable((0.1,1.0)) == false
 @test ArrayInterface.ismutable(Base.ImmutableDict{Symbol,Int64}) == false
 @test ArrayInterface.ismutable((;x=1)) == false
@@ -439,6 +438,7 @@ end
     R = StaticInt(1):StaticInt(2)
     Rr = reinterpret(Int32, R)
     Ar = reinterpret(Float32, A)
+    Sr = Wrapper(reinterpret(reshape, Complex{Int64}, S))
 
     sv5 = @SVector(zeros(5)); v5 = Vector{Float64}(undef, 5);
     @test @inferred(ArrayInterface.size(sv5)) === (StaticInt(5),)
@@ -451,6 +451,7 @@ end
     @test @inferred(ArrayInterface.size(Rr)) === (StaticInt(4),)
     @test @inferred(ArrayInterface.known_length(Rr)) === 4
 
+
     @test @inferred(ArrayInterface.size(S)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(Sp)) === (2, 2, StaticInt(3))
     @test @inferred(ArrayInterface.size(Sp2)) === (2, StaticInt(3), StaticInt(2))
@@ -460,6 +461,7 @@ end
     @test @inferred(ArrayInterface.size(Sp2, StaticInt(1))) === 2
     @test @inferred(ArrayInterface.size(Sp2, StaticInt(2))) === StaticInt(3)
     @test @inferred(ArrayInterface.size(Sp2, StaticInt(3))) === StaticInt(2)
+    @test @inferred(ArrayInterface.size(Sr)) == (static(3), static(4))
 
     @test @inferred(ArrayInterface.size(M)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(Mp)) === (StaticInt(3), StaticInt(4))
@@ -471,16 +473,21 @@ end
 
     @test @inferred(ArrayInterface.known_size(A)) === (nothing, nothing, nothing)
     @test @inferred(ArrayInterface.known_size(Ap)) === (nothing,nothing)
+    @test @inferred(ArrayInterface.known_size(Wrapper(Ap))) === (nothing,nothing)
     @test @inferred(ArrayInterface.known_size(R)) === (2,)
+    @test @inferred(ArrayInterface.known_size(Wrapper(R))) === (2,)
     @test @inferred(ArrayInterface.known_size(Rr)) === (4,)
     @test @inferred(ArrayInterface.known_size(Ar)) === (nothing,nothing, nothing,)
 
     @test @inferred(ArrayInterface.known_size(S)) === (2, 3, 4)
+    @test @inferred(ArrayInterface.known_size(Wrapper(S))) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(Sp)) === (nothing, nothing, 3)
+    @test @inferred(ArrayInterface.known_size(Wrapper(Sp))) === (nothing, nothing, 3)
     @test @inferred(ArrayInterface.known_size(Sp2)) === (nothing, 3, 2)
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(1))) === nothing
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(2))) === 3
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(3))) === 2
+    @test @inferred(ArrayInterface.known_size(Sr)) == (3, 4)
 
     @test @inferred(ArrayInterface.known_size(M)) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(Mp)) === (3, 4)
@@ -496,6 +503,7 @@ end
     @test @inferred(ArrayInterface.strides(Sp)) === (StaticInt(6), StaticInt(1), StaticInt(2))
     @test @inferred(ArrayInterface.strides(Sp2)) === (StaticInt(6), StaticInt(2), StaticInt(1))
     @test @inferred(ArrayInterface.strides(view(Sp2, :, 1, 1)')) === (StaticInt(6), StaticInt(6))
+    # FIXME @test @inferred(ArrayInterface.strides(Sr)) == (3, 4)
 
     @test @inferred(ArrayInterface.stride(Sp2, StaticInt(1))) === StaticInt(6)
     @test @inferred(ArrayInterface.stride(Sp2, StaticInt(2))) === StaticInt(2)

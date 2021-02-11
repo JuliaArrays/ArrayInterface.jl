@@ -6,18 +6,18 @@ Returns the axis type along dimension `dim`.
 """
 axes_types(x, dim) = axes_types(typeof(x), dim)
 @inline axes_types(::Type{T}, dim) where {T} = axes_types(T, to_dims(T, dim))
-@inline function axes_types(::Type{T}, dim::StaticInt) where {T}
-    if dim > ndims(T)
+@inline function axes_types(::Type{T}, dim::StaticInt{D}) where {T,D}
+    if D > ndims(T)
         return OptionallyStaticUnitRange{One,One}
     else
         return _get_tuple(axes_types(T), dim)
     end
 end
-@inline function axes_types(::Type{T}, dim::Integer) where {T}
+@inline function axes_types(::Type{T}, dim::Int) where {T}
     if dim > ndims(T)
         return OptionallyStaticUnitRange{One,One}
     else
-        return axes_types(T).parameters[Int(dim)]
+        return axes_types(T).parameters[dim]
     end
 end
 
@@ -31,8 +31,11 @@ function axes_types(::Type{T}) where {T}
     if parent_type(T) <: T
         return Tuple{Vararg{OptionallyStaticUnitRange{One,Int},ndims(T)}}
     else
-        return eachop_tuple(axes_types, parent_type(T), to_parent_dims(T))
+        return axes_types(parent_type(T))
     end
+end
+function axes_types(::Type{T}) where {T<:VecAdjTrans}
+    return Tuple{OptionallyStaticUnitRange{One,One},axes_types(parent_type(T), One())}
 end
 function axes_types(::Type{T}) where {T<:MatAdjTrans}
     return eachop_tuple(_get_tuple, axes_types(parent_type(T)), to_parent_dims(T))
@@ -47,74 +50,72 @@ function axes_types(::Type{T}) where {T<:AbstractRange}
         return Tuple{OptionallyStaticUnitRange{One,StaticInt{known_length(T)}}}
     end
 end
-
-@inline function axes_types(::Type{T}) where {P,I,T<:SubArray{<:Any,<:Any,P,I}}
-    return _sub_axes_types(Val(ArrayStyle(T)), I, axes_types(P))
-end
-@inline function axes_types(::Type{T}) where {T<:Base.ReinterpretArray}
-    return _reinterpret_axes_types(
-        axes_types(parent_type(T)),
-        eltype(T),
-        eltype(parent_type(T)),
-    )
-end
 function axes_types(::Type{T}) where {N,T<:Base.ReshapedArray{<:Any,N}}
     return Tuple{Vararg{OptionallyStaticUnitRange{One,Int},N}}
 end
 
-# These methods help handle identifying axes that don't directly propagate from the
-# parent array axes. They may be worth making a formal part of the API, as they provide
-# a low traffic spot to change what axes_types produces.
-@inline function sub_axis_type(::Type{A}, ::Type{I}) where {A,I}
-    if known_length(I) === nothing
-        return OptionallyStaticUnitRange{One,Int}
-    else
-        return OptionallyStaticUnitRange{One,StaticInt{known_length(I)}}
-    end
+_int_or_static_int(::Nothing) = Int
+_int_or_static_int(x::Int) = StaticInt{x}
+
+@inline function axes_types(::Type{T}) where {N,P,I,T<:SubArray{<:Any,N,P,I}}
+    return eachop_tuple(_sub_axis_type, T, to_parent_dims(T))
 end
-@generated function _sub_axes_types(
-    ::Val{S},
-    ::Type{I},
-    ::Type{PI},
-) where {S,I<:Tuple,PI<:Tuple}
-    out = Expr(:curly, :Tuple)
-    d = 1
-    for i in I.parameters
-        ad = argdims(S, i)
-        if ad > 0
-            push!(out.args, :(sub_axis_type($(PI.parameters[d]), $i)))
-            d += ad
+@inline function _sub_axis_type(::Type{A}, dim::StaticInt) where {T,N,P,I,A<:SubArray{T,N,P,I}}
+    return OptionallyStaticUnitRange{
+        _int_or_static_int(known_first(axes_types(P, dim))),
+        _int_or_static_int(known_length(_get_tuple(I, dim)))
+    }
+end
+
+function axes_types(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
+    if _is_reshaped(R)
+        if sizeof(S) === sizeof(T)
+            return axes_types(A)
+        elseif sizeof(S) > sizeof(T)
+            return eachop_tuple(_reshaped_axis_type, R, to_parent_dims(R))
         else
-            d += 1
+            return eachop_tuple(axes_types, A, to_parent_dims(R))
         end
-    end
-    Expr(:block, Expr(:meta, :inline), out)
-end
-@inline function reinterpret_axis_type(::Type{A}, ::Type{T}, ::Type{S}) where {A,T,S}
-    if known_length(A) === nothing
-        return OptionallyStaticUnitRange{One,Int}
     else
-        return OptionallyStaticUnitRange{
-            One,
-            StaticInt{Int(known_length(A) / (sizeof(T) / sizeof(S)))},
-        }
+        return eachop_tuple(_non_reshaped_axis_type, R, to_parent_dims(R))
     end
 end
-@generated function _reinterpret_axes_types(
-    ::Type{I},
-    ::Type{T},
-    ::Type{S},
-) where {I<:Tuple,T,S}
-    out = Expr(:curly, :Tuple)
-    for i = 1:length(I.parameters)
-        if i === 1
-            push!(out.args, reinterpret_axis_type(I.parameters[1], T, S))
-        else
-            push!(out.args, I.parameters[i])
-        end
-    end
-    Expr(:block, Expr(:meta, :inline), out)
+
+function _reshaped_axis_type(::Type{R}, dim::StaticInt) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
+    return axes_types(parent_type(R), dim)
 end
+function _reshaped_axis_type(::Type{R}, dim::Zero) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
+    return OptionallyStaticUnitRange{One,StaticInt{div(sizeof(S), sizeof(T))}}
+end
+
+function _non_reshaped_axis_type(::Type{R}, dim::StaticInt) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
+    return axes_types(parent_type(R), dim)
+end
+function _non_reshaped_axis_type(::Type{R}, dim::One) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
+    paxis = axes_types(A, dim)
+    len = known_length(paxis)
+    if len === nothing
+        raxis = OptionallyStaticUnitRange{One,Int}
+    else
+        raxis = OptionallyStaticUnitRange{One,StaticInt{div(len * sizeof(S), sizeof(T))}}
+    end
+    return similar_type(paxis, Int, raxis)
+end
+
+#=
+    similar_type(orignal_type, new_data_type)
+=#
+similar_type(::Type{OneTo{Int}}, ::Type{Int}, ::Type{OneTo{Int}}) = OneTo{Int}
+similar_type(::Type{OneTo{Int}}, ::Type{Int}, ::Type{OptionallyStaticUnitRange{One,Int}}) = OneTo{Int}
+similar_type(::Type{OneTo{Int}}, ::Type{Int}, ::Type{OptionallyStaticUnitRange{One,StaticInt{N}}}) where {N} = OptionallyStaticUnitRange{One,StaticInt{N}}
+
+similar_type(::Type{OptionallyStaticUnitRange{One,Int}}, ::Type{Int}, ::Type{OneTo{Int}}) = OptionallyStaticUnitRange{One,Int}
+similar_type(::Type{OptionallyStaticUnitRange{One,Int}}, ::Type{Int}, ::Type{OptionallyStaticUnitRange{One,Int}}) = OptionallyStaticUnitRange{One,Int}
+similar_type(::Type{OptionallyStaticUnitRange{One,Int}}, ::Type{Int}, ::Type{OptionallyStaticUnitRange{One,StaticInt{N}}}) where {N} = OptionallyStaticUnitRange{One,StaticInt{N}}
+
+similar_type(::Type{OptionallyStaticUnitRange{One,StaticInt{N}}}, ::Type{Int}, ::Type{OneTo{Int}}) where {N} = OptionallyStaticUnitRange{One,Int}
+similar_type(::Type{OptionallyStaticUnitRange{One,StaticInt{N}}}, ::Type{Int}, ::Type{OptionallyStaticUnitRange{One,Int}}) where {N} = OptionallyStaticUnitRange{One,Int}
+similar_type(::Type{OptionallyStaticUnitRange{One,StaticInt{N1}}}, ::Type{Int}, ::Type{OptionallyStaticUnitRange{One,StaticInt{N2}}}) where {N1,N2} = OptionallyStaticUnitRange{One,StaticInt{N2}}
 
 """
     axes(A, d)
@@ -129,9 +130,9 @@ function axes(a::A, dim::Integer) where {A}
         return axes(parent(a), to_parent_dims(A, dim))
     end
 end
-axes(A::SubArray, dim::Integer) = Base.axes(A, dim)  # TODO implement ArrayInterface version
-axes(A::ReinterpretArray, dim::Integer) = Base.axes(A, dim)  # TODO implement ArrayInterface version
-axes(A::Base.ReshapedArray, dim::Integer) = Base.axes(A, dim)  # TODO implement ArrayInterface version
+axes(A::SubArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
+axes(A::ReinterpretArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
+axes(A::Base.ReshapedArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
 
 """
     axes(A)
@@ -146,7 +147,10 @@ Return a tuple of ranges where each range maps to each element along a dimension
     end
 end
 axes(A::PermutedDimsArray) = permute(axes(parent(A)), to_parent_dims(A))
-axes(A::Union{Transpose,Adjoint}) = Base.axes(A)  # TODO implement ArrayInterface version
+function axes(A::Union{Transpose,Adjoint})
+    p = parent(A)
+    return (axes(p, StaticInt(2)), axes(p, One()))
+end
 axes(A::SubArray) = Base.axes(A)  # TODO implement ArrayInterface version
 axes(A::ReinterpretArray) = Base.axes(A)  # TODO implement ArrayInterface version
 axes(A::Base.ReshapedArray) = Base.axes(A)  # TODO implement ArrayInterface version

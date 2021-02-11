@@ -305,44 +305,6 @@ function _reshaped_dense_dims(dense::D, ::True, ::Val{N}, ::Val{0}) where {D,N}
 end
 
 """
-    strides(A) -> Tuple
-
-Returns the strides of array `A`. If any strides are known at compile time,
-these should be returned as `Static` numbers. For example:
-```julia
-julia> A = rand(3,4);
-
-julia> ArrayInterface.strides(A)
-(static(1), 3)
-
-Additionally, the behavior differs from `Base.strides` for adjoint vectors:
-
-julia> x = rand(5);
-
-julia> ArrayInterface.strides(x')
-(static(1), static(1))
-
-This is to support the pattern of using just the first stride for linear indexing, `x[i]`,
-while still producing correct behavior when using valid cartesian indices, such as `x[1,i]`.
-```
-"""
-function strides(a::A) where {A}
-    if parent_type(A) <: A
-        return Base.strides(a)
-    else
-        return strides(parent(a))
-    end
-end
-strides(a, dim) = strides(a, to_dims(a, dim))
-function strides(a::A, dim::Integer) where {A}
-    if parent_type(A) <: A
-        return Base.stride(a, Int(dim))
-    else
-        return strides(parent(a), to_parent_dims(A, dim))
-    end
-end
-
-"""
     known_offsets(::Type{T}[, d]) -> Tuple
 
 Returns a tuple of offset values known at compile time. If the offset of a given axis is
@@ -401,9 +363,49 @@ end
     return Expr(:block, Expr(:meta, :inline), out)
 end
 
+"""
+    strides(A) -> Tuple
+
+Returns the strides of array `A`. If any strides are known at compile time,
+these should be returned as `Static` numbers. For example:
+```julia
+julia> A = rand(3,4);
+
+julia> ArrayInterface.strides(A)
+(static(1), 3)
+
+Additionally, the behavior differs from `Base.strides` for adjoint vectors:
+
+julia> x = rand(5);
+
+julia> ArrayInterface.strides(x')
+(static(1), static(1))
+
+This is to support the pattern of using just the first stride for linear indexing, `x[i]`,
+while still producing correct behavior when using valid cartesian indices, such as `x[1,i]`.
+```
+"""
 @inline strides(A::Vector{<:Any}) = (StaticInt(1),)
 @inline strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
-@inline strides(A::AbstractArray) = _strides(A, Base.strides(A), contiguous_axis(A))
+@inline strides(A) = _strides(A, Base.strides(A), contiguous_axis(A))
+
+strides(a, dim) = strides(a, to_dims(a, dim))
+function strides(a::A, dim::Integer) where {A}
+    if parent_type(A) <: A
+        return Base.stride(a, Int(dim))
+    else
+        return strides(parent(a), to_parent_dims(A, dim))
+    end
+end
+#=
+function strides(a::A) where {A}
+    if parent_type(A) <: A
+        return Base.strides(a)
+    else
+        return strides(parent(a))
+    end
+end
+=#
 
 function strides(x::VecAdjTrans)
     st = first(strides(parent(x)))

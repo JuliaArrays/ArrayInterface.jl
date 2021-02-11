@@ -6,7 +6,8 @@ using LinearAlgebra
 using SparseArrays
 using Base.Cartesian
 
-using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray
+using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray,
+    ReshapedArray
 
 @static if VERSION >= v"1.7.0-DEV.421"
     using Base: @aggressive_constprop
@@ -17,8 +18,8 @@ else
 end
 
 if VERSION ≥ v"1.6.0-DEV.1581"
-    _is_reshaped(::Type{ReinterpretArray{T,N,S,A,true}}) where {T,N,S,A} = True()
-    _is_reshaped(::Type{ReinterpretArray{T,N,S,A,false}}) where {T,N,S,A} = False()
+    _is_reshaped(::Type{ReinterpretArray{T,N,S,A,true}}) where {T,N,S,A} = true
+    _is_reshaped(::Type{ReinterpretArray{T,N,S,A,false}}) where {T,N,S,A} = false
 else
     _is_reshaped(::Type{ReinterpretArray{T,N,S,A}}) where {T,N,S,A} = False()
 end

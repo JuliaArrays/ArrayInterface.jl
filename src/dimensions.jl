@@ -23,7 +23,7 @@ end
 is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
 
 """
-    from_parent_dims(::Type{T}) -> Bool
+    from_parent_dims(::Type{T}) -> Tuple
 
 Returns the mapping from parent dimensions to child dimensions.
 """
@@ -45,8 +45,19 @@ from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A
 end
 from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I} = static(Val(I))
 
+function from_parent_dims(::Type{R}) where {T,N,S,R<:ReinterpretArray{T,N,S}}
+    if !_is_reshaped(R) || sizeof(S) === sizeof(T)
+        return nstatic(Val(N))
+    elseif sizeof(S) > sizeof(T)
+        return tail(nstatic(Val(N)))
+    else  # sizeof(S) < sizeof(T)
+        return (Zero(), nstatic(Val(N - 1))...,)
+    end
+end
+
+
 """
-    to_parent_dims(::Type{T}) -> Bool
+    to_parent_dims(::Type{T}) -> Tuple
 
 Returns the mapping from child dimensions to parent dimensions.
 """
@@ -66,18 +77,28 @@ to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(A, I)
     end
     out
 end
+function to_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
+    pdims = nstatic(Val(ndims(A)))
+    if !_is_reshaped(R) || sizeof(S) === sizeof(T)
+        return pdims
+    elseif sizeof(S) > sizeof(T)
+        return (Zero(), pdims...,)
+    else
+        return tail(pdims)
+    end
+end
 
 """
-    to_parent_dims(::Type{T}, dim) -> Bool
+    to_parent_dims(::Type{T}, dim)
 
 Returns the mapping from child dimensions to parent dimensions.
 """
 to_parent_dims(x, dim) = to_parent_dims(typeof(x), dim)
-function to_parent_dims(::Type{T}, dim::Int)::Int where {T}
+@aggressive_constprop function to_parent_dims(::Type{T}, dim::Int)::Int where {T}
     if dim > ndims(T)
-        return ndims(parent_type(T)) + dim - ndims(T)
+        return static(ndims(parent_type(T)) + dim - ndims(T))
     elseif dim > 0
-        return @inbounds(Int(getfield(to_parent_dims(T), dim)))
+        return @inbounds(getfield(to_parent_dims(T), dim))
     else
         throw_dim_error(T, dim)
     end
@@ -157,7 +178,7 @@ function to_dims(::Type{T}, dim::StaticSymbol) where {T}
     i === nothing && throw_dim_error(T, dim)
     return i
 end
-@inline function to_dims(::Type{T}, dim::Symbol) where {T}
+@aggressive_constprop function to_dims(::Type{T}, dim::Symbol) where {T}
     i = find_first_eq(dim, Symbol.(dimnames(T)))
     i === nothing && throw_dim_error(T, dim)
     return i

@@ -399,7 +399,11 @@ is_static(::Type{T}) where {T} = False()
 
 _tuple_static(::Type{T}, i) where {T} = is_static(_get_tuple(T, i))
 function is_static(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
-    return all(eachop(_tuple_static, T, nstatic(Val(N))))
+    if all(eachop(_tuple_static, T, nstatic(Val(N))))
+        return True()
+    else
+        return False()
+    end
 end
 
 """

@@ -108,9 +108,9 @@ end
     d = (static(:x), static(:y))
     x = NamedDimsWrapper{d}(ones(2,2));
     y = NamedDimsWrapper{(:x,)}(ones(2));
-    @test @inferred(size(x, :x)) == size(parent(x), 1)
+    @test @inferred(size(x, first(d))) == size(parent(x), 1)
     @test @inferred(ArrayInterface.size(y')) == (1, size(parent(x), 1))
-    @test @inferred(axes(x, :x)) == axes(parent(x), 1)
+    @test @inferred(axes(x, first(d))) == axes(parent(x), 1)
     @test strides(x, :x) == ArrayInterface.strides(parent(x))[1]
 
     x[x = 1] = [2, 3]
