@@ -58,8 +58,8 @@ function contiguous_axis(::Type{T}) where {I1,I2,T<:PermutedDimsArray{<:Any,<:An
         return StaticInt(I2[c])
     end
 end
-function contiguous_axis(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    return _contiguous_axis(S, contiguous_axis(A))
+function contiguous_axis(::Type{T}) where {T<:SubArray}
+    return _contiguous_axis(T, contiguous_axis(parent_type(T)))
 end
 
 _contiguous_axis(::Type{A}, ::Nothing) where {T,N,P,I,A<:SubArray{T,N,P,I}} = nothing
@@ -147,11 +147,6 @@ function stride_rank(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.Signed
 end
 _reshaped_striderank(::True, ::Val{N}, ::Val{0}) where {N} = nstatic(Val(N))
 _reshaped_striderank(_, __, ___) = nothing
-
-"""
-    If the contiguous dimension is not the dimension with `StrideRank{1}`:
-"""
-
 
 """
     contiguous_batch_size(::Type{T}) -> StaticInt{N}
@@ -346,21 +341,8 @@ function known_strides(::Type{T}) where {T}
     if ndims(T) === 1
         return (1,)
     else
-        return _known_strides(Val(Base.front(known_size(T))))
+        return size_to_strides(known_size(T), 1)
     end
-end
-@generated function _known_strides(::Val{S}) where {S}
-    out = Expr(:tuple)
-    N = length(S)
-    push!(out.args, 1)
-    for s in S
-        if s === nothing || out.args[end] === nothing
-            push!(out.args, nothing)
-        else
-            push!(out.args, out.args[end] * s)
-        end
-    end
-    return Expr(:block, Expr(:meta, :inline), out)
 end
 
 """
@@ -387,7 +369,11 @@ while still producing correct behavior when using valid cartesian indices, such 
 """
 @inline strides(A::Vector{<:Any}) = (StaticInt(1),)
 @inline strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
-@inline strides(A) = _strides(A, Base.strides(A), contiguous_axis(A))
+function strides(x)
+    defines_strides(x) || _stride_error(x)
+    return size_to_strides(size(x), One())
+end
+#@inline strides(A) = _strides(A, Base.strides(A), contiguous_axis(A))
 
 strides(a, dim) = strides(a, to_dims(a, dim))
 function strides(a::A, dim::Integer) where {A}
@@ -397,91 +383,45 @@ function strides(a::A, dim::Integer) where {A}
         return strides(parent(a), to_parent_dims(A, dim))
     end
 end
-#=
-function strides(a::A) where {A}
-    if parent_type(A) <: A
-        return Base.strides(a)
-    else
-        return strides(parent(a))
-    end
-end
-=#
+
+_stride_error(@nospecialize(x)) = throw(MethodError(ArrayInterface.strides, (x,)))
 
 function strides(x::VecAdjTrans)
     st = first(strides(parent(x)))
     return (st, st)
 end
-
-function strides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    return _strides(strides(parent(B)), B.indices)
-end
-
-@generated function _strides(A::AbstractArray{T,N}, s::NTuple{N}, ::StaticInt{C}) where {T,N,C}
-    if C ≤ 0 || C > N
-        return Expr(:block, Expr(:meta, :inline), :s)
-    else
-        stup = Expr(:tuple)
-        for n ∈ 1:N
-            if n == C
-                push!(stup.args, :(One()))
-            else
-                push!(stup.args, Expr(:ref, :s, n))
-            end
-        end
-        return quote
-            $(Expr(:meta, :inline))
-            @inbounds $stup
-        end
-    end
-end
-
-if VERSION ≥ v"1.6.0-DEV.1581"
-    @generated function _strides(
-        _::Base.ReinterpretArray{T,N,S,A,true},
-        s::NTuple{N},
-        ::StaticInt{1},
-    ) where {T,N,S,D,A<:Array{S,D}}
-        stup = Expr(:tuple, :(One()))
-        if D < N
-            push!(stup.args, Expr(:call, Expr(:curly, :StaticInt, sizeof(S) ÷ sizeof(T))))
-        end
-        for n ∈ 2+(D<N):N
-            push!(stup.args, Expr(:ref, :s, n))
-        end
-        quote
-            $(Expr(:meta, :inline))
-            @inbounds $stup
-        end
-    end
-end
-
 @inline strides(B::MatAdjTrans) = permute(strides(parent(B)), to_parent_dims(B))
-@inline function strides(B::PermutedDimsArray)
-    return permute(strides(parent(B)), to_parent_dims(B))
-end
+@inline strides(B::PermutedDimsArray) = permute(strides(parent(B)), to_parent_dims(B))
+
 @inline stride(A::AbstractArray, ::StaticInt{N}) where {N} = strides(A)[N]
 @inline stride(A::AbstractArray, ::Val{N}) where {N} = strides(A)[N]
 stride(A, i) = Base.stride(A, i) # for type stability
 
-@generated function _strides(A::Tuple{Vararg{Any,N}}, inds::I) where {N,I<:Tuple}
-    t = Expr(:tuple)
-    for n = 1:N
-        if I.parameters[n] <: AbstractUnitRange
-            push!(t.args, Expr(:ref, :A, n))
-        elseif I.parameters[n] <: AbstractRange
-            push!(
-                t.args,
-                Expr(
-                    :call,
-                    :(*),
-                    Expr(:ref, :A, n),
-                    Expr(:call, :static_step, Expr(:ref, :inds, n)),
-                ),
-            )
-        elseif !(I.parameters[n] <: Integer)
-            return nothing
+getmul(x::Tuple, y::Tuple, ::StaticInt{i}) where {i} = getfield(x, i) * getfield(y, i)
+function strides(A::SubArray)
+    return eachop(getmul, map(maybe_static_step, A.indices), strides(parent(A)), to_parent_dims(A))
+end
+
+maybe_static_step(x::AbstractRange) = static_step(x)
+maybe_static_step(_) = nothing
+
+@generated function size_to_strides(sz::S, init) where {N,S<:Tuple{Vararg{Any,N}}}
+    out = Expr(:block, Expr(:meta, :inline))
+    t = Expr(:tuple, :init)
+    prev = :init
+    i = 1
+    while i <= (N - 1)
+        if S.parameters[i] <: Nothing || (i > 1 &&  t.args[i - 1] === :nothing)
+            push!(t.args, :nothing)
+        else
+            next = Symbol(:val_, i)
+            push!(out.args, :($next = $prev * getfield(sz, $i)))
+            push!(t.args, next)
+            prev = next
         end
+        i += 1
     end
-    Expr(:block, Expr(:meta, :inline), t)
+    push!(out.args, t)
+    return out
 end
 

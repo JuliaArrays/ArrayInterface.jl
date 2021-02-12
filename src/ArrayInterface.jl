@@ -9,6 +9,7 @@ using Base.Cartesian
 using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray,
     ReshapedArray
 
+
 @static if VERSION >= v"1.7.0-DEV.421"
     using Base: @aggressive_constprop
 else
@@ -21,7 +22,7 @@ if VERSION ≥ v"1.6.0-DEV.1581"
     _is_reshaped(::Type{ReinterpretArray{T,N,S,A,true}}) where {T,N,S,A} = true
     _is_reshaped(::Type{ReinterpretArray{T,N,S,A,false}}) where {T,N,S,A} = false
 else
-    _is_reshaped(::Type{ReinterpretArray{T,N,S,A}}) where {T,N,S,A} = False()
+    _is_reshaped(::Type{ReinterpretArray{T,N,S,A}}) where {T,N,S,A} = false
 end
 
 Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
@@ -30,6 +31,8 @@ parameterless_type(x::Type) = __parameterless_type(x)
 
 const VecAdjTrans{T,V<:AbstractVector{T}} = Union{Transpose{T,V},Adjoint{T,V}}
 const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
+
+include("static.jl")
 
 """
     parent_type(::Type{T})
@@ -629,6 +632,7 @@ defines_strides(::Type{T}) -> Bool
 
 Is strides(::T) defined?
 """
+defines_strides(x) = defines_strides(typeof(x))
 function defines_strides(::Type{T}) where {T}
     if parent_type(T) <: T
         return false
@@ -636,8 +640,21 @@ function defines_strides(::Type{T}) where {T}
         return defines_strides(parent_type(T))
     end
 end
-defines_strides(x) = defines_strides(typeof(x))
 defines_strides(::Type{<:StridedArray}) = true
+function defines_strides(::Type{<:SubArray{T,N,P,I}}) where {T,N,P,I}
+    return defines_strides(P) && _all_int_or_range(I)
+end
+function _int_or_range(::Type{I}, dim::StaticInt) where {I}
+    T = _get_tuple(T, dim)
+    if T <: AbstractRange || T <: Integer
+        return True()
+    else
+        return False()
+    end
+end
+function _all_int_or_range(::Type{I}) where {N,I<:Tuple{Vararg{Any,N}}}
+    return all(eachop(_int_or_range, I, nstatic(Val(N))))
+end
 
 """
 can_avx(f)
@@ -759,7 +776,6 @@ end
     end
 end
 
-include("static.jl")
 include("ranges.jl")
 include("indexing.jl")
 include("dimensions.jl")
@@ -852,6 +868,7 @@ function __init__()
         function dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N}
             return ArrayInterface._all_dense(Val(N))
         end
+        defines_strides(::Type{<:StaticArrays.SArray}) = true
         defines_strides(::Type{<:StaticArrays.MArray}) = true
 
         @generated function axes_types(::Type{<:StaticArrays.StaticArray{S}}) where {S}

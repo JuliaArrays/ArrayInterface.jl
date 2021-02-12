@@ -20,13 +20,12 @@ function size(a::A) where {A}
         return size(parent(a))
     end
 end
-size(a::AbstractVector) = (size(a, One()),)
-
-@inline size(x::VecAdjTrans) = (One(), static_length(parent(x)))
+#size(a::AbstractVector) = (size(a, One()),)
 
 size(x::SubArray) = eachop(_sub_size, x.indices, to_parent_dims(x))
 _sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = static_length(getfield(x, dim))
 
+@inline size(B::VecAdjTrans) = (One(), length(parent(B)))
 @inline size(B::MatAdjTrans) = permute(size(parent(B)), to_parent_dims(B))
 @inline function size(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A}
     return permute(size(parent(B)), to_parent_dims(B))
@@ -46,6 +45,7 @@ function size(a::ReinterpretArray{T,N,S,A}) where {T,N,S,A}
     end
 end
 size(A::ReshapedArray) = A.dims
+size(A::AbstractRange) = (static_length(A),)
 
 """
     size(A, dim)
@@ -57,12 +57,12 @@ function size(a::A, dim::Integer) where {A}
     if parent_type(A) <: A
         len = known_size(A, dim)
         if len === nothing
-            return length(axes(a, dim))::Int
+            return Int(length(axes(a, dim)))
         else
             return StaticInt(len)
         end
     else
-        return size(parent(a), to_parent_dims(A, dim))
+        return size(a)[dim]
     end
 end
 function size(A::SubArray, dim::Integer)
@@ -83,34 +83,6 @@ have a known size along a dimension then `nothing` is returned in its position.
 known_size(x) = known_size(typeof(x))
 known_size(::Type{T}) where {T} = eachop(known_size, T, nstatic(Val(ndims(T))))
 
-#=
-function known_size(::Type{A}) where {T,N,P,I,A<:SubArray{T,N,P,I}}
-    return eachop(_known_axis_length, I, to_parent_dims(A))
-end
-
-_known_axis_length(::Type{T}, c::StaticInt) where {T} = known_length(_get_tuple(T, c))
-
-function known_size(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
-    psize = known_size(A)
-    if _is_reshaped(R)
-        if sizeof(S) === sizeof(T)
-            return psize
-        elseif sizeof(S) > sizeof(T)
-            return (div(sizeof(S), sizeof(T)), psize...)
-        else
-            return tail(psize)
-        end
-    else
-        p1 = first(psize)
-        if p1 === nothing
-            return psize
-        else
-            return (div(p1 * sizeof(S), sizeof(T)), tail(psize)...,)
-        end
-    end
-end
-=#
-
 """
     known_size(::Type{T}, dim)
 
@@ -126,3 +98,4 @@ returns `nothing`.
         return known_length(axes_types(T, dim))
     end
 end
+

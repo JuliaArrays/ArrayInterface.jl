@@ -5,7 +5,6 @@ using ArrayInterface: StaticInt, True, False
 import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, static
 @test ArrayInterface.ismutable(rand(3))
 
-
 using Aqua
 Aqua.test_all(ArrayInterface)
 
@@ -436,9 +435,8 @@ end
     Mp2 = @view(PermutedDimsArray(M,(3,1,2))[2:3,:,2])';
     D = @view(A[:,2:2:4,:])
     R = StaticInt(1):StaticInt(2)
-    Rr = reinterpret(Int32, R)
+    Rnr = reinterpret(Int32, R)
     Ar = reinterpret(Float32, A)
-    Sr = Wrapper(reinterpret(reshape, Complex{Int64}, S))
 
     sv5 = @SVector(zeros(5)); v5 = Vector{Float64}(undef, 5);
     @test @inferred(ArrayInterface.size(sv5)) === (StaticInt(5),)
@@ -448,9 +446,8 @@ end
     @test @inferred(ArrayInterface.size(A)) === size(A)
     @test @inferred(ArrayInterface.size(Ap)) === size(Ap)
     @test @inferred(ArrayInterface.size(R)) === (StaticInt(2),)
-    @test @inferred(ArrayInterface.size(Rr)) === (StaticInt(4),)
-    @test @inferred(ArrayInterface.known_length(Rr)) === 4
-
+    @test @inferred(ArrayInterface.size(Rnr)) === (StaticInt(4),)
+    @test @inferred(ArrayInterface.known_length(Rnr)) === 4
 
     @test @inferred(ArrayInterface.size(S)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(Sp)) === (2, 2, StaticInt(3))
@@ -461,7 +458,7 @@ end
     @test @inferred(ArrayInterface.size(Sp2, StaticInt(1))) === 2
     @test @inferred(ArrayInterface.size(Sp2, StaticInt(2))) === StaticInt(3)
     @test @inferred(ArrayInterface.size(Sp2, StaticInt(3))) === StaticInt(2)
-    @test @inferred(ArrayInterface.size(Sr)) == (static(3), static(4))
+    @test @inferred(ArrayInterface.size(Wrapper(Sp2), StaticInt(3))) === StaticInt(2)
 
     @test @inferred(ArrayInterface.size(M)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(Mp)) === (StaticInt(3), StaticInt(4))
@@ -476,7 +473,7 @@ end
     @test @inferred(ArrayInterface.known_size(Wrapper(Ap))) === (nothing,nothing)
     @test @inferred(ArrayInterface.known_size(R)) === (2,)
     @test @inferred(ArrayInterface.known_size(Wrapper(R))) === (2,)
-    @test @inferred(ArrayInterface.known_size(Rr)) === (4,)
+    @test @inferred(ArrayInterface.known_size(Rnr)) === (4,)
     @test @inferred(ArrayInterface.known_size(Ar)) === (nothing,nothing, nothing,)
 
     @test @inferred(ArrayInterface.known_size(S)) === (2, 3, 4)
@@ -487,7 +484,6 @@ end
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(1))) === nothing
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(2))) === 3
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(3))) === 2
-    @test @inferred(ArrayInterface.known_size(Sr)) == (3, 4)
 
     @test @inferred(ArrayInterface.known_size(M)) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(Mp)) === (3, 4)
@@ -503,7 +499,6 @@ end
     @test @inferred(ArrayInterface.strides(Sp)) === (StaticInt(6), StaticInt(1), StaticInt(2))
     @test @inferred(ArrayInterface.strides(Sp2)) === (StaticInt(6), StaticInt(2), StaticInt(1))
     @test @inferred(ArrayInterface.strides(view(Sp2, :, 1, 1)')) === (StaticInt(6), StaticInt(6))
-    # FIXME @test @inferred(ArrayInterface.strides(Sr)) == (3, 4)
 
     @test @inferred(ArrayInterface.stride(Sp2, StaticInt(1))) === StaticInt(6)
     @test @inferred(ArrayInterface.stride(Sp2, StaticInt(2))) === StaticInt(2)
@@ -558,7 +553,7 @@ end
     @test @inferred(ArrayInterface.known_offsets(Mp2)) === (1, 1)
 
     @test @inferred(ArrayInterface.known_offsets(R)) === (1,)
-    @test @inferred(ArrayInterface.known_offsets(Rr)) === (1,)
+    @test @inferred(ArrayInterface.known_offsets(Rnr)) === (1,)
     @test @inferred(ArrayInterface.known_offsets(1:10)) === (1,)
 
     O = OffsetArray(A, 3, 7, 10);
@@ -573,6 +568,15 @@ end
 
         colormat = reinterpret(reshape, Float64, colors)
         @test @inferred(ArrayInterface.strides(colormat)) === (StaticInt(1), StaticInt(3))
+
+        Rr = reinterpret(reshape, Int32, R)
+        @test @inferred(ArrayInterface.size(Rr)) === (StaticInt(2),StaticInt(2))
+        @test @inferred(ArrayInterface.known_size(Rr)) === (2, 2)
+
+        Sr = Wrapper(reinterpret(reshape, Complex{Int64}, S))
+        @test @inferred(ArrayInterface.size(Sr)) == (static(3), static(4))
+        @test @inferred(ArrayInterface.known_size(Sr)) === (3, 4)
+        @test @inferred(ArrayInterface.strides(Sr)) === (static(1), static(3))
     end
 end
 
