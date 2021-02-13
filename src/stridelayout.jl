@@ -308,9 +308,8 @@ not known at compile time `nothing` is returned its position.
 known_offsets(x, dim) = known_offsets(typeof(x), dim)
 known_offsets(::Type{T}, dim) where {T} = known_offsets(T, to_dims(T, dim))
 function known_offsets(::Type{T}, dim::Integer) where {T}
-    # see https://github.com/JuliaLang/julia/blob/6468dcb04ea2947f43a11f556da9a5588de512a0/base/reinterpretarray.jl#L148
     if ndims(T) < dim
-        return known_length(T)
+        return 1
     else
         return known_offsets(T)[dim]
     end
@@ -334,8 +333,9 @@ compile time are represented by `nothing`.
 known_strides(x, dim) = known_strides(typeof(x), dim)
 known_strides(::Type{T}, dim) where {T} = known_strides(T, to_dims(T, dim))
 function known_strides(::Type{T}, dim::Integer) where {T}
+    # see https://github.com/JuliaLang/julia/blob/6468dcb04ea2947f43a11f556da9a5588de512a0/base/reinterpretarray.jl#L148
     if ndims(T) < dim
-        return last(known_strides())
+        return known_length(T)
     else
         return known_strides(T)[dim]
     end

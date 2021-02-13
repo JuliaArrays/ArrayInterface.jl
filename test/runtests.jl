@@ -522,6 +522,7 @@ end
     @test @inferred(ArrayInterface.known_strides(Sp2, StaticInt(1))) === 6
     @test @inferred(ArrayInterface.known_strides(Sp2, StaticInt(2))) === 2
     @test @inferred(ArrayInterface.known_strides(Sp2, StaticInt(3))) === 1
+    @test @inferred(ArrayInterface.known_strides(Sp2, StaticInt(4))) === ArrayInterface.known_length(Sp2)
     @test @inferred(ArrayInterface.known_strides(view(Sp2, :, 1, 1)')) === (6, 6)
 
     @test @inferred(ArrayInterface.known_strides(M)) === (1, 2, 6)
@@ -543,6 +544,8 @@ end
     @test @inferred(ArrayInterface.known_offsets(A)) === (1, 1, 1)
     @test @inferred(ArrayInterface.known_offsets(Ap)) === (1, 1)
     @test @inferred(ArrayInterface.known_offsets(Ar)) === (1, 1, 1)
+    @test @inferred(ArrayInterface.known_offsets(Ar, static(1))) === 1
+    @test @inferred(ArrayInterface.known_offsets(Ar, static(4))) === 1
 
     @test @inferred(ArrayInterface.known_offsets(S)) === (1, 1, 1)
     @test @inferred(ArrayInterface.known_offsets(Sp)) === (1, 1, 1)
