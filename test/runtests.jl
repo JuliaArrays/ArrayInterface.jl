@@ -306,6 +306,11 @@ using OffsetArrays
     D1 = view(A, 1:2:3, :, :)  # first dimension is discontiguous
     D2 = view(A, :, 2:2:4, :)  # first dimension is contiguous
 
+    @test @inferred(ArrayInterface.defines_strides(x))
+    @test @inferred(ArrayInterface.defines_strides(A))
+    @test @inferred(ArrayInterface.defines_strides(D1))
+    @test !@inferred(ArrayInterface.defines_strides(view(A, :, [1,2],1)))
+
     @test @inferred(device(A)) === ArrayInterface.CPUPointer()
     @test @inferred(device((1,2,3))) === ArrayInterface.CPUIndex()
     @test @inferred(device(PermutedDimsArray(A,(3,1,2)))) === ArrayInterface.CPUPointer()
@@ -367,7 +372,7 @@ using OffsetArrays
 
     @test @inferred(stride_rank(@SArray(zeros(2,2,2)))) == (1, 2, 3)
     @test @inferred(stride_rank(A)) == (1,2,3)
-    @test @inferred(stride_rank(view(A,:,:,1))) == (1, 2)
+    @test @inferred(stride_rank(view(A,:,:,1))) === (static(1), static(2))
     @test @inferred(stride_rank(view(A,:,:,1))) === ((ArrayInterface.StaticInt(1),ArrayInterface.StaticInt(2)))
     @test @inferred(stride_rank(PermutedDimsArray(A,(3,1,2)))) == (3, 1, 2)
     @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) == (1, 2)
@@ -464,6 +469,7 @@ end
     @test @inferred(ArrayInterface.size(Sp2)) === (2, StaticInt(3), StaticInt(2))
     @test @inferred(ArrayInterface.size(S)) == size(S)
     @test @inferred(ArrayInterface.size(Sp)) == size(Sp)
+    @test @inferred(ArrayInterface.size(parent(Sp2))) === (static(4), static(3), static(2))
     @test @inferred(ArrayInterface.size(Sp2)) == size(Sp2)
     @test @inferred(ArrayInterface.size(Sp2, StaticInt(1))) === 2
     @test @inferred(ArrayInterface.size(Sp2, StaticInt(2))) === StaticInt(3)
@@ -484,7 +490,9 @@ end
     @test @inferred(ArrayInterface.known_size(R)) === (2,)
     @test @inferred(ArrayInterface.known_size(Wrapper(R))) === (2,)
     @test @inferred(ArrayInterface.known_size(Rnr)) === (4,)
+    @test @inferred(ArrayInterface.known_size(Rnr, static(1))) === 4
     @test @inferred(ArrayInterface.known_size(Ar)) === (nothing,nothing, nothing,)
+    @test @inferred(ArrayInterface.known_size(Ar, static(1))) === nothing
 
     @test @inferred(ArrayInterface.known_size(S)) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(Wrapper(S))) === (2, 3, 4)

@@ -37,6 +37,8 @@ Base.parent(x::NamedDimsWrapper) = x.parent
     @test @inferred(ArrayInterface.to_parent_dims(typeof(madj))) == (2, 1)
     @test @inferred(ArrayInterface.to_parent_dims(typeof(vview))) == (2,)
     @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj))) == (2, 1)
+    @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj), static(1))) == 2
+    @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj), 1)) == 2
 
     @test @inferred(ArrayInterface.from_parent_dims(typeof(a))) == (1, 2, 3)
     @test @inferred(ArrayInterface.from_parent_dims(typeof(perm))) == (2, 3, 1)
@@ -44,6 +46,8 @@ Base.parent(x::NamedDimsWrapper) = x.parent
     @test @inferred(ArrayInterface.from_parent_dims(typeof(madj))) == (2, 1)
     @test @inferred(ArrayInterface.from_parent_dims(typeof(vview))) == (0, 1)
     @test @inferred(ArrayInterface.from_parent_dims(typeof(vadj))) == (2, 1)
+    @test @inferred(ArrayInterface.from_parent_dims(typeof(vadj), static(1))) == 2
+    @test @inferred(ArrayInterface.from_parent_dims(typeof(vadj), 1)) == 2
 end
 
 @testset "order_named_inds" begin

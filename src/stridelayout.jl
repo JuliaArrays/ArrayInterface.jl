@@ -1,4 +1,24 @@
 
+#=
+    stride_preserving_index(::Type{T}) -> StaticBool
+
+Returns `True` if strides between each element can still be derived when indexing with an
+instance of type `T`.
+=#
+stride_preserving_index(::Type{T}) where {T<:AbstractRange} = True()
+stride_preserving_index(::Type{T}) where {T<:Int} = True()
+stride_preserving_index(::Type{T}) where {T} = False()
+function stride_preserving_index(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
+    if all(eachop(_stride_preserving_index, T, nstatic(Val(N))))
+        return True()
+    else
+        return False()
+    end
+end
+function _stride_preserving_index(::Type{T}, i::StaticInt) where {T}
+    return stride_preserving_index(_get_tuple(T, i))
+end
+
 """
     offsets(A[, dim]) -> Tuple
 
@@ -316,13 +336,10 @@ function known_offsets(::Type{T}, dim::Integer) where {T}
 end
 
 known_offsets(x) = known_offsets(typeof(x))
-@generated function known_offsets(::Type{T}) where {T}
-    out = Expr(:tuple)
-    for p in axes_types(T).parameters
-        push!(out.args, known_first(p))
-    end
-    return out
+function known_offsets(::Type{T}) where {T}
+    return eachop(_known_offsets, axes_types(T), nstatic(Val(ndims(T))))
 end
+_known_offsets(::Type{T}, dim::StaticInt) where {T} = known_first(_get_tuple(T, dim))
 
 """
     known_strides(::Type{T}[, dim]) -> Tuple

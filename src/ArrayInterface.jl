@@ -642,18 +642,7 @@ function defines_strides(::Type{T}) where {T}
 end
 defines_strides(::Type{<:StridedArray}) = true
 function defines_strides(::Type{<:SubArray{T,N,P,I}}) where {T,N,P,I}
-    return defines_strides(P) && _all_int_or_range(I)
-end
-function _int_or_range(::Type{I}, dim::StaticInt) where {I}
-    T = _get_tuple(T, dim)
-    if T <: AbstractRange || T <: Integer
-        return True()
-    else
-        return False()
-    end
-end
-function _all_int_or_range(::Type{I}) where {N,I<:Tuple{Vararg{Any,N}}}
-    return all(eachop(_int_or_range, I, nstatic(Val(N))))
+    return stride_preserving_index(I) === True()
 end
 
 """

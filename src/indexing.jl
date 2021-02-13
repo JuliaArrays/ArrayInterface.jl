@@ -505,28 +505,10 @@ function unsafe_get_collection(A, inds; kwargs...)
     return dest
 end
 
-can_preserve_indices(::Type{T}) where {T<:AbstractRange} = true
-can_preserve_indices(::Type{T}) where {T<:Int} = true
-can_preserve_indices(::Type{T}) where {T} = false
-
-# if linear indexing on multidim or can't reconstruct AbstractUnitRange
-# then construct Array of CartesianIndex/LinearIndices
-function can_preserve_indices(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
-    return all(eachop(_can_preserve_indices, T, nstatic(Val(N))))
-end
-function _can_preserve_indices(::Type{T}, i::StaticInt) where {T}
-    if can_preserve_indices(_get_tuple(T, i))
-        return True()
-    else
-        return False()
-    end
-end
-
 _ints2range(x::Integer) = x:x
 _ints2range(x::AbstractRange) = x
-
 @inline function unsafe_get_collection(A::CartesianIndices{N}, inds) where {N}
-    if (length(inds) === 1 && N > 1) || !can_preserve_indices(typeof(inds))
+    if (length(inds) === 1 && N > 1) || stride_preserving_index(typeof(inds)) === False()
         return Base._getindex(IndexStyle(A), A, inds...)
     else
         return CartesianIndices(to_axes(A, _ints2range.(inds)))
@@ -535,7 +517,7 @@ end
 @inline function unsafe_get_collection(A::LinearIndices{N}, inds) where {N}
     if is_linear_indexing(A, inds)
         return @inbounds(eachindex(A)[first(inds)])
-    elseif can_preserve_indices(typeof(inds))
+    elseif stride_preserving_index(typeof(inds)) === True()
         return LinearIndices(to_axes(A, _ints2range.(inds)))
     else
         return Base._getindex(IndexStyle(A), A, inds...)
