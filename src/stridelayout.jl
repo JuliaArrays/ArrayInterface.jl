@@ -248,7 +248,7 @@ function dense_dims(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArra
     return _dense_dims(S, dense_dims(A), Val(stride_rank(A)))
 end
 
-_dense_dims(::Any, ::Any) = nothing
+_dense_dims(::Type{S}, ::Nothing, ::Val{R}) where {R,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}} = nothing
 @generated function _dense_dims(
     ::Type{S},
     ::D,

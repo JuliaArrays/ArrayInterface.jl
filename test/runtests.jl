@@ -305,6 +305,7 @@ using OffsetArrays
     A = Wrapper(reshape(view(x, 1:60), (3,4,5)))
     D1 = view(A, 1:2:3, :, :)  # first dimension is discontiguous
     D2 = view(A, :, 2:2:4, :)  # first dimension is contiguous
+
     @test @inferred(device(A)) === ArrayInterface.CPUPointer()
     @test @inferred(device((1,2,3))) === ArrayInterface.CPUIndex()
     @test @inferred(device(PermutedDimsArray(A,(3,1,2)))) === ArrayInterface.CPUPointer()
@@ -335,10 +336,12 @@ using OffsetArrays
     @test @inferred(contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === ArrayInterface.StaticInt(-1)
     @test @inferred(contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === ArrayInterface.StaticInt(1)
     @test @inferred(contiguous_axis((3,4))) === StaticInt(1)
-    @test @inferred(contiguous_axis(DummyZeros(3,4))) === nothing
     @test @inferred(contiguous_axis(rand(4)')) === StaticInt(2)
     @test @inferred(contiguous_axis(view(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])', :, 1)')) === StaticInt(-1)
-
+    @test @inferred(contiguous_axis(DummyZeros(3,4))) === nothing
+    @test @inferred(contiguous_axis(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === nothing
+    @test @inferred(contiguous_axis(view(DummyZeros(3,4), 1, :))) === nothing
+    @test @inferred(contiguous_axis(view(DummyZeros(3,4), 1, :)')) === nothing
 
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@SArray(zeros(2,2,2)))) == (true,false,false)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(A)) == (true,false,false)
@@ -367,15 +370,17 @@ using OffsetArrays
     @test @inferred(stride_rank(view(A,:,:,1))) == (1, 2)
     @test @inferred(stride_rank(view(A,:,:,1))) === ((ArrayInterface.StaticInt(1),ArrayInterface.StaticInt(2)))
     @test @inferred(stride_rank(PermutedDimsArray(A,(3,1,2)))) == (3, 1, 2)
-    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) == ((1, 2))
-    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) == ((2, 1))
-    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:]))) == ((3, 1, 2))
-    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))) == ((3, 2))
-    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) == ((2, 3))
-    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) == ((1, 3))
-    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,2,1])')) == ((2, 1))
-    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,[1,3,4]]))) == ((3, 1, 2))
-
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) == (1, 2)
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) == (2, 1)
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:]))) == (3, 1, 2)
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))) == (3, 2)
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) == (2, 3)
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) == (1, 3)
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,2,1])')) == (2, 1)
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,[1,3,4]]))) == (3, 1, 2)
+    @test @inferred(stride_rank(DummyZeros(3,4)')) === nothing
+    @test @inferred(stride_rank(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === nothing
+    @test @inferred(stride_rank(view(DummyZeros(3,4), 1, :))) === nothing
     #=
     @btime ArrayInterface.is_column_major($(PermutedDimsArray(A,(3,1,2))))
       0.047 ns (0 allocations: 0 bytes)
@@ -418,6 +423,11 @@ using OffsetArrays
     # first need to develop a standard method for reconstructing arrays
     @test @inferred(dense_dims(vec(parent(A)))) == (true,)
     @test @inferred(dense_dims(vec(parent(A))')) == (true,true)
+    @test @inferred(dense_dims(DummyZeros(3,4))) === nothing
+    @test @inferred(dense_dims(DummyZeros(3,4)')) === nothing
+    @test @inferred(dense_dims(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === nothing
+    @test @inferred(dense_dims(view(DummyZeros(3,4), :, 1))) === nothing
+    @test @inferred(dense_dims(view(DummyZeros(3,4), :, 1)')) === nothing
 
     B = Array{Int8}(undef, 2,2,2,2);
     doubleperm = PermutedDimsArray(PermutedDimsArray(B,(4,2,3,1)), (4,2,1,3));
