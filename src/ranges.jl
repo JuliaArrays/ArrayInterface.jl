@@ -423,24 +423,17 @@ end
 
 Base.:(-)(r::OptionallyStaticRange) = -static_first(r):-static_step(r):-static_last(r)
 
-"""
-    indices(x[, d])
-
-Given an array `x`, this returns the indices along dimension `d`. If `x` is a tuple
-of arrays, then the indices corresponding to dimension `d` of all arrays in `x` are
-returned. If any indices are not equal along dimension `d`, an error is thrown. A
-tuple may be used to specify a different dimension for each array. If `d` is not
-specified, then the indices for visiting each index of `x` are returned.
-"""
-@inline function indices(x)
-    inds = eachindex(x)
-    if inds isa AbstractUnitRange && eltype(inds) <: Integer
-        return Base.Slice(OptionallyStaticUnitRange(inds))
+function Base.show(io::IO, r::OptionallyStaticRange)
+    print(io, first(r))
+    if known_step(r) === 1
+        print(io, ":")
     else
-        return inds
+        print(io, ":")
+        print(io, step(r))
+        print(io, ":")
     end
+    print(io, last(r))
 end
-@inline indices(x::AbstractUnitRange{<:Integer}) = Base.Slice(OptionallyStaticUnitRange(x))
 
 """
   reduce_tup(f::F, inds::Tuple{Vararg{Any,N}}) where {F,N}
@@ -573,6 +566,31 @@ Base.Slice(Static(1):100)
     q
 end
 
+@inline function _pick_range(x, y)
+    fst = _try_static(static_first(x), static_first(y))
+    lst = _try_static(static_last(x), static_last(y))
+    return Base.Slice(OptionallyStaticUnitRange(fst, lst))
+end
+
+"""
+    indices(x[, d])
+
+Given an array `x`, this returns the indices along dimension `d`. If `x` is a tuple
+of arrays, then the indices corresponding to dimension `d` of all arrays in `x` are
+returned. If any indices are not equal along dimension `d`, an error is thrown. A
+tuple may be used to specify a different dimension for each array. If `d` is not
+specified, then the indices for visiting each index of `x` are returned.
+"""
+@inline function indices(x)
+    inds = eachindex(x)
+    if inds isa AbstractUnitRange && eltype(inds) <: Integer
+        return Base.Slice(OptionallyStaticUnitRange(inds))
+    else
+        return inds
+    end
+end
+@inline indices(x::AbstractUnitRange{<:Integer}) = Base.Slice(OptionallyStaticUnitRange(x))
+
 function indices(x::Tuple)
     inds = map(eachindex, x)
     return reduce_tup(_pick_range, inds)
@@ -588,23 +606,5 @@ end
 @inline function indices(x::Tuple{Vararg{Any,N}}, dim::Tuple{Vararg{Any,N}}) where {N}
     inds = map(indices, x, dim)
     return reduce_tup(_pick_range, inds)
-end
-
-@inline function _pick_range(x, y)
-    fst = _try_static(static_first(x), static_first(y))
-    lst = _try_static(static_last(x), static_last(y))
-    return Base.Slice(OptionallyStaticUnitRange(fst, lst))
-end
-
-function Base.show(io::IO, r::OptionallyStaticRange)
-    print(io, first(r))
-    if known_step(r) === 1
-        print(io, ":")
-    else
-        print(io, ":")
-        print(io, step(r))
-        print(io, ":")
-    end
-    print(io, last(r))
 end
 

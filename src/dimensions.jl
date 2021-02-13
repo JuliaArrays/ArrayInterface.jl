@@ -55,6 +55,31 @@ function from_parent_dims(::Type{R}) where {T,N,S,R<:ReinterpretArray{T,N,S}}
     end
 end
 
+"""
+    from_parent_dims(::Type{T}, dim) -> Integer
+
+Returns the mapping from child dimensions to parent dimensions.
+"""
+from_parent_dims(x, dim) = from_parent_dims(typeof(x), dim)
+@aggressive_constprop function from_parent_dims(::Type{T}, dim::Int)::Int where {T}
+    if dim > ndims(T)
+        return static(ndims(parent_type(T)) + dim - ndims(T))
+    elseif dim > 0
+        return @inbounds(getfield(from_parent_dims(T), dim))
+    else
+        throw_dim_error(T, dim)
+    end
+end
+
+function from_parent_dims(::Type{T}, ::StaticInt{dim}) where {T,dim}
+    if dim > ndims(T)
+        return static(ndims(parent_type(T)) + dim - ndims(T))
+    elseif dim > 0
+        return @inbounds(getfield(from_parent_dims(T), dim))
+    else
+        throw_dim_error(T, dim)
+    end
+end
 
 """
     to_parent_dims(::Type{T}) -> Tuple
@@ -89,7 +114,7 @@ function to_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
 end
 
 """
-    to_parent_dims(::Type{T}, dim)
+    to_parent_dims(::Type{T}, dim) -> Integer
 
 Returns the mapping from child dimensions to parent dimensions.
 """
@@ -175,12 +200,16 @@ to_dims(::Type{T}, dim::Integer) where {T} = _to_int(dim)
 to_dims(::Type{T}, dim::Colon) where {T} = dim
 function to_dims(::Type{T}, dim::StaticSymbol) where {T}
     i = find_first_eq(dim, dimnames(T))
-    i === nothing && throw_dim_error(T, dim)
+    if i === nothing
+        throw_dim_error(T, dim)
+    end
     return i
 end
 @aggressive_constprop function to_dims(::Type{T}, dim::Symbol) where {T}
-    i = find_first_eq(dim, Symbol.(dimnames(T)))
-    i === nothing && throw_dim_error(T, dim)
+    i = find_first_eq(dim, map(Symbol, dimnames(T)))
+    if i === nothing
+        throw_dim_error(T, dim)
+    end
     return i
 end
 to_dims(::Type{T}, dims::Tuple) where {T} = map(i -> to_dims(T, i), dims)
