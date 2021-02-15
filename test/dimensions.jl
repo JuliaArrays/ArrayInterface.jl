@@ -108,6 +108,7 @@ val_has_dimnames(x) = Val(ArrayInterface.has_dimnames(x))
     @test @inferred(dimnames(view(x, :, :, :))) === (static(:x),static(:y), static(:_))
     @test @inferred(dimnames(view(x, :, 1, :))) === (static(:x), static(:_))
     @test @inferred(dimnames(x, ArrayInterface.One())) === static(:x)
+    @test @inferred(dimnames(parent(x), ArrayInterface.One())) === static(:_)
 end
 
 @testset "to_dims" begin
@@ -121,6 +122,7 @@ end
         @test @inferred(ArrayInterface.to_dims(x, (:y, :x))) == (2, 1)
         @test @inferred(ArrayInterface.to_dims(x, :x)) == 1
         @test @inferred(ArrayInterface.to_dims(x, :y)) == 2
+        @test_throws DimensionMismatch ArrayInterface.to_dims(x, static(:z))  # not found
         @test_throws DimensionMismatch ArrayInterface.to_dims(x, :z)  # not found
     end
 
@@ -140,6 +142,7 @@ end
     @test @inferred(ArrayInterface.size(y')) == (1, size(parent(x), 1))
     @test @inferred(axes(x, first(d))) == axes(parent(x), 1)
     @test strides(x, :x) == ArrayInterface.strides(parent(x))[1]
+    @test @inferred(ArrayInterface.axes_types(x, static(:x))) <: Base.OneTo{Int}
 
     x[x = 1] = [2, 3]
     @test @inferred(getindex(x, x = 1)) == [2, 3]

@@ -27,6 +27,7 @@ end
 Returns the type of the axes for `T`
 """
 axes_types(x) = axes_types(typeof(x))
+axes_types(::Type{T}) where {T<:Array} = Tuple{Vararg{OneTo{Int},ndims(T)}}
 function axes_types(::Type{T}) where {T}
     if parent_type(T) <: T
         return Tuple{Vararg{OptionallyStaticUnitRange{One,Int},ndims(T)}}

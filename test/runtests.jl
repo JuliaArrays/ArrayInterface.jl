@@ -493,6 +493,7 @@ end
     @test @inferred(ArrayInterface.known_size(Rnr, static(1))) === 4
     @test @inferred(ArrayInterface.known_size(Ar)) === (nothing,nothing, nothing,)
     @test @inferred(ArrayInterface.known_size(Ar, static(1))) === nothing
+    @test @inferred(ArrayInterface.known_size(Ar, static(4))) === 1
 
     @test @inferred(ArrayInterface.known_size(S)) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(Wrapper(S))) === (2, 3, 4)

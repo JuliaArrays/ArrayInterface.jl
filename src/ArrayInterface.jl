@@ -775,14 +775,14 @@ include("stridelayout.jl")
 
 abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
 
-Base.size(A::AbstractArray2) = ArrayInterface.size(A)
-Base.size(A::AbstractArray2, dim) = ArrayInterface.size(A, dim)
+Base.size(A::AbstractArray2) = map(Int, ArrayInterface.size(A))
+Base.size(A::AbstractArray2, dim) = Int(ArrayInterface.size(A, dim))
 
 Base.axes(A::AbstractArray2) = ArrayInterface.axes(A)
 Base.axes(A::AbstractArray2, dim) = ArrayInterface.axes(A, dim)
 
-Base.strides(A::AbstractArray2) = ArrayInterface.strides(A)
-Base.strides(A::AbstractArray2, dim) = ArrayInterface.strides(A, dim)
+Base.strides(A::AbstractArray2) = map(Int, ArrayInterface.strides(A))
+Base.strides(A::AbstractArray2, dim) = Int(ArrayInterface.strides(A, dim))
 
 function Base.length(A::AbstractArray2)
     len = known_length(A)
