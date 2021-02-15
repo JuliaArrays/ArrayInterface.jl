@@ -27,6 +27,7 @@ is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
 
 Returns the mapping from parent dimensions to child dimensions.
 """
+from_parent_dims(x) = from_parent_dims(typeof(x))
 from_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
 from_parent_dims(::Type{T}) where {T<:Union{Transpose,Adjoint}} = (StaticInt(2), One())
 from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A, I)
@@ -45,13 +46,13 @@ from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A
 end
 from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I} = static(Val(I))
 
-function from_parent_dims(::Type{R}) where {T,N,S,R<:ReinterpretArray{T,N,S}}
+function from_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
     if !_is_reshaped(R) || sizeof(S) === sizeof(T)
-        return nstatic(Val(N))
+        return nstatic(Val(ndims(A)))
     elseif sizeof(S) > sizeof(T)
-        return tail(nstatic(Val(N)))
+        return tail(nstatic(Val(ndims(A) + 1)))
     else  # sizeof(S) < sizeof(T)
-        return (Zero(), nstatic(Val(N - 1))...,)
+        return (Zero(), nstatic(Val(N))...)
     end
 end
 

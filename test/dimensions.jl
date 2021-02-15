@@ -39,6 +39,8 @@ Base.parent(x::NamedDimsWrapper) = x.parent
     @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj))) == (2, 1)
     @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj), static(1))) == 2
     @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj), 1)) == 2
+    @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj), static(3))) == 2
+    @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj), 3)) == 2
 
     @test @inferred(ArrayInterface.from_parent_dims(typeof(a))) == (1, 2, 3)
     @test @inferred(ArrayInterface.from_parent_dims(typeof(perm))) == (2, 3, 1)
@@ -48,6 +50,28 @@ Base.parent(x::NamedDimsWrapper) = x.parent
     @test @inferred(ArrayInterface.from_parent_dims(typeof(vadj))) == (2, 1)
     @test @inferred(ArrayInterface.from_parent_dims(typeof(vadj), static(1))) == 2
     @test @inferred(ArrayInterface.from_parent_dims(typeof(vadj), 1)) == 2
+    @test @inferred(ArrayInterface.from_parent_dims(typeof(vadj), static(1))) == 2
+    @test @inferred(ArrayInterface.from_parent_dims(typeof(vadj), 1)) == 2
+
+    @test_throws DimensionMismatch ArrayInterface.to_parent_dims(typeof(vadj), 0)
+    @test_throws DimensionMismatch ArrayInterface.to_parent_dims(typeof(vadj), static(0))
+
+    @test_throws DimensionMismatch ArrayInterface.from_parent_dims(typeof(vadj), 0)
+    @test_throws DimensionMismatch ArrayInterface.from_parent_dims(typeof(vadj), static(0))
+
+    if VERSION ≥ v"1.6.0-DEV.1581"
+        colormat = reinterpret(reshape, Float64, [(R = rand(), G = rand(), B = rand()) for i ∈ 1:100])
+        @test @inferred(ArrayInterface.from_parent_dims(colormat)) === (static(2),)
+
+        Rr = reinterpret(reshape, Int32, ones(4))
+        @test @inferred(ArrayInterface.from_parent_dims(Rr)) === (static(2),)
+
+        Rr = reinterpret(reshape, Int64, ones(4))
+        @test @inferred(ArrayInterface.from_parent_dims(Rr)) === (static(1),)
+
+        Sr = reinterpret(reshape, Complex{Int64}, zeros(2, 3, 4))
+        @test @inferred(ArrayInterface.from_parent_dims(Sr)) === (static(0), static(1), static(2))
+    end
 end
 
 @testset "order_named_inds" begin
