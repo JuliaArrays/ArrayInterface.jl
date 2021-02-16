@@ -789,7 +789,7 @@ function Base.length(A::AbstractArray2)
     if len === nothing
         return prod(size(A))
     else
-        return static(len)
+        return Int(len)
     end
 end
 

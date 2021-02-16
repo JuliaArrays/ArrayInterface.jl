@@ -529,6 +529,7 @@ end
     @test @inferred(ArrayInterface.strides(M)) == strides(M)
     @test @inferred(ArrayInterface.strides(Mp)) == strides(Mp)
     @test @inferred(ArrayInterface.strides(Mp2)) == strides(Mp2)
+    @test_throws MethodError ArrayInterface.strides(DummyZeros(3,4))
 
     @test @inferred(ArrayInterface.known_strides(A)) === (1, nothing, nothing)
     @test @inferred(ArrayInterface.known_strides(Ap)) === (1, nothing)
