@@ -6,7 +6,9 @@ using LinearAlgebra
 using SparseArrays
 using Base.Cartesian
 
-using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray
+using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray,
+    ReshapedArray
+
 
 @static if VERSION >= v"1.7.0-DEV.421"
     using Base: @aggressive_constprop
@@ -16,12 +18,21 @@ else
     end
 end
 
+if VERSION ≥ v"1.6.0-DEV.1581"
+    _is_reshaped(::Type{ReinterpretArray{T,N,S,A,true}}) where {T,N,S,A} = true
+    _is_reshaped(::Type{ReinterpretArray{T,N,S,A,false}}) where {T,N,S,A} = false
+else
+    _is_reshaped(::Type{ReinterpretArray{T,N,S,A}}) where {T,N,S,A} = false
+end
+
 Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
 parameterless_type(x::Type) = __parameterless_type(x)
 
 const VecAdjTrans{T,V<:AbstractVector{T}} = Union{Transpose{T,V},Adjoint{T,V}}
 const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
+
+include("static.jl")
 
 """
     parent_type(::Type{T})
@@ -56,11 +67,8 @@ function known_length(::Type{T}) where {T}
     if parent_type(T) <: T
         return nothing
     else
-        return known_length(parent_type(T))
+        return _known_length(known_size(T))
     end
-end
-@inline function known_length(::Type{<:SubArray{T,N,P,I}}) where {T,N,P,I}
-    return _known_length(ntuple(i -> known_length(I.parameters[i]), Val(N)))
 end
 _known_length(x::Tuple{Vararg{Union{Nothing,Int}}}) = nothing
 _known_length(x::Tuple{Vararg{Int}}) = prod(x)
@@ -594,6 +602,7 @@ struct CPUPointer <: AbstractCPU end
 struct CheckParent end
 struct CPUIndex <: AbstractCPU end
 struct GPU <: AbstractDevice end
+
 """
 device(::Type{T})
 
@@ -623,13 +632,18 @@ defines_strides(::Type{T}) -> Bool
 
 Is strides(::T) defined?
 """
-defines_strides(::Type) = false
 defines_strides(x) = defines_strides(typeof(x))
+function defines_strides(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return false
+    else
+        return defines_strides(parent_type(T))
+    end
+end
 defines_strides(::Type{<:StridedArray}) = true
-defines_strides(
-    ::Type{A},
-) where {A<:Union{<:Transpose,<:Adjoint,<:SubArray,<:PermutedDimsArray}} =
-    defines_strides(parent_type(A))
+function defines_strides(::Type{<:SubArray{T,N,P,I}}) where {T,N,P,I}
+    return stride_preserving_index(I) === True()
+end
 
 """
 can_avx(f)
@@ -751,11 +765,43 @@ end
     end
 end
 
-include("static.jl")
 include("ranges.jl")
 include("indexing.jl")
 include("dimensions.jl")
+include("axes.jl")
+include("size.jl")
 include("stridelayout.jl")
+
+
+abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
+
+Base.size(A::AbstractArray2) = map(Int, ArrayInterface.size(A))
+Base.size(A::AbstractArray2, dim) = Int(ArrayInterface.size(A, dim))
+
+Base.axes(A::AbstractArray2) = ArrayInterface.axes(A)
+Base.axes(A::AbstractArray2, dim) = ArrayInterface.axes(A, dim)
+
+Base.strides(A::AbstractArray2) = map(Int, ArrayInterface.strides(A))
+Base.strides(A::AbstractArray2, dim) = Int(ArrayInterface.strides(A, dim))
+
+function Base.length(A::AbstractArray2)
+    len = known_length(A)
+    if len === nothing
+        return prod(size(A))
+    else
+        return Int(len)
+    end
+end
+
+@propagate_inbounds Base.getindex(A::AbstractArray2, args...) = getindex(A, args...)
+@propagate_inbounds Base.getindex(A::AbstractArray2; kwargs...) = getindex(A; kwargs...)
+
+@propagate_inbounds function Base.setindex!(A::AbstractArray2, val, args...)
+    return setindex!(A, val, args...)
+end
+@propagate_inbounds function Base.setindex!(A::AbstractArray2, val; kwargs...)
+    return setindex!(A, val; kwargs...)
+end
 
 function __init__()
 
@@ -811,6 +857,7 @@ function __init__()
         function dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N}
             return ArrayInterface._all_dense(Val(N))
         end
+        defines_strides(::Type{<:StaticArrays.SArray}) = true
         defines_strides(::Type{<:StaticArrays.MArray}) = true
 
         @generated function axes_types(::Type{<:StaticArrays.StaticArray{S}}) where {S}
@@ -1008,6 +1055,8 @@ function __init__()
         end
         stride_rank(::Type{A}) where {A<:OffsetArrays.OffsetArray} =
             stride_rank(parent_type(A))
+        ArrayInterface.axes(A::OffsetArrays.OffsetArray) = Base.axes(A)
+        ArrayInterface.axes(A::OffsetArrays.OffsetArray, dim::Integer) = Base.axes(A, dim)
     end
 end
 

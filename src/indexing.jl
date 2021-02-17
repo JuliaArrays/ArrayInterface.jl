@@ -456,6 +456,8 @@ function unsafe_getindex(::UnsafeGetCollection, A, inds; kwargs...)
     return unsafe_get_collection(A, inds; kwargs...)
 end
 
+unsafe_get_element_error(A, inds) = throw(MethodError(unsafe_get_element, (A, inds)))
+
 """
     unsafe_get_element(A::AbstractArray{T}, inds::Tuple) -> T
 
@@ -463,7 +465,13 @@ Returns an element of `A` at the indices `inds`. This method assumes all `inds`
 have been checked for being in bounds. Any new array type using `ArrayInterface.getindex`
 must define `unsafe_get_element(::NewArrayType, inds)`.
 """
-unsafe_get_element(A, inds; kwargs...) = throw(MethodError(unsafe_getindex, (A, inds)))
+function unsafe_get_element(a::A, inds) where {A}
+    if parent_type(A) <: A
+        unsafe_get_element_error(a, inds)
+    else
+        return @inbounds(parent(a)[inds...])
+    end
+end
 function unsafe_get_element(A::Array, inds)
     if length(inds) === 0
         return Base.arrayref(false, A, 1)
@@ -497,28 +505,10 @@ function unsafe_get_collection(A, inds; kwargs...)
     return dest
 end
 
-can_preserve_indices(::Type{T}) where {T<:AbstractRange} = true
-can_preserve_indices(::Type{T}) where {T<:Int} = true
-can_preserve_indices(::Type{T}) where {T} = false
-
-# if linear indexing on multidim or can't reconstruct AbstractUnitRange
-# then construct Array of CartesianIndex/LinearIndices
-function can_preserve_indices(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
-    return all(eachop(_can_preserve_indices, T, nstatic(Val(N))))
-end
-function _can_preserve_indices(::Type{T}, i::StaticInt) where {T}
-    if can_preserve_indices(_get_tuple(T, i))
-        return True()
-    else
-        return False()
-    end
-end
-
 _ints2range(x::Integer) = x:x
 _ints2range(x::AbstractRange) = x
-
 @inline function unsafe_get_collection(A::CartesianIndices{N}, inds) where {N}
-    if (length(inds) === 1 && N > 1) || !can_preserve_indices(typeof(inds))
+    if (length(inds) === 1 && N > 1) || stride_preserving_index(typeof(inds)) === False()
         return Base._getindex(IndexStyle(A), A, inds...)
     else
         return CartesianIndices(to_axes(A, _ints2range.(inds)))
@@ -527,7 +517,7 @@ end
 @inline function unsafe_get_collection(A::LinearIndices{N}, inds) where {N}
     if is_linear_indexing(A, inds)
         return @inbounds(eachindex(A)[first(inds)])
-    elseif can_preserve_indices(typeof(inds))
+    elseif stride_preserving_index(typeof(inds)) === True()
         return LinearIndices(to_axes(A, _ints2range.(inds)))
     else
         return Base._getindex(IndexStyle(A), A, inds...)
@@ -570,6 +560,10 @@ function unsafe_setindex!(::UnsafeGetCollection, A, val, inds::Tuple; kwargs...)
     return unsafe_set_collection!(A, val, inds; kwargs...)
 end
 
+function unsafe_set_element_error(A, val, inds)
+    throw(MethodError(unsafe_set_element!, (A, val, inds)))
+end
+
 """
     unsafe_set_element!(A, val, inds::Tuple)
 
@@ -577,8 +571,12 @@ Sets an element of `A` to `val` at indices `inds`. This method assumes all `inds
 have been checked for being in bounds. Any new array type using `ArrayInterface.setindex!`
 must define `unsafe_set_element!(::NewArrayType, val, inds)`.
 """
-function unsafe_set_element!(A, val, inds; kwargs...)
-    return throw(MethodError(unsafe_set_element!, (A, val, inds)))
+function unsafe_set_element!(a::A, val, inds; kwargs...) where {A}
+    if parent_type(A) <: A
+        unsafe_set_element_error(a, val, inds)
+    else
+        return @inbounds(parent(a)[inds...] = val)
+    end
 end
 function unsafe_set_element!(A::Array{T}, val, inds::Tuple) where {T}
     if length(inds) === 0

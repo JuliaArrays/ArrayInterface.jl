@@ -1,4 +1,8 @@
 
+function throw_dim_error(@nospecialize(x), @nospecialize(dim))
+    throw(DimensionMismatch("$x does not have dimension corresponding to $dim"))
+end
+
 #julia> @btime ArrayInterface.is_increasing(ArrayInterface.nstatic(Val(10)))
 #  0.045 ns (0 allocations: 0 bytes)
 #ArrayInterface.True()
@@ -19,20 +23,23 @@ end
 is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
 
 """
-    from_parent_dims(::Type{T}) -> Bool
+    from_parent_dims(::Type{T}) -> Tuple
 
 Returns the mapping from parent dimensions to child dimensions.
 """
+from_parent_dims(x) = from_parent_dims(typeof(x))
 from_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
-from_parent_dims(::Type{T}) where {T<:Union{Transpose,Adjoint}} = (StaticInt(2), One())
+from_parent_dims(::Type{T}) where {T<:VecAdjTrans} = (StaticInt(2),)
+from_parent_dims(::Type{T}) where {T<:MatAdjTrans} = (StaticInt(2), One())
 from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A, I)
-@generated function _from_sub_dims(::Type{A}, ::Type{I}) where {A,N,I<:Tuple{Vararg{Any,N}}}
+@generated function _from_sub_dims(::Type{A}, ::Type{I}) where {A,I<:Tuple}
     out = Expr(:tuple)
-    n = 1
-    for p in I.parameters
+    dim_i = 1
+    for i in 1:ndims(A)
+        p = I.parameters[i]
         if argdims(A, p) > 0
-            push!(out.args, :(StaticInt($n)))
-            n += 1
+            push!(out.args, :(StaticInt($dim_i)))
+            dim_i += 1
         else
             push!(out.args, :(StaticInt(0)))
         end
@@ -41,8 +48,44 @@ from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A
 end
 from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I} = static(Val(I))
 
+function from_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
+    if !_is_reshaped(R) || sizeof(S) === sizeof(T)
+        return nstatic(Val(ndims(A)))
+    elseif sizeof(S) > sizeof(T)
+        return tail(nstatic(Val(ndims(A) + 1)))
+    else  # sizeof(S) < sizeof(T)
+        return (Zero(), nstatic(Val(N))...)
+    end
+end
+
 """
-    to_parent_dims(::Type{T}) -> Bool
+    from_parent_dims(::Type{T}, dim) -> Integer
+
+Returns the mapping from child dimensions to parent dimensions.
+"""
+from_parent_dims(x, dim) = from_parent_dims(typeof(x), dim)
+@aggressive_constprop function from_parent_dims(::Type{T}, dim::Int)::Int where {T}
+    if dim > ndims(T)
+        return static(ndims(parent_type(T)) + dim - ndims(T))
+    elseif dim > 0
+        return @inbounds(getfield(from_parent_dims(T), dim))
+    else
+        throw_dim_error(T, dim)
+    end
+end
+
+function from_parent_dims(::Type{T}, ::StaticInt{dim}) where {T,dim}
+    if dim > ndims(T)
+        return static(ndims(parent_type(T)) + dim - ndims(T))
+    elseif dim > 0
+        return @inbounds(getfield(from_parent_dims(T), dim))
+    else
+        throw_dim_error(T, dim)
+    end
+end
+
+"""
+    to_parent_dims(::Type{T}) -> Tuple
 
 Returns the mapping from child dimensions to parent dimensions.
 """
@@ -61,6 +104,42 @@ to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(A, I)
         n += 1
     end
     out
+end
+function to_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
+    pdims = nstatic(Val(ndims(A)))
+    if !_is_reshaped(R) || sizeof(S) === sizeof(T)
+        return pdims
+    elseif sizeof(S) > sizeof(T)
+        return (Zero(), pdims...,)
+    else
+        return tail(pdims)
+    end
+end
+
+"""
+    to_parent_dims(::Type{T}, dim) -> Integer
+
+Returns the mapping from child dimensions to parent dimensions.
+"""
+to_parent_dims(x, dim) = to_parent_dims(typeof(x), dim)
+@aggressive_constprop function to_parent_dims(::Type{T}, dim::Int)::Int where {T}
+    if dim > ndims(T)
+        return static(ndims(parent_type(T)) + dim - ndims(T))
+    elseif dim > 0
+        return @inbounds(getfield(to_parent_dims(T), dim))
+    else
+        throw_dim_error(T, dim)
+    end
+end
+
+function to_parent_dims(::Type{T}, ::StaticInt{dim}) where {T,dim}
+    if dim > ndims(T)
+        return static(ndims(parent_type(T)) + dim - ndims(T))
+    elseif dim > 0
+        return @inbounds(getfield(to_parent_dims(T), dim))
+    else
+        throw_dim_error(T, dim)
+    end
 end
 
 """
@@ -87,62 +166,32 @@ const SUnderscore = StaticSymbol(:_)
 Return the names of the dimensions for `x`.
 """
 @inline dimnames(x) = dimnames(typeof(x))
-@inline dimnames(x, dim::Int) = dimnames(typeof(x), dim)
-@inline dimnames(x, dim::StaticInt) = dimnames(typeof(x), dim)
-@inline function dimnames(::Type{T}, ::StaticInt{dim}) where {T,dim}
-    if ndims(T) < dim
+@inline dimnames(x, dim) = dimnames(typeof(x), dim)
+@inline function dimnames(::Type{T}, dim) where {T}
+    if parent_type(T) <: T
         return SUnderscore
     else
-        return getfield(dimnames(T), dim)
-    end
-end
-@inline function dimnames(::Type{T}, dim::Int) where {T}
-    if ndims(T) < dim
-        return SUnderscore
-    else
-        return getfield(dimnames(T), dim)
+        return dimnames(parent_type(T), to_parent_dims(T, dim))
     end
 end
 @inline function dimnames(::Type{T}) where {T}
     if parent_type(T) <: T
         return ntuple(_ -> SUnderscore, Val(ndims(T)))
     else
-        return dimnames(parent_type(T))
-    end
-end
-@inline function dimnames(::Type{T}) where {T<:Union{Adjoint,Transpose}}
-    _transpose_dimnames(dimnames(parent_type(T)))
-end
-@inline _transpose_dimnames(x::Tuple{Any,Any}) = (last(x), first(x))
-@inline _transpose_dimnames(x::Tuple{Any}) = (SUnderscore, first(x))
-
-@inline function dimnames(::Type{T}) where {I,T<:PermutedDimsArray{<:Any,<:Any,I}}
-    return map(i -> dimnames(parent_type(T), i), I)
-end
-function dimnames(::Type{T}) where {P,I,T<:SubArray{<:Any,<:Any,P,I}}
-    return _sub_array_dimnames(Val(dimnames(P)), Val(argdims(P, I)))
-end
-@generated function _sub_array_dimnames(::Val{L}, ::Val{I}) where {L,I}
-    e = Expr(:tuple)
-    nl = length(L)
-    for i in 1:length(I)
-        if I[i] > 0
-            if nl < i
-                push!(e.args, :(ArrayInterface.SUnderscore))
-            else
-                push!(e.args, QuoteNode(L[i]))
-            end
+        perm = to_parent_dims(T)
+        if invariant_permutation(perm, perm) isa True
+            return dimnames(parent_type(T))
+        else
+            return eachop(dimnames, parent_type(T), perm)
         end
     end
-    return e
+end
+function dimnames(::Type{T}) where {T<:SubArray}
+    return eachop(dimnames, parent_type(T), to_parent_dims(T))
 end
 
 _to_int(x::Integer) = Int(x)
 _to_int(x::StaticInt) = x
-
-function no_dimname_error(@nospecialize(x), @nospecialize(dim))
-    throw(ArgumentError("($(repr(dim))) does not correspond to any dimension of ($(x))"))
-end
 
 """
     to_dims(::Type{T}, dim) -> Integer
@@ -154,12 +203,16 @@ to_dims(::Type{T}, dim::Integer) where {T} = _to_int(dim)
 to_dims(::Type{T}, dim::Colon) where {T} = dim
 function to_dims(::Type{T}, dim::StaticSymbol) where {T}
     i = find_first_eq(dim, dimnames(T))
-    i === nothing && no_dimname_error(T, dim)
+    if i === nothing
+        throw_dim_error(T, dim)
+    end
     return i
 end
-@inline function to_dims(::Type{T}, dim::Symbol) where {T}
-    i = find_first_eq(dim, Symbol.(dimnames(T)))
-    i === nothing && no_dimname_error(T, dim)
+@aggressive_constprop function to_dims(::Type{T}, dim::Symbol) where {T}
+    i = find_first_eq(dim, map(Symbol, dimnames(T)))
+    if i === nothing
+        throw_dim_error(T, dim)
+    end
     return i
 end
 to_dims(::Type{T}, dims::Tuple) where {T} = map(i -> to_dims(T, i), dims)
@@ -211,161 +264,4 @@ function _order_named_inds_check(inds::Tuple{Vararg{Any,N}}, nkwargs::Int) where
     end
     return nothing
 end
-
-"""
-    axes_types(::Type{T}[, d]) -> Type
-
-Returns the type of the axes for `T`
-"""
-axes_types(x) = axes_types(typeof(x))
-axes_types(x, d) = axes_types(typeof(x), d)
-@inline axes_types(::Type{T}, d) where {T} = axes_types(T).parameters[to_dims(T, d)]
-function axes_types(::Type{T}) where {T}
-    if parent_type(T) <: T
-        return Tuple{Vararg{OptionallyStaticUnitRange{One,Int},ndims(T)}}
-    else
-        return axes_types(parent_type(T))
-    end
-end
-function axes_types(::Type{T}) where {T<:MatAdjTrans}
-    return eachop_tuple(_get_tuple, axes_types(parent_type(T)), to_parent_dims(T))
-end
-function axes_types(::Type{T}) where {T<:PermutedDimsArray}
-    return eachop_tuple(_get_tuple, axes_types(parent_type(T)), to_parent_dims(T))
-end
-function axes_types(::Type{T}) where {T<:AbstractRange}
-    if known_length(T) === nothing
-        return Tuple{OptionallyStaticUnitRange{One,Int}}
-    else
-        return Tuple{OptionallyStaticUnitRange{One,StaticInt{known_length(T)}}}
-    end
-end
-
-@inline function axes_types(::Type{T}) where {P,I,T<:SubArray{<:Any,<:Any,P,I}}
-    return _sub_axes_types(Val(ArrayStyle(T)), I, axes_types(P))
-end
-@inline function axes_types(::Type{T}) where {T<:Base.ReinterpretArray}
-    return _reinterpret_axes_types(
-        axes_types(parent_type(T)),
-        eltype(T),
-        eltype(parent_type(T)),
-    )
-end
-function axes_types(::Type{T}) where {N,T<:Base.ReshapedArray{<:Any,N}}
-    return Tuple{Vararg{OptionallyStaticUnitRange{One,Int},N}}
-end
-
-# These methods help handle identifying axes that don't directly propagate from the
-# parent array axes. They may be worth making a formal part of the API, as they provide
-# a low traffic spot to change what axes_types produces.
-@inline function sub_axis_type(::Type{A}, ::Type{I}) where {A,I}
-    if known_length(I) === nothing
-        return OptionallyStaticUnitRange{One,Int}
-    else
-        return OptionallyStaticUnitRange{One,StaticInt{known_length(I)}}
-    end
-end
-@generated function _sub_axes_types(
-    ::Val{S},
-    ::Type{I},
-    ::Type{PI},
-) where {S,I<:Tuple,PI<:Tuple}
-    out = Expr(:curly, :Tuple)
-    d = 1
-    for i in I.parameters
-        ad = argdims(S, i)
-        if ad > 0
-            push!(out.args, :(sub_axis_type($(PI.parameters[d]), $i)))
-            d += ad
-        else
-            d += 1
-        end
-    end
-    Expr(:block, Expr(:meta, :inline), out)
-end
-@inline function reinterpret_axis_type(::Type{A}, ::Type{T}, ::Type{S}) where {A,T,S}
-    if known_length(A) === nothing
-        return OptionallyStaticUnitRange{One,Int}
-    else
-        return OptionallyStaticUnitRange{
-            One,
-            StaticInt{Int(known_length(A) / (sizeof(T) / sizeof(S)))},
-        }
-    end
-end
-@generated function _reinterpret_axes_types(
-    ::Type{I},
-    ::Type{T},
-    ::Type{S},
-) where {I<:Tuple,T,S}
-    out = Expr(:curly, :Tuple)
-    for i = 1:length(I.parameters)
-        if i === 1
-            push!(out.args, reinterpret_axis_type(I.parameters[1], T, S))
-        else
-            push!(out.args, I.parameters[i])
-        end
-    end
-    Expr(:block, Expr(:meta, :inline), out)
-end
-
-"""
-  size(A)
-
-Returns the size of `A`. If the size of any axes are known at compile time,
-these should be returned as `Static` numbers. For example:
-```julia
-julia> using StaticArrays, ArrayInterface
-
-julia> A = @SMatrix rand(3,4);
-
-julia> ArrayInterface.size(A)
-(StaticInt{3}(), StaticInt{4}())
-```
-"""
-@inline size(A) = Base.size(A)
-@inline size(A, d::Integer) = size(A)[Int(d)]
-@inline size(A, d) = Base.size(A, to_dims(A, d))
-@inline size(x::VecAdjTrans) = (One(), static_length(x))
-
-function size(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    return _size(size(parent(B)), B.indices, map(static_length, B.indices))
-end
-function strides(B::S) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    return _strides(strides(parent(B)), B.indices)
-end
-@generated function _size(A::Tuple{Vararg{Any,N}}, inds::I, l::L) where {N,I<:Tuple,L}
-    t = Expr(:tuple)
-    for n = 1:N
-        if (I.parameters[n] <: Base.Slice)
-            push!(t.args, :(@inbounds(_try_static(A[$n], l[$n]))))
-        elseif I.parameters[n] <: Number
-            nothing
-        else
-            push!(t.args, Expr(:ref, :l, n))
-        end
-    end
-    Expr(:block, Expr(:meta, :inline), t)
-end
-@inline size(v::AbstractVector) = (static_length(v),)
-@inline size(B::MatAdjTrans) = permute(size(parent(B)), to_parent_dims(B))
-@inline function size(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A}
-    return permute(size(parent(B)), to_parent_dims(B))
-end
-@inline size(A::AbstractArray, ::StaticInt{N}) where {N} = size(A)[N]
-@inline size(A::AbstractArray, ::Val{N}) where {N} = size(A)[N]
-"""
-    axes(A, d)
-
-Return a valid range that maps to each index along dimension `d` of `A`.
-"""
-@inline axes(A, d) = axes(A, to_dims(A, d))
-@inline axes(A, d::Integer) = axes(A)[Int(d)]
-
-"""
-    axes(A)
-
-Return a tuple of ranges where each range maps to each element along a dimension of `A`.
-"""
-@inline axes(A) = Base.axes(A)
 

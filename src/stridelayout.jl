@@ -1,6 +1,26 @@
 
+#=
+    stride_preserving_index(::Type{T}) -> StaticBool
+
+Returns `True` if strides between each element can still be derived when indexing with an
+instance of type `T`.
+=#
+stride_preserving_index(::Type{T}) where {T<:AbstractRange} = True()
+stride_preserving_index(::Type{T}) where {T<:Int} = True()
+stride_preserving_index(::Type{T}) where {T} = False()
+function stride_preserving_index(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
+    if all(eachop(_stride_preserving_index, T, nstatic(Val(N))))
+        return True()
+    else
+        return False()
+    end
+end
+function _stride_preserving_index(::Type{T}, i::StaticInt) where {T}
+    return stride_preserving_index(_get_tuple(T, i))
+end
+
 """
-    offsets(A) -> Tuple
+    offsets(A[, dim]) -> Tuple
 
 Returns offsets of indices with respect to 0. If values are known at compile time,
 it should return them as `Static` numbers.
@@ -12,7 +32,7 @@ offsets(x) = eachop(offsets, x, nstatic(Val(ndims(x))))
 offsets(::Tuple) = (One(),)
 
 """
-contiguous_axis(::Type{T}) -> StaticInt{N}
+    contiguous_axis(::Type{T}) -> StaticInt{N}
 
 Returns the axis of an array of type `T` containing contiguous data.
 If no axis is contiguous, it returns `StaticInt{-1}`.
@@ -48,18 +68,18 @@ function contiguous_axis(::Type{T}) where {T<:MatAdjTrans}
         return StaticInt(3) - c
     end
 end
-function contiguous_axis(::Type{T}) where {I1,I2,T<:PermutedDimsArray{<:Any,<:Any,I1,I2}}
+function contiguous_axis(::Type{T}) where {T<:PermutedDimsArray}
     c = contiguous_axis(parent_type(T))
     if c === nothing
         return nothing
     elseif isone(-c)
         return c
     else
-        return StaticInt(I2[c])
+        return from_parent_dims(T, c)
     end
 end
-function contiguous_axis(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    return _contiguous_axis(S, contiguous_axis(A))
+function contiguous_axis(::Type{T}) where {T<:SubArray}
+    return _contiguous_axis(T, contiguous_axis(parent_type(T)))
 end
 
 _contiguous_axis(::Type{A}, ::Nothing) where {T,N,P,I,A<:SubArray{T,N,P,I}} = nothing
@@ -110,7 +130,13 @@ function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
 end
 
 stride_rank(x) = stride_rank(typeof(x))
-stride_rank(::Type) = nothing
+function stride_rank(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return nothing
+    else
+        return stride_rank(parent_type(T))
+    end
+end
 stride_rank(::Type{Array{T,N}}) where {T,N} = nstatic(Val(N))
 stride_rank(::Type{<:Tuple}) = (One(),)
 
@@ -141,11 +167,6 @@ function stride_rank(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.Signed
 end
 _reshaped_striderank(::True, ::Val{N}, ::Val{0}) where {N} = nstatic(Val(N))
 _reshaped_striderank(_, __, ___) = nothing
-
-"""
-    If the contiguous dimension is not the dimension with `StrideRank{1}`:
-"""
-
 
 """
     contiguous_batch_size(::Type{T}) -> StaticInt{N}
@@ -208,7 +229,13 @@ Returns a tuple of indicators for whether each axis is dense.
 An axis `i` of array `A` is dense if `stride(A, i) * Base.size(A, i) == stride(A, j)` where `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
 """
 dense_dims(x) = dense_dims(typeof(x))
-dense_dims(::Type) = nothing
+function dense_dims(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return nothing
+    else
+        return dense_dims(parent_type(T))
+    end
+end
 _all_dense(::Val{N}) where {N} = ntuple(_ -> True(), Val{N}())
 
 dense_dims(::Type{Array{T,N}}) where {T,N} = _all_dense(Val{N}())
@@ -241,7 +268,7 @@ function dense_dims(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArra
     return _dense_dims(S, dense_dims(A), Val(stride_rank(A)))
 end
 
-_dense_dims(::Any, ::Any) = nothing
+_dense_dims(::Type{S}, ::Nothing, ::Val{R}) where {R,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}} = nothing
 @generated function _dense_dims(
     ::Type{S},
     ::D,
@@ -293,6 +320,70 @@ function _reshaped_dense_dims(dense::D, ::True, ::Val{N}, ::Val{0}) where {D,N}
 end
 
 """
+    known_offsets(::Type{T}[, dim]) -> Tuple
+
+Returns a tuple of offset values known at compile time. If the offset of a given axis is
+not known at compile time `nothing` is returned its position.
+"""
+known_offsets(x, dim) = known_offsets(typeof(x), dim)
+known_offsets(::Type{T}, dim) where {T} = known_offsets(T, to_dims(T, dim))
+function known_offsets(::Type{T}, dim::Integer) where {T}
+    if ndims(T) < dim
+        return 1
+    else
+        return known_offsets(T)[dim]
+    end
+end
+
+known_offsets(x) = known_offsets(typeof(x))
+function known_offsets(::Type{T}) where {T}
+    return eachop(_known_offsets, axes_types(T), nstatic(Val(ndims(T))))
+end
+_known_offsets(::Type{T}, dim::StaticInt) where {T} = known_first(_get_tuple(T, dim))
+
+"""
+    known_strides(::Type{T}[, dim]) -> Tuple
+
+Returns the strides of array `A` known at compile time. Any strides that are not known at
+compile time are represented by `nothing`.
+"""
+known_strides(x, dim) = known_strides(typeof(x), dim)
+known_strides(::Type{T}, dim) where {T} = known_strides(T, to_dims(T, dim))
+function known_strides(::Type{T}, dim::Integer) where {T}
+    # see https://github.com/JuliaLang/julia/blob/6468dcb04ea2947f43a11f556da9a5588de512a0/base/reinterpretarray.jl#L148
+    if ndims(T) < dim
+        return known_length(T)
+    else
+        return known_strides(T)[dim]
+    end
+end
+
+known_strides(x) = known_strides(typeof(x))
+known_strides(::Type{T}) where {T<:Vector} = (1,)
+function known_strides(::Type{T}) where {T<:MatAdjTrans}
+    return permute(known_strides(parent_type(T)), to_parent_dims(T))
+end
+@inline function known_strides(::Type{T}) where {T<:VecAdjTrans}
+    strd = first(known_strides(parent_type(T)))
+    return (strd, strd)
+end
+@inline function known_strides(::Type{T}) where {T<:PermutedDimsArray}
+    return permute(known_strides(parent_type(T)), to_parent_dims(T))
+end
+@inline function known_strides(::Type{T}) where {T<:SubArray}
+    return permute(known_strides(parent_type(T)), to_parent_dims(T))
+end
+function known_strides(::Type{T}) where {T}
+    if ndims(T) === 1
+        return (1,)
+    else
+        return size_to_strides(known_size(T), 1)
+    end
+end
+
+_stride_error(@nospecialize(x)) = throw(MethodError(ArrayInterface.strides, (x,)))
+
+"""
     strides(A) -> Tuple
 
 Returns the strides of array `A`. If any strides are known at compile time,
@@ -314,164 +405,59 @@ This is to support the pattern of using just the first stride for linear indexin
 while still producing correct behavior when using valid cartesian indices, such as `x[1,i]`.
 ```
 """
-strides(A) = Base.strides(A)
-strides(A, d) = strides(A)[to_dims(A, d)]
-
-@inline function known_length(::Type{T}) where {T <: Base.ReinterpretArray}
-    return _known_length(known_length(parent_type(T)), eltype(T), eltype(parent_type(T)))
-end
-_known_length(::Nothing, _, __) = nothing
-@inline _known_length(L::Integer, ::Type{T}, ::Type{P}) where {T,P} = L * sizeof(P) ÷ sizeof(T)
-
-
-
-"""
-    known_offsets(::Type{T}[, d]) -> Tuple
-
-Returns a tuple of offset values known at compile time. If the offset of a given axis is
-not known at compile time `nothing` is returned its position.
-"""
-@inline known_offsets(x, d) = known_offsets(x)[to_dims(x, d)]
-known_offsets(x) = known_offsets(typeof(x))
-@generated function known_offsets(::Type{T}) where {T}
-    out = Expr(:tuple)
-    for p in axes_types(T).parameters
-        push!(out.args, known_first(p))
-    end
-    return out
-end
-
-"""
-    known_size(::Type{T}[, d]) -> Tuple
-
-Returns the size of each dimension for `T` known at compile time. If a dimension does not
-have a known size along a dimension then `nothing` is returned in its position.
-"""
-@inline known_size(x, d) = known_size(x)[to_dims(x, d)]
-known_size(x) = known_size(typeof(x))
-function known_size(::Type{T}) where {T}
-    return eachop(_known_axis_length, axes_types(T), nstatic(Val(ndims(T))))
-end
-_known_axis_length(::Type{T}, c::StaticInt) where {T} = known_length(_get_tuple(T, c))
-
-"""
-    known_strides(::Type{T}[, d]) -> Tuple
-
-Returns the strides of array `A` known at compile time. Any strides that are not known at
-compile time are represented by `nothing`.
-"""
-known_strides(x) = known_strides(typeof(x))
-known_strides(x, d) = known_strides(x)[to_dims(x, d)]
-known_strides(::Type{T}) where {T<:Vector} = (1,)
-function known_strides(::Type{T}) where {T<:MatAdjTrans}
-    return permute(known_strides(parent_type(T)), to_parent_dims(T))
-end
-@inline function known_strides(::Type{T}) where {T<:VecAdjTrans}
-    strd = first(known_strides(parent_type(T)))
-    return (strd, strd)
-end
-@inline function known_strides(::Type{T}) where {I1,T<:PermutedDimsArray{<:Any,<:Any,I1}}
-    return permute(known_strides(parent_type(T)), Val{I1}())
-end
-@inline function known_strides(::Type{T}) where {I1,T<:SubArray{<:Any,<:Any,<:Any,I1}}
-    return permute(known_strides(parent_type(T)), to_parent_dims(T))
-end
-function known_strides(::Type{T}) where {T}
-    if ndims(T) === 1
-        return (1,)
-    else
-        return _known_strides(Val(Base.front(known_size(T))))
-    end
-end
-@generated function _known_strides(::Val{S}) where {S}
-    out = Expr(:tuple)
-    N = length(S)
-    push!(out.args, 1)
-    for s in S
-        if s === nothing || out.args[end] === nothing
-            push!(out.args, nothing)
-        else
-            push!(out.args, out.args[end] * s)
-        end
-    end
-    return Expr(:block, Expr(:meta, :inline), out)
-end
-
 @inline strides(A::Vector{<:Any}) = (StaticInt(1),)
 @inline strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
-@inline strides(A::AbstractArray) = _strides(A, Base.strides(A), contiguous_axis(A))
+function strides(x)
+    defines_strides(x) || _stride_error(x)
+    return size_to_strides(size(x), One())
+end
+#@inline strides(A) = _strides(A, Base.strides(A), contiguous_axis(A))
 
 function strides(x::VecAdjTrans)
     st = first(strides(parent(x)))
     return (st, st)
 end
-
-@generated function _strides(A::AbstractArray{T,N}, s::NTuple{N}, ::StaticInt{C}) where {T,N,C}
-    if C ≤ 0 || C > N
-        return Expr(:block, Expr(:meta, :inline), :s)
-    else
-        stup = Expr(:tuple)
-        for n ∈ 1:N
-            if n == C
-                push!(stup.args, :(One()))
-            else
-                push!(stup.args, Expr(:ref, :s, n))
-            end
-        end
-        return quote
-            $(Expr(:meta, :inline))
-            @inbounds $stup
-        end
-    end
-end
-
-if VERSION ≥ v"1.6.0-DEV.1581"
-    @generated function _strides(
-        _::Base.ReinterpretArray{T,N,S,A,true},
-        s::NTuple{N},
-        ::StaticInt{1},
-    ) where {T,N,S,D,A<:Array{S,D}}
-        stup = Expr(:tuple, :(One()))
-        if D < N
-            push!(stup.args, Expr(:call, Expr(:curly, :StaticInt, sizeof(S) ÷ sizeof(T))))
-        end
-        for n ∈ 2+(D<N):N
-            push!(stup.args, Expr(:ref, :s, n))
-        end
-        quote
-            $(Expr(:meta, :inline))
-            @inbounds $stup
-        end
-    end
-end
-
 @inline strides(B::MatAdjTrans) = permute(strides(parent(B)), to_parent_dims(B))
-@inline function strides(B::PermutedDimsArray)
-    return permute(strides(parent(B)), to_parent_dims(B))
+@inline strides(B::PermutedDimsArray) = permute(strides(parent(B)), to_parent_dims(B))
+
+getmul(x::Tuple, y::Tuple, ::StaticInt{i}) where {i} = getfield(x, i) * getfield(y, i)
+function strides(A::SubArray)
+    return eachop(getmul, map(maybe_static_step, A.indices), strides(parent(A)), to_parent_dims(A))
 end
+
+maybe_static_step(x::AbstractRange) = static_step(x)
+maybe_static_step(_) = nothing
+
+@generated function size_to_strides(sz::S, init) where {N,S<:Tuple{Vararg{Any,N}}}
+    out = Expr(:block, Expr(:meta, :inline))
+    t = Expr(:tuple, :init)
+    prev = :init
+    i = 1
+    while i <= (N - 1)
+        if S.parameters[i] <: Nothing || (i > 1 &&  t.args[i - 1] === :nothing)
+            push!(t.args, :nothing)
+        else
+            next = Symbol(:val_, i)
+            push!(out.args, :($next = $prev * getfield(sz, $i)))
+            push!(t.args, next)
+            prev = next
+        end
+        i += 1
+    end
+    push!(out.args, t)
+    return out
+end
+
+strides(a, dim) = strides(a, to_dims(a, dim))
+function strides(a::A, dim::Integer) where {A}
+    if parent_type(A) <: A
+        return Base.stride(a, Int(dim))
+    else
+        return strides(parent(a), to_parent_dims(A, dim))
+    end
+end
+
 @inline stride(A::AbstractArray, ::StaticInt{N}) where {N} = strides(A)[N]
 @inline stride(A::AbstractArray, ::Val{N}) where {N} = strides(A)[N]
 stride(A, i) = Base.stride(A, i) # for type stability
-
-@generated function _strides(A::Tuple{Vararg{Any,N}}, inds::I) where {N,I<:Tuple}
-    t = Expr(:tuple)
-    for n = 1:N
-        if I.parameters[n] <: AbstractUnitRange
-            push!(t.args, Expr(:ref, :A, n))
-        elseif I.parameters[n] <: AbstractRange
-            push!(
-                t.args,
-                Expr(
-                    :call,
-                    :(*),
-                    Expr(:ref, :A, n),
-                    Expr(:call, :static_step, Expr(:ref, :inds, n)),
-                ),
-            )
-        elseif !(I.parameters[n] <: Integer)
-            return nothing
-        end
-    end
-    Expr(:block, Expr(:meta, :inline), t)
-end
 
