@@ -222,6 +222,7 @@ Returns `Val{true}` if elements of `A` are stored in column major order. Otherwi
 is_column_major(A) = is_column_major(stride_rank(A), contiguous_batch_size(A))
 is_column_major(sr::Nothing, cbs) = False()
 is_column_major(sr::R, cbs) where {R} = _is_column_major(sr, cbs)
+is_column_major(::AbstractRange) = False()
 
 # cbs > 0
 _is_column_major(sr::R, cbs::StaticInt) where {R} = False()

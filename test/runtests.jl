@@ -412,7 +412,7 @@ using OffsetArrays
     @test @inferred(ArrayInterface.is_column_major(@SArray(zeros(2,2,2)))) === True()
     @test @inferred(ArrayInterface.is_column_major(A)) === True()
     @test @inferred(ArrayInterface.is_column_major(B)) === True()
-    @test @inferred(ArrayInterface.is_column_major(-4:7)) === True()
+    @test @inferred(ArrayInterface.is_column_major(-4:7)) === False()
     @test @inferred(ArrayInterface.is_column_major(PermutedDimsArray(A,(3,1,2)))) === False()
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) === True()
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) === False()
