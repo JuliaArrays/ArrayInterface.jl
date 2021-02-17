@@ -48,6 +48,7 @@ function contiguous_axis(::Type{T}) where {T}
 end
 contiguous_axis(::Type{<:Array}) = One()
 contiguous_axis(::Type{<:BitArray}) = One()
+contiguous_axis(::Type{<:AbstractRange}) = One()
 contiguous_axis(::Type{<:Tuple}) = One()
 function contiguous_axis(::Type{T}) where {T<:VecAdjTrans}
     c = contiguous_axis(parent_type(T))
@@ -140,6 +141,7 @@ function stride_rank(::Type{T}) where {T}
 end
 stride_rank(::Type{Array{T,N}}) where {T,N} = nstatic(Val(N))
 stride_rank(::Type{BitArray{N}}) where {N} = nstatic(Val(N))
+stride_rank(::Type{<:AbstractRange}) = (One(),)
 stride_rank(::Type{<:Tuple}) = (One(),)
 
 stride_rank(::Type{T}) where {T<:VecAdjTrans} = (StaticInt(2), StaticInt(1))
@@ -191,6 +193,7 @@ end
 
 contiguous_batch_size(::Type{Array{T,N}}) where {T,N} = Zero()
 contiguous_batch_size(::Type{BitArray{N}}) where {N} = Zero()
+contiguous_batch_size(::Type{<:AbstractRange}) = Zero()
 contiguous_batch_size(::Type{<:Tuple}) = Zero()
 function contiguous_batch_size(::Type{T}) where {T<:Union{Transpose,Adjoint}}
     return contiguous_batch_size(parent_type(T))
@@ -243,6 +246,7 @@ _all_dense(::Val{N}) where {N} = ntuple(_ -> True(), Val{N}())
 
 dense_dims(::Type{Array{T,N}}) where {T,N} = _all_dense(Val{N}())
 dense_dims(::Type{BitArray{N}}) where {N} = _all_dense(Val{N}())
+dense_dims(::Type{<:AbstractRange}) = (True(),)
 dense_dims(::Type{<:Tuple}) = (True(),)
 function dense_dims(::Type{T}) where {T<:VecAdjTrans}
     dense = dense_dims(parent_type(T))
@@ -417,6 +421,7 @@ function strides(x)
 end
 #@inline strides(A) = _strides(A, Base.strides(A), contiguous_axis(A))
 
+strides(::AbstractRange) = (One(),)
 function strides(x::VecAdjTrans)
     st = first(strides(parent(x)))
     return (st, st)
