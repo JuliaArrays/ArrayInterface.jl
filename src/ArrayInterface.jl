@@ -644,6 +644,7 @@ defines_strides(::Type{<:StridedArray}) = true
 function defines_strides(::Type{<:SubArray{T,N,P,I}}) where {T,N,P,I}
     return stride_preserving_index(I) === True()
 end
+defines_strides(::Type{<:BitArray}) = true
 
 """
 can_avx(f)

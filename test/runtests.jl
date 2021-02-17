@@ -303,6 +303,7 @@ using OffsetArrays
     # R = reshape(view(x, 1:100), (10,10));
     # A = zeros(3,4,5);
     A = Wrapper(reshape(view(x, 1:60), (3,4,5)))
+    B = A .== 0;
     D1 = view(A, 1:2:3, :, :)  # first dimension is discontiguous
     D2 = view(A, :, 2:2:4, :)  # first dimension is contiguous
 
@@ -312,6 +313,8 @@ using OffsetArrays
     @test !@inferred(ArrayInterface.defines_strides(view(A, :, [1,2],1)))
 
     @test @inferred(device(A)) === ArrayInterface.CPUPointer()
+    @test @inferred(device(B)) === ArrayInterface.CPUIndex()
+    @test @inferred(device(-1:19)) === ArrayInterface.CPUIndex()
     @test @inferred(device((1,2,3))) === ArrayInterface.CPUIndex()
     @test @inferred(device(PermutedDimsArray(A,(3,1,2)))) === ArrayInterface.CPUPointer()
     @test @inferred(device(view(A, 1, :, 2:4))) === ArrayInterface.CPUPointer()
@@ -330,6 +333,8 @@ using OffsetArrays
     =#
     @test @inferred(contiguous_axis(@SArray(zeros(2,2,2)))) === ArrayInterface.StaticInt(1)
     @test @inferred(contiguous_axis(A)) === ArrayInterface.StaticInt(1)
+    @test @inferred(contiguous_axis(B)) === ArrayInterface.StaticInt(1)
+    @test @inferred(contiguous_axis(-1:19)) === ArrayInterface.StaticInt(1)
     @test @inferred(contiguous_axis(D1)) === ArrayInterface.StaticInt(-1)
     @test @inferred(contiguous_axis(D2)) === ArrayInterface.StaticInt(1)
     @test @inferred(contiguous_axis(PermutedDimsArray(A,(3,1,2)))) === ArrayInterface.StaticInt(2)
@@ -350,6 +355,8 @@ using OffsetArrays
 
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@SArray(zeros(2,2,2)))) == (true,false,false)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(A)) == (true,false,false)
+    @test @inferred(ArrayInterface.contiguous_axis_indicator(B)) == (true,false,false)
+    @test @inferred(ArrayInterface.contiguous_axis_indicator(-1:10)) == (true,)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(PermutedDimsArray(A,(3,1,2)))) == (false,true,false)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) == (true,false)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) == (false,true)
@@ -362,6 +369,8 @@ using OffsetArrays
 
     @test @inferred(contiguous_batch_size(@SArray(zeros(2,2,2)))) === ArrayInterface.StaticInt(0)
     @test @inferred(contiguous_batch_size(A)) === ArrayInterface.StaticInt(0)
+    @test @inferred(contiguous_batch_size(B)) === ArrayInterface.StaticInt(0)
+    @test @inferred(contiguous_batch_size(-1:18)) === ArrayInterface.StaticInt(0)
     @test @inferred(contiguous_batch_size(PermutedDimsArray(A,(3,1,2)))) === ArrayInterface.StaticInt(0)
     @test @inferred(contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) === ArrayInterface.StaticInt(0)
     @test @inferred(contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) === ArrayInterface.StaticInt(0)
@@ -372,6 +381,8 @@ using OffsetArrays
 
     @test @inferred(stride_rank(@SArray(zeros(2,2,2)))) == (1, 2, 3)
     @test @inferred(stride_rank(A)) == (1,2,3)
+    @test @inferred(stride_rank(B)) == (1,2,3)
+    @test @inferred(stride_rank(-4:4)) == (1,)
     @test @inferred(stride_rank(view(A,:,:,1))) === (static(1), static(2))
     @test @inferred(stride_rank(view(A,:,:,1))) === ((ArrayInterface.StaticInt(1),ArrayInterface.StaticInt(2)))
     @test @inferred(stride_rank(PermutedDimsArray(A,(3,1,2)))) == (3, 1, 2)
@@ -400,6 +411,8 @@ using OffsetArrays
 
     @test @inferred(ArrayInterface.is_column_major(@SArray(zeros(2,2,2)))) === True()
     @test @inferred(ArrayInterface.is_column_major(A)) === True()
+    @test @inferred(ArrayInterface.is_column_major(B)) === True()
+    @test @inferred(ArrayInterface.is_column_major(-4:7)) === False()
     @test @inferred(ArrayInterface.is_column_major(PermutedDimsArray(A,(3,1,2)))) === False()
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) === True()
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) === False()
@@ -408,11 +421,12 @@ using OffsetArrays
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === True()
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === True()
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[:,2,1])')) === False()
-    @test @inferred(ArrayInterface.is_column_major(1:10)) === False()
     @test @inferred(ArrayInterface.is_column_major(2.3)) === False()
 
     @test @inferred(dense_dims(@SArray(zeros(2,2,2)))) == (true,true,true)
     @test @inferred(dense_dims(A)) == (true,true,true)
+    @test @inferred(dense_dims(B)) == (true,true,true)
+    @test @inferred(dense_dims(-3:9)) == (true,)
     @test @inferred(dense_dims(PermutedDimsArray(A,(3,1,2)))) == (true,true,true)
     @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) == (true,false)
     @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) == (false,true)
@@ -434,9 +448,9 @@ using OffsetArrays
     @test @inferred(dense_dims(view(DummyZeros(3,4), :, 1))) === nothing
     @test @inferred(dense_dims(view(DummyZeros(3,4), :, 1)')) === nothing
 
-    B = Array{Int8}(undef, 2,2,2,2);
-    doubleperm = PermutedDimsArray(PermutedDimsArray(B,(4,2,3,1)), (4,2,1,3));
-    @test collect(strides(B))[collect(stride_rank(doubleperm))] == collect(strides(doubleperm))
+    C = Array{Int8}(undef, 2,2,2,2);
+    doubleperm = PermutedDimsArray(PermutedDimsArray(C,(4,2,3,1)), (4,2,1,3));
+    @test collect(strides(C))[collect(stride_rank(doubleperm))] == collect(strides(doubleperm))
 
     @test @inferred(ArrayInterface.indices(OffsetArray(view(PermutedDimsArray(A, (3,1,2)), 1, :, 2:4)', 3, -173),1)) === Base.Slice(ArrayInterface.OptionallyStaticUnitRange(4,6))
     @test @inferred(ArrayInterface.indices(OffsetArray(view(PermutedDimsArray(A, (3,1,2)), 1, :, 2:4)', 3, -173),2)) === Base.Slice(ArrayInterface.OptionallyStaticUnitRange(-172,-170))

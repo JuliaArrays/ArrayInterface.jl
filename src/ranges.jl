@@ -539,7 +539,7 @@ Base.Slice(Static(1):100)
 ```
 """
 @generated function reduce_tup(f::F, inds::Tuple{Vararg{Any,N}}) where {F,N}
-    q = Expr(:block, Expr(:meta, :inline))
+    q = Expr(:block, Expr(:meta, :inline, :propagate_inbounds))
     if N == 1
         push!(q.args, :(inds[1]))
         return q
@@ -566,7 +566,7 @@ Base.Slice(Static(1):100)
     q
 end
 
-@inline function _pick_range(x, y)
+@propagate_inbounds function _pick_range(x, y)
     fst = _try_static(static_first(x), static_first(y))
     lst = _try_static(static_last(x), static_last(y))
     return Base.Slice(OptionallyStaticUnitRange(fst, lst))
@@ -591,19 +591,19 @@ specified, then the indices for visiting each index of `x` are returned.
 end
 @inline indices(x::AbstractUnitRange{<:Integer}) = Base.Slice(OptionallyStaticUnitRange(x))
 
-function indices(x::Tuple)
+@propagate_inbounds function indices(x::Tuple)
     inds = map(eachindex, x)
     return reduce_tup(_pick_range, inds)
 end
 
 @inline indices(x, d) = indices(axes(x, d))
 
-@inline function indices(x::Tuple{Vararg{Any,N}}, dim) where {N}
+@propagate_inbounds function indices(x::Tuple{Vararg{Any,N}}, dim) where {N}
     inds = map(x_i -> indices(x_i, dim), x)
     return reduce_tup(_pick_range, inds)
 end
 
-@inline function indices(x::Tuple{Vararg{Any,N}}, dim::Tuple{Vararg{Any,N}}) where {N}
+@propagate_inbounds function indices(x::Tuple{Vararg{Any,N}}, dim::Tuple{Vararg{Any,N}}) where {N}
     inds = map(indices, x, dim)
     return reduce_tup(_pick_range, inds)
 end
