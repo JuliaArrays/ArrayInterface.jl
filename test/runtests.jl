@@ -421,7 +421,6 @@ using OffsetArrays
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === True()
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === True()
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[:,2,1])')) === False()
-    @test @inferred(ArrayInterface.is_column_major(1:10)) === False()
     @test @inferred(ArrayInterface.is_column_major(2.3)) === False()
 
     @test @inferred(dense_dims(@SArray(zeros(2,2,2)))) == (true,true,true)
