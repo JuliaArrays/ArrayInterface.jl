@@ -615,7 +615,6 @@ Otherwise, returns `nothing`.
 device(A) = device(typeof(A))
 device(::Type) = nothing
 device(::Type{<:Tuple}) = CPUIndex()
-# Relies on overloading for GPUArrays that have subtyped `StridedArray`.
 device(::Type{T}) where {T<:Array} = CPUPointer()
 device(::Type{T}) where {T<:AbstractArray} = CPUIndex()
 device(::Type{T}) where {T<:PermutedDimsArray} = device(parent_type(T))
