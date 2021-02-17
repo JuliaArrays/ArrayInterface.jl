@@ -296,6 +296,7 @@ struct Wrapper{T,N,P<:AbstractArray{T,N}} <: ArrayInterface.AbstractArray2{T,N}
 end
 ArrayInterface.parent_type(::Type{<:Wrapper{T,N,P}}) where {T,N,P} = P
 Base.parent(x::Wrapper) = x.parent
+ArrayInterface.device(::Type{T}) where {T<:Wrapper} = ArrayInterface.device(parent_type(T))
 
 using OffsetArrays
 @testset "Memory Layout" begin
