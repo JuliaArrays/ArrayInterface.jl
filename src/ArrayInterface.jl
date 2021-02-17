@@ -604,7 +604,7 @@ struct CPUIndex <: AbstractCPU end
 struct GPU <: AbstractDevice end
 
 """
-device(::Type{T})
+    device(::Type{T})
 
 Indicates the most efficient way to access elements from the collection in low-level code.
 For `GPUArrays`, will return `ArrayInterface.GPU()`.
@@ -616,19 +616,25 @@ device(A) = device(typeof(A))
 device(::Type) = nothing
 device(::Type{<:Tuple}) = CPUIndex()
 # Relies on overloading for GPUArrays that have subtyped `StridedArray`.
-device(::Type{<:StridedArray}) = CPUPointer()
-device(
-    ::Type{<:SubArray{T,N,A,I}},
-) where {T,N,A,I<:Tuple{Vararg{Union{Integer,AbstractRange}}}} = device(A)
-device(::Type{<:SubArray}) = CPUIndex()
-function device(::Type{T}) where {T<:AbstractArray}
-    P = parent_type(T)
-    T === P ? CPUIndex() : device(P)
+device(::Type{T}) where {T<:Array} = CPUPointer()
+device(::Type{T}) where {T<:AbstractArray} = CPUIndex()
+device(::Type{T}) where {T<:PermutedDimsArray} = device(parent_type(T))
+device(::Type{T}) where {T<:Transpose} = device(parent_type(T))
+device(::Type{T}) where {T<:Adjoint} = device(parent_type(T))
+device(::Type{T}) where {T<:ReinterpretArray} = device(parent_type(T))
+device(::Type{T}) where {T<:ReshapedArray} = device(parent_type(T))
+function device(::Type{T}) where {T<:SubArray}
+    if defines_strides(T)
+        return device(parent_type(T))
+    else
+        return _not_pointer(device(parent_type(T)))
+    end
 end
-
+_not_pointer(::CPUPointer) = CPUIndex()
+_not_pointer(x) = x
 
 """
-defines_strides(::Type{T}) -> Bool
+    defines_strides(::Type{T}) -> Bool
 
 Is strides(::T) defined?
 """
@@ -1058,6 +1064,9 @@ function __init__()
             stride_rank(parent_type(A))
         ArrayInterface.axes(A::OffsetArrays.OffsetArray) = Base.axes(A)
         ArrayInterface.axes(A::OffsetArrays.OffsetArray, dim::Integer) = Base.axes(A, dim)
+        function ArrayInterface.device(::Type{T}) where {T<:OffsetArrays.OffsetArray}
+            return device(parent_type(T))
+        end
     end
 end
 
