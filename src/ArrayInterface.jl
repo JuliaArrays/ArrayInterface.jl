@@ -616,6 +616,7 @@ device(A) = device(typeof(A))
 device(::Type) = nothing
 device(::Type{<:Tuple}) = CPUIndex()
 device(::Type{T}) where {T<:Array} = CPUPointer()
+device(::Type{T}) where {T<:BitArray} = CPUPointer()
 device(::Type{T}) where {T<:AbstractArray} = CPUIndex()
 device(::Type{T}) where {T<:PermutedDimsArray} = device(parent_type(T))
 device(::Type{T}) where {T<:Transpose} = device(parent_type(T))
