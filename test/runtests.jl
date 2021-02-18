@@ -683,8 +683,6 @@ end
     @test Base.axes1(Base.Slice(StaticInt(2):4)) === Base.IdentityUnitRange(StaticInt(2):4)
 end
 
-include("static.jl")
-
 @testset "insert/deleteat" begin
     @test @inferred(ArrayInterface.insert([1,2,3], 2, -2)) == [1, -2, 2, 3]
     @test @inferred(ArrayInterface.deleteat([1, 2, 3], 2)) == [1, 3]

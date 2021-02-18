@@ -182,12 +182,12 @@ end
         if invariant_permutation(perm, perm) isa True
             return dimnames(parent_type(T))
         else
-            return eachop(dimnames, parent_type(T), perm)
+            return eachop(dimnames, parent_type(T); iterator=perm)
         end
     end
 end
 function dimnames(::Type{T}) where {T<:SubArray}
-    return eachop(dimnames, parent_type(T), to_parent_dims(T))
+    return eachop(dimnames, parent_type(T); iterator=to_parent_dims(T))
 end
 
 _to_int(x::Integer) = Int(x)
@@ -241,7 +241,7 @@ end
     inds::Tuple
 ) where {N}
 
-    out = eachop(((x, nd, inds), i) -> order_named_inds(x, nd, inds, i), (x, nd, inds), nstatic(Val(N)))
+    out = eachop(order_named_inds, x, nd, inds; iterator=nstatic(Val(N)))
     _order_named_inds_check(out, length(nd))
     return out
 end

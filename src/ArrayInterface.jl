@@ -4,6 +4,9 @@ using IfElse
 using Requires
 using LinearAlgebra
 using SparseArrays
+using Static
+using Static: eachop, eachop_tuple, Zero, One, nstatic, invariant_permutation, permute,
+    _get_tuple, eq, find_first_eq
 using Base.Cartesian
 
 using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray,
@@ -32,7 +35,11 @@ parameterless_type(x::Type) = __parameterless_type(x)
 const VecAdjTrans{T,V<:AbstractVector{T}} = Union{Transpose{T,V},Adjoint{T,V}}
 const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
 
-include("static.jl")
+@inline static_length(a::UnitRange{T}) where {T} = last(a) - first(a) + oneunit(T)
+@inline static_length(x) = Static.maybe_static(known_length, length, x)
+@inline static_first(x) = Static.maybe_static(known_first, first, x)
+@inline static_last(x) = Static.maybe_static(known_last, last, x)
+@inline static_step(x) = Static.maybe_static(known_step, step, x)
 
 """
     parent_type(::Type{T})
@@ -789,6 +796,14 @@ Base.axes(A::AbstractArray2, dim) = ArrayInterface.axes(A, dim)
 
 Base.strides(A::AbstractArray2) = map(Int, ArrayInterface.strides(A))
 Base.strides(A::AbstractArray2, dim) = Int(ArrayInterface.strides(A, dim))
+
+function Base.IndexStyle(::Type{T}) where {T<:AbstractArray2}
+    if parent_type(T) <: T
+        return IndexCartesian()
+    else
+        return IndexStyle(parent_type(T))
+    end
+end
 
 function Base.length(A::AbstractArray2)
     len = known_length(A)

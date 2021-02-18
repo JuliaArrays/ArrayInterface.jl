@@ -31,7 +31,7 @@ argdims(::ArrayStyle, ::Type{T}) where {N,T<:AbstractArray{<:Any,N}} = N
 argdims(::ArrayStyle, ::Type{T}) where {N,T<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = N
 _argdims(s::ArrayStyle, ::Type{I}, i::StaticInt) where {I} = argdims(s, _get_tuple(I, i))
 function argdims(s::ArrayStyle, ::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
-    return eachop(_argdims, s, T, nstatic(Val(N)))
+    return eachop(_argdims, s, T; iterator=nstatic(Val(N)))
 end
 
 """
@@ -183,7 +183,7 @@ can_flatten(::Type{A}, ::Type{T}) where {A,T<:CartesianIndices} = true
 can_flatten(::Type{A}, ::Type{T}) where {A,N,T<:AbstractArray{Bool,N}} = N > 1
 can_flatten(::Type{A}, ::Type{T}) where {A,N,T<:CartesianIndex{N}} = true
 function can_flatten(::Type{A}, ::Type{T}) where {A,N,T<:Tuple{Vararg{Any,N}}}
-    return any(eachop(_can_flat, A, T, nstatic(Val(N))))
+    return any(eachop(_can_flat, A, T; iterator=nstatic(Val(N))))
 end
 function _can_flat(::Type{A}, ::Type{T}, i::StaticInt) where {A,T}
     if can_flatten(A, _get_tuple(T, i)) === true
