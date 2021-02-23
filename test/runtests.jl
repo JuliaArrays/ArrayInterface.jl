@@ -15,7 +15,6 @@ x = @SVector [1,2,3]
 x = @MVector [1,2,3]
 @test ArrayInterface.ismutable(x) == true
 @test ArrayInterface.ismutable(view(x, 1:2)) == true
-@test ArrayInterface.ismutable(1:10) == false
 @test ArrayInterface.ismutable((0.1,1.0)) == false
 @test ArrayInterface.ismutable(Base.ImmutableDict{Symbol,Int64}) == false
 @test ArrayInterface.ismutable((;x=1)) == false
@@ -292,15 +291,31 @@ DummyZeros(dims...) = DummyZeros{Float64}(dims...)
 Base.size(x::DummyZeros) = x.dims
 Base.getindex(::DummyZeros{T}, inds...) where {T} = zero(T)
 
+struct Wrapper{T,N,P<:AbstractArray{T,N}} <: ArrayInterface.AbstractArray2{T,N}
+    parent::P
+end
+ArrayInterface.parent_type(::Type{<:Wrapper{T,N,P}}) where {T,N,P} = P
+Base.parent(x::Wrapper) = x.parent
+ArrayInterface.device(::Type{T}) where {T<:Wrapper} = ArrayInterface.device(parent_type(T))
+
 using OffsetArrays
 @testset "Memory Layout" begin
     x = zeros(100);
     # R = reshape(view(x, 1:100), (10,10));
     # A = zeros(3,4,5);
-    A = reshape(view(x, 1:60), (3,4,5))
+    A = Wrapper(reshape(view(x, 1:60), (3,4,5)))
+    B = A .== 0;
     D1 = view(A, 1:2:3, :, :)  # first dimension is discontiguous
     D2 = view(A, :, 2:2:4, :)  # first dimension is contiguous
+
+    @test @inferred(ArrayInterface.defines_strides(x))
+    @test @inferred(ArrayInterface.defines_strides(A))
+    @test @inferred(ArrayInterface.defines_strides(D1))
+    @test !@inferred(ArrayInterface.defines_strides(view(A, :, [1,2],1)))
+
     @test @inferred(device(A)) === ArrayInterface.CPUPointer()
+    @test @inferred(device(B)) === ArrayInterface.CPUIndex()
+    @test @inferred(device(-1:19)) === ArrayInterface.CPUIndex()
     @test @inferred(device((1,2,3))) === ArrayInterface.CPUIndex()
     @test @inferred(device(PermutedDimsArray(A,(3,1,2)))) === ArrayInterface.CPUPointer()
     @test @inferred(device(view(A, 1, :, 2:4))) === ArrayInterface.CPUPointer()
@@ -319,6 +334,8 @@ using OffsetArrays
     =#
     @test @inferred(contiguous_axis(@SArray(zeros(2,2,2)))) === ArrayInterface.StaticInt(1)
     @test @inferred(contiguous_axis(A)) === ArrayInterface.StaticInt(1)
+    @test @inferred(contiguous_axis(B)) === ArrayInterface.StaticInt(1)
+    @test @inferred(contiguous_axis(-1:19)) === ArrayInterface.StaticInt(1)
     @test @inferred(contiguous_axis(D1)) === ArrayInterface.StaticInt(-1)
     @test @inferred(contiguous_axis(D2)) === ArrayInterface.StaticInt(1)
     @test @inferred(contiguous_axis(PermutedDimsArray(A,(3,1,2)))) === ArrayInterface.StaticInt(2)
@@ -330,12 +347,17 @@ using OffsetArrays
     @test @inferred(contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === ArrayInterface.StaticInt(-1)
     @test @inferred(contiguous_axis(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === ArrayInterface.StaticInt(1)
     @test @inferred(contiguous_axis((3,4))) === StaticInt(1)
-    @test @inferred(contiguous_axis(DummyZeros(3,4))) === nothing
     @test @inferred(contiguous_axis(rand(4)')) === StaticInt(2)
     @test @inferred(contiguous_axis(view(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])', :, 1)')) === StaticInt(-1)
+    @test @inferred(contiguous_axis(DummyZeros(3,4))) === nothing
+    @test @inferred(contiguous_axis(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === nothing
+    @test @inferred(contiguous_axis(view(DummyZeros(3,4), 1, :))) === nothing
+    @test @inferred(contiguous_axis(view(DummyZeros(3,4), 1, :)')) === nothing
 
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@SArray(zeros(2,2,2)))) == (true,false,false)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(A)) == (true,false,false)
+    @test @inferred(ArrayInterface.contiguous_axis_indicator(B)) == (true,false,false)
+    @test @inferred(ArrayInterface.contiguous_axis_indicator(-1:10)) == (true,)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(PermutedDimsArray(A,(3,1,2)))) == (false,true,false)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) == (true,false)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) == (false,true)
@@ -348,6 +370,8 @@ using OffsetArrays
 
     @test @inferred(contiguous_batch_size(@SArray(zeros(2,2,2)))) === ArrayInterface.StaticInt(0)
     @test @inferred(contiguous_batch_size(A)) === ArrayInterface.StaticInt(0)
+    @test @inferred(contiguous_batch_size(B)) === ArrayInterface.StaticInt(0)
+    @test @inferred(contiguous_batch_size(-1:18)) === ArrayInterface.StaticInt(0)
     @test @inferred(contiguous_batch_size(PermutedDimsArray(A,(3,1,2)))) === ArrayInterface.StaticInt(0)
     @test @inferred(contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) === ArrayInterface.StaticInt(0)
     @test @inferred(contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) === ArrayInterface.StaticInt(0)
@@ -356,18 +380,24 @@ using OffsetArrays
     @test @inferred(contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === ArrayInterface.StaticInt(-1)
     @test @inferred(contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === ArrayInterface.StaticInt(0)
 
-    @test @inferred(stride_rank(@SArray(zeros(2,2,2)))) == ((1, 2, 3))
-    @test @inferred(stride_rank(A)) == ((1,2,3))
-    @test @inferred(stride_rank(PermutedDimsArray(A,(3,1,2)))) == ((3, 1, 2))
-    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) == ((1, 2))
-    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) == ((2, 1))
-    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:]))) == ((3, 1, 2))
-    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))) == ((3, 2))
-    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) == ((2, 3))
-    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) == ((1, 3))
-    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,2,1])')) == ((2, 1))
-    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,[1,3,4]]))) == ((3, 1, 2))
-
+    @test @inferred(stride_rank(@SArray(zeros(2,2,2)))) == (1, 2, 3)
+    @test @inferred(stride_rank(A)) == (1,2,3)
+    @test @inferred(stride_rank(B)) == (1,2,3)
+    @test @inferred(stride_rank(-4:4)) == (1,)
+    @test @inferred(stride_rank(view(A,:,:,1))) === (static(1), static(2))
+    @test @inferred(stride_rank(view(A,:,:,1))) === ((ArrayInterface.StaticInt(1),ArrayInterface.StaticInt(2)))
+    @test @inferred(stride_rank(PermutedDimsArray(A,(3,1,2)))) == (3, 1, 2)
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) == (1, 2)
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) == (2, 1)
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:]))) == (3, 1, 2)
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))) == (3, 2)
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) == (2, 3)
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) == (1, 3)
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,2,1])')) == (2, 1)
+    @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,[1,3,4]]))) == (3, 1, 2)
+    @test @inferred(stride_rank(DummyZeros(3,4)')) === nothing
+    @test @inferred(stride_rank(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === nothing
+    @test @inferred(stride_rank(view(DummyZeros(3,4), 1, :))) === nothing
     #=
     @btime ArrayInterface.is_column_major($(PermutedDimsArray(A,(3,1,2))))
       0.047 ns (0 allocations: 0 bytes)
@@ -382,6 +412,8 @@ using OffsetArrays
 
     @test @inferred(ArrayInterface.is_column_major(@SArray(zeros(2,2,2)))) === True()
     @test @inferred(ArrayInterface.is_column_major(A)) === True()
+    @test @inferred(ArrayInterface.is_column_major(B)) === True()
+    @test @inferred(ArrayInterface.is_column_major(-4:7)) === False()
     @test @inferred(ArrayInterface.is_column_major(PermutedDimsArray(A,(3,1,2)))) === False()
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) === True()
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) === False()
@@ -390,25 +422,36 @@ using OffsetArrays
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === True()
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === True()
     @test @inferred(ArrayInterface.is_column_major(@view(PermutedDimsArray(A,(3,1,2))[:,2,1])')) === False()
-    @test @inferred(ArrayInterface.is_column_major(1:10)) === False()
     @test @inferred(ArrayInterface.is_column_major(2.3)) === False()
 
-    @test @inferred(dense_dims(@SArray(zeros(2,2,2)))) == ((true,true,true))
-    @test @inferred(dense_dims(A)) == ((true,true,true))
-    @test @inferred(dense_dims(PermutedDimsArray(A,(3,1,2)))) == ((true,true,true))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) == ((true,false))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) == ((false,true))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:]))) == ((false,true,false))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,:,1:2]))) == ((false,true,true))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))) == ((false,false))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) == ((false,false))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) == ((true,false))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,:,[1,2]]))) == ((false,true,false))
-    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,[1,2,3],:]))) == ((false,false,false))
+    @test @inferred(dense_dims(@SArray(zeros(2,2,2)))) == (true,true,true)
+    @test @inferred(dense_dims(A)) == (true,true,true)
+    @test @inferred(dense_dims(B)) == (true,true,true)
+    @test @inferred(dense_dims(-3:9)) == (true,)
+    @test @inferred(dense_dims(PermutedDimsArray(A,(3,1,2)))) == (true,true,true)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:]))) == (true,false)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2,1:2,:])')) == (false,true)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:]))) == (false,true,false)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,:,1:2]))) == (false,true,true)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))) == (false,false)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) == (false,false)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) == (true,false)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,:,[1,2]]))) == (false,true,false)
+    @test @inferred(dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,[1,2,3],:]))) == (false,false,false)
+    # TODO Currently Wrapper can't function the same as Array because Array can change
+    # the dimensions on reshape. We should be rewrapping the result in `Wrapper` but we
+    # first need to develop a standard method for reconstructing arrays
+    @test @inferred(dense_dims(vec(parent(A)))) == (true,)
+    @test @inferred(dense_dims(vec(parent(A))')) == (true,true)
+    @test @inferred(dense_dims(DummyZeros(3,4))) === nothing
+    @test @inferred(dense_dims(DummyZeros(3,4)')) === nothing
+    @test @inferred(dense_dims(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === nothing
+    @test @inferred(dense_dims(view(DummyZeros(3,4), :, 1))) === nothing
+    @test @inferred(dense_dims(view(DummyZeros(3,4), :, 1)')) === nothing
 
-    B = Array{Int8}(undef, 2,2,2,2);
-    doubleperm = PermutedDimsArray(PermutedDimsArray(B,(4,2,3,1)), (4,2,1,3));
-    @test collect(strides(B))[collect(stride_rank(doubleperm))] == collect(strides(doubleperm))
+    C = Array{Int8}(undef, 2,2,2,2);
+    doubleperm = PermutedDimsArray(PermutedDimsArray(C,(4,2,3,1)), (4,2,1,3));
+    @test collect(strides(C))[collect(stride_rank(doubleperm))] == collect(strides(doubleperm))
 
     @test @inferred(ArrayInterface.indices(OffsetArray(view(PermutedDimsArray(A, (3,1,2)), 1, :, 2:4)', 3, -173),1)) === Base.Slice(ArrayInterface.OptionallyStaticUnitRange(4,6))
     @test @inferred(ArrayInterface.indices(OffsetArray(view(PermutedDimsArray(A, (3,1,2)), 1, :, 2:4)', 3, -173),2)) === Base.Slice(ArrayInterface.OptionallyStaticUnitRange(-172,-170))
@@ -422,7 +465,7 @@ end
     Mp2 = @view(PermutedDimsArray(M,(3,1,2))[2:3,:,2])';
     D = @view(A[:,2:2:4,:])
     R = StaticInt(1):StaticInt(2)
-    Rr = reinterpret(Int32, R)
+    Rnr = reinterpret(Int32, R)
     Ar = reinterpret(Float32, A)
 
     sv5 = @SVector(zeros(5)); v5 = Vector{Float64}(undef, 5);
@@ -433,19 +476,21 @@ end
     @test @inferred(ArrayInterface.size(A)) === size(A)
     @test @inferred(ArrayInterface.size(Ap)) === size(Ap)
     @test @inferred(ArrayInterface.size(R)) === (StaticInt(2),)
-    @test @inferred(ArrayInterface.size(Rr)) === (StaticInt(4),)
-    @test @inferred(ArrayInterface.known_length(Rr)) === 4
+    @test @inferred(ArrayInterface.size(Rnr)) === (StaticInt(4),)
+    @test @inferred(ArrayInterface.known_length(Rnr)) === 4
 
     @test @inferred(ArrayInterface.size(S)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(Sp)) === (2, 2, StaticInt(3))
     @test @inferred(ArrayInterface.size(Sp2)) === (2, StaticInt(3), StaticInt(2))
     @test @inferred(ArrayInterface.size(S)) == size(S)
     @test @inferred(ArrayInterface.size(Sp)) == size(Sp)
+    @test @inferred(ArrayInterface.size(parent(Sp2))) === (static(4), static(3), static(2))
     @test @inferred(ArrayInterface.size(Sp2)) == size(Sp2)
     @test @inferred(ArrayInterface.size(Sp2, StaticInt(1))) === 2
     @test @inferred(ArrayInterface.size(Sp2, StaticInt(2))) === StaticInt(3)
     @test @inferred(ArrayInterface.size(Sp2, StaticInt(3))) === StaticInt(2)
-    
+    @test @inferred(ArrayInterface.size(Wrapper(Sp2), StaticInt(3))) === StaticInt(2)
+
     @test @inferred(ArrayInterface.size(M)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(Mp)) === (StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(Mp2)) === (StaticInt(2), 2)
@@ -456,17 +501,24 @@ end
 
     @test @inferred(ArrayInterface.known_size(A)) === (nothing, nothing, nothing)
     @test @inferred(ArrayInterface.known_size(Ap)) === (nothing,nothing)
+    @test @inferred(ArrayInterface.known_size(Wrapper(Ap))) === (nothing,nothing)
     @test @inferred(ArrayInterface.known_size(R)) === (2,)
-    @test @inferred(ArrayInterface.known_size(Rr)) === (4,)
+    @test @inferred(ArrayInterface.known_size(Wrapper(R))) === (2,)
+    @test @inferred(ArrayInterface.known_size(Rnr)) === (4,)
+    @test @inferred(ArrayInterface.known_size(Rnr, static(1))) === 4
     @test @inferred(ArrayInterface.known_size(Ar)) === (nothing,nothing, nothing,)
+    @test @inferred(ArrayInterface.known_size(Ar, static(1))) === nothing
+    @test @inferred(ArrayInterface.known_size(Ar, static(4))) === 1
 
     @test @inferred(ArrayInterface.known_size(S)) === (2, 3, 4)
+    @test @inferred(ArrayInterface.known_size(Wrapper(S))) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(Sp)) === (nothing, nothing, 3)
+    @test @inferred(ArrayInterface.known_size(Wrapper(Sp))) === (nothing, nothing, 3)
     @test @inferred(ArrayInterface.known_size(Sp2)) === (nothing, 3, 2)
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(1))) === nothing
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(2))) === 3
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(3))) === 2
-    
+
     @test @inferred(ArrayInterface.known_size(M)) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(Mp)) === (3, 4)
     @test @inferred(ArrayInterface.known_size(Mp2)) === (2, nothing)
@@ -492,6 +544,7 @@ end
     @test @inferred(ArrayInterface.strides(M)) == strides(M)
     @test @inferred(ArrayInterface.strides(Mp)) == strides(Mp)
     @test @inferred(ArrayInterface.strides(Mp2)) == strides(Mp2)
+    @test_throws MethodError ArrayInterface.strides(DummyZeros(3,4))
 
     @test @inferred(ArrayInterface.known_strides(A)) === (1, nothing, nothing)
     @test @inferred(ArrayInterface.known_strides(Ap)) === (1, nothing)
@@ -504,6 +557,7 @@ end
     @test @inferred(ArrayInterface.known_strides(Sp2, StaticInt(1))) === 6
     @test @inferred(ArrayInterface.known_strides(Sp2, StaticInt(2))) === 2
     @test @inferred(ArrayInterface.known_strides(Sp2, StaticInt(3))) === 1
+    @test @inferred(ArrayInterface.known_strides(Sp2, StaticInt(4))) === ArrayInterface.known_length(Sp2)
     @test @inferred(ArrayInterface.known_strides(view(Sp2, :, 1, 1)')) === (6, 6)
 
     @test @inferred(ArrayInterface.known_strides(M)) === (1, 2, 6)
@@ -517,7 +571,7 @@ end
     @test @inferred(ArrayInterface.offsets(S)) === (StaticInt(1), StaticInt(1), StaticInt(1))
     @test @inferred(ArrayInterface.offsets(Sp)) === (StaticInt(1), StaticInt(1), StaticInt(1))
     @test @inferred(ArrayInterface.offsets(Sp2)) === (StaticInt(1), StaticInt(1), StaticInt(1))
-    
+
     @test @inferred(ArrayInterface.offsets(M)) === (StaticInt(1), StaticInt(1), StaticInt(1))
     @test @inferred(ArrayInterface.offsets(Mp)) === (StaticInt(1), StaticInt(1))
     @test @inferred(ArrayInterface.offsets(Mp2)) === (StaticInt(1), StaticInt(1))
@@ -525,6 +579,8 @@ end
     @test @inferred(ArrayInterface.known_offsets(A)) === (1, 1, 1)
     @test @inferred(ArrayInterface.known_offsets(Ap)) === (1, 1)
     @test @inferred(ArrayInterface.known_offsets(Ar)) === (1, 1, 1)
+    @test @inferred(ArrayInterface.known_offsets(Ar, static(1))) === 1
+    @test @inferred(ArrayInterface.known_offsets(Ar, static(4))) === 1
 
     @test @inferred(ArrayInterface.known_offsets(S)) === (1, 1, 1)
     @test @inferred(ArrayInterface.known_offsets(Sp)) === (1, 1, 1)
@@ -535,7 +591,7 @@ end
     @test @inferred(ArrayInterface.known_offsets(Mp2)) === (1, 1)
 
     @test @inferred(ArrayInterface.known_offsets(R)) === (1,)
-    @test @inferred(ArrayInterface.known_offsets(Rr)) === (1,)
+    @test @inferred(ArrayInterface.known_offsets(Rnr)) === (1,)
     @test @inferred(ArrayInterface.known_offsets(1:10)) === (1,)
 
     O = OffsetArray(A, 3, 7, 10);
@@ -544,6 +600,22 @@ end
     @test @inferred(ArrayInterface.offsets(Op)) === (11, 4, 8)
 
     @test @inferred(ArrayInterface.offsets((1,2,3))) === (StaticInt(1),)
+
+    if VERSION ≥ v"1.6.0-DEV.1581"
+        colors = [(R = rand(), G = rand(), B = rand()) for i ∈ 1:100];
+
+        colormat = reinterpret(reshape, Float64, colors)
+        @test @inferred(ArrayInterface.strides(colormat)) === (StaticInt(1), StaticInt(3))
+
+        Rr = reinterpret(reshape, Int32, R)
+        @test @inferred(ArrayInterface.size(Rr)) === (StaticInt(2),StaticInt(2))
+        @test @inferred(ArrayInterface.known_size(Rr)) === (2, 2)
+
+        Sr = Wrapper(reinterpret(reshape, Complex{Int64}, S))
+        @test @inferred(ArrayInterface.size(Sr)) == (static(3), static(4))
+        @test @inferred(ArrayInterface.known_size(Sr)) === (3, 4)
+        @test @inferred(ArrayInterface.strides(Sr)) === (static(1), static(3))
+    end
 end
 
 @test ArrayInterface.can_avx(ArrayInterface.can_avx) == false
@@ -562,7 +634,7 @@ end
     @test ArrayInterface.known_length((1,)) == 1
     @test ArrayInterface.known_length((a=1,b=2)) == 2
     @test ArrayInterface.known_length([]) == nothing
-    
+
     x = view(SArray{Tuple{3,3,3}}(ones(3,3,3)), :, SOneTo(2), 2)
     @test @inferred(ArrayInterface.known_length(x)) == 6
     @test @inferred(ArrayInterface.known_length(x')) == 6
