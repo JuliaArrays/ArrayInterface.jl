@@ -3,22 +3,16 @@
 ## Simple Array Wrapper
 
 ```julia
-struct Wrapper{T,N,P<:AbstractArray{T,N}} <: AbstractArray{T,N}
+using ArrayInterface
+using ArrayInterface: defines_strides, parent_type
+
+struct Wrapper{T,N,P<:AbstractArray{T,N}} <: ArrayInterface.AbstractArray2{T,N}
     parent::P
 end
 
 ArrayInterface.parent_type(::Type{<:Wrapper{T,N,P}}) where {T,N,P} = P
 Base.parent(x::Wrapper) = x.parent
 
-function Base.getindex(x::Wrapper, args...; kwargs...)
-    return ArrayInterface.getindex(x, args...; kwargs...)
-end
-
-function Base.setindex!(x::Wrapper, val, args...; kwargs...)
-    return ArrayInterface.setindex!(x, val, args...; kwargs...)
-end
-
+ArrayInterface.defines_strides(::Type{T}) where {T<:Wrapper} = defines_strides(parent_type(T))
 ```
-
-
 

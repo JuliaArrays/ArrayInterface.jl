@@ -38,9 +38,44 @@ For example, all `Integers` passed to `to_dims` are converted to an `Int` (unles
 This is also useful for arrays that uniquely label dimensions, in which case `to_dims` serves as a safe point of hooking into existing methods with dimension arguments.
 `ArrayInterface` also defines `Symbol` to `Int` mapping natively for arrays defining [`ArrayInterface.dimnames`](@ref).
 
+### Dimension-wise Methods
+
+Most methods accepting dimension specific arguments can reliably use the following pattern.
+
+```julia
+f(x, dim) = g(x, ArrayInterface.to_dims(x, dim))
+```
+
+If `x` has a dimension named `:dim_1` then calling `f(x, :dim_1)` would result in `g(x, 1)`.
+If users knew they always wanted to call `f(x, 2)` then they could define `h(x) = f(x, static(2))`, ensuring `g` passes along that information while compiling.
+This also helps if `x` defines its own custom dimension name types.
+For example...
+
+```julia
+
+struct FooBarMatrix{T}
+    parent::Matrix{T}
+end
+
+abstract type FooBar end
+
+struct Foo <: FooBar end
+
+struct Bar <: FooBar end
+
+ArrayInterface.dimnames(::Type{T}) where {T<:FooBarMatrix} = (Foo(), Bar())
+
+function ArrayInterface.to_dims(::Type{T}, x::FooBar) where {T<:FooBarMatrix}
+    return findfirst(==(x), dimnames(T))
+end
+```
+
+
+
+### Mapping Dimensions
+
 We typically assume that if an n-dimensional array wraps another array the mapping between dimensions is invariant.
 This assumption is violated if dimensions are permuted, added, or dropped.
 [`ArrayInterface.to_parent_dims`](@ref) and [`ArrayInterface.from_parent_dims`](@ref) provide a common interface for mapping between dimensions.
-
 
 
