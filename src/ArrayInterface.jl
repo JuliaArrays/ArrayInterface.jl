@@ -5,8 +5,8 @@ using Requires
 using LinearAlgebra
 using SparseArrays
 using Static
-using Static: eachop, eachop_tuple, Zero, One, nstatic, invariant_permutation, permute,
-    _get_tuple, eq, find_first_eq
+using Static: Zero, One, nstatic, _get_tuple, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
+    find_first_eq, permute, invariant_permutation
 using Base.Cartesian
 
 using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray,
