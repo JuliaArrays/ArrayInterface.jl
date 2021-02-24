@@ -631,9 +631,8 @@ Otherwise, returns `nothing`.
 device(A) = device(typeof(A))
 device(::Type) = nothing
 device(::Type{<:Tuple}) = CPUIndex()
-device(::Type{T}) where {T<:DenseArray} = CPUPointer()
+device(::Type{T}) where {T<:Array} = CPUPointer()
 device(::Type{T}) where {T<:AbstractArray} = _device(has_parent(T), T)
-_device(::False, ::Type{T}) where {T} = CPUIndex()
 function _device(::True, ::Type{T}) where {T}
     if defines_strides(T)
         return device(parent_type(T))
@@ -643,6 +642,8 @@ function _device(::True, ::Type{T}) where {T}
 end
 _not_pointer(::CPUPointer) = CPUIndex()
 _not_pointer(x) = x
+_device(::False, ::Type{T}) where {T<:DenseArray} = CPUPointer()
+_device(::False, ::Type{T}) where {T} = CPUIndex()
 
 """
     defines_strides(::Type{T}) -> Bool
