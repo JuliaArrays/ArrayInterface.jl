@@ -631,7 +631,7 @@ Otherwise, returns `nothing`.
 device(A) = device(typeof(A))
 device(::Type) = nothing
 device(::Type{<:Tuple}) = CPUIndex()
-device(::Type{T}) where {T<:Array} = CPUPointer()
+device(::Type{T}) where {T<:DenseArray} = CPUPointer()
 device(::Type{T}) where {T<:AbstractArray} = _device(has_parent(T), T)
 _device(::False, ::Type{T}) where {T} = CPUIndex()
 function _device(::True, ::Type{T}) where {T}
