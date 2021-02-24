@@ -35,6 +35,8 @@ function axes_types(::Type{T}) where {T}
         return axes_types(parent_type(T))
     end
 end
+axes_types(::Type{LinearIndices{N,R}}) where {N,R} = R
+axes_types(::Type{CartesianIndices{N,R}}) where {N,R} = R
 function axes_types(::Type{T}) where {T<:VecAdjTrans}
     return Tuple{OptionallyStaticUnitRange{One,One},axes_types(parent_type(T), One())}
 end
