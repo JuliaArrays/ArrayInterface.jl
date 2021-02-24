@@ -417,11 +417,8 @@ while still producing correct behavior when using valid cartesian indices, such 
 @inline strides(A::Vector{<:Any}) = (StaticInt(1),)
 @inline strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
 function strides(x)
-    if defines_strides(x)
-        return size_to_strides(size(x), One())
-    else
-        return Base.strides(x)
-    end
+    defines_strides(x) || _stride_error(x)
+    return size_to_strides(size(x), One())
 end
 #@inline strides(A) = _strides(A, Base.strides(A), contiguous_axis(A))
 

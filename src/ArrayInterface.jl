@@ -59,6 +59,15 @@ parent_type(::Type{T}) where {T} = T
 parent_type(::Type{R}) where {S,T,A,N,R<:Base.ReinterpretArray{T,N,S,A}} = A
 
 """
+    has_parent(::Type{T}) -> StaticBool
+
+Returns `True` if `parent_type(T)` a type unique to `T`.
+"""
+has_parent(::Type{T}) where {T} = _has_parent(parent_type(T), T)
+_has_parent(::Type{T}, ::Type{T}) where {T} = False()
+_has_parent(::Type{T1}, ::Type{T2}) where {T1,T2} = True()
+
+"""
     known_length(::Type{T})
 
 If `length` of an instance of type `T` is known at compile time, return it.
@@ -623,13 +632,9 @@ device(A) = device(typeof(A))
 device(::Type) = nothing
 device(::Type{<:Tuple}) = CPUIndex()
 device(::Type{T}) where {T<:Array} = CPUPointer()
-device(::Type{T}) where {T<:AbstractArray} = CPUIndex()
-device(::Type{T}) where {T<:PermutedDimsArray} = device(parent_type(T))
-device(::Type{T}) where {T<:Transpose} = device(parent_type(T))
-device(::Type{T}) where {T<:Adjoint} = device(parent_type(T))
-device(::Type{T}) where {T<:ReinterpretArray} = device(parent_type(T))
-device(::Type{T}) where {T<:ReshapedArray} = device(parent_type(T))
-function device(::Type{T}) where {T<:SubArray}
+device(::Type{T}) where {T<:AbstractArray} = _device(has_parent(T), T)
+_device(::False, ::Type{T}) where {T} = CPUIndex()
+function _device(::True, ::Type{T}) where {T}
     if defines_strides(T)
         return device(parent_type(T))
     else
@@ -642,7 +647,8 @@ _not_pointer(x) = x
 """
     defines_strides(::Type{T}) -> Bool
 
-Is strides(::T) defined?
+Is strides(::T) defined? It is assumed that types returning `true` also return a valid
+pointer on `pointer(::T)`.
 """
 defines_strides(x) = defines_strides(typeof(x))
 function defines_strides(::Type{T}) where {T}
