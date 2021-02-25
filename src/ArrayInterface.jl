@@ -801,7 +801,10 @@ Base.size(A::AbstractArray2, dim) = Int(ArrayInterface.size(A, dim))
 Base.axes(A::AbstractArray2) = ArrayInterface.axes(A)
 Base.axes(A::AbstractArray2, dim) = ArrayInterface.axes(A, dim)
 
-Base.strides(A::AbstractArray2) = map(Int, ArrayInterface.strides(A))
+function Base.strides(A::AbstractArray2)
+    defines_strides(A) || throw(MethodError(Base.strides, (A,)))
+    return map(Int, ArrayInterface.strides(A))
+end
 Base.strides(A::AbstractArray2, dim) = Int(ArrayInterface.strides(A, dim))
 
 function Base.IndexStyle(::Type{T}) where {T<:AbstractArray2}
