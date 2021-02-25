@@ -149,6 +149,9 @@ end
     @test strides(x, :x) == ArrayInterface.strides(parent(x))[1]
     @test @inferred(ArrayInterface.axes_types(x, static(:x))) <: Base.OneTo{Int}
     @test ArrayInterface.axes_types(x, :x) <: Base.OneTo{Int}
+    @test @inferred(ArrayInterface.axes_types(LinearIndices{2,NTuple{2,Base.OneTo{Int}}})) <: NTuple{2,Base.OneTo{Int}}
+    CI = CartesianIndices{2,Tuple{Base.OneTo{Int},UnitRange{Int}}}
+    @test @inferred(ArrayInterface.axes_types(CI, static(1))) <: Base.OneTo{Int}
 
     x[x = 1] = [2, 3]
     @test @inferred(getindex(x, x = 1)) == [2, 3]

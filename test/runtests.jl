@@ -298,6 +298,9 @@ ArrayInterface.parent_type(::Type{<:Wrapper{T,N,P}}) where {T,N,P} = P
 Base.parent(x::Wrapper) = x.parent
 ArrayInterface.device(::Type{T}) where {T<:Wrapper} = ArrayInterface.device(parent_type(T))
 
+struct DenseWrapper{T,N,P<:AbstractArray{T,N}} <: DenseArray{T,N} end
+ArrayInterface.parent_type(::Type{DenseWrapper{T,N,P}}) where {T,N,P} = P
+
 using OffsetArrays
 @testset "Memory Layout" begin
     x = zeros(100);
@@ -312,6 +315,7 @@ using OffsetArrays
     @test @inferred(ArrayInterface.defines_strides(A))
     @test @inferred(ArrayInterface.defines_strides(D1))
     @test !@inferred(ArrayInterface.defines_strides(view(A, :, [1,2],1)))
+    @test @inferred(ArrayInterface.defines_strides(DenseWrapper{Int,2,Matrix{Int}}))
 
     @test @inferred(device(A)) === ArrayInterface.CPUPointer()
     @test @inferred(device(B)) === ArrayInterface.CPUIndex()
@@ -327,6 +331,7 @@ using OffsetArrays
     @test @inferred(device(OffsetArray(@view(@SArray(zeros(2,2,2))[1,1:2,:]),-3,4))) === ArrayInterface.CPUIndex()
     @test @inferred(device(OffsetArray(@MArray(zeros(2,2,2)),8,-2,-5))) === ArrayInterface.CPUPointer()
     @test isnothing(device("Hello, world!"))
+    @test @inferred(device(DenseWrapper{Int,2,Matrix{Int}})) === ArrayInterface.CPUPointer()
 
     #=
     @btime ArrayInterface.contiguous_axis($(reshape(view(zeros(100), 1:60), (3,4,5))))
@@ -682,8 +687,6 @@ end
     @test Base.axes1(ArrayInterface.indices(ones(2,2))) === StaticInt(1):4
     @test Base.axes1(Base.Slice(StaticInt(2):4)) === Base.IdentityUnitRange(StaticInt(2):4)
 end
-
-include("static.jl")
 
 @testset "insert/deleteat" begin
     @test @inferred(ArrayInterface.insert([1,2,3], 2, -2)) == [1, -2, 2, 3]

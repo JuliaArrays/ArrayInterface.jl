@@ -4,6 +4,9 @@ using IfElse
 using Requires
 using LinearAlgebra
 using SparseArrays
+using Static
+using Static: Zero, One, nstatic, _get_tuple, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
+    find_first_eq, permute, invariant_permutation
 using Base.Cartesian
 
 using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray,
@@ -32,7 +35,11 @@ parameterless_type(x::Type) = __parameterless_type(x)
 const VecAdjTrans{T,V<:AbstractVector{T}} = Union{Transpose{T,V},Adjoint{T,V}}
 const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
 
-include("static.jl")
+@inline static_length(a::UnitRange{T}) where {T} = last(a) - first(a) + oneunit(T)
+@inline static_length(x) = Static.maybe_static(known_length, length, x)
+@inline static_first(x) = Static.maybe_static(known_first, first, x)
+@inline static_last(x) = Static.maybe_static(known_last, last, x)
+@inline static_step(x) = Static.maybe_static(known_step, step, x)
 
 """
     parent_type(::Type{T})
@@ -50,6 +57,15 @@ parent_type(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A} = A
 parent_type(::Type{Slice{T}}) where {T} = T
 parent_type(::Type{T}) where {T} = T
 parent_type(::Type{R}) where {S,T,A,N,R<:Base.ReinterpretArray{T,N,S,A}} = A
+
+"""
+    has_parent(::Type{T}) -> StaticBool
+
+Returns `True` if `parent_type(T)` a type unique to `T`.
+"""
+has_parent(::Type{T}) where {T} = _has_parent(parent_type(T), T)
+_has_parent(::Type{T}, ::Type{T}) where {T} = False()
+_has_parent(::Type{T1}, ::Type{T2}) where {T1,T2} = True()
 
 """
     known_length(::Type{T})
@@ -616,13 +632,8 @@ device(A) = device(typeof(A))
 device(::Type) = nothing
 device(::Type{<:Tuple}) = CPUIndex()
 device(::Type{T}) where {T<:Array} = CPUPointer()
-device(::Type{T}) where {T<:AbstractArray} = CPUIndex()
-device(::Type{T}) where {T<:PermutedDimsArray} = device(parent_type(T))
-device(::Type{T}) where {T<:Transpose} = device(parent_type(T))
-device(::Type{T}) where {T<:Adjoint} = device(parent_type(T))
-device(::Type{T}) where {T<:ReinterpretArray} = device(parent_type(T))
-device(::Type{T}) where {T<:ReshapedArray} = device(parent_type(T))
-function device(::Type{T}) where {T<:SubArray}
+device(::Type{T}) where {T<:AbstractArray} = _device(has_parent(T), T)
+function _device(::True, ::Type{T}) where {T}
     if defines_strides(T)
         return device(parent_type(T))
     else
@@ -631,11 +642,14 @@ function device(::Type{T}) where {T<:SubArray}
 end
 _not_pointer(::CPUPointer) = CPUIndex()
 _not_pointer(x) = x
+_device(::False, ::Type{T}) where {T<:DenseArray} = CPUPointer()
+_device(::False, ::Type{T}) where {T} = CPUIndex()
 
 """
     defines_strides(::Type{T}) -> Bool
 
-Is strides(::T) defined?
+Is strides(::T) defined? It is assumed that types returning `true` also return a valid
+pointer on `pointer(::T)`.
 """
 defines_strides(x) = defines_strides(typeof(x))
 function defines_strides(::Type{T}) where {T}
@@ -787,8 +801,19 @@ Base.size(A::AbstractArray2, dim) = Int(ArrayInterface.size(A, dim))
 Base.axes(A::AbstractArray2) = ArrayInterface.axes(A)
 Base.axes(A::AbstractArray2, dim) = ArrayInterface.axes(A, dim)
 
-Base.strides(A::AbstractArray2) = map(Int, ArrayInterface.strides(A))
+function Base.strides(A::AbstractArray2)
+    defines_strides(A) || throw(MethodError(Base.strides, (A,)))
+    return map(Int, ArrayInterface.strides(A))
+end
 Base.strides(A::AbstractArray2, dim) = Int(ArrayInterface.strides(A, dim))
+
+function Base.IndexStyle(::Type{T}) where {T<:AbstractArray2}
+    if parent_type(T) <: T
+        return IndexCartesian()
+    else
+        return IndexStyle(parent_type(T))
+    end
+end
 
 function Base.length(A::AbstractArray2)
     len = known_length(A)

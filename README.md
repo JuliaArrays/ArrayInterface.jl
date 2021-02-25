@@ -208,18 +208,6 @@ For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1)
 
 Is the function `f` whitelisted for `LoopVectorization.@avx`?
 
-## static(x)
-Returns a static form of `x`. If `x` is already in a static form then `x` is returned. If
-there is no static alternative for `x` then an error is thrown.
-
-## StaticInt(N::Int)
-
-Creates a static integer with value known at compile time. It is a number,
-supporting basic arithmetic. Many operations with two `StaticInt` integers
-will produce another `StaticInt` integer. If one of the arguments to a
-function call isn't static (e.g., `StaticInt(4) + 3`), then the `StaticInt`
-number will promote to a dynamic value.
-
 # List of things to add
 
 - https://github.com/JuliaLang/julia/issues/22216
