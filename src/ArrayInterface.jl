@@ -666,7 +666,7 @@ end
 defines_strides(::Type{<:BitArray}) = true
 
 """
-can_avx(f)
+    can_avx(f)
 
 Returns `true` if the function `f` is guaranteed to be compatible with
 `LoopVectorization.@avx` for supported element and array types. While a return
@@ -1071,7 +1071,6 @@ function __init__()
     @require OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881" begin
         size(A::OffsetArrays.OffsetArray) = size(parent(A))
         strides(A::OffsetArrays.OffsetArray) = strides(parent(A))
-        # offsets(A::OffsetArrays.OffsetArray) = map(+, A.offsets, offsets(parent(A)))
         function parent_type(
             ::Type{O},
         ) where {T,N,A<:AbstractArray{T,N},O<:OffsetArrays.OffsetArray{T,N,A}}
@@ -1084,8 +1083,16 @@ function __init__()
         function contiguous_batch_size(::Type{A}) where {A<:OffsetArrays.OffsetArray}
             return contiguous_batch_size(parent_type(A))
         end
-        stride_rank(::Type{A}) where {A<:OffsetArrays.OffsetArray} =
-            stride_rank(parent_type(A))
+
+        function _offset_axis_type(::Type{T}, dim::StaticInt{D}) where {T,D}
+            return OffsetArrays.IdOffsetRange{Int,ArrayInterface.axes_types(T, dim)}
+        end
+        function ArrayInterface.axes_types(::Type{T}) where {T<:OffsetArrays.OffsetArray}
+            return Static.eachop_tuple(_offset_axis_type, Static.nstatic(Val(ndims(T))), ArrayInterface.parent_type(T))
+        end
+        function stride_rank(::Type{A}) where {A<:OffsetArrays.OffsetArray}
+            return stride_rank(parent_type(A))
+        end
         ArrayInterface.axes(A::OffsetArrays.OffsetArray) = Base.axes(A)
         ArrayInterface.axes(A::OffsetArrays.OffsetArray, dim::Integer) = Base.axes(A, dim)
         function ArrayInterface.device(::Type{T}) where {T<:OffsetArrays.OffsetArray}

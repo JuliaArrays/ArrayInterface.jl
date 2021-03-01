@@ -9,7 +9,7 @@ stride_preserving_index(::Type{T}) where {T<:AbstractRange} = True()
 stride_preserving_index(::Type{T}) where {T<:Int} = True()
 stride_preserving_index(::Type{T}) where {T} = False()
 function stride_preserving_index(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
-    if all(eachop(_stride_preserving_index, T; iterator=nstatic(Val(N))))
+    if all(eachop(_stride_preserving_index, nstatic(Val(N)),T))
         return True()
     else
         return False()
@@ -18,18 +18,6 @@ end
 function _stride_preserving_index(::Type{T}, i::StaticInt) where {T}
     return stride_preserving_index(_get_tuple(T, i))
 end
-
-"""
-    offsets(A[, dim]) -> Tuple
-
-Returns offsets of indices with respect to 0. If values are known at compile time,
-it should return them as `Static` numbers.
-For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1))`.
-"""
-@inline offsets(x, i) = static_first(indices(x, i))
-# Explicit tuple needed for inference.
-offsets(x) = eachop(offsets, x; iterator=nstatic(Val(ndims(x))))
-offsets(::Tuple) = (One(),)
 
 """
     contiguous_axis(::Type{T}) -> StaticInt{N}
@@ -346,9 +334,29 @@ end
 
 known_offsets(x) = known_offsets(typeof(x))
 function known_offsets(::Type{T}) where {T}
-    return eachop(_known_offsets, axes_types(T); iterator=nstatic(Val(ndims(T))))
+    return eachop(_known_offsets, nstatic(Val(ndims(T))), axes_types(T))
 end
 _known_offsets(::Type{T}, dim::StaticInt) where {T} = known_first(_get_tuple(T, dim))
+
+"""
+    offsets(A[, dim]) -> Tuple
+
+Returns offsets of indices with respect to 0. If values are known at compile time,
+it should return them as `Static` numbers.
+For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1))`.
+"""
+@inline offsets(x, i) = static_first(indices(x, i))
+# Explicit tuple needed for inference.
+offsets(::Tuple) = (One(),)
+offsets(x) = eachop(_offsets, nstatic(Val(ndims(x))), x)
+function _offsets(x::X, dim::StaticInt{D}) where {X,D}
+    start = known_first(axes_types(X, dim))
+    if start === nothing
+        return first(axes(x, dim))
+    else
+        return static(start)
+    end
+end
 
 """
     known_strides(::Type{T}[, dim]) -> Tuple
@@ -433,7 +441,7 @@ end
 
 getmul(x::Tuple, y::Tuple, ::StaticInt{i}) where {i} = getfield(x, i) * getfield(y, i)
 function strides(A::SubArray)
-    return eachop(getmul, map(maybe_static_step, A.indices), strides(parent(A)); iterator=to_parent_dims(A))
+    return eachop(getmul, to_parent_dims(A), map(maybe_static_step, A.indices), strides(parent(A)))
 end
 
 maybe_static_step(x::AbstractRange) = static_step(x)

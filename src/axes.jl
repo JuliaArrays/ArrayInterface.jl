@@ -41,10 +41,10 @@ function axes_types(::Type{T}) where {T<:VecAdjTrans}
     return Tuple{OptionallyStaticUnitRange{One,One},axes_types(parent_type(T), One())}
 end
 function axes_types(::Type{T}) where {T<:MatAdjTrans}
-    return eachop_tuple(_get_tuple, axes_types(parent_type(T)); iterator=to_parent_dims(T))
+    return eachop_tuple(_get_tuple, to_parent_dims(T), axes_types(parent_type(T)))
 end
 function axes_types(::Type{T}) where {T<:PermutedDimsArray}
-    return eachop_tuple(_get_tuple, axes_types(parent_type(T)); iterator=to_parent_dims(T))
+    return eachop_tuple(_get_tuple, to_parent_dims(T), axes_types(parent_type(T)))
 end
 function axes_types(::Type{T}) where {T<:AbstractRange}
     if known_length(T) === nothing
@@ -61,7 +61,7 @@ _int_or_static_int(::Nothing) = Int
 _int_or_static_int(x::Int) = StaticInt{x}
 
 @inline function axes_types(::Type{T}) where {N,P,I,T<:SubArray{<:Any,N,P,I}}
-    return eachop_tuple(_sub_axis_type, T; iterator=to_parent_dims(T))
+    return eachop_tuple(_sub_axis_type, to_parent_dims(T), T)
 end
 @inline function _sub_axis_type(::Type{A}, dim::StaticInt) where {T,N,P,I,A<:SubArray{T,N,P,I}}
     return OptionallyStaticUnitRange{
@@ -75,12 +75,12 @@ function axes_types(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
         if sizeof(S) === sizeof(T)
             return axes_types(A)
         elseif sizeof(S) > sizeof(T)
-            return eachop_tuple(_reshaped_axis_type, R; iterator=to_parent_dims(R))
+            return eachop_tuple(_reshaped_axis_type, to_parent_dims(R), R)
         else
-            return eachop_tuple(axes_types, A; iterator=to_parent_dims(R))
+            return eachop_tuple(axes_types, to_parent_dims(R), A)
         end
     else
-        return eachop_tuple(_non_reshaped_axis_type, R; iterator=to_parent_dims(R))
+        return eachop_tuple(_non_reshaped_axis_type, to_parent_dims(R), R)
     end
 end
 

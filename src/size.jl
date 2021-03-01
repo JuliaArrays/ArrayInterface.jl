@@ -22,7 +22,7 @@ function size(a::A) where {A}
 end
 #size(a::AbstractVector) = (size(a, One()),)
 
-size(x::SubArray) = eachop(_sub_size, x.indices; iterator=to_parent_dims(x))
+size(x::SubArray) = eachop(_sub_size, to_parent_dims(x), x.indices)
 _sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = static_length(getfield(x, dim))
 
 @inline size(B::VecAdjTrans) = (One(), length(parent(B)))
@@ -81,7 +81,7 @@ Returns the size of each dimension for `T` known at compile time. If a dimension
 have a known size along a dimension then `nothing` is returned in its position.
 """
 known_size(x) = known_size(typeof(x))
-known_size(::Type{T}) where {T} = eachop(known_size, T; iterator=nstatic(Val(ndims(T))))
+known_size(::Type{T}) where {T} = eachop(known_size, nstatic(Val(ndims(T))), T)
 
 """
     known_size(::Type{T}, dim)
