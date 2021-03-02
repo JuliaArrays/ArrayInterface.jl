@@ -666,7 +666,7 @@ end
 defines_strides(::Type{<:BitArray}) = true
 
 """
-    can_avx(f)
+    can_avx(f) -> Bool
 
 Returns `true` if the function `f` is guaranteed to be compatible with
 `LoopVectorization.@avx` for supported element and array types. While a return
