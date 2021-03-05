@@ -615,6 +615,7 @@ end
 abstract type AbstractDevice end
 abstract type AbstractCPU <: AbstractDevice end
 struct CPUPointer <: AbstractCPU end
+struct CPUTuple <: AbstractCPU end
 struct CheckParent end
 struct CPUIndex <: AbstractCPU end
 struct GPU <: AbstractDevice end
@@ -630,7 +631,7 @@ Otherwise, returns `nothing`.
 """
 device(A) = device(typeof(A))
 device(::Type) = nothing
-device(::Type{<:Tuple}) = CPUIndex()
+device(::Type{<:Tuple}) = CPUTuple()
 device(::Type{T}) where {T<:Array} = CPUPointer()
 device(::Type{T}) where {T<:AbstractArray} = _device(has_parent(T), T)
 function _device(::True, ::Type{T}) where {T}
@@ -880,6 +881,7 @@ function __init__()
         known_length(::Type{A}) where {A <: StaticArrays.StaticArray} = known_length(StaticArrays.Length(A))
 
         device(::Type{<:StaticArrays.MArray}) = CPUPointer()
+        device(::Type{<:StaticArrays.SArray}) = CPUTuple()
         contiguous_axis(::Type{<:StaticArrays.StaticArray}) = StaticInt{1}()
         contiguous_batch_size(::Type{<:StaticArrays.StaticArray}) = StaticInt{0}()
         function stride_rank(::Type{T}) where {N,T<:StaticArrays.StaticArray{<:Any,<:Any,N}}
