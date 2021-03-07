@@ -281,19 +281,20 @@ to_index(::MyIndexStyle, axis, arg) = ...
 ```
 """
 @propagate_inbounds to_index(axis, arg) = to_index(IndexStyle(axis), axis, arg)
-to_index(axis, arg::CartesianIndices{0}) = arg
+
 # Colons get converted to slices by `indices`
-to_index(::IndexStyle, axis, ::Colon) = indices(axis)
-@propagate_inbounds function to_index(::IndexStyle, axis, arg::Integer)
+to_index(::IndexLinear, axis, arg::Colon) = indices(axis)
+to_index(::IndexLinear, axis, arg::CartesianIndices{0}) = arg
+@propagate_inbounds function to_index(::IndexLinear, axis, arg::Integer)
     @boundscheck checkbounds(axis, arg)
     return Int(arg)
 end
-@propagate_inbounds function to_index(::IndexStyle, axis, arg::AbstractArray{Bool})
+@propagate_inbounds function to_index(::IndexLinear, axis, arg::AbstractArray{Bool})
     @boundscheck checkbounds(axis, arg)
     return @inbounds(axis[arg])
 end
 @propagate_inbounds function to_index(
-    ::IndexStyle,
+    ::IndexLinear,
     axis,
     arg::AbstractArray{I},
 ) where {I<:Integer}
@@ -303,7 +304,7 @@ end
     return arg
 end
 @propagate_inbounds function to_index(
-    ::IndexStyle,
+    ::IndexLinear,
     axis,
     arg::AbstractRange{I},
 ) where {I<:Integer}
@@ -312,8 +313,9 @@ end
     end
     return arg
 end
-function to_index(S::IndexStyle, axis, arg::Any)
-    throw(ArgumentError("invalid index: IndexStyle $S does not support indices of type $(typeof(arg))."))
+function to_index(s, axis, arg)
+    throw(ArgumentError("invalid index: IndexStyle $s does not support indices of " *
+                        "type $(typeof(arg)) for axis of type $(typeof(axis))."))
 end
 
 """
