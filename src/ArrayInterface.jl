@@ -792,6 +792,7 @@ include("dimensions.jl")
 include("axes.jl")
 include("size.jl")
 include("stridelayout.jl")
+include("broadcast.jl")
 
 
 abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
