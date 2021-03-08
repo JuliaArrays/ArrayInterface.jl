@@ -45,11 +45,13 @@ end
     @test @inferred(ArrayInterface.to_index(axis, 1:2)) === 1:2
     @test @inferred(ArrayInterface.to_index(axis, [1, 2])) == [1, 2]
     @test @inferred(ArrayInterface.to_index(axis, [true, false, false])) == [1]
+    @test @inferred(ArrayInterface.to_index(axis, CartesianIndices(()))) === CartesianIndices(())
 
     @test_throws BoundsError ArrayInterface.to_index(axis, 4)
     @test_throws BoundsError ArrayInterface.to_index(axis, 1:4)
     @test_throws BoundsError ArrayInterface.to_index(axis, [1, 2, 5])
     @test_throws BoundsError ArrayInterface.to_index(axis, [true, false, false, true])
+    @test_throws ArgumentError ArrayInterface.to_index(axis, error)
 end
 
 @testset "unsafe_reconstruct" begin
