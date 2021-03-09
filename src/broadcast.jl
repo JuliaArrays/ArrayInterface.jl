@@ -32,7 +32,7 @@ broadcast_axis(::BroadcastAxisDefault, x, y) = _broadcast_axis(BroadcastAxis(y),
 function _broadcast_axis(::BroadcastAxisDefault, x, y)
     return One():_combine_length(static_length(x), static_length(y))
 end
-_broadcast_axis(s::BroadcastAxis, x, y) = broadcasted_axis(s, x, y)
+_broadcast_axis(s::BroadcastAxis, x, y) = broadcast_axis(s, x, y)
 
 # we can use a similar trick as we do with `indices` where unequal sizes error and we just
 # keep the static value. However, axes can be unequal if one of them is `1` so we have to

@@ -14,6 +14,7 @@ ArrayInterface.BroadcastAxis(::Type{DummyAxis}) = DummyBroadcast()
 
 ArrayInterface.broadcast_axis(::DummyBroadcast, x, y) = y
 
+@inferred(ArrayInterface.broadcast_axis(s1, s1)) === s1
 @inferred(ArrayInterface.broadcast_axis(s5, s5)) === s5
 @inferred(ArrayInterface.broadcast_axis(s5, s1)) === s5
 @inferred(ArrayInterface.broadcast_axis(s1, s5)) === s5
@@ -23,7 +24,7 @@ ArrayInterface.broadcast_axis(::DummyBroadcast, x, y) = y
 @inferred(ArrayInterface.broadcast_axis(d1, d5)) === d5
 @inferred(ArrayInterface.broadcast_axis(s1, d5)) === d5
 @inferred(ArrayInterface.broadcast_axis(d5, s1)) === d5
-@inferred(ArrayInterface.broadcast_axis(DummyAxis(), s5)) === s5
+@inferred(ArrayInterface.broadcast_axis(s5, DummyAxis())) === s5
 
 @test_throws DimensionMismatch ArrayInterface.broadcast_axis(s5, s4)
 
