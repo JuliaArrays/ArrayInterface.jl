@@ -284,6 +284,12 @@ end
 function dense_dims(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
     return _dense_dims(S, dense_dims(A), Val(stride_rank(A)))
 end
+if VERSION ≥ v"1.6.0-DEV.1581"
+    @inline function dense_dims(::Type{A}) where {NB, NA, B <: AbstractArray{<:Any,NB},A<: Base.ReinterpretArray{<:Any, NA, <:Any, B, true}}
+        ddb = dense_dims(B)
+        IfElse.ifelse(Static.le(StaticInt(NB), StaticInt(NA)), (True(), ddb...), Base.tail(ddb))                      
+    end
+end
 
 _dense_dims(::Type{S}, ::Nothing, ::Val{R}) where {R,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}} = nothing
 @generated function _dense_dims(
