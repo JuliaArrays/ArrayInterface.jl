@@ -726,3 +726,8 @@ end
 include("indexing.jl")
 include("dimensions.jl")
 
+@testset "broadcast" begin
+    include("broadcast.jl")
+end
+
+
