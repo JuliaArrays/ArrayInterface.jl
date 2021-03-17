@@ -468,10 +468,10 @@ end
     M = @MArray zeros(2,3,4); Mp = @view(PermutedDimsArray(M,(3,1,2))[:,2,:])';
     Sp2 = @view(PermutedDimsArray(S,(3,2,1))[2:3,:,:]);
     Mp2 = @view(PermutedDimsArray(M,(3,1,2))[2:3,:,2])';
-    D = @view(A[:,2:2:4,:])
-    R = StaticInt(1):StaticInt(2)
-    Rnr = reinterpret(Int32, R)
-    Ar = reinterpret(Float32, A)
+    D = @view(A[:,2:2:4,:]);
+    R = StaticInt(1):StaticInt(2);
+    Rnr = reinterpret(Int32, R);
+    Ar = reinterpret(Float32, A);
 
     sv5 = @SVector(zeros(5)); v5 = Vector{Float64}(undef, 5);
     @test @inferred(ArrayInterface.size(sv5)) === (StaticInt(5),)
@@ -611,15 +611,25 @@ end
 
         colormat = reinterpret(reshape, Float64, colors)
         @test @inferred(ArrayInterface.strides(colormat)) === (StaticInt(1), StaticInt(3))
-
+        @test @inferred(ArrayInterface.dense_dims(colormat)) === (True(),True())
+        @test @inferred(ArrayInterface.dense_dims(view(colormat,:,4))) === (True(),) 
+        @test @inferred(ArrayInterface.dense_dims(view(colormat,:,4:7))) === (True(),True())
+        @test @inferred(ArrayInterface.dense_dims(view(colormat,2:3,:))) === (True(),False())
+        
         Rr = reinterpret(reshape, Int32, R)
         @test @inferred(ArrayInterface.size(Rr)) === (StaticInt(2),StaticInt(2))
         @test @inferred(ArrayInterface.known_size(Rr)) === (2, 2)
 
+        
         Sr = Wrapper(reinterpret(reshape, Complex{Int64}, S))
         @test @inferred(ArrayInterface.size(Sr)) == (static(3), static(4))
         @test @inferred(ArrayInterface.known_size(Sr)) === (3, 4)
         @test @inferred(ArrayInterface.strides(Sr)) === (static(1), static(3))
+        Sr2 = reinterpret(reshape, Complex{Int64}, S);
+        @test @inferred(ArrayInterface.dense_dims(Sr2)) === (True(),True())
+        @test @inferred(ArrayInterface.dense_dims(view(Sr2,:,2))) === (True(),)
+        @test @inferred(ArrayInterface.dense_dims(view(Sr2,:,2:3))) === (True(),True())
+        @test @inferred(ArrayInterface.dense_dims(view(Sr2,2:3,:))) === (True(),False())
     end
 end
 
