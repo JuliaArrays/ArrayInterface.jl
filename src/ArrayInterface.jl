@@ -10,8 +10,14 @@ using Static: Zero, One, nstatic, _get_tuple, eq, ne, gt, ge, lt, le, eachop, ea
 using Base.Cartesian
 
 using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray,
-    ReshapedArray
+    ReshapedArray, AbstractCartesianIndex
 
+
+## utilites for internal use only ##
+_int_or_static_int(::Nothing) = Int
+_int_or_static_int(x::Int) = StaticInt{x}
+_int(i::Integer) = Int(i)
+_int(i::StaticInt) = i
 
 @static if VERSION >= v"1.7.0-DEV.421"
     using Base: @aggressive_constprop
@@ -20,6 +26,8 @@ else
         ex
     end
 end
+
+static_ndims(x) = static(ndims(x))
 
 if VERSION ≥ v"1.6.0-DEV.1581"
     _is_reshaped(::Type{ReinterpretArray{T,N,S,A,true}}) where {T,N,S,A} = true
@@ -34,12 +42,20 @@ parameterless_type(x::Type) = __parameterless_type(x)
 
 const VecAdjTrans{T,V<:AbstractVector{T}} = Union{Transpose{T,V},Adjoint{T,V}}
 const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
+const UpTri{T,M} = Union{UpperTriangular{T,M},UnitUpperTriangular{T,M}}
+const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
+const Diag{T,V} = Union{Diagonal{T,V},Bidiagonal{T,V},Tridiagonal{T,V},SymTridiagonal{T,V}}
 
 @inline static_length(a::UnitRange{T}) where {T} = last(a) - first(a) + oneunit(T)
 @inline static_length(x) = Static.maybe_static(known_length, length, x)
 @inline static_first(x) = Static.maybe_static(known_first, first, x)
 @inline static_last(x) = Static.maybe_static(known_last, last, x)
 @inline static_step(x) = Static.maybe_static(known_step, step, x)
+
+abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
+
+
+include("layouts.jl")
 
 """
     parent_type(::Type{T})
@@ -57,12 +73,17 @@ parent_type(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A} = A
 parent_type(::Type{Slice{T}}) where {T} = T
 parent_type(::Type{T}) where {T} = T
 parent_type(::Type{R}) where {S,T,A,N,R<:Base.ReinterpretArray{T,N,S,A}} = A
+parent_type(::Type{LoTri{T,M}}) where {T,M} = M
+parent_type(::Type{UpTri{T,M}}) where {T,M} = M
+parent_type(::Type{Diag{T,V}}) where {T,V} = V
+parent_type(::Type{DiagonalIndices{P}}) where {P} = P
 
 """
     has_parent(::Type{T}) -> StaticBool
 
 Returns `True` if `parent_type(T)` a type unique to `T`.
 """
+has_parent(x) = has_parent(typeof(x))
 has_parent(::Type{T}) where {T} = _has_parent(parent_type(T), T)
 _has_parent(::Type{T}, ::Type{T}) where {T} = False()
 _has_parent(::Type{T1}, ::Type{T2}) where {T1,T2} = True()
@@ -786,17 +807,6 @@ end
     end
 end
 
-include("ranges.jl")
-include("indexing.jl")
-include("dimensions.jl")
-include("axes.jl")
-include("size.jl")
-include("stridelayout.jl")
-include("broadcast.jl")
-
-
-abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
-
 Base.size(A::AbstractArray2) = map(Int, ArrayInterface.size(A))
 Base.size(A::AbstractArray2, dim) = Int(ArrayInterface.size(A, dim))
 
@@ -835,6 +845,14 @@ end
 @propagate_inbounds function Base.setindex!(A::AbstractArray2, val; kwargs...)
     return setindex!(A, val; kwargs...)
 end
+
+include("ranges.jl")
+include("indexing.jl")
+include("dimensions.jl")
+include("axes.jl")
+include("size.jl")
+include("stridelayout.jl")
+include("broadcast.jl")
 
 function __init__()
 

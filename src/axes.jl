@@ -57,9 +57,6 @@ function axes_types(::Type{T}) where {N,T<:Base.ReshapedArray{<:Any,N}}
     return Tuple{Vararg{OptionallyStaticUnitRange{One,Int},N}}
 end
 
-_int_or_static_int(::Nothing) = Int
-_int_or_static_int(x::Int) = StaticInt{x}
-
 @inline function axes_types(::Type{T}) where {N,P,I,T<:SubArray{<:Any,N,P,I}}
     return eachop_tuple(_sub_axis_type, to_parent_dims(T), T)
 end
@@ -126,6 +123,8 @@ similar_type(::Type{OptionallyStaticUnitRange{One,StaticInt{N1}}}, ::Type{Int}, 
 Return a valid range that maps to each index along dimension `d` of `A`.
 """
 axes(a, dim) = axes(a, to_dims(a, dim))
+axes(a, dims::Tuple) = (axes(a, first(dims)), axes(a, tail(dims))...)
+axes(a, ::Tuple{}) = ()
 function axes(a::A, dim::Integer) where {A}
     if parent_type(A) <: A
         return Base.axes(a, Int(dim))
@@ -157,4 +156,6 @@ end
 axes(A::SubArray) = Base.axes(A)  # TODO implement ArrayInterface version
 axes(A::ReinterpretArray) = Base.axes(A)  # TODO implement ArrayInterface version
 axes(A::Base.ReshapedArray) = Base.axes(A)  # TODO implement ArrayInterface version
+axes(A::CartesianIndices) = A.indices
+axes(A::LinearIndices) = A.indices
 

@@ -5,33 +5,13 @@
 
 @btime ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), $((1, [CartesianIndex(1,2), CartesianIndex(1,3)])))
   0.047 ns (0 allocations: 0 bytes)
-
-I = Tuple{
-    CartesianIndices{2, Tuple{Base.OneTo{Int64}, Base.OneTo{Int64}}},
-    Int,
-    Vector{CartesianIndex{3}},
-    AbstractUnitRange,
-    Array{Bool,3},
-    CartesianIndex{3}
-}
-@btime ArrayInterface.can_flatten(Any, $I)
-  0.047 ns (0 allocations: 0 bytes)
-
 =#
-@test @inferred(ArrayInterface.can_flatten(Any, Tuple{
-    CartesianIndices{2, Tuple{Base.OneTo{Int64}, Base.OneTo{Int64}}},
-    Int,
-    Vector{CartesianIndex{3}},
-    AbstractUnitRange,
-    Array{Bool,3},
-    CartesianIndex{3}}))
 
 @testset "argdims" begin
-    static_argdims(x) = Val(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), x))
-    @test @inferred(static_argdims((1, CartesianIndex(1,2)))) === Val((0, 2))
-    @test @inferred(static_argdims((1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === Val((0, 2))
-    @test @inferred(static_argdims((1, CartesianIndex((2,2))))) === Val((0, 2))
-    @test @inferred(static_argdims((CartesianIndex((2,2)), :, :))) === Val((2, 1, 1))
+    @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), (1, CartesianIndex(1,2)))) === static((0, 2))
+    @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), (1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === static((0, 2))
+    @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), (1, CartesianIndex((2,2))))) === static((0, 2))
+    @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), (CartesianIndex((2,2)), :, :))) === static((2, 1, 1))
 end
 
 @testset "UnsafeIndex" begin
@@ -91,8 +71,8 @@ end
     @test @inferred(ArrayInterface.to_indices(a, ([true, true], :))) == (Base.LogicalIndex(Bool[1, 1]), Base.Slice(1:2))
     @test @inferred(ArrayInterface.to_indices(a, (CartesianIndices((1,)), 1))) == (1:1, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, 1, 1))) == (1,1, 1)
-    @test @inferred ArrayInterface.to_indices(a, ([CartesianIndex(1,1,1), CartesianIndex(1,2,1)],)) == (CartesianIndex{3}[CartesianIndex(1, 1, 1), CartesianIndex(1, 2, 1)],)
-    @test @inferred ArrayInterface.to_indices(a, ([CartesianIndex(1,1), CartesianIndex(1,2)],1:1)) == (CartesianIndex{2}[CartesianIndex(1, 1), CartesianIndex(1, 2)], 1:1)
+    @test @inferred(ArrayInterface.to_indices(a, ([CartesianIndex(1,1,1), CartesianIndex(1,2,1)],))) == (CartesianIndex{3}[CartesianIndex(1, 1, 1), CartesianIndex(1, 2, 1)],)
+    @test @inferred(ArrayInterface.to_indices(a, ([CartesianIndex(1,1), CartesianIndex(1,2)],1:1))) == (CartesianIndex{2}[CartesianIndex(1, 1), CartesianIndex(1, 2)], 1:1)
     @test @inferred(first(ArrayInterface.to_indices(a, (fill(true, 2, 2, 1),)))) isa Base.LogicalIndex
 
     @test_throws BoundsError ArrayInterface.to_indices(a, (fill(true, 2, 2, 2),))
@@ -111,7 +91,7 @@ end
     # linear indexing
     @test @inferred(ArrayInterface.to_axes(A, (axis, axis), (inds,))) === (inds,)
     # multidim arg
-    @test @inferred(ArrayInterface.to_axes(A, (axis, axis), (multi_inds,))) === (Base.OneTo(2),)
+    @test @inferred(ArrayInterface.to_axes(A, (axis, axis), (multi_inds,))) === (static(1):2,)
 
     @test ArrayInterface.to_axis(axis, axis) === axis
     @test ArrayInterface.to_axis(axis, ArrayInterface.indices(axis)) === axis
