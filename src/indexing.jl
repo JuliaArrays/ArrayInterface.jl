@@ -253,7 +253,7 @@ end
     @boundscheck checkbounds(x, arg)
     return LogicalIndex{Int}(arg)
 end
-to_index(::IndexCartesian, x, i::Integer) = _int2subs(axes(x), i - static(1))
+to_index(::IndexCartesian, x, i::Integer) = _int2subs(axes(x), i - offset1(x))
 @inline function _int2subs(axs::Tuple{Any,Vararg{Any}}, i)
     axis = first(axs)
     len = static_length(axis)
@@ -386,7 +386,11 @@ unsafe_get_element(A::Array, ::Tuple{}) = Base.arrayref(false, A, 1)
 unsafe_get_element(A::Array, inds) = Base.arrayref(false, A, Int(to_index(A, inds)))
 unsafe_get_element(A::LinearIndices, inds) = Int(to_index(A, inds))
 @inline function unsafe_get_element(A::CartesianIndices, inds)
-    return CartesianIndex(Base._to_subscript_indices(A, inds...))
+    if length(inds) === 1
+        return CartesianIndex(to_index(A, first(inds)))
+    else
+        return CartesianIndex(Base._to_subscript_indices(A, inds...))
+    end
 end
 unsafe_get_element(A::ReshapedArray, inds) = @inbounds(A[inds...])
 unsafe_get_element(A::SubArray, inds) = @inbounds(A[inds...])
