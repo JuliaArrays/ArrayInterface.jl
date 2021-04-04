@@ -44,15 +44,12 @@ const VecAdjTrans{T,V<:AbstractVector{T}} = Union{Transpose{T,V},Adjoint{T,V}}
 const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
 const UpTri{T,M} = Union{UpperTriangular{T,M},UnitUpperTriangular{T,M}}
 const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
-const Diag{T,V} = Union{Diagonal{T,V},Bidiagonal{T,V},Tridiagonal{T,V},SymTridiagonal{T,V}}
 
 @inline static_length(a::UnitRange{T}) where {T} = last(a) - first(a) + oneunit(T)
 @inline static_length(x) = Static.maybe_static(known_length, length, x)
 @inline static_first(x) = Static.maybe_static(known_first, first, x)
 @inline static_last(x) = Static.maybe_static(known_last, last, x)
 @inline static_step(x) = Static.maybe_static(known_step, step, x)
-
-abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
 
 """
     parent_type(::Type{T})
@@ -663,15 +660,6 @@ _device(::False, ::Type{T}) where {T<:DenseArray} = CPUPointer()
 _device(::False, ::Type{T}) where {T} = CPUIndex()
 
 """
-    buffer(x)
-
-Returns the data buffer reference for the values of `x`.
-"""
-refbuffer(x) = _refbuffer(has_parent(x), )
-_refbuffer(::True, x) = refbuffer(parent(x))
-_refbuffer(::False, x) = x
-
-"""
     defines_strides(::Type{T}) -> Bool
 
 Is strides(::T) defined? It is assumed that types returning `true` also return a valid
@@ -810,6 +798,8 @@ end
         return (first(x), unsafe_deleteat(tail(x), i - one(i))...)
     end
 end
+
+abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
 
 Base.size(A::AbstractArray2) = map(Int, ArrayInterface.size(A))
 Base.size(A::AbstractArray2, dim) = Int(ArrayInterface.size(A, dim))
