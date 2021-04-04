@@ -572,13 +572,16 @@ end
 end
 
 """
-    indices(x[, d])
+    indices(x, dim)
 
-Given an array `x`, this returns the indices along dimension `d`. If `x` is a tuple
-of arrays, then the indices corresponding to dimension `d` of all arrays in `x` are
-returned. If any indices are not equal along dimension `d`, an error is thrown. A
-tuple may be used to specify a different dimension for each array. If `d` is not
-specified, then the indices for visiting each index of `x` are returned.
+Given an array `x`, this returns the indices along dimension `dim`.
+"""
+@inline indices(x, d) = indices(axes(x, d))
+
+"""
+    indices(x) -> AbstractUnitRange
+
+Returns valid indices for the entire length of `x`.
 """
 @inline function indices(x)
     inds = eachindex(x)
@@ -590,20 +593,43 @@ specified, then the indices for visiting each index of `x` are returned.
 end
 @inline indices(x::AbstractUnitRange{<:Integer}) = Base.Slice(OptionallyStaticUnitRange(x))
 
+"""
+    indices(x::Tuple) -> AbstractUnitRange
+
+Returns valid indices for the entire length of each array in `x`.
+"""
 @propagate_inbounds function indices(x::Tuple)
     inds = map(eachindex, x)
     return reduce_tup(_pick_range, inds)
 end
 
-@inline indices(x, d) = indices(axes(x, d))
+"""
+    indices(x::Tuple, dim) -> AbstractUnitRange
 
-@propagate_inbounds function indices(x::Tuple{Vararg{Any,N}}, dim) where {N}
+Returns valid indices for each array in `x` along dimension `dim`
+"""
+@propagate_inbounds function indices(x::Tuple, dim)
     inds = map(x_i -> indices(x_i, dim), x)
     return reduce_tup(_pick_range, inds)
 end
 
-@propagate_inbounds function indices(x::Tuple{Vararg{Any,N}}, dim::Tuple{Vararg{Any,N}}) where {N}
+"""
+    indices(x::Tuple, dim::Tuple) -> AbstractUnitRange
+
+Returns valid indices given a tuple of arrays `x` and tuple of dimesions for each
+respective array (`dim`).
+"""
+@propagate_inbounds function indices(x::Tuple, dim::Tuple)
     inds = map(indices, x, dim)
     return reduce_tup(_pick_range, inds)
 end
+
+"""
+    indices(x, dim::Tuple) -> Tuple{Vararg{AbstractUnitRange}}
+
+Returns valid indices for array `x` along each dimension specified in `dim`.
+"""
+@inline indices(x, dims::Tuple) = _indices(x, dims)
+_indices(x, dims::Tuple) = (indices(x, first(dims)), _indices(x, tail(dims))...)
+_indices(x, ::Tuple{}) = ()
 

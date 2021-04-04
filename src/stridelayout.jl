@@ -38,6 +38,14 @@ function _offsets(x::X, dim::StaticInt{D}) where {X,D}
     end
 end
 
+"""
+    offset1(x) -> Integer
+
+Returns the offset of the linear indices for `x`.
+"""
+offset1(x) = _offset1(has_parent(x), x)
+_offset1(::True, x) = offset1(parent(x))
+_offset1(::False, x) = static(1)
 
 """
     contiguous_axis(::Type{T}) -> StaticInt{N}
