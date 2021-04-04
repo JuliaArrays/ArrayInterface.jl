@@ -615,12 +615,11 @@ end
         @test @inferred(ArrayInterface.dense_dims(view(colormat,:,4))) === (True(),) 
         @test @inferred(ArrayInterface.dense_dims(view(colormat,:,4:7))) === (True(),True())
         @test @inferred(ArrayInterface.dense_dims(view(colormat,2:3,:))) === (True(),False())
-        
+
         Rr = reinterpret(reshape, Int32, R)
         @test @inferred(ArrayInterface.size(Rr)) === (StaticInt(2),StaticInt(2))
         @test @inferred(ArrayInterface.known_size(Rr)) === (2, 2)
 
-        
         Sr = Wrapper(reinterpret(reshape, Complex{Int64}, S))
         @test @inferred(ArrayInterface.size(Sr)) == (static(3), static(4))
         @test @inferred(ArrayInterface.known_size(Sr)) === (3, 4)

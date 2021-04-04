@@ -1,4 +1,7 @@
 
+_layout(::IndexLinear, x::Tuple) = LinearIndices(x)
+_layout(::IndexCartesian, x::Tuple) = CartesianIndices(x)
+
 """
     ArrayStyle(::Type{A})
 
@@ -32,6 +35,15 @@ argdims(::ArrayStyle, ::Type{T}) where {N,T<:LogicalIndex{<:Any,<:AbstractArray{
 _argdims(s::ArrayStyle, ::Type{I}, i::StaticInt) where {I} = argdims(s, _get_tuple(I, i))
 function argdims(s::ArrayStyle, ::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
     return eachop(_argdims, nstatic(Val(N)), s, T)
+end
+
+is_element_index(i) = is_element_index(typeof(i))
+is_element_index(::Type{T}) where {T} = static(false)
+is_element_index(::Type{T}) where {T<:AbstractCartesianIndex} = static(true)
+is_element_index(::Type{T}) where {T<:Integer} = static(true)
+_is_element_index(::Type{T}, i::StaticInt) where {T} = is_element_index(_get_tuple(T, i))
+function is_element_index(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
+    return static(all(eachop(_is_element_index, nstatic(Val(N)), T)))
 end
 
 """
@@ -91,6 +103,7 @@ be accomplished using `to_index(axis, arg)`.
         return to_indices(A, axes(A), args)
     end
 end
+
 @propagate_inbounds to_indices(A, args::Tuple{}) = to_indices(A, axes(A), ())
 @propagate_inbounds function to_indices(A, axs::Tuple, args::Tuple{I,Vararg{Any}},) where {I}
     return _to_indices(argdims(A, I), A, axs, args)
@@ -113,7 +126,7 @@ end
     args::Tuple
 )
     return (
-        to_indices(layout(IndexStyle(A), axes_front), axes(arg))...,
+        to_indices(_layout(IndexStyle(A), axes_front), axes(arg))...,
         to_indices(A, axes_tail, args)...,
     )
 end
@@ -125,13 +138,13 @@ end
     args::Tuple
 )
     return (
-        to_indices(layout(IndexStyle(A), axes_front), Tuple(arg))...,
+        to_indices(_layout(IndexStyle(A), axes_front), Tuple(arg))...,
         to_indices(A, axes_tail, args)...,
     )
 end
 
 @propagate_inbounds function _to_multi_indices(A, f::Tuple, l::Tuple, arg, args::Tuple)
-    return (to_index(layout(IndexStyle(A), f), arg), to_indices(A, l, args)...)
+    return (to_index(_layout(IndexStyle(A), f), arg), to_indices(A, l, args)...)
 end
 
 @propagate_inbounds function to_indices(A, axs::Tuple, args::Tuple{})
@@ -158,9 +171,11 @@ to_index(::MyIndexStyle, axis, arg) = ...
 ```
 """
 @propagate_inbounds to_index(axis, arg) = to_index(IndexStyle(axis), axis, arg)
-
-# Colons get converted to slices by `indices`
-to_index(::IndexLinear, axis, arg::Colon) = indices(axis)
+function to_index(s, axis, arg)
+    throw(ArgumentError("invalid index: IndexStyle $s does not support indices of " *
+                        "type $(typeof(arg)) for instances of type $(typeof(axis))."))
+end
+to_index(::IndexLinear, axis, arg::Colon) = indices(axis) # Colons get converted to slices by `indices`
 to_index(::IndexLinear, axis, arg::CartesianIndices{0}) = arg
 to_index(::IndexLinear, axis, arg::CartesianIndices{1}) = axes(arg, 1)
 @propagate_inbounds function to_index(::IndexLinear, axis, arg::AbstractCartesianIndex{1})
@@ -194,6 +209,21 @@ end
     @boundscheck checkindex(Bool, indices(axis), arg) || throw(BoundsError(axis, arg))
     return static_first(arg):static_step(arg):static_last(arg)
 end
+to_index(::IndexLinear, x, inds::Tuple{Any}) = first(inds)
+function to_index(::IndexLinear, x, inds::Tuple{Any,Vararg{Any}})
+    o = offsets(x)
+    s = size(x)
+    return first(inds) + (offset1(x) - first(o)) + _subs2int(first(s), tail(s), tail(o), tail(inds))
+end
+@inline function _subs2int(stride, s::Tuple{Any,Vararg}, o::Tuple{Any,Vararg}, inds::Tuple{Any,Vararg})
+    i = ((first(inds) - first(o)) * stride)
+    return i + _subs2int(stride * first(s), tail(s), tail(o), tail(inds))
+end
+function _subs2int(stride, s::Tuple{Any}, o::Tuple{Any}, inds::Tuple{Any})
+    return (first(inds) - first(o)) * stride
+end
+# trailing inbounds can only be 1 or 1:1
+_subs2int(stride, ::Tuple{}, ::Tuple{}, ::Tuple{Any}) = static(0)
 
 ## IndexCartesian ##
 to_index(::IndexCartesian, x, arg::Colon) = CartesianIndices(x)
@@ -211,8 +241,6 @@ end
     return LogicalIndex(arg)
 end
 
-_multi_check_index(axs::Tuple, arg) = _multi_check_index(axs, axes(arg))
-_multi_check_index(axs::Tuple, arg::LogicalIndex) = axs == axes(arg.mask)
 function _multi_check_index(axs::Tuple, arg::AbstractArray{T}) where {T<:AbstractCartesianIndex}
     b = true
     for i in arg
@@ -220,23 +248,20 @@ function _multi_check_index(axs::Tuple, arg::AbstractArray{T}) where {T<:Abstrac
     end
     return b
 end
-_multi_check_index(::Tuple{}, ::Tuple{}) = true
-function _multi_check_index(axs::Tuple, args::Tuple)
-    if checkindex(Bool, first(axs), first(args))
-        return _multi_check_index(tail(axs), tail(args))
-    else
-        return false
-    end
-end
+
 @propagate_inbounds function to_index(::IndexCartesian, x, arg::Union{Array{Bool}, BitArray})
     @boundscheck checkbounds(x, arg)
     return LogicalIndex{Int}(arg)
 end
-
-function to_index(s, axis, arg)
-    throw(ArgumentError("invalid index: IndexStyle $s does not support indices of " *
-                        "type $(typeof(arg)) for instances of type $(typeof(axis))."))
+to_index(::IndexCartesian, x, i::Integer) = _int2subs(axes(x), i - static(1))
+@inline function _int2subs(axs::Tuple{Any,Vararg{Any}}, i)
+    axis = first(axs)
+    len = static_length(axis)
+    inext = div(i, len)
+    return (_int(i - len * inext + static_first(axis)), _int2subs(tail(axs), inext)...)
 end
+_int2subs(axs::Tuple{Any}, i) = _int(i + static_first(first(axs)))
+
 
 """
     unsafe_reconstruct(A, data; kwargs...)
@@ -294,7 +319,7 @@ end
 @propagate_inbounds function _to_axes(::StaticInt{N}, A, axs::Tuple, inds::Tuple) where {N}
     axes_front, axes_tail = Base.IteratorsMD.split(axs, Val(N))
     return (
-        to_axis(layout(IndexStyle(A), axes_front), first(inds)),
+        to_axis(_layout(IndexStyle(A), axes_front), first(inds)),
         to_axes(A, axes_tail, tail(inds))...
     )
 end
@@ -336,34 +361,15 @@ another instance of `ArrayInterface.getindex` should only be done by overloading
 Changing indexing based on a given argument from `args` should be done through,
 [`to_index`](@ref), or [`to_axis`](@ref).
 """
-@propagate_inbounds getindex(A, args...) = unsafe_getindex(A, to_indices(A, args))
-@propagate_inbounds function getindex(A; kwargs...)
-    if has_dimnames(A)
-        return A[order_named_inds(dimnames(A), kwargs.data)...]
-    else
-        return unsafe_getindex(A, to_indices(A, ()); kwargs...)
-    end
-end
+@propagate_inbounds getindex(A, args...) = unsafe_get_index(A, to_indices(A, args))
+@propagate_inbounds getindex(A; kwargs...) = A[order_named_inds(dimnames(A), kwargs.data)...]
 @propagate_inbounds getindex(x::Tuple, i::Int) = getfield(x, i)
 @propagate_inbounds getindex(x::Tuple, ::StaticInt{i}) where {i} = getfield(x, i)
 
-"""
-    unsafe_getindex(A, inds)
-
-Indexes into `A` given `inds`. This method assumes that `inds` have already been
-bounds-checked.
-"""
-function unsafe_getindex(A, inds)
-    return unsafe_getindex(UnsafeIndex(A, inds), A, inds)
-end
-function unsafe_getindex(::UnsafeGetElement, A, inds)
-    return unsafe_get_element(A, inds)
-end
-function unsafe_getindex(::UnsafeGetCollection, A, inds)
-    return unsafe_get_collection(A, inds)
-end
-
-unsafe_get_element_error(A, inds) = throw(MethodError(unsafe_get_element, (A, inds)))
+## unsafe_get_index ##
+unsafe_get_index(A, inds::Tuple) = _unsafe_get_index(is_element_index(inds), A, inds)
+_unsafe_get_index(::True, A, inds::Tuple) = unsafe_get_element(A, inds)
+_unsafe_get_index(::False, A, inds::Tuple) = unsafe_get_collection(A, inds)
 
 """
     unsafe_get_element(A::AbstractArray{T}, inds::Tuple) -> T
@@ -376,23 +382,16 @@ unsafe_get_element(a::A, inds) where {A} = _unsafe_get_element(has_parent(A), a,
 _unsafe_get_element(::True, a, inds) = unsafe_get_element(parent(a), inds)
 _unsafe_get_element(::False, a, inds) = @inbounds(parent(a)[inds...])
 _unsafe_get_element(::False, a::AbstractArray2, inds) = unsafe_get_element_error(a, inds)
-function unsafe_get_element(A::Array, inds)
-    if length(inds) === 0
-        return Base.arrayref(false, A, 1)
-    elseif inds isa Tuple{Vararg{Int}}
-        return Base.arrayref(false, A, inds...)
-    else
-        throw(MethodError(unsafe_get_element, (A, inds)))
-    end
-end
-@inline function unsafe_get_element(A::LinearIndices, inds)
-    return Int(Base._to_linear_index(A, inds...))
-end
+unsafe_get_element(A::Array, ::Tuple{}) = Base.arrayref(false, A, 1)
+unsafe_get_element(A::Array, inds) = Base.arrayref(false, A, Int(to_index(A, inds)))
+unsafe_get_element(A::LinearIndices, inds) = to_index(A, inds)
 @inline function unsafe_get_element(A::CartesianIndices, inds)
     return CartesianIndex(Base._to_subscript_indices(A, inds...))
 end
 unsafe_get_element(A::ReshapedArray, inds) = @inbounds(A[inds...])
 unsafe_get_element(A::SubArray, inds) = @inbounds(A[inds...])
+
+unsafe_get_element_error(A, inds) = throw(MethodError(unsafe_get_element, (A, inds)))
 
 # This is based on Base._unsafe_getindex from https://github.com/JuliaLang/julia/blob/c5ede45829bf8eb09f2145bfd6f089459d77b2b1/base/multidimensional.jl#L755.
 """
@@ -404,14 +403,14 @@ function unsafe_get_collection(A, inds)
     axs = to_axes(A, inds)
     dest = similar(A, axs)
     if map(Base.unsafe_length, axes(dest)) == map(Base.unsafe_length, axs)
-        _unsafe_getindex!(dest, A, inds...) # usually a generated function, don't allow it to impact inference result
+        _unsafe_get_index!(dest, A, inds...) # usually a generated function, don't allow it to impact inference result
     else
         Base.throw_checksize_error(dest, axs)
     end
     return dest
 end
 
-function _generate_unsafe_getindex!_body(N::Int)
+function _generate_unsafe_get_index!_body(N::Int)
     quote
         Base.@_inline_meta
         D = eachindex(dest)
@@ -427,8 +426,8 @@ function _generate_unsafe_getindex!_body(N::Int)
         return dest
     end
 end
-@generated function _unsafe_getindex!(dest, src, I::Vararg{Any,N}) where {N}
-    return _generate_unsafe_getindex!_body(N)
+@generated function _unsafe_get_index!(dest, src, I::Vararg{Any,N}) where {N}
+    return _generate_unsafe_get_index!_body(N)
 end
 
 _ints2range(x::Integer) = x:x

@@ -54,9 +54,6 @@ const Diag{T,V} = Union{Diagonal{T,V},Bidiagonal{T,V},Tridiagonal{T,V},SymTridia
 
 abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
 
-
-include("layouts.jl")
-
 """
     parent_type(::Type{T})
 
@@ -75,9 +72,7 @@ parent_type(::Type{T}) where {T} = T
 parent_type(::Type{R}) where {S,T,A,N,R<:Base.ReinterpretArray{T,N,S,A}} = A
 parent_type(::Type{LoTri{T,M}}) where {T,M} = M
 parent_type(::Type{UpTri{T,M}}) where {T,M} = M
-parent_type(::Type{Diag{T,V}}) where {T,V} = V
-parent_type(::Type{DiagonalIndices{P}}) where {P} = P
-
+parent_type(::Type{Diagonal{T,V}}) where {T,V} = V
 """
     has_parent(::Type{T}) -> StaticBool
 
@@ -666,6 +661,15 @@ _not_pointer(::CPUPointer) = CPUIndex()
 _not_pointer(x) = x
 _device(::False, ::Type{T}) where {T<:DenseArray} = CPUPointer()
 _device(::False, ::Type{T}) where {T} = CPUIndex()
+
+"""
+    buffer(x)
+
+Returns the data buffer reference for the values of `x`.
+"""
+refbuffer(x) = _refbuffer(has_parent(x), )
+_refbuffer(::True, x) = refbuffer(parent(x))
+_refbuffer(::False, x) = x
 
 """
     defines_strides(::Type{T}) -> Bool

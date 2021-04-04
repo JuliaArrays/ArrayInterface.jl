@@ -141,6 +141,11 @@ end
         @test @inferred(ArrayInterface.getindex(LinearIndices(map(Base.Slice, (0:3,3:5))), i-1, j+2)) == k
         @test @inferred(ArrayInterface.getindex(CartesianIndices(map(Base.Slice, (0:3,3:5))), k)) == CartesianIndex(i-1,j+2)
     end
+
+    x = LinearIndices((static(0):static(3),static(3):static(5),static(-2):static(0)));
+    @test @inferred(ArrayInterface.getindex(x, 0, 3, -2)) === 1
+    @test @inferred(ArrayInterface.getindex(x, static(0), static(3), static(-2))) === static(1)
+
     @test @inferred(ArrayInterface.getindex(linear, linear)) == linear
     @test @inferred(ArrayInterface.getindex(linear, vec(linear))) == vec(linear)
     @test @inferred(ArrayInterface.getindex(linear, cartesian)) == linear
