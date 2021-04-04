@@ -27,6 +27,10 @@ end
     @test @inferred(ArrayInterface.to_index(axis, [true, false, false])) == [1]
     @test @inferred(ArrayInterface.to_index(axis, CartesianIndices(()))) === CartesianIndices(())
 
+    x = LinearIndices((static(0):static(3),static(3):static(5),static(-2):static(0)));
+    @test @inferred(ArrayInterface.to_index(x, (0, 3, -2))) === 1
+    @test @inferred(ArrayInterface.to_index(x, (static(0), static(3), static(-2)))) === static(1)
+
     @test_throws BoundsError ArrayInterface.to_index(axis, 4)
     @test_throws BoundsError ArrayInterface.to_index(axis, 1:4)
     @test_throws BoundsError ArrayInterface.to_index(axis, [1, 2, 5])
@@ -144,7 +148,7 @@ end
 
     x = LinearIndices((static(0):static(3),static(3):static(5),static(-2):static(0)));
     @test @inferred(ArrayInterface.getindex(x, 0, 3, -2)) === 1
-    @test @inferred(ArrayInterface.getindex(x, static(0), static(3), static(-2))) === static(1)
+    @test @inferred(ArrayInterface.getindex(x, static(0), static(3), static(-2))) === 1
 
     @test @inferred(ArrayInterface.getindex(linear, linear)) == linear
     @test @inferred(ArrayInterface.getindex(linear, vec(linear))) == vec(linear)

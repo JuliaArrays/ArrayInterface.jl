@@ -384,7 +384,7 @@ _unsafe_get_element(::False, a, inds) = @inbounds(parent(a)[inds...])
 _unsafe_get_element(::False, a::AbstractArray2, inds) = unsafe_get_element_error(a, inds)
 unsafe_get_element(A::Array, ::Tuple{}) = Base.arrayref(false, A, 1)
 unsafe_get_element(A::Array, inds) = Base.arrayref(false, A, Int(to_index(A, inds)))
-unsafe_get_element(A::LinearIndices, inds) = to_index(A, inds)
+unsafe_get_element(A::LinearIndices, inds) = Int(to_index(A, inds))
 @inline function unsafe_get_element(A::CartesianIndices, inds)
     return CartesianIndex(Base._to_subscript_indices(A, inds...))
 end
