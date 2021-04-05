@@ -460,6 +460,10 @@ using OffsetArrays
 
     @test @inferred(ArrayInterface.indices(OffsetArray(view(PermutedDimsArray(A, (3,1,2)), 1, :, 2:4)', 3, -173),1)) === Base.Slice(ArrayInterface.OptionallyStaticUnitRange(4,6))
     @test @inferred(ArrayInterface.indices(OffsetArray(view(PermutedDimsArray(A, (3,1,2)), 1, :, 2:4)', 3, -173),2)) === Base.Slice(ArrayInterface.OptionallyStaticUnitRange(-172,-170))
+
+    Am = @MMatrix rand(2,10);
+    @test @inferred(ArrayInterface.strides(view(Am,1,:))) === (StaticInt(2),)
+
 end
 
 @testset "Static-Dynamic Size, Strides, and Offsets" begin
