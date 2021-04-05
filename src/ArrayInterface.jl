@@ -926,6 +926,7 @@ function __init__()
             end
             return t
         end
+        @inline strides(B::StaticArrays.SizedArray{S,T,M,N,A}) where {S,T,M,N,A<:SubArray} = strides(B.data)
         if StaticArrays.SizedArray{Tuple{8,8},Float64,2,2} isa UnionAll
             parent_type(::Type{<:StaticArrays.SizedArray{S,T,M,N,A}}) where {S,T,M,N,A} = A
         else
