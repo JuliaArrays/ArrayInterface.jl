@@ -51,6 +51,8 @@ const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
 @inline static_last(x) = Static.maybe_static(known_last, last, x)
 @inline static_step(x) = Static.maybe_static(known_step, step, x)
 
+include("ndindex.jl")
+
 """
     parent_type(::Type{T})
 
@@ -70,6 +72,7 @@ parent_type(::Type{R}) where {S,T,A,N,R<:Base.ReinterpretArray{T,N,S,A}} = A
 parent_type(::Type{LoTri{T,M}}) where {T,M} = M
 parent_type(::Type{UpTri{T,M}}) where {T,M} = M
 parent_type(::Type{Diagonal{T,V}}) where {T,V} = V
+
 """
     has_parent(::Type{T}) -> StaticBool
 

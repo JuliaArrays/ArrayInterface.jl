@@ -25,8 +25,8 @@ argdims(s::ArrayStyle, arg) = argdims(s, typeof(arg))
 argdims(::ArrayStyle, ::Type{T}) where {T} = static(0)
 argdims(::ArrayStyle, ::Type{T}) where {T<:Colon} = static(1)
 argdims(::ArrayStyle, ::Type{T}) where {T<:AbstractArray} = static(ndims(T))
-argdims(::ArrayStyle, ::Type{T}) where {N,T<:CartesianIndex{N}} = static(N)
-argdims(::ArrayStyle, ::Type{T}) where {N,T<:AbstractArray{CartesianIndex{N}}} = static(N)
+argdims(::ArrayStyle, ::Type{T}) where {N,T<:AbstractCartesianIndex{N}} = static(N)
+argdims(::ArrayStyle, ::Type{T}) where {N,T<:AbstractArray{<:AbstractCartesianIndex{N}}} = static(N)
 argdims(::ArrayStyle, ::Type{T}) where {N,T<:AbstractArray{<:Any,N}} = static(N)
 argdims(::ArrayStyle, ::Type{T}) where {N,T<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = static(N)
 _argdims(s::ArrayStyle, ::Type{I}, i::StaticInt) where {I} = argdims(s, _get_tuple(I, i))
@@ -143,36 +143,8 @@ to_index(::IndexLinear, axis, arg::CartesianIndices{1}) = axes(arg, 1)
 @propagate_inbounds function to_index(::IndexLinear, axis, arg::AbstractCartesianIndex{1})
     return to_index(axis, first(Tuple(arg)))
 end
-@propagate_inbounds function to_index(::IndexLinear, x, arg::Union{Array{Bool}, BitArray})
-    @boundscheck checkbounds(x, arg)
-    return LogicalIndex{Int}(arg)
-end
-@propagate_inbounds function to_index(::IndexLinear, x, arg::AbstractArray{<:AbstractCartesianIndex})
-    @boundscheck _multi_check_index(axes(x), arg) || throw(BoundsError(x, arg))
-    return arg
-end
-@propagate_inbounds function to_index(::IndexLinear, x, arg::LogicalIndex)
-    @boundscheck checkbounds(Bool, x, arg) || throw(BoundsError(x, arg))
-    return arg
-end
-@propagate_inbounds function to_index(::IndexLinear, x, arg::Integer)
-    @boundscheck checkindex(Bool, x, arg) || throw(BoundsError(x, arg))
-    return _int(arg)
-end
-@propagate_inbounds function to_index(::IndexLinear, axis, arg::AbstractArray{Bool})
-    @boundscheck checkbounds(axis, arg)
-    return LogicalIndex(arg)
-end
-@propagate_inbounds function to_index(::IndexLinear, x, arg::AbstractArray{<:Integer})
-    @boundscheck checkindex(Bool, x, arg) || throw(BoundsError(x, arg))
-    return arg
-end
-@propagate_inbounds function to_index(::IndexLinear, x, arg::AbstractRange{Integer})
-    @boundscheck checkindex(Bool, indices(axis), arg) || throw(BoundsError(axis, arg))
-    return static_first(arg):static_step(arg):static_last(arg)
-end
-to_index(::IndexLinear, x, inds::Tuple{Any}) = first(inds)
-function to_index(::IndexLinear, x, inds::Tuple{Any,Vararg{Any}})
+function to_index(::IndexLinear, x, arg::AbstractCartesianIndex{N}) where {N}
+    inds = Tuple(arg)
     o = offsets(x)
     s = size(x)
     return first(inds) + (offset1(x) - first(o)) + _subs2int(first(s), tail(s), tail(o), tail(inds))
@@ -187,9 +159,39 @@ end
 # trailing inbounds can only be 1 or 1:1
 _subs2int(stride, ::Tuple{}, ::Tuple{}, ::Tuple{Any}) = static(0)
 
+@propagate_inbounds function to_index(::IndexLinear, x, arg::Union{Array{Bool}, BitArray})
+    @boundscheck checkbounds(x, arg)
+    return LogicalIndex{Int}(arg)
+end
+@propagate_inbounds function to_index(::IndexLinear, x, arg::AbstractArray{<:AbstractCartesianIndex})
+    @boundscheck _multi_check_index(axes(x), arg) || throw(BoundsError(x, arg))
+    return arg
+end
+@propagate_inbounds function to_index(::IndexLinear, x, arg::LogicalIndex)
+    @boundscheck checkbounds(Bool, x, arg) || throw(BoundsError(x, arg))
+    return arg
+end
+@propagate_inbounds function to_index(::IndexLinear, x, arg::Integer)
+    @boundscheck checkindex(Bool, indices(x), arg) || throw(BoundsError(x, arg))
+    return _int(arg)
+end
+@propagate_inbounds function to_index(::IndexLinear, axis, arg::AbstractArray{Bool})
+    @boundscheck checkbounds(axis, arg)
+    return LogicalIndex(arg)
+end
+@propagate_inbounds function to_index(::IndexLinear, x, arg::AbstractArray{<:Integer})
+    @boundscheck checkindex(Bool, x, arg) || throw(BoundsError(x, arg))
+    return arg
+end
+@propagate_inbounds function to_index(::IndexLinear, x, arg::AbstractRange{Integer})
+    @boundscheck checkindex(Bool, indices(axis), arg) || throw(BoundsError(axis, arg))
+    return static_first(arg):static_step(arg):static_last(arg)
+end
+
 ## IndexCartesian ##
 to_index(::IndexCartesian, x, arg::Colon) = CartesianIndices(x)
 to_index(::IndexCartesian, x, arg::CartesianIndices{0}) = arg
+to_index(::IndexCartesian, x, arg::AbstractCartesianIndex) = arg
 function to_index(::IndexCartesian, x, arg)
     @boundscheck _multi_check_index(axes(x), arg) || throw(BoundsError(x, arg))
     return arg
@@ -215,7 +217,7 @@ end
     @boundscheck checkbounds(x, arg)
     return LogicalIndex{Int}(arg)
 end
-to_index(::IndexCartesian, x, i::Integer) = _int2subs(offsets(x), size(x), i - offset1(x))
+to_index(::IndexCartesian, x, i::Integer) = NDIndex(_int2subs(offsets(x), size(x), i - offset1(x)))
 @inline function _int2subs(o::Tuple{Any,Vararg{Any}}, s::Tuple{Any,Vararg{Any}}, i)
     len = first(s)
     inext = div(i, len)
@@ -333,8 +335,11 @@ end
 
 ## unsafe_get_index ##
 unsafe_get_index(A, inds::Tuple) = _unsafe_get_index(_is_element_index(inds), A, inds)
-_unsafe_get_index(::True, A, inds::Tuple) = unsafe_get_element(A, inds)
 _unsafe_get_index(::False, A, inds::Tuple) = unsafe_get_collection(A, inds)
+_unsafe_get_index(::True, A, inds::Tuple) = __unsafe_get_index(A, inds)
+__unsafe_get_index(A, inds::Tuple{}) = unsafe_get_element(A, ())
+__unsafe_get_index(A, inds::Tuple{Any}) = unsafe_get_element(A, first(inds))
+__unsafe_get_index(A, inds::Tuple{Any,Vararg{Any}}) = unsafe_get_element(A, NDIndex(inds))
 
 """
     unsafe_get_element(A::AbstractArray{T}, inds::Tuple) -> T
@@ -345,21 +350,25 @@ must define `unsafe_get_element(::NewArrayType, inds)`.
 """
 unsafe_get_element(a::A, inds) where {A} = _unsafe_get_element(has_parent(A), a, inds)
 _unsafe_get_element(::True, a, inds) = unsafe_get_element(parent(a), inds)
-_unsafe_get_element(::False, a, inds) = @inbounds(parent(a)[inds...])
-_unsafe_get_element(::False, a::AbstractArray2, inds) = unsafe_get_element_error(a, inds)
+_unsafe_get_element(::False, a, inds) = @inbounds(parent(a)[inds])
+_unsafe_get_element(::False, a::AbstractArray2, i) = unsafe_get_element_error(a, i)
+
+## Array ##
 unsafe_get_element(A::Array, ::Tuple{}) = Base.arrayref(false, A, 1)
-unsafe_get_element(A::Array, inds) = Base.arrayref(false, A, Int(to_index(A, inds)))
-unsafe_get_element(A::LinearIndices, inds) = Int(to_index(A, inds))
-@inline function unsafe_get_element(A::CartesianIndices, inds)
-    if length(inds) === 1
-        return CartesianIndex(to_index(A, first(inds)))
-    else
-        return CartesianIndex(Base._to_subscript_indices(A, inds...))
-    end
+unsafe_get_element(A::Array, i::Integer) = Base.arrayref(false, A, Int(i))
+unsafe_get_element(A::Array, i::NDIndex) = unsafe_get_element(A, to_index(A, i))
+
+## LinearIndices ##
+unsafe_get_element(A::LinearIndices, i::Integer) = Int(i)
+unsafe_get_element(A::LinearIndices, i::NDIndex) = unsafe_get_element(A, to_index(A, i))
+
+unsafe_get_element(A::CartesianIndices, i::NDIndex) = CartesianIndex(i)
+unsafe_get_element(A::CartesianIndices, i::Integer) = unsafe_get_element(A, to_index(A, i))
+unsafe_get_element(A::ReshapedArray, i) = @inbounds(A[i])
+unsafe_get_element(A::SubArray, i) = @inbounds(A[i])
+function unsafe_get_element_error(@nospecialize(A), @nospecialize(i))
+    throw(MethodError(unsafe_get_element, (A, i)))
 end
-unsafe_get_element(A::ReshapedArray, inds) = @inbounds(A[inds...])
-unsafe_get_element(A::SubArray, inds) = @inbounds(A[inds...])
-unsafe_get_element_error(A, inds) = throw(MethodError(unsafe_get_element, (A, inds)))
 
 # This is based on Base._unsafe_getindex from https://github.com/JuliaLang/julia/blob/c5ede45829bf8eb09f2145bfd6f089459d77b2b1/base/multidimensional.jl#L755.
 """
@@ -388,7 +397,7 @@ function _generate_unsafe_get_index!_body(N::Int)
             # the optimizer is not clever enough to split the union without it
             Dy === nothing && return dest
             (idx, state) = Dy
-            dest[idx] = unsafe_get_element(src, Base.Cartesian.@ntuple($N, j))
+            dest[idx] = unsafe_get_element(src, NDIndex(Base.Cartesian.@ntuple($N, j)))
             Dy = iterate(D, state)
         end
         return dest
@@ -436,9 +445,17 @@ end
     return unsafe_set_index!(A, val, to_indices(A, order_named_inds(dimnames(A), kwargs.data)))
 end
 
-unsafe_set_index!(A, val, i::Tuple) = _unsafe_set_index!(_is_element_index(i), A, val, i)
-_unsafe_set_index!(::True, A, v, i::Tuple) = unsafe_set_element!(A, v, i)
-_unsafe_set_index!(::False, A, v, i::Tuple) = unsafe_set_collection!(A, v, i)
+unsafe_set_index!(A, v, inds::Tuple) = _unsafe_set_index!(_is_element_index(inds), A, v, inds)
+_unsafe_set_index!(::False, A, v, inds::Tuple) = unsafe_set_collection!(A, v, inds)
+_unsafe_set_index!(::True, A, v, inds::Tuple) = __unsafe_set_index!(A, v, inds)
+__unsafe_set_index!(A, v, inds::Tuple{}) = unsafe_set_element!(A, v, ())
+function __unsafe_set_index!(A, v, inds::Tuple{Any})
+    return unsafe_set_element!(A, v, to_index(A, first(inds)))
+end
+function __unsafe_set_index!(A, v, inds::Tuple{Any,Vararg{Any}})
+    return unsafe_set_element!(A, v, to_index(A, NDIndex(inds)))
+end
+
 
 """
     unsafe_set_element!(A, val, inds::Tuple)
@@ -449,7 +466,8 @@ must define `unsafe_set_element!(::NewArrayType, val, inds)`.
 """
 unsafe_set_element!(a, val, inds) = _unsafe_set_element!(has_parent(a), a, val, inds)
 _unsafe_set_element!(::True, a, val, inds) = unsafe_set_element!(parent(a), val, inds)
-_unsafe_set_element!(::False, a, val,inds) = @inbounds(parent(a)[inds...] = val)
+_unsafe_set_element!(::False, a, val, inds) = @inbounds(parent(a)[inds] = val)
+
 function _unsafe_set_element!(::False, a::AbstractArray2, val, inds)
     unsafe_set_element_error(a, val, inds)
 end
@@ -458,8 +476,8 @@ unsafe_set_element_error(A, v, i) = throw(MethodError(unsafe_set_element!, (A, v
 function unsafe_set_element!(A::Array{T}, val, ::Tuple{}) where {T}
     Base.arrayset(false, A, convert(T, val)::T, 1)
 end
-function unsafe_set_element!(A::Array{T}, val, i::Tuple) where {T}
-    return Base.arrayset(false, A, convert(T, val)::T, Int(to_index(A, i)))
+function unsafe_set_element!(A::Array{T}, val, i::Integer) where {T}
+    return Base.arrayset(false, A, convert(T, val)::T, Int(i))
 end
 
 # This is based on Base._unsafe_setindex!.
@@ -482,7 +500,7 @@ function _generate_unsafe_setindex!_body(N::Int)
             # the optimizer that it does not need to emit error paths
             Xy === nothing && break
             (val, state) = Xy
-            unsafe_set_element!(A, val, Base.Cartesian.@ntuple($N, i))
+            unsafe_set_element!(A, val, NDIndex(Base.Cartesian.@ntuple($N, i)))
             Xy = iterate(x′, state)
         end
         A
