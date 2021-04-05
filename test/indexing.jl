@@ -14,11 +14,6 @@
     @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), (CartesianIndex((2,2)), :, :))) === static((2, 1, 1))
 end
 
-@testset "UnsafeIndex" begin
-    @test @inferred(ArrayInterface.UnsafeIndex(ones(2,2,2), typeof((1,[1,2],1)))) == ArrayInterface.UnsafeGetCollection()
-    @test @inferred(ArrayInterface.UnsafeIndex(ones(2,2,2), typeof((1,1,1)))) == ArrayInterface.UnsafeGetElement() 
-end
-
 @testset "to_index" begin
     axis = 1:3
     @test @inferred(ArrayInterface.to_index(axis, 1)) === 1

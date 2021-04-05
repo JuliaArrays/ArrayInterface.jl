@@ -1,7 +1,4 @@
 
-_layout(::IndexLinear, x::Tuple) = LinearIndices(x)
-_layout(::IndexCartesian, x::Tuple) = CartesianIndices(x)
-
 """
     ArrayStyle(::Type{A})
 
@@ -45,43 +42,8 @@ _is_element_index(::Type{T}, i::StaticInt) where {T} = is_element_index(_get_tup
 function is_element_index(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
     return static(all(eachop(_is_element_index, nstatic(Val(N)), T)))
 end
-
-"""
-    UnsafeIndex(::ArrayStyle, ::Type{I})
-
-`UnsafeIndex` controls how indices that have been bounds checked and converted to
-native axes' indices are used to return the stored values of an array. For example,
-if the indices at each dimension are single integers then `UnsafeIndex(array, inds)` returns
-`UnsafeGetElement()`. Conversely, if any of the indices are vectors then `UnsafeGetCollection()`
-is returned, indicating that a new array needs to be reconstructed. This method permits
-customizing the terminal behavior of the indexing pipeline based on arguments passed
-to `ArrayInterface.getindex`. New subtypes of `UnsafeIndex` should define `promote_rule`.
-"""
-abstract type UnsafeIndex end
-
-struct UnsafeGetElement <: UnsafeIndex end
-
-struct UnsafeGetCollection <: UnsafeIndex end
-
-UnsafeIndex(x, i) = UnsafeIndex(x, typeof(i))
-UnsafeIndex(x, ::Type{I}) where {I} = UnsafeIndex(ArrayStyle(x), I)
-UnsafeIndex(s::ArrayStyle, i) = UnsafeIndex(s, typeof(i))
-UnsafeIndex(::ArrayStyle, ::Type{I}) where {I} = UnsafeGetElement()
-UnsafeIndex(::ArrayStyle, ::Type{I}) where {I<:AbstractArray} = UnsafeGetCollection()
-
-Base.promote_rule(::Type{X}, ::Type{Y}) where {X<:UnsafeIndex,Y<:UnsafeGetElement} = X
-
-@generated function UnsafeIndex(s::ArrayStyle, ::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
-    if N === 0
-        return UnsafeGetElement()
-    else
-        e = Expr(:call, promote_type)
-        for p in T.parameters
-            push!(e.args, :(typeof(ArrayInterface.UnsafeIndex(s, $p))))
-        end
-        return Expr(:block, Expr(:meta, :inline), Expr(:call, e))
-    end
-end
+# empty tuples refer to the single element of 0-dimensional arrays
+is_element_index(::Type{Tuple{}}) = static(true)
 
 # are the indexing arguments provided a linear collection into a multidim collection
 is_linear_indexing(A, args::Tuple{Arg}) where {Arg} = argdims(A, Arg) < 2
@@ -253,15 +215,17 @@ end
     @boundscheck checkbounds(x, arg)
     return LogicalIndex{Int}(arg)
 end
-to_index(::IndexCartesian, x, i::Integer) = _int2subs(axes(x), i - offset1(x))
-@inline function _int2subs(axs::Tuple{Any,Vararg{Any}}, i)
-    axis = first(axs)
-    len = static_length(axis)
-    inext = div(i, len)
-    return (_int(i - len * inext + static_first(axis)), _int2subs(tail(axs), inext)...)
+function to_index(::IndexCartesian, x, i::Integer)
+    o = offsets(x)
+    s = size(x)
+    return _int2subs(o, s, i - offset1(x))
 end
-_int2subs(axs::Tuple{Any}, i) = _int(i + static_first(first(axs)))
-
+@inline function _int2subs(o::Tuple{Any,Vararg{Any}}, s::Tuple{Any,Vararg{Any}}, i)
+    len = first(s)
+    inext = div(i, len)
+    return (_int(i - len * inext + first(o)), _int2subs(tail(o), tail(s), inext)...)
+end
+_int2subs(o::Tuple{Any}, s::Tuple{Any}, i) = _int(i + first(o))
 
 """
     unsafe_reconstruct(A, data; kwargs...)
@@ -353,6 +317,9 @@ end
 end
 to_axis(S::IndexLinear, axis, inds) = StaticInt(1):static_length(inds)
 
+####
+#### getindex
+####
 """
     ArrayInterface.getindex(A, args...)
 
@@ -362,7 +329,9 @@ Changing indexing based on a given argument from `args` should be done through,
 [`to_index`](@ref), or [`to_axis`](@ref).
 """
 @propagate_inbounds getindex(A, args...) = unsafe_get_index(A, to_indices(A, args))
-@propagate_inbounds getindex(A; kwargs...) = A[order_named_inds(dimnames(A), kwargs.data)...]
+@propagate_inbounds function getindex(A; kwargs...)
+    return unsafe_get_index(A, to_indices(A, order_named_inds(dimnames(A), kwargs.data)))
+end
 @propagate_inbounds getindex(x::Tuple, i::Int) = getfield(x, i)
 @propagate_inbounds getindex(x::Tuple, ::StaticInt{i}) where {i} = getfield(x, i)
 
@@ -453,6 +422,9 @@ end
     end
 end
 
+####
+#### setindex!
+####
 """
     ArrayInterface.setindex!(A, args...)
 
@@ -460,30 +432,18 @@ Store the given values at the given key or index within a collection.
 """
 @propagate_inbounds function setindex!(A, val, args...)
     if can_setindex(A)
-        return unsafe_setindex!(A, val, to_indices(A, args))
+        return unsafe_set_index!(A, val, to_indices(A, args))
     else
         error("Instance of type $(typeof(A)) are not mutable and cannot change elements after construction.")
     end
 end
 @propagate_inbounds function setindex!(A, val; kwargs...)
-    if has_dimnames(A)
-        return setindex!(A, val, order_named_inds(dimnames(A), kwargs.data)...)
-    else
-        return unsafe_setindex!(A, val, to_indices(A, ()))
-    end
+    return unsafe_set_index!(A, val, to_indices(A, order_named_inds(dimnames(A), kwargs.data)))
 end
 
-"""
-    unsafe_setindex!(A, val, inds::Tuple)
-
-Sets indices (`inds`) of `A` to `val`. This method assumes that `inds` have already been
-bounds-checked. This step of the processing pipeline can be customized by:
-"""
-unsafe_setindex!(A, val, i::Tuple) = unsafe_setindex!(UnsafeIndex(A, i), A, val, i)
-unsafe_setindex!(::UnsafeGetElement, A, val, i::Tuple) = unsafe_set_element!(A, val, i)
-unsafe_setindex!(::UnsafeGetCollection, A, v, i::Tuple) = unsafe_set_collection!(A, v, i)
-
-unsafe_set_element_error(A, v, i) = throw(MethodError(unsafe_set_element!, (A, v, i)))
+unsafe_set_index!(A, val, i::Tuple) = _unsafe_set_index!(is_element_index(i), A, val, i)
+_unsafe_set_index!(::True, A, v, i::Tuple) = unsafe_set_element!(A, v, i)
+_unsafe_set_index!(::False, A, v, i::Tuple) = unsafe_set_collection!(A, v, i)
 
 """
     unsafe_set_element!(A, val, inds::Tuple)
@@ -498,15 +458,13 @@ _unsafe_set_element!(::False, a, val,inds) = @inbounds(parent(a)[inds...] = val)
 function _unsafe_set_element!(::False, a::AbstractArray2, val, inds)
     unsafe_set_element_error(a, val, inds)
 end
+unsafe_set_element_error(A, v, i) = throw(MethodError(unsafe_set_element!, (A, v, i)))
 
-function unsafe_set_element!(A::Array{T}, val, inds::Tuple) where {T}
-    if length(inds) === 0
-        return Base.arrayset(false, A, convert(T, val)::T, 1)
-    elseif inds isa Tuple{Vararg{Int}}
-        return Base.arrayset(false, A, convert(T, val)::T, inds...)
-    else
-        throw(MethodError(unsafe_set_element!, (A, inds)))
-    end
+function unsafe_set_element!(A::Array{T}, val, ::Tuple{}) where {T}
+    Base.arrayset(false, A, convert(T, val)::T, 1)
+end
+function unsafe_set_element!(A::Array{T}, val, i::Tuple) where {T}
+    return Base.arrayset(false, A, convert(T, val)::T, Int(to_index(A, i)))
 end
 
 # This is based on Base._unsafe_setindex!.
