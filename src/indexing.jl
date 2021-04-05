@@ -34,16 +34,16 @@ function argdims(s::ArrayStyle, ::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
     return eachop(_argdims, nstatic(Val(N)), s, T)
 end
 
-is_element_index(i) = is_element_index(typeof(i))
-is_element_index(::Type{T}) where {T} = static(false)
-is_element_index(::Type{T}) where {T<:AbstractCartesianIndex} = static(true)
-is_element_index(::Type{T}) where {T<:Integer} = static(true)
-_is_element_index(::Type{T}, i::StaticInt) where {T} = is_element_index(_get_tuple(T, i))
-function is_element_index(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
-    return static(all(eachop(_is_element_index, nstatic(Val(N)), T)))
+_is_element_index(i) = _is_element_index(typeof(i))
+_is_element_index(::Type{T}) where {T} = static(false)
+_is_element_index(::Type{T}) where {T<:AbstractCartesianIndex} = static(true)
+_is_element_index(::Type{T}) where {T<:Integer} = static(true)
+__is_element_index(::Type{T}, i::StaticInt) where {T} = _is_element_index(_get_tuple(T, i))
+function _is_element_index(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
+    return static(all(eachop(__is_element_index, nstatic(Val(N)), T)))
 end
 # empty tuples refer to the single element of 0-dimensional arrays
-is_element_index(::Type{Tuple{}}) = static(true)
+_is_element_index(::Type{Tuple{}}) = static(true)
 
 # are the indexing arguments provided a linear collection into a multidim collection
 is_linear_indexing(A, args::Tuple{Arg}) where {Arg} = argdims(A, Arg) < 2
@@ -215,11 +215,7 @@ end
     @boundscheck checkbounds(x, arg)
     return LogicalIndex{Int}(arg)
 end
-function to_index(::IndexCartesian, x, i::Integer)
-    o = offsets(x)
-    s = size(x)
-    return _int2subs(o, s, i - offset1(x))
-end
+to_index(::IndexCartesian, x, i::Integer) = _int2subs(offsets(x), size(x), i - offset1(x))
 @inline function _int2subs(o::Tuple{Any,Vararg{Any}}, s::Tuple{Any,Vararg{Any}}, i)
     len = first(s)
     inext = div(i, len)
@@ -336,7 +332,7 @@ end
 @propagate_inbounds getindex(x::Tuple, ::StaticInt{i}) where {i} = getfield(x, i)
 
 ## unsafe_get_index ##
-unsafe_get_index(A, inds::Tuple) = _unsafe_get_index(is_element_index(inds), A, inds)
+unsafe_get_index(A, inds::Tuple) = _unsafe_get_index(_is_element_index(inds), A, inds)
 _unsafe_get_index(::True, A, inds::Tuple) = unsafe_get_element(A, inds)
 _unsafe_get_index(::False, A, inds::Tuple) = unsafe_get_collection(A, inds)
 
@@ -363,7 +359,6 @@ unsafe_get_element(A::LinearIndices, inds) = Int(to_index(A, inds))
 end
 unsafe_get_element(A::ReshapedArray, inds) = @inbounds(A[inds...])
 unsafe_get_element(A::SubArray, inds) = @inbounds(A[inds...])
-
 unsafe_get_element_error(A, inds) = throw(MethodError(unsafe_get_element, (A, inds)))
 
 # This is based on Base._unsafe_getindex from https://github.com/JuliaLang/julia/blob/c5ede45829bf8eb09f2145bfd6f089459d77b2b1/base/multidimensional.jl#L755.
@@ -441,7 +436,7 @@ end
     return unsafe_set_index!(A, val, to_indices(A, order_named_inds(dimnames(A), kwargs.data)))
 end
 
-unsafe_set_index!(A, val, i::Tuple) = _unsafe_set_index!(is_element_index(i), A, val, i)
+unsafe_set_index!(A, val, i::Tuple) = _unsafe_set_index!(_is_element_index(i), A, val, i)
 _unsafe_set_index!(::True, A, v, i::Tuple) = unsafe_set_element!(A, v, i)
 _unsafe_set_index!(::False, A, v, i::Tuple) = unsafe_set_collection!(A, v, i)
 
