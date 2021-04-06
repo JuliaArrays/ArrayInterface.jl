@@ -167,9 +167,6 @@ end
 #  Necessary for compatibility with Base
 # In simple cases, we know that we don't need to use axes(A). Optimize those
 # until Julia gets smart enough to elide the call on its own:
-@inline function Base.to_indices(A, I::Tuple{Vararg{Union{Integer,<:NDIndex},N}}) where {N}
-    return Base.to_indices(A, (), I)
-end
 @inline function Base.to_indices(A, inds, I::Tuple{NDIndex, Vararg{Any}})
     return Base.to_indices(A, inds, (Tuple(I[1])..., tail(I)...))
 end
