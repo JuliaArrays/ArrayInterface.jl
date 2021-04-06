@@ -685,6 +685,8 @@ end
 @testset "indices" begin
     A23 = ones(2,3); SA23 = @SMatrix ones(2,3);
     A32 = ones(3,2); SA32 = @SMatrix ones(3,2);
+
+    @test @inferred(ArrayInterface.indices(A23, (static(1),static(2)))) === (Base.Slice(StaticInt(1):2), Base.Slice(StaticInt(1):3))
     @test @inferred(ArrayInterface.indices((A23, A32))) == 1:6
     @test @inferred(ArrayInterface.indices((SA23, A32))) == 1:6
     @test @inferred(ArrayInterface.indices((A23, SA32))) == 1:6
@@ -702,6 +704,7 @@ end
     @test @inferred(ArrayInterface.indices((SA23, A23), StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
     @test @inferred(ArrayInterface.indices((A23, SA23), StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
     @test @inferred(ArrayInterface.indices((SA23, SA23), StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
+
     @test_throws AssertionError ArrayInterface.indices((A23, ones(3, 3)), 1)
     @test_throws AssertionError ArrayInterface.indices((A23, ones(3, 3)), (1, 2))
     @test_throws AssertionError ArrayInterface.indices((SA23, ones(3, 3)), StaticInt(1))
