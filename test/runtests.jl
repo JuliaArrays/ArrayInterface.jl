@@ -11,9 +11,6 @@ if VERSION ≥ v"1.6"
     Aqua.test_all(ArrayInterface)
 end
 
-@testset "NDIndex" begin
-    include("ndindex.jl")
-end
 
 using StaticArrays
 x = @SVector [1,2,3]
@@ -733,6 +730,7 @@ end
     end
 end
 
+include("ndindex.jl")
 include("indexing.jl")
 include("dimensions.jl")
 

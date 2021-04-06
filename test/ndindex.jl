@@ -1,4 +1,7 @@
 
+
+@testset "NDIndex" begin
+
 x = NDIndex((1,2,3))
 y = NDIndex((1,static(2),3))
 z = NDIndex(static(3), static(3), static(3))
@@ -30,4 +33,5 @@ z = NDIndex(static(3), static(3), static(3))
 @test @inferred(ArrayInterface.Static.lt(oneunit(z), z)) === static(true)
 
 
+end
 
