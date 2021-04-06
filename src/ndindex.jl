@@ -62,7 +62,10 @@ _flatten(i::Base.AbstractCartesianIndex) = _flatten(Tuple(i)...)
     return (_flatten(Tuple(i)...)..., _flatten(I...)...)
  end
 Base.Tuple(index::NDIndex) = index.index
-Static.dynamic(x::NDIndex) = _NDIndex(dynamic(Tuple(x)))
+
+Static.dynamic(x::NDIndex) = CartesianIndex(dynamic(Tuple(x)))
+Static.static(x::CartesianIndex) = _NDIndex(static(Tuple(x)))
+Static.known(::Type{NDIndex{N,I}}) where {N,I} = known(I)
 
 Base.show(io::IO, i::NDIndex) = (print(io, "NDIndex"); show(io, Tuple(i)))
 

@@ -3,12 +3,14 @@ x = NDIndex((1,2,3))
 y = NDIndex((1,static(2),3))
 z = NDIndex(static(3), static(3), static(3))
 
+@test static(CartesianIndex(3, 3, 3)) === z
+@test @inferred(ArrayInterface.Static.dynamic(z)) === CartesianIndex(3, 3, 3)
+@test @inferred(ArrayInterface.Static.known(z)) === (3, 3, 3)
 @test Tuple(@inferred(NDIndex{0}())) === ()
 @test @inferred(NDIndex{3}(1, static(2), 3)) === y
 @test @inferred(NDIndex{3}((1, static(2), 3))) === y
 @test @inferred(NDIndex{3}((1, static(2)))) === NDIndex(1, static(2), static(1))
 @test @inferred(NDIndex(x, y)) === NDIndex(1, 2, 3, 1, static(2), 3)
-
 
 @test @inferred(ArrayInterface.known_length(x)) === 3
 @test @inferred(length(x)) === 3
@@ -26,5 +28,6 @@ z = NDIndex(static(3), static(3), static(3))
 @test !@inferred(isless(y, x))
 @test @inferred(isless(x, z))
 @test @inferred(ArrayInterface.Static.lt(oneunit(z), z)) === static(true)
+
 
 
