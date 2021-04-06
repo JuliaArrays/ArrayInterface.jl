@@ -1,4 +1,7 @@
 
+_layout(::IndexLinear, x::Tuple) = LinearIndices(x)
+_layout(::IndexCartesian, x::Tuple) = CartesianIndices(x)
+
 """
     ArrayStyle(::Type{A})
 
@@ -315,9 +318,9 @@ end
 end
 to_axis(S::IndexLinear, axis, inds) = StaticInt(1):static_length(inds)
 
-####
-#### getindex
-####
+################
+### getindex ###
+################
 """
     ArrayInterface.getindex(A, args...)
 
@@ -364,7 +367,12 @@ unsafe_get_element(A::LinearIndices, i::NDIndex) = unsafe_get_element(A, to_inde
 
 unsafe_get_element(A::CartesianIndices, i::NDIndex) = CartesianIndex(i)
 unsafe_get_element(A::CartesianIndices, i::Integer) = unsafe_get_element(A, to_index(A, i))
-unsafe_get_element(A::ReshapedArray, i) = @inbounds(A[i])
+
+unsafe_get_element(A::ReshapedArray, i::Integer) = unsafe_get_element(parent(A), i)
+function unsafe_get_element(A::ReshapedArray, i::NDIndex)
+    return unsafe_get_element(parent(A), to_index(IndexLinear(), A, i))
+end
+
 unsafe_get_element(A::SubArray, i) = @inbounds(A[i])
 function unsafe_get_element_error(@nospecialize(A), @nospecialize(i))
     throw(MethodError(unsafe_get_element, (A, i)))
@@ -426,9 +434,9 @@ end
     end
 end
 
-####
-#### setindex!
-####
+#################
+### setindex! ###
+#################
 """
     ArrayInterface.setindex!(A, args...)
 

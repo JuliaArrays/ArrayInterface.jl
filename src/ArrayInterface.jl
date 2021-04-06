@@ -594,7 +594,7 @@ safevec(v::Number) = v
 safevec(v::AbstractVector) = v
 
 """
-zeromatrix(u::AbstractVector)
+    zeromatrix(u::AbstractVector)
 
 Creates the zero'd matrix version of `u`. Note that this is unique because
 `similar(u,length(u),length(u))` returns a mutable type, so it is not type-matching,
@@ -610,7 +610,7 @@ function zeromatrix(u)
 end
 
 """
-restructure(x,y)
+    restructure(x,y)
 
 Restructures the object `y` into a shape of `x`, keeping its values intact. For
 simple objects like an `Array`, this simply amounts to a reshape. However, for

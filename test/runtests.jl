@@ -2,11 +2,16 @@ using ArrayInterface, Test
 using Base: setindex
 using IfElse
 using ArrayInterface: StaticInt, True, False
-import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, static
+import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance,
+    device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, static, NDIndex
 @test ArrayInterface.ismutable(rand(3))
 
 using Aqua
 Aqua.test_all(ArrayInterface)
+
+@testset "NDIndex" begin
+    include("ndindex.jl")
+end
 
 using StaticArrays
 x = @SVector [1,2,3]
