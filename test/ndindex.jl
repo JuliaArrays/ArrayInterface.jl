@@ -6,7 +6,7 @@ x = NDIndex((1,2,3))
 y = NDIndex((1,static(2),3))
 z = NDIndex(static(3), static(3), static(3))
 
-@test static(CartesianIndex(3, 3, 3)) === z
+@test static(CartesianIndex(3, 3, 3)) === z == Base.setindex(Base.setindex(x, 3, 1), 3, 2)
 @test @inferred(ArrayInterface.Static.dynamic(z)) === CartesianIndex(3, 3, 3)
 @test @inferred(ArrayInterface.Static.known(z)) === (3, 3, 3)
 @test Tuple(@inferred(NDIndex{0}())) === ()
@@ -17,6 +17,7 @@ z = NDIndex(static(3), static(3), static(3))
 
 @test @inferred(ArrayInterface.known_length(x)) === 3
 @test @inferred(length(x)) === 3
+@test @inferred(length(typeof(x))) === 3
 @test @inferred(y[2]) === 2
 @test @inferred(y[static(2)]) === static(2)
 
