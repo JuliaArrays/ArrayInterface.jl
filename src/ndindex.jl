@@ -29,7 +29,7 @@ struct NDIndex{N,I<:Tuple{Vararg{Any,N}}} <: AbstractCartesianIndex{N}
 
     function NDIndex{N,I}(index::I) where {N,I<:Tuple{Vararg{Integer,N}}}
         for i in index
-            (i <: Int) || i <: StaticInt || throw(MethodError("NDIndex does not support values of type $(typeof(i))"))
+            (i isa Int) || i isa StaticInt || throw(ArgumentError("NDIndex does not support values of type $(typeof(i))"))
         end
         return new{N,I}(index)
     end
