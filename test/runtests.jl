@@ -2,24 +2,18 @@ using ArrayInterface, Test
 using Base: setindex
 using IfElse
 using ArrayInterface: StaticInt, True, False
-import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance, device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, static
-@test ArrayInterface.ismutable(rand(3))
+import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance,
+    device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, static, NDIndex
+
 
 if VERSION ≥ v"1.6"
     using Aqua
     Aqua.test_all(ArrayInterface)
 end
 
+
 using StaticArrays
-x = @SVector [1,2,3]
-@test ArrayInterface.ismutable(x) == false
-@test ArrayInterface.ismutable(view(x, 1:2)) == false
-x = @MVector [1,2,3]
-@test ArrayInterface.ismutable(x) == true
-@test ArrayInterface.ismutable(view(x, 1:2)) == true
-@test ArrayInterface.ismutable((0.1,1.0)) == false
-@test ArrayInterface.ismutable(Base.ImmutableDict{Symbol,Int64}) == false
-@test ArrayInterface.ismutable((;x=1)) == false
+
 
 @test isone(ArrayInterface.known_first(typeof(StaticArrays.SOneTo(7))))
 @test ArrayInterface.known_last(typeof(StaticArrays.SOneTo(7))) == 7
@@ -56,9 +50,6 @@ Sp=sparse([1,2,3],[1,2,3],[1,2,3])
 @test has_sparsestruct(Sp)
 rowind,colind=findstructralnz(Sp)
 @test [Tri[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,2,3]
-
-@test ArrayInterface.ismutable(spzeros(1, 1))
-@test ArrayInterface.ismutable(spzeros(1))
 
 
 @test !fast_scalar_indexing(qr(rand(10, 10)).Q)
@@ -99,6 +90,23 @@ rowind,colind=findstructralnz(BBB)
 @test [BBB[rowind[i],colind[i]] for i in 1:length(rowind)]==
     [1,2,3,1,2,3,4,2,3,4,5,6,7,5,6,7,8,6,7,8,
      1,2,3,1,2,3,4,2,3,4,5,6,7,5,6,7,8,6,7,8]
+
+@testset "ismutable" begin
+    @test ArrayInterface.ismutable(rand(3))
+    x = @SVector [1,2,3]
+    @test ArrayInterface.ismutable(x) == false
+    @test ArrayInterface.ismutable(view(x, 1:2)) == false
+    x = @MVector [1,2,3]
+    @test ArrayInterface.ismutable(x) == true
+    @test ArrayInterface.ismutable(view(x, 1:2)) == true
+    @test ArrayInterface.ismutable((0.1,1.0)) == false
+    @test ArrayInterface.ismutable(Base.ImmutableDict{Symbol,Int64}) == false
+    @test ArrayInterface.ismutable((;x=1)) == false
+    @test ArrayInterface.ismutable(UnitRange{Int}) == false
+    @test ArrayInterface.ismutable(Dict{Any,Any})
+    @test ArrayInterface.ismutable(spzeros(1, 1))
+    @test ArrayInterface.ismutable(spzeros(1))
+end
 
 @testset "setindex" begin
     @testset "$(typeof(x))" for x in [
@@ -190,6 +198,9 @@ using ArrayInterface: parent_type
     @test parent_type(UpperTriangular(x)) <: typeof(x)
     @test parent_type(PermutedDimsArray(x, (2,1))) <: typeof(x)
     @test parent_type(Base.Slice(1:10)) <: UnitRange{Int}
+    @test parent_type(Diagonal{Int,Vector{Int}}) <: Vector{Int}
+    @test parent_type(UpperTriangular{Int,Matrix{Int}}) <: Matrix{Int}
+    @test parent_type(LowerTriangular{Int,Matrix{Int}}) <: Matrix{Int}
 end
 
 @testset "Range Interface" begin
@@ -269,6 +280,7 @@ end
         @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), StaticInt(1), StaticInt(10))))) === 10
         @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(StaticInt(2), StaticInt(1), StaticInt(10))))) === 9
         @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(StaticInt(2), StaticInt(2), StaticInt(10))))) === 5
+        @test @inferred(ArrayInterface.known_length(Int)) === 1
 
         @test @inferred(length(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), 2, 10))) == 5
         @test @inferred(length(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), StaticInt(1), StaticInt(10)))) == 10
@@ -673,6 +685,8 @@ end
 @testset "indices" begin
     A23 = ones(2,3); SA23 = @SMatrix ones(2,3);
     A32 = ones(3,2); SA32 = @SMatrix ones(3,2);
+
+    @test @inferred(ArrayInterface.indices(A23, (static(1),static(2)))) === (Base.Slice(StaticInt(1):2), Base.Slice(StaticInt(1):3))
     @test @inferred(ArrayInterface.indices((A23, A32))) == 1:6
     @test @inferred(ArrayInterface.indices((SA23, A32))) == 1:6
     @test @inferred(ArrayInterface.indices((A23, SA32))) == 1:6
@@ -690,6 +704,7 @@ end
     @test @inferred(ArrayInterface.indices((SA23, A23), StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
     @test @inferred(ArrayInterface.indices((A23, SA23), StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
     @test @inferred(ArrayInterface.indices((SA23, SA23), StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
+
     @test_throws AssertionError ArrayInterface.indices((A23, ones(3, 3)), 1)
     @test_throws AssertionError ArrayInterface.indices((A23, ones(3, 3)), (1, 2))
     @test_throws AssertionError ArrayInterface.indices((SA23, ones(3, 3)), StaticInt(1))
@@ -728,6 +743,7 @@ end
     end
 end
 
+include("ndindex.jl")
 include("indexing.jl")
 include("dimensions.jl")
 

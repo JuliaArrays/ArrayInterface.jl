@@ -27,8 +27,6 @@ else
     end
 end
 
-static_ndims(x) = static(ndims(x))
-
 if VERSION ≥ v"1.6.0-DEV.1581"
     _is_reshaped(::Type{ReinterpretArray{T,N,S,A,true}}) where {T,N,S,A} = true
     _is_reshaped(::Type{ReinterpretArray{T,N,S,A,false}}) where {T,N,S,A} = false
@@ -51,6 +49,8 @@ const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
 @inline static_last(x) = Static.maybe_static(known_last, last, x)
 @inline static_step(x) = Static.maybe_static(known_step, step, x)
 
+include("ndindex.jl")
+
 """
     parent_type(::Type{T})
 
@@ -70,6 +70,7 @@ parent_type(::Type{R}) where {S,T,A,N,R<:Base.ReinterpretArray{T,N,S,A}} = A
 parent_type(::Type{LoTri{T,M}}) where {T,M} = M
 parent_type(::Type{UpTri{T,M}}) where {T,M} = M
 parent_type(::Type{Diagonal{T,V}}) where {T,V} = V
+
 """
     has_parent(::Type{T}) -> StaticBool
 
@@ -591,7 +592,7 @@ safevec(v::Number) = v
 safevec(v::AbstractVector) = v
 
 """
-zeromatrix(u::AbstractVector)
+    zeromatrix(u::AbstractVector)
 
 Creates the zero'd matrix version of `u`. Note that this is unique because
 `similar(u,length(u),length(u))` returns a mutable type, so it is not type-matching,
@@ -607,7 +608,7 @@ function zeromatrix(u)
 end
 
 """
-restructure(x,y)
+    restructure(x,y)
 
 Restructures the object `y` into a shape of `x`, keeping its values intact. For
 simple objects like an `Array`, this simply amounts to a reshape. However, for
