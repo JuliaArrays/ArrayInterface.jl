@@ -266,6 +266,22 @@ end
 
 @propagate_inbounds function Base.getindex(
     r::OptionallyStaticUnitRange,
+    s::StepRange{T}
+) where {T<:Integer}
+
+    @boundscheck checkbounds(r, s)
+    if T === Bool
+        range(first(s) ? first(r) : last(r), step=oneunit(eltype(r)), length = Int(last(s)))
+    else
+        start = first(r) + s.start - 1
+        st = step(s)
+        stop = ((length(s) - 1) * st) + start
+        return OptionallyStaticStepRange(start, st, stop)
+    end
+end
+
+@propagate_inbounds function Base.getindex(
+    r::OptionallyStaticUnitRange,
     s::AbstractUnitRange{<:Integer},
 )
     @boundscheck checkbounds(r, s)
