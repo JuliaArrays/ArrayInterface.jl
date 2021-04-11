@@ -131,6 +131,7 @@ _is_element_index(::Type{Tuple{}}) = static(true)
 # are the indexing arguments provided a linear collection into a multidim collection
 is_linear_indexing(A, args::Tuple{Arg}) where {Arg} = static(argdims(A, Arg) < 2)
 is_linear_indexing(A, args::Tuple{Arg,Vararg{Any}}) where {Arg} = static(false)
+
 """
     unsafe_reconstruct(A, data; kwargs...)
 
@@ -505,32 +506,60 @@ Returns a collection of `A` given `inds`. `inds` is assumed to have been bounds-
 """
 function unsafe_get_collection(A, lyt, inds)
     axs = to_axes(lyt, inds)
-    dest = similar(A, axs)
-    if map(Base.unsafe_length, axes(dest)) == map(Base.unsafe_length, axs)
-        _unsafe_get_index!(dest, A, inds...) # usually a generated function, don't allow it to impact inference result
-    else
-        Base.throw_checksize_error(dest, axs)
+    dst = similar(A, axs)
+    map(Base.unsafe_length, axes(dst)) != map(Base.unsafe_length, axs) || Base.throw_checksize_error(dst, axs)
+    # usually a generated function, don't allow it to impact inference result
+    _unsafe_get_index!(lyt, dst, A, inds...)
+    return dst
+end
+
+function unsafe_get_collection(A, lyt::StrideIndices, inds)
+    axs = to_axes(lyt, inds)
+    dst = similar(A, axs)
+    map(Base.unsafe_length, axes(dst)) == map(Base.unsafe_length, axs) || Base.throw_checksize_error(dst, axs)
+    # usually a generated function, don't allow it to impact inference result
+    _unsafe_get_stride_index!(lyt, dst, buffer(A), inds...)
+    return dst
+end
+
+function _generate_unsafe_get_stride_index!_body(N::Int)
+    quote
+        Base.@_inline_meta
+        D = eachindex(dst)
+        Dy = iterate(D)
+        @inbounds Base.Cartesian.@nloops $N j d -> I[d] begin
+            # This condition is never hit, but at the moment
+            # the optimizer is not clever enough to split the union without it
+            Dy === nothing && return dst
+            (idx, state) = Dy
+            i = unsafe_get_element(lyt, NDIndex(Base.Cartesian.@ntuple($N, j)))
+            dst[idx] = unsafe_get_element(src, i)
+            Dy = iterate(D, state)
+        end
+        return dst
     end
-    return dest
+end
+@generated function _unsafe_get_stride_index!(lyt::StrideIndices{N}, dst, src, I::Vararg{Any,N}) where {N}
+    return _generate_unsafe_get_stride_index!_body(N)
 end
 
 function _generate_unsafe_get_index!_body(N::Int)
     quote
         Base.@_inline_meta
-        D = eachindex(dest)
+        D = eachindex(dst)
         Dy = iterate(D)
         @inbounds Base.Cartesian.@nloops $N j d -> I[d] begin
             # This condition is never hit, but at the moment
             # the optimizer is not clever enough to split the union without it
-            Dy === nothing && return dest
+            Dy === nothing && return dst
             (idx, state) = Dy
-            dest[idx] = unsafe_get_element(src, NDIndex(Base.Cartesian.@ntuple($N, j)))
+            dst[idx] = unsafe_get_element(src, NDIndex(Base.Cartesian.@ntuple($N, j)))
             Dy = iterate(D, state)
         end
-        return dest
+        return dst
     end
 end
-@generated function _unsafe_get_index!(dest, src, I::Vararg{Any,N}) where {N}
+@generated function _unsafe_get_index!(dst, src, I::Vararg{Any,N}) where {N}
     return _generate_unsafe_get_index!_body(N)
 end
 

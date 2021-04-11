@@ -661,6 +661,16 @@ _device(::False, ::Type{T}) where {T<:DenseArray} = CPUPointer()
 _device(::False, ::Type{T}) where {T} = CPUIndex()
 
 """
+    buffer(x)
+
+Return the raw buffer for `x`, stripping any additional info (structural, indexing,
+metadata, etc.).
+"""
+@inline buffer(x) = _buffer(has_parent(x), x)
+@inline _buffer(::True, x) = buffer(parent(x))
+_buffer(::False, x) = x
+
+"""
     defines_strides(::Type{T}) -> Bool
 
 Is strides(::T) defined? It is assumed that types returning `true` also return a valid
