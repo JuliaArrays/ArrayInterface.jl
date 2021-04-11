@@ -195,3 +195,16 @@ end
     end
 end
 
+@testset "stride indexing" begin
+    x = Array{Int,3}(undef, (4,4,4))
+    x[:] = 1:length(x)
+    p = PermutedDimsArray(x, (3, 1, 2))
+    @test ArrayInterface.getindex(x, :, :, :) == Base.getindex(x, :, :, :)
+    @test ArrayInterface.getindex(x, 3, :, :) == Base.getindex(x, 3, :, :)
+    @test ArrayInterface.getindex(x, :, 3, :) == Base.getindex(x, :, 3, :)
+
+    @test ArrayInterface.getindex(p, :, :, :) == Base.getindex(p, :, :, :)
+    @test ArrayInterface.getindex(p, 3, :, :) == Base.getindex(p, 3, :, :)
+    @test ArrayInterface.getindex(p, :, 3, :) == Base.getindex(p, :, 3, :)
+end
+

@@ -532,8 +532,7 @@ function _generate_unsafe_get_stride_index!_body(N::Int)
             # the optimizer is not clever enough to split the union without it
             Dy === nothing && return dst
             (idx, state) = Dy
-            i = unsafe_get_element(lyt, NDIndex(Base.Cartesian.@ntuple($N, j)))
-            dst[idx] = unsafe_get_element(src, i)
+            dst[idx] = unsafe_get_element(src, unsafe_get_element(lyt, NDIndex(Base.Cartesian.@ntuple($N, j))))
             Dy = iterate(D, state)
         end
         return dst
@@ -553,7 +552,7 @@ function _generate_unsafe_get_index!_body(N::Int)
             # the optimizer is not clever enough to split the union without it
             Dy === nothing && return dst
             (idx, state) = Dy
-            dst[idx] = unsafe_get_element(src, NDIndex(Base.Cartesian.@ntuple($N, j)))
+            dst[idx] = unsafe_get_element(src, unsafe_get_element(lyt, NDIndex(Base.Cartesian.@ntuple($N, j))))
             Dy = iterate(D, state)
         end
         return dst
@@ -647,9 +646,33 @@ end
 
 Sets `inds` of `A` to `val`. `inds` is assumed to have been bounds-checked.
 """
-@inline unsafe_set_collection!(A, lyt, v, i) = _unsafe_setindex!(A, v, i...)
+@inline unsafe_set_collection!(A, lyt, v, i) = _unsafe_set_index!(lyt, A, v, i...)
+@inline function unsafe_set_collection!(A, lyt::StrideIndices, v, i)
+    return _unsafe_set_stride_index!(lyt, buffer(A), v, i...)
+end
 
-function _generate_unsafe_setindex!_body(N::Int)
+function _generate_unsafe_set_stride_index!_body(N::Int)
+    quote
+        x′ = Base.unalias(A, x)
+        Base.Cartesian.@nexprs $N d -> (I_d = Base.unalias(A, I[d]))
+        idxlens = Base.Cartesian.@ncall $N Base.index_lengths I
+        Base.Cartesian.@ncall $N Base.setindex_shape_check x′ (d -> idxlens[d])
+        Xy = iterate(x′)
+        @inbounds Base.Cartesian.@nloops $N i d->I_d begin
+            # This is never reached, but serves as an assumption for
+            # the optimizer that it does not need to emit error paths
+            Xy === nothing && break
+            (val, state) = Xy
+            unsafe_set_element!(A, val, unsafe_get_element(lyt, NDIndex(Base.Cartesian.@ntuple($N, i))))
+            Xy = iterate(x′, state)
+        end
+        A
+    end
+end
+@generated function _unsafe_set_stride_index!(lyt, A, x, I::Vararg{Any,N}) where {N}
+    return _generate_unsafe_set_stride_index!_body(N)
+end
+function _generate_unsafe_set_index!_body(N::Int)
     quote
         x′ = Base.unalias(A, x)
         Base.Cartesian.@nexprs $N d -> (I_d = Base.unalias(A, I[d]))
@@ -667,7 +690,7 @@ function _generate_unsafe_setindex!_body(N::Int)
         A
     end
 end
-@generated function _unsafe_setindex!(A, x, I::Vararg{Any,N}) where {N}
-    return _generate_unsafe_setindex!_body(N)
+@generated function _unsafe_set_index!(lyt, A, x, I::Vararg{Any,N}) where {N}
+    return _generate_unsafe_set_index!_body(N)
 end
 
