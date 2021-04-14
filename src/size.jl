@@ -20,6 +20,7 @@ function size(a::A) where {A}
         return size(parent(a))
     end
 end
+size(x::Array) = Base.size(x)
 #size(a::AbstractVector) = (size(a, One()),)
 
 size(x::SubArray) = eachop(_sub_size, to_parent_dims(x), x.indices)

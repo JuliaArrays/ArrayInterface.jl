@@ -27,7 +27,6 @@ end
 Returns the type of the axes for `T`
 """
 axes_types(x) = axes_types(typeof(x))
-axes_types(::Type{T}) where {T<:Array} = Tuple{Vararg{OneTo{Int},ndims(T)}}
 function axes_types(::Type{T}) where {T}
     if parent_type(T) <: T
         return Tuple{Vararg{OptionallyStaticUnitRange{One,Int},ndims(T)}}
@@ -141,6 +140,7 @@ axes(A::Base.ReshapedArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO imple
 
 Return a tuple of ranges where each range maps to each element along a dimension of `A`.
 """
+@inline axes(a::Array) = map(_as_index, size(a))
 @inline function axes(a::A) where {A}
     if parent_type(A) <: A
         return Base.axes(a)

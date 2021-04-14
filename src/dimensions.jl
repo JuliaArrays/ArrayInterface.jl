@@ -37,7 +37,7 @@ from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A
     dim_i = 1
     for i in 1:ndims(A)
         p = I.parameters[i]
-        if argdims(A, p) > 0
+        if index_dims_out(A, p) > 0
             push!(out.args, :(StaticInt($dim_i)))
             dim_i += 1
         else
@@ -98,7 +98,7 @@ to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(A, I)
     out = Expr(:tuple)
     n = 1
     for p in I.parameters
-        if argdims(A, p) > 0
+        if index_dims_out(A, p) > 0
             push!(out.args, :(StaticInt($n)))
         end
         n += 1

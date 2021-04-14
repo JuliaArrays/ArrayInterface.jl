@@ -19,6 +19,8 @@ _int_or_static_int(x::Int) = StaticInt{x}
 _int(i::Integer) = Int(i)
 _int(i::StaticInt) = i
 
+static_ndims(x) = static(ndims(x))
+
 @static if VERSION >= v"1.7.0-DEV.421"
     using Base: @aggressive_constprop
 else
@@ -92,6 +94,7 @@ known_length(::Type{<:NamedTuple{L}}) where {L} = length(L)
 known_length(::Type{T}) where {T<:Slice} = known_length(parent_type(T))
 known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N
 known_length(::Type{T}) where {Itr,T<:Base.Generator{Itr}} = known_length(Itr)
+known_length(::Type{T}) where {N,T<:AbstractCartesianIndex{N}} = N
 known_length(::Type{<:Number}) = 1
 function known_length(::Type{T}) where {T}
     if parent_type(T) <: T
@@ -661,16 +664,6 @@ _device(::False, ::Type{T}) where {T<:DenseArray} = CPUPointer()
 _device(::False, ::Type{T}) where {T} = CPUIndex()
 
 """
-    buffer(x)
-
-Return the raw buffer for `x`, stripping any additional info (structural, indexing,
-metadata, etc.).
-"""
-@inline buffer(x) = _buffer(has_parent(x), x)
-@inline _buffer(::True, x) = buffer(parent(x))
-_buffer(::False, x) = x
-
-"""
     defines_strides(::Type{T}) -> Bool
 
 Is strides(::T) defined? It is assumed that types returning `true` also return a valid
@@ -852,6 +845,7 @@ end
 end
 
 include("ranges.jl")
+include("layouts.jl")
 include("indexing.jl")
 include("dimensions.jl")
 include("axes.jl")
