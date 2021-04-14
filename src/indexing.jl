@@ -15,21 +15,6 @@ end
 function exec_check_bounds(::True, A, args::Tuple)
     Base.checkbounds_indices(Bool, axes(A), args) || throw(BoundsError(A, args))
 end
-function _check_bounds(::Tuple{}, args::Tuple)
-    if length(args) == 1
-        return _check_bounds((), tail(args))
-    else
-        return false
-    end
-end
-_check_bounds(::Tuple{}, ::Tuple{}) = true
-function _check_bounds(a::Tuple, args::Tuple)
-    if checkindex(Bool, first(a), first(args))
-        return _check_bounds(tail(a), tail(args))
-    else
-        return false
-    end
-end
 exec_check_bounds(::False, A, args::Tuple) = nothing
 
 check_to_indices(::True, A, args::Tuple) = to_indices(A, args)
@@ -444,51 +429,6 @@ function _get_collection(check_bounds::CB, A, args::Tuple{Any,Vararg{Any}}) wher
     lyt = layout(A)
     unsafe_get_collection(A, lyt, check_to_indices(check_bounds, lyt, args))
 end
-#= This is an attempt to get arround extra allocations for elementwise indexing
-# TODO indices map to collection
-function _get_index_collection(::True, dims_out::Tuple, A, args::Tuple)
-    
-end
-
-function _get_index_element(::False, A, args)
-    lyt = layout(A, first(args))
-    return unsafe_getindex(buffer(A), lyt, to_indices(lyt, args))
-end
-
-
-
-function _getindex(::StaticInt{1}, A, args::Tuple)
-    lyt = layout(A, first(args))
-    return unsafe_getindex(buffer(A), lyt, to_indices(lyt, args))
-end
-function _getindex(::StaticInt, A, args::Tuple)
-    lyt = layout(A)
-    return unsafe_getindex(buffer(A), lyt, to_indices(lyt, args))
-end
-
-@propagate_inbounds function getindex(A, args...)
-    return _getindex(sum(index_dims_in(A, args)), sum(index_dims_out(A, args)), A, args)
-end
-@propagate_inbounds function _getindex(::StaticInt{1}, ::StaticInt{1}, A, args::Tuple)
-    lyt = layout(A, first(args))
-    return unsafe_getindex(buffer(A), lyt, to_indices(lyt, args))
-end
-@propagate_inbounds function _getindex(::StaticInt{1}, ::StaticInt{0}, A, args::Tuple)
-    lyt = layout(A, first(args))
-    i = unsafe_get_element(lyt, first(to_indices(lyt, args)))
-    return unsafe_get_element(buffer(A), i)
-end
-@propagate_inbounds function _getindex(::StaticInt, ::StaticInt{0}, A, args::Tuple)
-    lyt = layout(A)
-    i = unsafe_get_element(lyt, NDIndex(to_indices(lyt, args)))
-    return unsafe_get_element(buffer(A), i)
-end
-
-@propagate_inbounds function _getindex(::StaticInt, ::StaticInt, A, args::Tuple)
-    lyt = layout(A)
-    return unsafe_getindex(buffer(A), lyt, to_indices(lyt, args))
-end
-=#
 
 @propagate_inbounds getindex(x::Tuple, i::Int) = getfield(x, i)
 @propagate_inbounds getindex(x::Tuple, ::StaticInt{i}) where {i} = getfield(x, i)
@@ -572,7 +512,6 @@ end
 function _get_transpose_element(x::AbstractVector, i::AbstractCartesianIndex)
     return unsafe_get_element(x, first(Tuple(i)))
 end
-
 
 unsafe_get_element(A::ReshapedArray, i::Integer) = unsafe_get_element(parent(A), i)
 function unsafe_get_element(A::ReshapedArray, i::NDIndex)

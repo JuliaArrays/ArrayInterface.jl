@@ -46,6 +46,9 @@ Returns the offset of the linear indices for `x`.
 offset1(x) = _offset1(has_parent(x), x)
 _offset1(::True, x) = offset1(parent(x))
 _offset1(::False, x) = static(1)
+function offset1(x::SubArray)
+    return unsafe_get_element(layout(parent(x)), NDIndex(map(static_first, x.indices)))
+end
 
 """
     contiguous_axis(::Type{T}) -> StaticInt{N}

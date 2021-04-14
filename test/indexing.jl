@@ -8,15 +8,14 @@ using ArrayInterface: NDIndex
   0.047 ns (0 allocations: 0 bytes)
 =#
 
-#=
-@testset "argdims" begin
-    @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), (1, CartesianIndex(1,2)))) === static((0, 2))
-    @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), (1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === static((0, 2))
-    @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), (1, CartesianIndex((2,2))))) === static((0, 2))
-    @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), (CartesianIndex((2,2)), :, :))) === static((2, 1, 1))
-    @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), Vector{Int})) === static(1)
+@testset "index_dims_in" begin
+    @test @inferred(ArrayInterface.index_dims_in(IndexLinear(), (1, CartesianIndex(1,2)))) === static((1, 2))
+    @test @inferred(ArrayInterface.index_dims_in(IndexLinear(), (1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === static((1, 2))
+    @test @inferred(ArrayInterface.index_dims_in(IndexLinear(), (1, CartesianIndex((2,2))))) === static((1, 2))
+    @test @inferred(ArrayInterface.index_dims_in(IndexLinear(), (CartesianIndex((2,2)), :, :))) === static((2, 1, 1))
+    @test @inferred(ArrayInterface.index_dims_in(IndexLinear(), Vector{Int})) === static(1)
 end
-=#
+
 @testset "to_index" begin
     axis = 1:3
     @test @inferred(ArrayInterface.to_index(axis, 1)) === 1
@@ -197,9 +196,10 @@ end
 end
 
 @testset "stride indexing" begin
-    x = Array{Int,3}(undef, (4,4,4))
-    x[:] = 1:length(x)
-    p = PermutedDimsArray(x, (3, 1, 2))
+    x = Array{Int,3}(undef, (4,4,4));
+    x[:] = 1:length(x);
+    p = PermutedDimsArray(x, (3, 1, 2));
+    v = view(x, :, 2, :);
     @test ArrayInterface.getindex(x, :, :, :) == Base.getindex(x, :, :, :)
     @test ArrayInterface.getindex(x, 3, :, :) == Base.getindex(x, 3, :, :)
     @test ArrayInterface.getindex(x, :, 3, :) == Base.getindex(x, :, 3, :)
@@ -207,5 +207,6 @@ end
     @test ArrayInterface.getindex(p, :, :, :) == Base.getindex(p, :, :, :)
     @test ArrayInterface.getindex(p, 3, :, :) == Base.getindex(p, 3, :, :)
     @test ArrayInterface.getindex(p, :, 3, :) == Base.getindex(p, :, 3, :)
+    @test ArrayInterface.getindex(v, :, :) == getindex(v, :, :)
 end
 
