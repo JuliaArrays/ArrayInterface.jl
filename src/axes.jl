@@ -140,7 +140,9 @@ axes(A::Base.ReshapedArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO imple
 
 Return a tuple of ranges where each range maps to each element along a dimension of `A`.
 """
-@inline axes(a::Array) = map(_as_index, size(a))
+@inline axes(a::Array) = _array_axes(size(a))
+@inline _array_axes(x::Tuple{Vararg{Int}}) = (static(1):first(x), _array_axes(tail(x))...)
+_array_axes(::Tuple{}) = ()
 @inline function axes(a::A) where {A}
     if parent_type(A) <: A
         return Base.axes(a)

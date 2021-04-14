@@ -8,6 +8,7 @@ using ArrayInterface: NDIndex
   0.047 ns (0 allocations: 0 bytes)
 =#
 
+#=
 @testset "argdims" begin
     @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), (1, CartesianIndex(1,2)))) === static((0, 2))
     @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), (1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === static((0, 2))
@@ -15,7 +16,7 @@ using ArrayInterface: NDIndex
     @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), (CartesianIndex((2,2)), :, :))) === static((2, 1, 1))
     @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), Vector{Int})) === static(1)
 end
-
+=#
 @testset "to_index" begin
     axis = 1:3
     @test @inferred(ArrayInterface.to_index(axis, 1)) === 1

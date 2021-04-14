@@ -17,6 +17,7 @@ using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretAr
 _int_or_static_int(::Nothing) = Int
 _int_or_static_int(x::Int) = StaticInt{x}
 _int(i::Integer) = Int(i)
+_int(i::Int) = i
 _int(i::StaticInt) = i
 
 static_ndims(x) = static(ndims(x))

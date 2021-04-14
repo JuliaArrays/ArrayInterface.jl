@@ -1,5 +1,41 @@
 
 """
+    should_check_bounds() -> StaticBool
+
+Returns `static(true)` if the current environment does not have `@inbounds` metadata and
+bounds checking should still occur.
+"""
+@propagate_inbounds function should_check_bounds()
+    @boundscheck if true
+        return static(true)
+    end
+    return static(false)
+end
+
+function exec_check_bounds(::True, A, args::Tuple)
+    Base.checkbounds_indices(Bool, axes(A), args) || throw(BoundsError(A, args))
+end
+function _check_bounds(::Tuple{}, args::Tuple)
+    if length(args) == 1
+        return _check_bounds((), tail(args))
+    else
+        return false
+    end
+end
+_check_bounds(::Tuple{}, ::Tuple{}) = true
+function _check_bounds(a::Tuple, args::Tuple)
+    if checkindex(Bool, first(a), first(args))
+        return _check_bounds(tail(a), tail(args))
+    else
+        return false
+    end
+end
+exec_check_bounds(::False, A, args::Tuple) = nothing
+
+check_to_indices(::True, A, args::Tuple) = to_indices(A, args)
+check_to_indices(::False, A, args::Tuple) = @inbounds(to_indices(A, args))
+
+"""
     ArrayStyle(::Type{A})
 
 Used to customize the meaning of indexing arguments in the context of a given array `A`.
@@ -13,11 +49,17 @@ struct DefaultArrayStyle <: ArrayStyle end
 ArrayStyle(A) = ArrayStyle(typeof(A))
 ArrayStyle(::Type{A}) where {A} = DefaultArrayStyle()
 
+
+@inline flatten(A, inds) = _flatten(can_flatten(A, inds), A, inds)
+@inline _flatten(::True, A, inds) = flatten_indices(A, inds)
+_flatten(::False, A, inds) = inds
+
 """
     flatten_indices(A, inds) -> flatten_indices(axes(A), inds)
 
 Flatten multi-dimension spanning argument into separate arguments for each dimension.
 """
+flatten_indices(A, i::Tuple) = flatten_indices(axes(A), i)
 @inline function flatten_indices(a::Tuple, i::Tuple{I,Vararg{Any}}) where {I}
     return (first(i), flatten_indices(tail(a), tail(i))...)
 end
@@ -49,33 +91,9 @@ can_flatten(::IndexStyle, ::Type{T}) where {T<:AbstractCartesianIndex} = static(
 @inline function can_flatten(S::IndexStyle, ::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
     return _can_flatten(S, T, static(N))
 end
-@inline function _can_flatten(s::IndexStyle, ::Type{T}, n::StaticInt{1}) where {T}
-    return can_flatten(s, _get_tuple(T, n))
-end
+_can_flatten(::IndexStyle, ::Type{T}, ::StaticInt{0}) where {T} = static(false)
 @inline function _can_flatten(s::IndexStyle, ::Type{T}, n::StaticInt{N}) where {T,N}
     return can_flatten(s, _get_tuple(T, n)) | _can_flatten(s, T, n - static(1))
-end
-
-# TODO deprecate - this is ambiguous and needs to be replaced by index_dims_in/index_dims_out
-"""
-    argdims(::ArrayStyle, ::Type{T})
-
-What is the dimensionality of the indexing argument of type `T`?
-"""
-argdims(x, arg) = argdims(x, typeof(arg))
-argdims(x, ::Type{T}) where {T} = argdims(ArrayStyle(x), T)
-argdims(s::ArrayStyle, arg) = argdims(s, typeof(arg))
-# single elements initially map to 1 dimension but that dimension is subsequently dropped.
-argdims(::ArrayStyle, ::Type{T}) where {T} = static(0)
-argdims(::ArrayStyle, ::Type{T}) where {T<:Colon} = static(1)
-argdims(::ArrayStyle, ::Type{T}) where {T<:AbstractArray} = static(ndims(T))
-argdims(::ArrayStyle, ::Type{T}) where {N,T<:AbstractCartesianIndex{N}} = static(N)
-argdims(::ArrayStyle, ::Type{T}) where {N,T<:AbstractArray{<:AbstractCartesianIndex{N}}} = static(N)
-argdims(::ArrayStyle, ::Type{T}) where {N,T<:AbstractArray{<:Any,N}} = static(N)
-argdims(::ArrayStyle, ::Type{T}) where {N,T<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = static(N)
-_argdims(s::ArrayStyle, ::Type{I}, i::StaticInt) where {I} = argdims(s, _get_tuple(I, i))
-function argdims(s::ArrayStyle, ::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
-    return eachop(_argdims, nstatic(Val(N)), s, T)
 end
 
 """ index_dims_in(::IndexStyle, ::Type{T}) """
@@ -105,9 +123,11 @@ index_dims_out(::IndexStyle, ::Type{T}) where {T} = static(0)
 index_dims_out(::IndexStyle, ::Type{T}) where {T<:Colon} = static(1)
 index_dims_out(::IndexStyle, ::Type{T}) where {T<:AbstractArray} = static(ndims(T))
 index_dims_out(::IndexStyle, ::Type{T}) where {N,T<:AbstractCartesianIndex{N}} = static(0)
-index_dims_out(::IndexStyle, ::Type{T}) where {N,T<:AbstractArray{<:AbstractCartesianIndex{N}}} = static(N)
+index_dims_out(::IndexStyle, ::Type{T}) where {N,T<:CartesianIndices{N}} = static(N)
+index_dims_out(::IndexStyle, ::Type{T}) where {N,T<:LinearIndices{N}} = static(N)
+index_dims_out(::IndexStyle, ::Type{T}) where {N,T<:AbstractArray{<:AbstractCartesianIndex{N}}} = static(1)
 index_dims_out(::IndexStyle, ::Type{T}) where {N,T<:AbstractArray{<:Any,N}} = static(N)
-index_dims_out(::IndexStyle, ::Type{T}) where {N,T<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = static(N)
+index_dims_out(::IndexStyle, ::Type{T}) where {N,T<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = static(1)
 @inline function index_dims_out(S::IndexStyle, ::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
     return _index_dims_out(S, T, static(N))
 end
@@ -161,21 +181,18 @@ axis and argument to [`to_index`](@ref). Unique behavior based on the type of `A
 accomplished by overloading `to_indices(A, args)`. Unique axis-argument behavior can
 be accomplished using `to_index(axis, arg)`.
 """
-@propagate_inbounds to_indices(A, args::Tuple) = _to_indices(is_linear_indexing(A, args), A, args)
+@propagate_inbounds function to_indices(A, args::Tuple)
+    return _to_indices(is_linear_indexing(A, args), A, flatten(A, args))
+end
 @propagate_inbounds _to_indices(::True, A, args) = (to_index(eachindex(IndexLinear(), A), first(args)),)
-@propagate_inbounds _to_indices(::False, A, args) = __to_indices(can_flatten(A, args), A, args)
+@propagate_inbounds _to_indices(::False, A, args) = to_indices(A, axes(A), args)
 @propagate_inbounds function to_indices(A, args::Tuple{})
     @boundscheck ndims(A) > 0 && throw(BoundsError(A, ()))
     return NDIndex{0}()
 end
-@propagate_inbounds __to_indices(::False, A, args::Tuple) = to_indices(A, axes(A), args)
-@propagate_inbounds function __to_indices(::True, A, args::Tuple)
-    axs = axes(A)
-    return to_indices(A, axs, flatten_indices(axs, args))
-end
 # to_indices(A::AbstractArray, axes::Tuple, args::Tuple)
 @propagate_inbounds function to_indices(A, axs::Tuple, args::Tuple{I,Vararg{Any}}) where {I}
-    return _to_indices(argdims(A, I), A, axs, first(args), tail(args))
+    return _to_indices(index_dims_in(A, I), A, axs, first(args), tail(args))
 end
 @propagate_inbounds function _to_indices(::StaticInt{0}, A, axs::Tuple, arg, args::Tuple)
     return (to_index(first(axs), arg), to_indices(A, tail(axs), args)...)
@@ -311,7 +328,7 @@ indices calling [`to_axis`](@ref).
     end
     =#
 end
-to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}},) where {I} = _to_axes(argdims(A, I), A, a, i)
+to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}},) where {I} = _to_axes(index_dims_out(A, I), A, a, i)
 # drop this dimension
 _to_axes(::StaticInt{0}, A, axs::Tuple, inds::Tuple) = to_axes(A, tail(inds), tail(inds))
 function _to_axes(::StaticInt{1}, A, axs::Tuple, inds::Tuple)
@@ -365,14 +382,8 @@ another instance of `ArrayInterface.getindex` should only be done by overloading
 Changing indexing based on a given argument from `args` should be done through,
 [`to_index`](@ref), or [`to_axis`](@ref).
 """
-@propagate_inbounds getindex(A, args...) = _getindex(sum(index_dims_in(A, args)), A, args)
-function _getindex(::StaticInt{1}, A, args::Tuple)
-    lyt = layout(A, first(args))
-    return unsafe_getindex(buffer(A), lyt, to_indices(lyt, args))
-end
-function _getindex(::StaticInt, A, args::Tuple)
-    lyt = layout(A)
-    return unsafe_getindex(buffer(A), lyt, to_indices(lyt, args))
+@propagate_inbounds function getindex(A, args...)
+    return _getindex(should_check_bounds(), A, flatten(A, args))
 end
 @propagate_inbounds function getindex(A; kwargs...)
     if isempty(kwargs.data)
@@ -383,7 +394,78 @@ end
     end
 end
 
+@inline function _getindex(check_bounds::CB, A, args::Tuple) where {CB}
+    return __getindex(check_bounds, index_dims_out(A, args), A, args)
+end
+@inline function _getindex(check_bounds::CB, A, ::Tuple{}) where {CB}
+    ndims(A) > 0 && throw(BoundsError(A, ()))
+    return unsafe_get_element(A, NDIndex{0}())
+end
+
+@inline function __getindex(check_bounds::CB, ::Tuple{Vararg{StaticInt{0}}}, A, args::Tuple) where {CB}
+    return _get_element(check_bounds, A, args)
+end
+@inline function __getindex(check_bounds::CB, dims_out::Tuple, A, args::Tuple) where {CB}
+    return _get_collection(check_bounds, A, args)
+end
+
+## element ##
+@inline function _get_element(check_bounds::CB, A, args::Tuple{Any}) where {CB}
+    lyt = layout(A, first(args))
+    return unsafe_get_element(buffer(A), unsafe_get_element(lyt, first(check_to_indices(check_bounds, lyt, args))))
+end
+@inline function _get_element(check_bounds::CB, A, args::Tuple{Any,Vararg{Any}}) where {CB}
+    lyt = layout(A)
+    return unsafe_get_element(buffer(A), unsafe_get_element(lyt, NDIndex(check_to_indices(check_bounds, lyt, args))))
+end
+# we don't need to convert integers to anything so we keep index to layout within this method
+# in hopes that we can avoid allocating the axes
+@inline function _get_element(::True, A, args::Tuple{Integer})
+    arg = first(args)
+    checkbounds(A, arg)
+    return unsafe_get_element(buffer(A), unsafe_get_element(layout(A, arg), arg))
+end
+@inline function _get_element(::False, A, args::Tuple{Integer})
+    arg = first(args)
+    return unsafe_get_element(buffer(A), unsafe_get_element(layout(A, arg), arg))
+end
+@inline function _get_element(check_bounds::CB, A, args::Tuple{Integer,Vararg{Integer}}) where {CB}
+    exec_check_bounds(check_bounds, A, args)
+    return unsafe_get_element(buffer(A), unsafe_get_element(layout(A), NDIndex(args)))
+end
+
+
+## collection ##
+function _get_collection(check_bounds::CB, A, args::Tuple{Any}) where {CB}
+    lyt = layout(A, first(args))
+    unsafe_get_collection(A, lyt, check_to_indices(check_bounds, lyt, args))
+end
+function _get_collection(check_bounds::CB, A, args::Tuple{Any,Vararg{Any}}) where {CB}
+    lyt = layout(A)
+    unsafe_get_collection(A, lyt, check_to_indices(check_bounds, lyt, args))
+end
 #= This is an attempt to get arround extra allocations for elementwise indexing
+# TODO indices map to collection
+function _get_index_collection(::True, dims_out::Tuple, A, args::Tuple)
+    
+end
+
+function _get_index_element(::False, A, args)
+    lyt = layout(A, first(args))
+    return unsafe_getindex(buffer(A), lyt, to_indices(lyt, args))
+end
+
+
+
+function _getindex(::StaticInt{1}, A, args::Tuple)
+    lyt = layout(A, first(args))
+    return unsafe_getindex(buffer(A), lyt, to_indices(lyt, args))
+end
+function _getindex(::StaticInt, A, args::Tuple)
+    lyt = layout(A)
+    return unsafe_getindex(buffer(A), lyt, to_indices(lyt, args))
+end
+
 @propagate_inbounds function getindex(A, args...)
     return _getindex(sum(index_dims_in(A, args)), sum(index_dims_out(A, args)), A, args)
 end

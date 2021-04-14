@@ -1,6 +1,5 @@
 
 _as_index(x) = x
-_as_index(x::Integer) = static(1):x
 _as_index(x::OneTo) = static(1):length(x)
 _as_index(x::StepRange) = OptionallyStaticStepRange(x)
 _as_index(x::UnitRange) = OptionallyStaticUnitRange(x)
