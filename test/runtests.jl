@@ -647,6 +647,16 @@ end
         @test @inferred(ArrayInterface.dense_dims(view(Sr2,:,2))) === (True(),)
         @test @inferred(ArrayInterface.dense_dims(view(Sr2,:,2:3))) === (True(),True())
         @test @inferred(ArrayInterface.dense_dims(view(Sr2,2:3,:))) === (True(),False())
+
+        Ar2c = reinterpret(reshape, Complex{Float64}, view(rand(2, 5, 7), :, 2:4, 3:5));
+        @test @inferred(ArrayInterface.strides(Ar2c)) === (StaticInt(1), 5)
+
+        Ac2r = reinterpret(reshape, Float64, view(rand(ComplexF64, 5, 7), 2:4, 3:6));
+        @test @inferred(ArrayInterface.strides(Ac2r)) === (StaticInt(1), StaticInt(2), 10)
+      
+        Ac2t = reinterpret(reshape, Tuple{Float64,Float64}, view(rand(ComplexF64, 5, 7), 2:4, 3:6));
+        @test @inferred(ArrayInterface.strides(Ac2t)) === (StaticInt(1), 5)
+
     end
 end
 
