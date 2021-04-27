@@ -123,7 +123,8 @@ similar_type(::Type{OptionallyStaticUnitRange{One,StaticInt{N1}}}, ::Type{Int}, 
 Return a valid range that maps to each index along dimension `d` of `A`.
 """
 axes(a, dim) = axes(a, to_dims(a, dim))
-axes(a, dims::Tuple) = (axes(a, first(dims)), axes(a, tail(dims))...)
+axes(a, dims::Tuple{Vararg{Any,K}}) where {K} = (axes(a, first(dims)), axes(a, tail(dims))...)
+axes(a, dims::Tuple{T}) where {T} = (axes(a, first(dims)), )
 axes(a, ::Tuple{}) = ()
 function axes(a::A, dim::Integer) where {A}
     if parent_type(A) <: A
