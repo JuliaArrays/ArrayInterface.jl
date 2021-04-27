@@ -443,6 +443,27 @@ function strides(x)
         return Base.strides(x)
     end
 end
+@inline bmap(f::F, t::Tuple{}, x::Number) where {F} = ()
+@inline bmap(f::F, t::Tuple{T}, x::Number) where {F, T} = (f(first(t),x), )
+@inline bmap(f::F, t::Tuple, x::Number) where {F} = (f(first(t),x), bmap(f, Base.tail(t), x)...)
+if VERSION ≥ v"1.6.0-DEV.1581"
+  @inline @inline function strides(A::Base.ReinterpretArray{R, N, T, B, true}) where {R,N,T,B}
+    P = strides(parent(A))
+    if sizeof(R) == sizeof(T)
+      P
+    elseif sizeof(R) > sizeof(T)
+      x = Base.tail(P)
+      fx = first(x)
+      if fx isa Int
+        (One(), bmap(Base.sdiv_int, Base.tail(x), fx)...)
+      else
+        (One(), bmap(÷, Base.tail(x), fx)...)
+      end
+    else
+      (One(), bmap(*, P, StaticInt(sizeof(T)) ÷ StaticInt(sizeof(R)))...)
+    end
+  end
+end
 #@inline strides(A) = _strides(A, Base.strides(A), contiguous_axis(A))
 
 strides(::AbstractRange) = (One(),)
