@@ -63,25 +63,25 @@ be accomplished using `to_index(axis, arg)`.
 """
 @propagate_inbounds function to_indices(A, args::Tuple)
     if is_linear_indexing(A, args)
-        return (to_index(eachindex(IndexLinear(), A), first(args)),)
+        return (to_index(lazy_axes(A, :), first(args)),)
     else
-        return to_indices(A, axes(A), args)
+        return to_indices(A, lazy_axes(A), args)
     end
 end
 
-@propagate_inbounds to_indices(A, args::Tuple{}) = to_indices(A, axes(A), ())
+@propagate_inbounds to_indices(A, args::Tuple{}) = to_indices(A, lazy_axes(A), ())
 @propagate_inbounds function to_indices(A, axs::Tuple, args::Tuple{I,Vararg{Any}},) where {I}
     return _to_indices(argdims(A, I), A, axs, args)
 end
 @propagate_inbounds function _to_indices(::StaticInt{0}, A, axs::Tuple, args::Tuple)
-    return (to_index(first(axs), first(args)), to_indices(A, tail(axs), tail(args))...)
+    return (to_index(first(axs), first(args)), to_indices(A, _maybe_tail(axs), _maybe_tail(args))...)
 end
 @propagate_inbounds function _to_indices(::StaticInt{1}, A, axs::Tuple, args::Tuple)
-    return (to_index(first(axs), first(args)), to_indices(A, tail(axs), tail(args))...)
+    return (to_index(first(axs), first(args)), to_indices(A, _maybe_tail(axs), _maybe_tail(args))...)
 end
 @propagate_inbounds function _to_indices(::StaticInt{N}, A, axs::Tuple, args::Tuple) where {N}
     axes_front, axes_tail = Base.IteratorsMD.split(axs, Val(N))
-    return _to_multi_indices(A, axes_front, axes_tail, first(args), tail(args))
+    return _to_multi_indices(A, axes_front, axes_tail, first(args), _maybe_tail(args))
 end
 @propagate_inbounds function _to_multi_indices(
     A,
@@ -90,10 +90,7 @@ end
     arg::Union{LinearIndices,CartesianIndices},
     args::Tuple
 )
-    return (
-        to_indices(_layout(IndexStyle(A), axes_front), axes(arg))...,
-        to_indices(A, axes_tail, args)...,
-    )
+    return (to_indices(A, axes_front, axes(arg))..., to_indices(A, axes_tail, args)...,)
 end
 @propagate_inbounds function _to_multi_indices(
     A,
@@ -102,10 +99,7 @@ end
     arg::AbstractCartesianIndex,
     args::Tuple
 )
-    return (
-        to_indices(_layout(IndexStyle(A), axes_front), Tuple(arg))...,
-        to_indices(A, axes_tail, args)...,
-    )
+    return (map(to_index, axes_front, Tuple(arg))..., to_indices(A, axes_tail, args)...)
 end
 
 @propagate_inbounds function _to_multi_indices(A, f::Tuple, l::Tuple, arg, args::Tuple)
@@ -122,6 +116,9 @@ end
     return (to_index(OneTo(1), first(args)), to_indices(A, (), tail(args))...)
 end
 to_indices(A, axs::Tuple{}, args::Tuple{}) = ()
+
+_maybe_tail(::Tuple{}) = ()
+_maybe_tail(x::Tuple) = tail(x)
 
 """
     to_index([::IndexStyle, ]axis, arg) -> index

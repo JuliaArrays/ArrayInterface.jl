@@ -20,6 +20,28 @@ function _stride_preserving_index(::Type{T}, i::StaticInt) where {T}
 end
 
 """
+    known_offsets(::Type{T}[, dim]) -> Tuple
+
+Returns a tuple of offset values known at compile time. If the offset of a given axis is
+not known at compile time `nothing` is returned its position.
+"""
+known_offsets(x, dim) = known_offsets(typeof(x), dim)
+known_offsets(::Type{T}, dim) where {T} = known_offsets(T, to_dims(T, dim))
+function known_offsets(::Type{T}, dim::Integer) where {T}
+    if ndims(T) < dim
+        return 1
+    else
+        return known_offsets(T)[dim]
+    end
+end
+
+known_offsets(x) = known_offsets(typeof(x))
+function known_offsets(::Type{T}) where {T}
+    return eachop(_known_offsets, nstatic(Val(ndims(T))), axes_types(T))
+end
+_known_offsets(::Type{T}, dim::StaticInt) where {T} = known_first(_get_tuple(T, dim))
+
+"""
     offsets(A[, dim]) -> Tuple
 
 Returns offsets of indices with respect to 0. If values are known at compile time,
@@ -39,13 +61,28 @@ function _offsets(x::X, dim::StaticInt{D}) where {X,D}
 end
 
 """
+    known_offset1(x) -> Union{Int,Nothing}
+
+Returns the linear offset of array `x` if known at compile time.
+"""
+known_offset1(x) = known_offset1(typeof(x))
+known_offset1(::Type{T}) where {T} = _known_offset1(has_parent(T), T)
+_known_offset1(::True, ::Type{T}) where {T} = known_offset1(parent_type(T))
+_known_offset1(::False, ::Type{T}) where {T} = 1
+
+"""
     offset1(x) -> Integer
 
 Returns the offset of the linear indices for `x`.
 """
-offset1(x) = _offset1(has_parent(x), x)
-_offset1(::True, x) = offset1(parent(x))
-_offset1(::False, x) = static(1)
+@inline function offset1(x::X) where {X}
+    o1 = known_offset1(X)
+    if o1 === nothing
+        return firstinde(x)
+    else
+        return static(o1)
+    end
+end
 
 """
     contiguous_axis(::Type{T}) -> StaticInt{N}
@@ -349,28 +386,6 @@ function _reshaped_dense_dims(dense::D, ::True, ::Val{N}, ::Val{0}) where {D,N}
         return nothing
     end
 end
-
-"""
-    known_offsets(::Type{T}[, dim]) -> Tuple
-
-Returns a tuple of offset values known at compile time. If the offset of a given axis is
-not known at compile time `nothing` is returned its position.
-"""
-known_offsets(x, dim) = known_offsets(typeof(x), dim)
-known_offsets(::Type{T}, dim) where {T} = known_offsets(T, to_dims(T, dim))
-function known_offsets(::Type{T}, dim::Integer) where {T}
-    if ndims(T) < dim
-        return 1
-    else
-        return known_offsets(T)[dim]
-    end
-end
-
-known_offsets(x) = known_offsets(typeof(x))
-function known_offsets(::Type{T}) where {T}
-    return eachop(_known_offsets, nstatic(Val(ndims(T))), axes_types(T))
-end
-_known_offsets(::Type{T}, dim::StaticInt) where {T} = known_first(_get_tuple(T, dim))
 
 """
     known_strides(::Type{T}[, dim]) -> Tuple

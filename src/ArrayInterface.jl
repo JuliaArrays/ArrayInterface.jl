@@ -842,10 +842,10 @@ end
 end
 
 include("ranges.jl")
-include("indexing.jl")
 include("dimensions.jl")
 include("axes.jl")
 include("size.jl")
+include("indexing.jl")
 include("stridelayout.jl")
 include("broadcast.jl")
 

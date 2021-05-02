@@ -53,6 +53,7 @@ size(A::AbstractRange) = (static_length(A),)
 Returns the size of `A` along dimension `dim`.
 """
 size(a, dim) = size(a, to_dims(a, dim))
+size(a::Array, dim::Integer) = Base.arraysize(a, convert(Int, dim))
 function size(a::A, dim::Integer) where {A}
     if parent_type(A) <: A
         len = known_size(A, dim)

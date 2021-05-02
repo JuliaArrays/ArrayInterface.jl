@@ -160,3 +160,131 @@ axes(A::Base.ReshapedArray) = Base.axes(A)  # TODO implement ArrayInterface vers
 axes(A::CartesianIndices) = A.indices
 axes(A::LinearIndices) = A.indices
 
+"""
+    LazyAxis{N}(parent::AbstractArray)
+
+A lazy representation of `axes(parent, N)`.
+"""
+struct LazyAxis{N,P} <: AbstractUnitRange{Int}
+    parent::P
+
+    LazyAxis{N}(parent::P) where {N,P} = new{N::Int,P}(parent)
+    @inline function LazyAxis{:}(parent::P) where {P}
+        if ndims(P) === 1
+            return new{1,P}(parent)
+        else
+            return new{:,P}(parent)
+        end
+    end
+end
+
+@inline Base.parent(x::LazyAxis{N,P}) where {N,P} = axes(getfield(x, :parent), static(N))
+@inline function Base.parent(x::LazyAxis{:,P}) where {P}
+    return eachindex(IndexLinear(), getfield(x, :parent))
+end
+
+@inline parent_type(::Type{LazyAxis{N,P}}) where {N,P} = axes_types(P, static(N))
+# TODO this approach to parent_type(::Type{LazyAxis{:}}) is a bit hacky. Something like
+# LabelledArrays has a linear set of symbolic keys, which could be propagated through
+# `to_indices` for key based indexing. However, there currently isn't a good way of handling
+# that when the linear indices aren't linearly accessible through a child array (e.g, adjoint)
+# For now we just make sure the linear elements are accurate.
+parent_type(::Type{LazyAxis{:,P}}) where {P<:Array} = OneTo{Int}
+@inline function parent_type(::Type{LazyAxis{:,P}}) where {P}
+    if known_length(P) === nothing
+        return OptionallyStaticUnitRange{StaticInt{1},Int}
+    else
+        return OptionallyStaticUnitRange{StaticInt{1},StaticInt{known_length(P)}}
+    end
+end
+
+Base.keys(x::LazyAxis) = keys(parent(x))
+
+Base.IndexStyle(::Type{T}) where {T<:LazyAxis} = IndexStyle(parent_type(T))
+
+known_first(::Type{T}) where {T<:LazyAxis} = known_first(parent_type(T))
+
+known_length(::Type{LazyAxis{N,P}}) where {N,P} = known_size(P, N)
+known_length(::Type{LazyAxis{:,P}}) where {P} = known_length(P)
+
+@inline function known_last(::Type{T}) where {T<:LazyAxis}
+    return _lazy_axis_known_last(known_first(T), known_length(T))
+end
+_lazy_axis_known_last(start::Int, length::Int) = (length + start) - 1
+_lazy_axis_known_last(::Any, ::Any) = nothing
+
+@inline function Base.first(x::LazyAxis{N})::Int where {N}
+    if known_first(x) === nothing
+        return offsets(getfield(x, :parent), static(N))
+    else
+        return known_first(x)
+    end
+end
+@inline function Base.first(x::LazyAxis{:})::Int
+    if known_first(x) === nothing
+        return firstindex(getfield(x, :parent))
+    else
+        return known_first(x)
+    end
+end
+
+@inline function Base.length(x::LazyAxis{N})::Int where {N}
+    if known_length(x) === nothing
+        return size(getfield(x, :parent), static(N))
+    else
+        return known_length(x)
+    end
+end
+@inline function Base.length(x::LazyAxis{:})::Int
+    if known_length(x) === nothing
+        return lastindex(getfield(x, :parent))
+    else
+        return known_length(x)
+    end
+end
+
+@inline function Base.last(x::LazyAxis)::Int
+    if known_last(x) === nothing
+        if known_first(x) === 1
+            return length(x)
+        else
+            return (static_length(x) + static_first(x)) - 1
+        end
+    else
+        return known_last(x)
+    end
+end
+
+Base.to_shape(x::LazyAxis) = length(x)
+
+@inline function Base.checkindex(::Type{Bool}, x::LazyAxis, i::Integer)
+    if known_first(x) === nothing || known_last(x) === nothing
+        return checkindex(Bool, parent(x), i)
+    else  # everything is static so we don't have to retrieve the axis
+        return ((known_first(x) > i) && (known_last(x) < i))
+    end
+end
+
+@propagate_inbounds function Base.getindex(x::LazyAxis, i::Integer)
+    @boundscheck checkindex(Bool, x, i) || throw(BoundsError(x, i))
+    return Int(i)
+end
+@propagate_inbounds Base.getindex(x::LazyAxis, i::StepRange{T}) where {T<:Integer} = parent(x)[i]
+@propagate_inbounds Base.getindex(x::LazyAxis, i::AbstractUnitRange{<:Integer}) = parent(x)[i]
+
+Base.show(io::IO, x::LazyAxis{N}) where {N} = print(io, "LazyAxis{$N}($(parent(x))))")
+
+"""
+    lazy_axes(x)
+
+Produces a tuple of axes where each axis is constructed lazily. If an axis of `x` is already
+constructed or its entire structure is known at compile time it is constructed eagerly.
+"""
+@generated function lazy_axes(x::X) where {X}
+    Expr(:block,
+         Expr(:meta, :inline),
+         Expr(:tuple, [:(LazyAxis{$dim}(x)) for dim in 1:ndims(X)]...)
+    )
+end
+lazy_axes(x, ::Colon) = LazyAxis{:}(x)
+
