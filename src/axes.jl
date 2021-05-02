@@ -217,6 +217,8 @@ Base.keys(x::LazyAxis) = keys(parent(x))
 
 Base.IndexStyle(::Type{T}) where {T<:LazyAxis} = IndexStyle(parent_type(T))
 
+can_change_size(::Type{LazyAxis{N,P}}) where {N,P} = can_change_size(P)
+
 known_first(::Type{T}) where {T<:LazyAxis} = known_first(parent_type(T))
 
 known_length(::Type{LazyAxis{N,P}}) where {N,P} = known_size(P, N)
