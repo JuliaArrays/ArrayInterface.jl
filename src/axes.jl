@@ -133,6 +133,21 @@ function axes(a::A, dim::Integer) where {A}
         return axes(parent(a), to_parent_dims(A, dim))
     end
 end
+function axes(A::CartesianIndices{N}, dim::Integer) where {N}
+    if dim > N
+        return static(1):static(1)
+    else
+        return getfield(axes(A), Int(dim))
+    end
+end
+function axes(A::LinearIndices{N}, dim::Integer) where {N}
+    if dim > N
+        return static(1):static(1)
+    else
+        return getfield(axes(A), Int(dim))
+    end
+end
+
 axes(A::SubArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
 axes(A::ReinterpretArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
 axes(A::Base.ReshapedArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
@@ -261,7 +276,7 @@ Base.to_shape(x::LazyAxis) = length(x)
     if known_first(x) === nothing || known_last(x) === nothing
         return checkindex(Bool, parent(x), i)
     else  # everything is static so we don't have to retrieve the axis
-        return ((known_first(x) > i) && (known_last(x) < i))
+        return (!(known_first(x) > i) || !(known_last(x) < i))
     end
 end
 

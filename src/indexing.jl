@@ -1,4 +1,102 @@
 
+function _check_canonical_indices(A, args)
+    if is_linear_indexing(A, args)
+        if !checkindex(Bool, lazy_axes(A, :), first(args))
+            throw(BoundsError(A, args))
+        end
+    else
+        if !_multi_checkbounds_indices(lazy_axes(A), args)
+            throw(BoundsError(A, args))
+        end
+    end
+end
+@propagate_inbounds function _to_indices(::False, A, args)
+    if is_linear_indexing(A, args)
+        return (to_index(lazy_axes(A, :), first(args)),)
+    else
+        return to_indices(A, lazy_axes(A), args)
+    end
+end
+function _multi_checkbounds_indices(axs::Tuple, args::Tuple)
+    if checkindex(Bool, first(axs), first(args))
+        return _multi_checkbounds_indices(tail(axs), tail(args))
+    else
+        return false
+    end
+end
+function _multi_checkbounds_indices(axs::Tuple, args::Tuple{})
+    if length(first(axs)) == 1
+        return _multi_checkbounds_indices(tail(axs), ())
+    else
+        return false
+    end
+end
+function _multi_checkbounds_indices(::Tuple{}, args::Tuple)
+    if checkindex(Bool, OneTo(1), first(args))
+        return _multi_checkbounds_indices((), tail(args))
+    else
+        return false
+    end
+end
+_multi_checkbounds_indices(::Tuple{}, ::Tuple{}) = true
+
+""" can_flatten(::Type{T}) """ # TODO document new flatten
+@inline flatten(A, inds) = _flatten(can_flatten(inds), A, inds)
+@inline _flatten(::True, A, inds) = flatten_indices(A, inds)
+_flatten(::False, A, inds) = inds
+
+can_flatten(x) = can_flatten(typeof(x))
+can_flatten(::Type{T}) where {T} = static(false)
+can_flatten(::Type{T}) where {T<:AbstractArray{<:AbstractCartesianIndex}} = static(false)
+can_flatten(::Type{T}) where {T<:CartesianIndices} = static(true)
+can_flatten(::Type{T}) where {T<:AbstractArray{Bool}} = static(ndims(T) > 1)
+can_flatten(::Type{T}) where {T<:AbstractCartesianIndex} = static(true)
+
+can_flatten(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}} = _can_flatten(T, static(N))
+_can_flatten(::Type{T}, ::StaticInt{0}) where {T} = static(false)
+@inline function _can_flatten(::Type{T}, n::StaticInt{N}) where {T,N}
+    return can_flatten(_get_tuple(T, n)) | _can_flatten(T, n - static(1))
+end
+
+"""
+    flatten_indices(A, inds) -> flatten_indices(axes(A), inds)
+
+Flatten multi-dimension spanning argument into separate arguments for each dimension.
+"""
+flatten_indices(A, i::Tuple) = flatten_indices(lazy_axes(A), i)
+@inline function flatten_indices(a::Tuple, i::Tuple{I,Vararg{Any}}) where {I}
+    return (first(i), flatten_indices(tail(a), tail(i))...)
+end
+@inline function flatten_indices(a::Tuple, i::Tuple{I,Vararg{Any}}) where {N,I<:AbstractCartesianIndex{N}}
+    _, atail = Base.IteratorsMD.split(a, Val(N))
+    return (Tuple(first(i))..., flatten_indices(atail, tail(i))...)
+end
+@inline function flatten_indices(a::Tuple, i::Tuple{I,Vararg{Any}}) where {N,I<:CartesianIndices{N}}
+    _, atail = Base.IteratorsMD.split(a, Val(N))
+    return (axes(first(i))..., flatten_indices(atail, tail(i))...)
+end
+# we preserve CartesianIndices{0} for dropping dimensions
+@inline function flatten_indices(a::Tuple, i::Tuple{I,Vararg{Any}}) where {I<:CartesianIndices{0}}
+    return (first(i), flatten_indices(tail(a), tail(i))...)
+end
+flatten_indices(::Tuple, ::Tuple{}) = ()
+
+## is_canonical ##
+is_canonical(x) = is_canonical(typeof(x))
+is_canonical(::Type{T}) where {T} = static(false)
+is_canonical(::Type{Int}) = static(true)
+is_canonical(::Type{<:StaticInt}) = static(true)
+is_canonical(::Type{StepRange{Int,Int}}) = static(true)
+is_canonical(::Type{UnitRange{Int}}) = static(true)
+is_canonical(::Type{<:OptionallyStaticRange}) = static(true)
+is_canonical(::Type{Vector{Int}}) = static(true)
+is_canonical(::Type{<:Slice}) = static(true)
+@inline is_canonical(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}} = _is_canon(T, static(N))
+_is_canon(::Type{T}, ::StaticInt{0}) where {T} = static(true)
+@inline function _is_canon(::Type{T}, n::StaticInt{N}) where {T,N}
+    return is_canonical(_get_tuple(T, n)) & _is_canon(T, n - static(1))
+end
+
 _layout(::IndexLinear, x::Tuple) = LinearIndices(x)
 _layout(::IndexCartesian, x::Tuple) = CartesianIndices(x)
 
@@ -61,11 +159,28 @@ axis and argument to [`to_index`](@ref). Unique behavior based on the type of `A
 accomplished by overloading `to_indices(A, args)`. Unique axis-argument behavior can
 be accomplished using `to_index(axis, arg)`.
 """
-@propagate_inbounds function to_indices(A, args::Tuple)
+@propagate_inbounds to_indices(A, args::Tuple) = _to_indices(A, flatten(A, args))
+@propagate_inbounds function to_indices(A, args::Tuple{LinearIndices})
+    return to_indices(A, lazy_axes(A), axes(first(args)))
+end
+@propagate_inbounds _to_indices(A, args::Tuple) = __to_indices(is_canonical(args), A, args)
+@propagate_inbounds function __to_indices(::False, A, args)
     if is_linear_indexing(A, args)
-        return (to_index(lazy_axes(A, :), first(args)),)
+        return (to_index(eachindex(IndexLinear(), A), first(args)),)
     else
         return to_indices(A, lazy_axes(A), args)
+    end
+end
+# don't waste time reconstructing tuple if already converted
+@propagate_inbounds function __to_indices(::True, A, args)
+    if is_linear_indexing(A, args)
+        @boundscheck if !checkindex(Bool, eachindex(IndexLinear(), A), first(args))
+            throw(BoundsError(A, args))
+        end
+        return args
+    else
+        @boundscheck _check_canonical_indices(A, args)
+        return args
     end
 end
 
@@ -116,9 +231,9 @@ end
     return (to_index(OneTo(1), first(args)), to_indices(A, (), tail(args))...)
 end
 to_indices(A, axs::Tuple{}, args::Tuple{}) = ()
-
 _maybe_tail(::Tuple{}) = ()
 _maybe_tail(x::Tuple) = tail(x)
+
 
 """
     to_index([::IndexStyle, ]axis, arg) -> index
@@ -461,7 +576,6 @@ function __unsafe_set_index!(A, v, inds::Tuple{Any,Vararg{Any}})
     return unsafe_set_element!(A, v, to_index(A, NDIndex(inds)))
 end
 
-
 """
     unsafe_set_element!(A, val, inds::Tuple)
 
@@ -511,7 +625,10 @@ function _generate_unsafe_setindex!_body(N::Int)
         A
     end
 end
+
 @generated function _unsafe_setindex!(A, x, I::Vararg{Any,N}) where {N}
     return _generate_unsafe_setindex!_body(N)
 end
+
+
 
