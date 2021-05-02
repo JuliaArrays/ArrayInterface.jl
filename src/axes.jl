@@ -293,7 +293,7 @@ Base.show(io::IO, x::LazyAxis{N}) where {N} = print(io, "LazyAxis{$N}($(parent(x
     lazy_axes(x)
 
 Produces a tuple of axes where each axis is constructed lazily. If an axis of `x` is already
-constructed or its entire structure is known at compile time it is constructed eagerly.
+constructed or it is simply retrieved.
 """
 @generated function lazy_axes(x::X) where {X}
     Expr(:block,
@@ -301,5 +301,9 @@ constructed or its entire structure is known at compile time it is constructed e
          Expr(:tuple, [:(LazyAxis{$dim}(x)) for dim in 1:ndims(X)]...)
     )
 end
-lazy_axes(x, ::Colon) = LazyAxis{:}(x)
+lazy_axes(x::LinearIndices) = axes(x)
+lazy_axes(x::CartesianIndices) = axes(x)
+@inline lazy_axes(x::MatAdjTrans) = reverse(lazy_axes(parent(x)))
+@inline lazy_axes(x::VecAdjTrans) = (LazyAxis{1}(x), first(lazy_axes(parent(x))))
+@inline lazy_axes(x::PermutedDimsArray) = permute(lazy_axes(parent(x)), to_parent_dims(A))
 
