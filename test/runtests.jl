@@ -759,6 +759,23 @@ end
     end
 end
 
+
+@testset "axes" begin
+    A = zeros(3,4,5);
+    Ap = @view(PermutedDimsArray(A, (3,1,2))[:,1:2,1])';
+
+    axs = @inferred(ArrayInterface.axes(Ap))
+    lzaxs = @inferred(ArrayInterface.lazy_axes(Ap))
+    axis = axs[2]
+    lzaxis = lzaxs[2]
+
+    @test map(parent, lzaxs) === axs
+    @test @inferred(first(lzaxis)) === first(axis)
+    @test @inferred(lzaxis[2]) === axis[2]
+    @test @inferred(lzaxis[1:2:5]) === axis[1:2:5]
+    @test @inferred(lzaxis[1:2]) === axis[1:2]
+end
+
 include("ndindex.jl")
 include("indexing.jl")
 include("dimensions.jl")

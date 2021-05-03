@@ -190,16 +190,13 @@ function dimnames(::Type{T}) where {T<:SubArray}
     return eachop(dimnames, to_parent_dims(T), parent_type(T))
 end
 
-_to_int(x::Integer) = Int(x)
-_to_int(x::StaticInt) = x
-
 """
     to_dims(::Type{T}, dim) -> Integer
 
 This returns the dimension(s) of `x` corresponding to `d`.
 """
 to_dims(x, dim) = to_dims(typeof(x), dim)
-to_dims(::Type{T}, dim::Integer) where {T} = _to_int(dim)
+to_dims(::Type{T}, dim::Integer) where {T} = canonicalize(dim)
 to_dims(::Type{T}, dim::Colon) where {T} = dim
 function to_dims(::Type{T}, dim::StaticSymbol) where {T}
     i = find_first_eq(dim, dimnames(T))
