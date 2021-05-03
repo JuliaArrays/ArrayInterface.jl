@@ -216,31 +216,8 @@ end
 end
 @propagate_inbounds function _to_indices(::StaticInt{N}, A, axs::Tuple, args::Tuple) where {N}
     axes_front, axes_tail = Base.IteratorsMD.split(axs, Val(N))
-    return _to_multi_indices(A, axes_front, axes_tail, first(args), _maybe_tail(args))
+    return (to_index(_layout(IndexStyle(A), axes_front), first(args)), to_indices(A, axes_tail, _maybe_tail(args))...)
 end
-@propagate_inbounds function _to_multi_indices(
-    A,
-    axes_front::Tuple,
-    axes_tail::Tuple,
-    arg::Union{LinearIndices,CartesianIndices},
-    args::Tuple
-)
-    return (to_indices(A, axes_front, axes(arg))..., to_indices(A, axes_tail, args)...,)
-end
-@propagate_inbounds function _to_multi_indices(
-    A,
-    axes_front::Tuple,
-    axes_tail::Tuple,
-    arg::AbstractCartesianIndex,
-    args::Tuple
-)
-    return (map(to_index, axes_front, Tuple(arg))..., to_indices(A, axes_tail, args)...)
-end
-
-@propagate_inbounds function _to_multi_indices(A, f::Tuple, l::Tuple, arg, args::Tuple)
-    return (to_index(_layout(IndexStyle(A), f), arg), to_indices(A, l, args)...)
-end
-
 @propagate_inbounds function to_indices(A, axs::Tuple, args::Tuple{})
     @boundscheck if length(first(axs)) != 1
         error("Cannot drop dimension of size $(length(first(axs))).")
@@ -253,7 +230,6 @@ end
 to_indices(A, axs::Tuple{}, args::Tuple{}) = ()
 _maybe_tail(::Tuple{}) = ()
 _maybe_tail(x::Tuple) = tail(x)
-
 
 """
     to_index([::IndexStyle, ]axis, arg) -> index

@@ -37,11 +37,9 @@ function axes_types(::Type{T}) where {T}
 end
 axes_types(::Type{LinearIndices{N,R}}) where {N,R} = R
 axes_types(::Type{CartesianIndices{N,R}}) where {N,R} = R
-function axes_types(::Type{T}) where {T<:VecAdjTrans}
-    return Tuple{OptionallyStaticUnitRange{One,One},axes_types(parent_type(T), One())}
-end
-function axes_types(::Type{T}) where {T<:MatAdjTrans}
-    return eachop_tuple(_get_tuple, to_parent_dims(T), axes_types(parent_type(T)))
+function axes_types(::Type{T}) where {T<:Union{Adjoint,Transpose}}
+    P = parent_type(T)
+    return Tuple{axes_types(P, static(2)), axes_types(P, static(1))}
 end
 function axes_types(::Type{T}) where {T<:PermutedDimsArray}
     return eachop_tuple(_get_tuple, to_parent_dims(T), axes_types(parent_type(T)))
