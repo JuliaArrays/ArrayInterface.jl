@@ -98,9 +98,20 @@ struct OptionallyStaticUnitRange{F<:Integer,L<:Integer} <: AbstractUnitRange{Int
     end
 end
 
-Base.first(r::OptionallyStaticUnitRange) = r.start
-Base.step(::OptionallyStaticUnitRange) = StaticInt(1)
-Base.last(r::OptionallyStaticUnitRange) = r.stop
+function Base.first(r::OptionallyStaticUnitRange)::Int
+    if known_first(r) === nothing
+        return r.start
+    else
+        return known_first(r)
+    end
+end
+function Base.last(r::OptionallyStaticUnitRange)::Int
+    if known_last(r) === nothing
+        return r.stop
+    else
+        return known_last(r)
+    end
+end
 
 known_first(::Type{<:OptionallyStaticUnitRange{StaticInt{F}}}) where {F} = F
 known_step(::Type{<:OptionallyStaticUnitRange}) = 1
@@ -186,9 +197,27 @@ end
         end
     end
 end
-Base.first(r::OptionallyStaticStepRange) = r.start
-Base.step(r::OptionallyStaticStepRange) = r.step
-Base.last(r::OptionallyStaticStepRange) = r.stop
+function Base.first(r::OptionallyStaticStepRange)::Int
+    if known_first(r) === nothing
+        return r.start
+    else
+        return known_first(r)
+    end
+end
+function Base.step(r::OptionallyStaticStepRange)::Int
+    if known_step(r) === nothing
+        return r.step
+    else
+        return known_step(r)
+    end
+end
+function Base.last(r::OptionallyStaticStepRange)::Int
+    if known_last(r) === nothing
+        return r.stop
+    else
+        return known_last(r)
+    end
+end
 
 known_first(::Type{<:OptionallyStaticStepRange{StaticInt{F}}}) where {F} = F
 known_step(::Type{<:OptionallyStaticStepRange{<:Any,StaticInt{S}}}) where {S} = S
@@ -425,6 +454,11 @@ end
 end
 
 Base.:(-)(r::OptionallyStaticRange) = -static_first(r):-static_step(r):-static_last(r)
+
+Base.reverse(r::OptionallyStaticUnitRange) = static_last(r):static(-1):static_first(r)
+function Base.reverse(r::OptionallyStaticStepRange)
+    return OptionallyStaticStepRange(static_last(r), -static_step(r), static_first(r))
+end
 
 function Base.show(io::IO, r::OptionallyStaticRange)
     print(io, first(r))
