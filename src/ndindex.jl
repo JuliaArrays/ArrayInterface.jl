@@ -57,7 +57,7 @@ end
 _flatten(i::StaticInt{N}) where {N} = (i,)
 _flatten(i::Integer) = (Int(i),)
 _flatten(i::Base.AbstractCartesianIndex) = _flatten(Tuple(i)...)
-@inline _flatten(i::Integer, I...) = (_int(i), _flatten(I...)...)
+@inline _flatten(i::Integer, I...) = (canonicalize(i), _flatten(I...)...)
 @inline function _flatten(i::Base.AbstractCartesianIndex, I...)
     return (_flatten(Tuple(i)...)..., _flatten(I...)...)
  end
