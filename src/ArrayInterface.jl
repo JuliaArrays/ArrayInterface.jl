@@ -133,6 +133,8 @@ end
 ismutable(::Type{<:AbstractRange}) = false
 ismutable(::Type{<:AbstractDict}) = true
 ismutable(::Type{<:Base.ImmutableDict}) = false
+ismutable(::Type{BigFloat}) = false
+ismutable(::Type{BigInt}) = false
 function ismutable(::Type{T}) where {T}
     if parent_type(T) <: T
         return T.mutable
