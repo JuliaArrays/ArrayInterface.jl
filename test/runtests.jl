@@ -774,6 +774,8 @@ end
     @test @inferred(lzaxis[2]) === axis[2]
     @test @inferred(lzaxis[1:2:5]) === axis[1:2:5]
     @test @inferred(lzaxis[1:2]) === axis[1:2]
+    @test @inferred(ArrayInterface.axes(Array{Float64}(undef, 4)')) === (StaticInt(1):StaticInt(1),Base.OneTo(4))
+    @test @inferred(ArrayInterface.axes(Array{Float64}(undef, 4, 3)')) === (Base.OneTo(3),Base.OneTo(4))
 end
 
 include("ndindex.jl")
