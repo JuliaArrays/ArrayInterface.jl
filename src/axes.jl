@@ -163,10 +163,9 @@ Return a tuple of ranges where each range maps to each element along a dimension
     end
 end
 axes(A::PermutedDimsArray) = permute(axes(parent(A)), to_parent_dims(A))
-function axes(A::Union{Transpose,Adjoint})
-    p = parent(A)
-    return (axes(p, StaticInt(2)), axes(p, One()))
-end
+axes(A::Union{Transpose,Adjoint}) = _axes(A, parent(A))
+_axes(A::Union{Transpose,Adjoint}, p::AbstractVector) = (One():One(), axes(p, One()))
+_axes(A::Union{Transpose,Adjoint}, p::AbstractMatrix) = (axes(p, StaticInt(2)), axes(p, One()))
 axes(A::SubArray) = Base.axes(A)  # TODO implement ArrayInterface version
 axes(A::ReinterpretArray) = Base.axes(A)  # TODO implement ArrayInterface version
 axes(A::Base.ReshapedArray) = Base.axes(A)  # TODO implement ArrayInterface version
