@@ -208,6 +208,11 @@ For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1)
 
 Is the function `f` whitelisted for `LoopVectorization.@avx`?
 
+## `is_lazy_conjugate(A)`
+
+Does the array `A` lazyily take complex conjugates of it's elements?
+
+
 # List of things to add
 
 - https://github.com/JuliaLang/julia/issues/22216

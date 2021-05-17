@@ -3,7 +3,8 @@ using Base: setindex
 using IfElse
 using ArrayInterface: StaticInt, True, False
 import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance,
-    device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, static, NDIndex
+    device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, static, NDIndex,
+    is_lazy_conjugate
 
 
 if VERSION ≥ v"1.6"
@@ -824,4 +825,15 @@ include("dimensions.jl")
     include("broadcast.jl")
 end
 
-
+@testset "lazy conj" begin
+    a = rand(ComplexF64, 2)
+    @test @inferred(is_lazy_conjugate(a)) == false
+    b = a'
+    @test @inferred(is_lazy_conjugate(b)) == true
+    c = transpose(b)
+    @test @inferred(is_lazy_conjugate(c)) == true
+    d = c'
+    @test @inferred(is_lazy_conjugate(d)) == false
+    e = permutedims(d)
+    @test @inferred(is_lazy_conjugate(e)) == false
+end
