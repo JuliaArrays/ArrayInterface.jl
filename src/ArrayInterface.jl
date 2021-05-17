@@ -867,6 +867,7 @@ Examples
 
 """
 is_lazy_conjugate(::T) where {T <: AbstractArray} = _is_lazy_conjugate(T, False())
+is_lazy_conjugate(::AbstractArray{<:Real})  = False()
 
 function _is_lazy_conjugate(::Type{T}, isconj) where {T <: AbstractArray}
     Tp = parent_type(T)

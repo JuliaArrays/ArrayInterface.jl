@@ -836,4 +836,6 @@ end
     @test @inferred(is_lazy_conjugate(d)) == false
     e = permutedims(d)
     @test @inferred(is_lazy_conjugate(e)) == false
+    
+    @test @inferred(is_lazy_conjugate([1,2,3]')) == false # We don't care about conj on `<:Real`
 end
