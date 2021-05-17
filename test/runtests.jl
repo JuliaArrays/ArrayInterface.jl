@@ -825,9 +825,6 @@ include("dimensions.jl")
     include("broadcast.jl")
 end
 
-using Test
-using ArrayInterface: is_lazy_conjugate
-
 @testset "lazy conj" begin
     a = rand(ComplexF64, 2)
     @test is_lazy_conjugate(a) == false
