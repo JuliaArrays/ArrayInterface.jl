@@ -320,17 +320,17 @@ using OffsetArrays
     x = zeros(100);
     # R = reshape(view(x, 1:100), (10,10));
     # A = zeros(3,4,5);
-    A = Wrapper(reshape(view(x, 1:60), (3,4,5)))
+    A = Wrapper(reshape(view(x, 1:60), (3,4,5)));
     B = A .== 0;
-    D1 = view(A, 1:2:3, :, :)  # first dimension is discontiguous
-    D2 = view(A, :, 2:2:4, :)  # first dimension is contiguous
+    D1 = view(A, 1:2:3, :, :);  # first dimension is discontiguous
+    D2 = view(A, :, 2:2:4, :);  # first dimension is contiguous
 
     @test @inferred(ArrayInterface.defines_strides(x))
     @test @inferred(ArrayInterface.defines_strides(A))
     @test @inferred(ArrayInterface.defines_strides(D1))
     @test !@inferred(ArrayInterface.defines_strides(view(A, :, [1,2],1)))
     @test @inferred(ArrayInterface.defines_strides(DenseWrapper{Int,2,Matrix{Int}}))
-
+  
     @test @inferred(device(A)) === ArrayInterface.CPUPointer()
     @test @inferred(device(B)) === ArrayInterface.CPUIndex()
     @test @inferred(device(-1:19)) === ArrayInterface.CPUIndex()
@@ -346,7 +346,6 @@ using OffsetArrays
     @test @inferred(device(OffsetArray(@MArray(zeros(2,2,2)),8,-2,-5))) === ArrayInterface.CPUPointer()
     @test isnothing(device("Hello, world!"))
     @test @inferred(device(DenseWrapper{Int,2,Matrix{Int}})) === ArrayInterface.CPUPointer()
-
     #=
     @btime ArrayInterface.contiguous_axis($(reshape(view(zeros(100), 1:60), (3,4,5))))
       0.047 ns (0 allocations: 0 bytes)
@@ -372,7 +371,7 @@ using OffsetArrays
     @test @inferred(contiguous_axis(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === nothing
     @test @inferred(contiguous_axis(view(DummyZeros(3,4), 1, :))) === nothing
     @test @inferred(contiguous_axis(view(DummyZeros(3,4), 1, :)')) === nothing
-
+  
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@SArray(zeros(2,2,2)))) == (true,false,false)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(A)) == (true,false,false)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(B)) == (true,false,false)
@@ -417,6 +416,8 @@ using OffsetArrays
     @test @inferred(stride_rank(DummyZeros(3,4)')) === nothing
     @test @inferred(stride_rank(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === nothing
     @test @inferred(stride_rank(view(DummyZeros(3,4), 1, :))) === nothing
+
+  
     #=
     @btime ArrayInterface.is_column_major($(PermutedDimsArray(A,(3,1,2))))
       0.047 ns (0 allocations: 0 bytes)
@@ -478,6 +479,43 @@ using OffsetArrays
     Am = @MMatrix rand(2,10);
     @test @inferred(ArrayInterface.strides(view(Am,1,:))) === (StaticInt(2),)
 
+    if VERSION ≥ v"1.6.0-DEV.1581" # reinterpret(reshape,...) tests
+      C1 = reinterpret(reshape, Float64, PermutedDimsArray(Array{Complex{Float64}}(undef, 3,4,5), (2,1,3)));
+      C2 = reinterpret(reshape, Complex{Float64}, PermutedDimsArray(view(A,1:2,:,:), (1,3,2)));
+      C3 = reinterpret(reshape, Complex{Float64}, PermutedDimsArray(Wrapper(reshape(view(x, 1:24), (2,3,4))), (1,3,2)));
+
+      @test @inferred(ArrayInterface.defines_strides(C1))
+      @test @inferred(ArrayInterface.defines_strides(C2))
+      @test @inferred(ArrayInterface.defines_strides(C3))
+      
+      @test @inferred(device(C1)) === ArrayInterface.CPUPointer()
+      @test @inferred(device(C2)) === ArrayInterface.CPUPointer()
+      @test @inferred(device(C3)) === ArrayInterface.CPUPointer()
+      
+      @test @inferred(contiguous_batch_size(C1)) === ArrayInterface.StaticInt(0)
+      @test @inferred(contiguous_batch_size(C2)) === ArrayInterface.StaticInt(0)
+      @test @inferred(contiguous_batch_size(C3)) === ArrayInterface.StaticInt(0)
+
+      @test @inferred(stride_rank(C1)) == (1,3,2,4)
+      @test @inferred(stride_rank(C2)) == (2,1)
+      @test @inferred(stride_rank(C3)) == (2,1)
+
+      @test @inferred(contiguous_axis(C1)) === StaticInt(1)
+      @test @inferred(contiguous_axis(C2)) === StaticInt(0)
+      @test @inferred(contiguous_axis(C3)) === StaticInt(2)
+      
+      @test @inferred(ArrayInterface.contiguous_axis_indicator(C1)) == (true,false,false,false)
+      @test @inferred(ArrayInterface.contiguous_axis_indicator(C2)) == (false,false)
+      @test @inferred(ArrayInterface.contiguous_axis_indicator(C3)) == (false,true)
+
+      @test @inferred(ArrayInterface.is_column_major(C1)) === False()
+      @test @inferred(ArrayInterface.is_column_major(C2)) === False()
+      @test @inferred(ArrayInterface.is_column_major(C3)) === False()
+
+      @test @inferred(dense_dims(C1)) == (true,true,true,true)
+      @test @inferred(dense_dims(C2)) == (false,false)
+      @test @inferred(dense_dims(C3)) == (true,true)
+    end
 end
 
 @testset "Static-Dynamic Size, Strides, and Offsets" begin

@@ -218,6 +218,32 @@ stride_rank(x, i) = stride_rank(x)[i]
 function stride_rank(::Type{R}) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}}
     return nstatic(Val(N))
 end
+if VERSION ≥ v"1.6.0-DEV.1581"
+  @inline function stride_rank(::Type{A}) where {NB, NA, B <: AbstractArray{<:Any,NB},A<: Base.ReinterpretArray{<:Any, NA, <:Any, B, true}}
+    _stride_rank_reinterpret(stride_rank(B), gt(StaticInt{NB}(), StaticInt{NA}()))
+  end
+  @inline _stride_rank_reinterpret(sr, ::False) = (One(), map(Base.Fix2(+,One()),sr)...)
+  @inline _stride_rank_reinterpret(sr::Tuple{One,Vararg}, ::True) = map(Base.Fix2(-,One()), tail(sr))
+  # if the leading dim's `stride_rank` is not one, then that means the individual elements are split across an axis, which ArrayInterface
+  # doesn't currently have a means of representing.
+  @inline function contiguous_axis(::Type{A}) where {NB, NA, B <: AbstractArray{<:Any,NB},A<: Base.ReinterpretArray{<:Any, NA, <:Any, B, true}}
+    _reinterpret_contiguous_axis(stride_rank(B), dense_dims(B), contiguous_axis(B), gt(StaticInt{NB}(), StaticInt{NA}()))
+  end
+  @inline _reinterpret_contiguous_axis(::Any, ::Any, ::Any, ::False) = One()
+  @inline _reinterpret_contiguous_axis(::Any, ::Any, ::Any, ::True) = Zero()
+  @generated function _reinterpret_contiguous_axis(t::Tuple{One,Vararg{StaticInt,N}}, d::Tuple{True,Vararg{StaticBool,N}}, ::One, ::True) where {N}
+    for n in 1:N
+      if t.parameters[n+1].parameters[1] === 2
+        if d.parameters[n+1] === True
+          return :(StaticInt{$n}())
+        else
+          return :(Zero())
+        end
+      end
+    end
+    :(Zero())
+  end
+end
 
 function stride_rank(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.SignedMultiplicativeInverse{Int},M}}}}) where {T,N,P,M}
     _reshaped_striderank(is_column_major(P), Val{N}(), Val{M}())
