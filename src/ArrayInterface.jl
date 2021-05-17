@@ -856,17 +856,17 @@ Examples
      1 + 1im
 
     julia> ArrayInterface.is_lazy_conjugate(a)
-    true
+    True()
 
     julia> b = a'
     1×2 adjoint(transpose(adjoint(::Vector{Complex{Int64}}))) with eltype Complex{Int64}:
      1+1im  1-1im
 
     julia> ArrayInterface.is_lazy_conjugate(b)
-    false
+    False()
 
 """
-is_lazy_conjugate(::T) where {T <: AbstractArray} = _is_lazy_conjugate(T, false)
+is_lazy_conjugate(::T) where {T <: AbstractArray} = _is_lazy_conjugate(T, False())
 
 function _is_lazy_conjugate(::Type{T}, isconj) where {T <: AbstractArray}
     Tp = parent_type(T)

@@ -827,14 +827,13 @@ end
 
 @testset "lazy conj" begin
     a = rand(ComplexF64, 2)
-    @test is_lazy_conjugate(a) == false
+    @test @inferred(is_lazy_conjugate(a)) == false
     b = a'
-    @test is_lazy_conjugate(b) == true
+    @test @inferred(is_lazy_conjugate(b)) == true
     c = transpose(b)
-    @test is_lazy_conjugate(c) == true
+    @test @inferred(is_lazy_conjugate(c)) == true
     d = c'
-    @test is_lazy_conjugate(d) == false
+    @test @inferred(is_lazy_conjugate(d)) == false
     e = permutedims(d)
-    @test is_lazy_conjugate(e) == false
-end 
-
+    @test @inferred(is_lazy_conjugate(e)) == false
+end
