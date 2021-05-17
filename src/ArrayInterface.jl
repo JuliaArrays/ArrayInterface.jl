@@ -841,6 +841,51 @@ end
     return setindex!(A, val; kwargs...)
 end
 
+
+"""
+    is_lazy_conjugate(::AbstractArray)  
+
+Determine if a given array will lazyily take complex conjugates, such as with `Adjoint`. This will work with
+nested wrappers, so long as there is no type in the chain of wrappers such that `parent_type(T) == T`
+
+Examples
+
+    julia> a = transpose([1 + im, 1-im]')
+    2×1 transpose(adjoint(::Vector{Complex{Int64}})) with eltype Complex{Int64}:
+     1 - 1im
+     1 + 1im
+
+    julia> ArrayInterface.is_lazy_conjugate(a)
+    true
+
+    julia> b = a'
+    1×2 adjoint(transpose(adjoint(::Vector{Complex{Int64}}))) with eltype Complex{Int64}:
+     1+1im  1-1im
+
+    julia> ArrayInterface.is_lazy_conjugate(b)
+    false
+
+"""
+is_lazy_conjugate(::T) where {T <: AbstractArray} = _is_lazy_conjugate(T, false)
+
+function _is_lazy_conjugate(::Type{T}, isconj) where {T <: AbstractArray}
+    Tp = parent_type(T)
+    if T !== Tp
+        _is_lazy_conjugate(Tp, isconj)
+    else
+        isconj
+    end
+end
+
+function _is_lazy_conjugate(::Type{T}, isconj) where {T <: Adjoint}
+    Tp = parent_type(T)
+    if T !== Tp
+        _is_lazy_conjugate(Tp, !isconj)
+    else
+        !isconj
+    end
+end
+
 include("ranges.jl")
 include("dimensions.jl")
 include("axes.jl")
@@ -848,6 +893,8 @@ include("size.jl")
 include("indexing.jl")
 include("stridelayout.jl")
 include("broadcast.jl")
+
+
 
 function __init__()
 
