@@ -999,6 +999,7 @@ function __init__()
 
     @require Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c" begin
         ismutable(::Type{<:Tracker.TrackedArray}) = false
+        ismutable(T::Type{<:Tracker.TrackedReal}) = false
         can_setindex(::Type{<:Tracker.TrackedArray}) = false
         fast_scalar_indexing(::Type{<:Tracker.TrackedArray}) = false
         aos_to_soa(x::AbstractArray{<:Tracker.TrackedReal,N}) where {N} = Tracker.collect(x)
