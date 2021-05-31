@@ -269,6 +269,7 @@ function _contiguous_batch_size(::StaticInt{D}, ::R) where {D,R<:Tuple}
         return nothing
     end
 end
+_contiguous_batch_size(::StaticInt{-1}, ::R) where {R<:Tuple} = -One()
 
 contiguous_batch_size(::Type{Array{T,N}}) where {T,N} = Zero()
 contiguous_batch_size(::Type{BitArray{N}}) where {N} = Zero()

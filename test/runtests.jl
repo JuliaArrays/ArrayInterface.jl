@@ -398,6 +398,12 @@ using OffsetArrays
     @test @inferred(contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:]))) === ArrayInterface.StaticInt(-1)
     @test @inferred(contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) === ArrayInterface.StaticInt(-1)
     @test @inferred(contiguous_batch_size(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) === ArrayInterface.StaticInt(0)
+    let u_base = randn(10, 10)
+        u_view = view(u_base, 3, :)
+        u_reshaped_view = reshape(u_view, 1, size(u_base, 2))
+        @test @inferred(contiguous_batch_size(u_view)) === ArrayInterface.StaticInt(-1)
+        @test @inferred(contiguous_batch_size(u_reshaped_view)) === ArrayInterface.StaticInt(-1)
+    end
 
     @test @inferred(stride_rank(@SArray(zeros(2,2,2)))) == (1, 2, 3)
     @test @inferred(stride_rank(A)) == (1,2,3)
