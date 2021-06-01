@@ -553,8 +553,6 @@ function strides(a::A, dim::Integer) where {A}
     end
 end
 
-
-
 @inline stride(A::AbstractArray, ::StaticInt{N}) where {N} = strides(A)[N]
 @inline stride(A::AbstractArray, ::Val{N}) where {N} = strides(A)[N]
 stride(A, i) = Base.stride(A, i) # for type stability
