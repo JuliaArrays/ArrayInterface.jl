@@ -73,7 +73,8 @@ function BlockBandedMatrixIndex(nrowblock, ncolblock, rowsizes, colsizes, l, u)
     refinds = Array{Int,1}()
     refrowcoords = Array{Int,1}()
     refcolcoords = Array{Int,1}()
-    rowheights = cumsum(pushfirst!(copy(rowsizes), 1))
+    rowheights = pushfirst!(copy(rowsizes), 1)
+    cumsum!(rowheights, rowheights)
     blockheight = 0
     blockrow = 1
     blockcol = 1
@@ -139,8 +140,10 @@ function BandedBlockBandedMatrixIndex(
         by = x -> x[1],
     )
     sort!(sortedinds, by = x -> x[2], alg = InsertionSort)# stable sort keeps the second index in order
-    rowheights = cumsum(pushfirst!(copy(rowsizes), 1))
-    colwidths = cumsum(pushfirst!(copy(colsizes), 1))
+    rowheights = pushfirst!(copy(rowsizes), 1)
+    cumsum!(rowheights, rowheights)
+    colwidths = pushfirst!(copy(colsizes), 1)
+    cumsum!(colwidths, colwidths)
     currenti = 1
     refinds = Array{Int,1}()
     refrowcoords = Array{Int,1}()
