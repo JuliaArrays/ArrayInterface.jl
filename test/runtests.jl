@@ -711,9 +711,6 @@ end
 end
 
 @testset "Reshaped views" begin
-    # See
-    # https://github.com/JuliaArrays/ArrayInterface.jl/issues/160
-    # https://github.com/JuliaArrays/ArrayInterface.jl/issues/157
     u_base = randn(10, 10)
     u_view = view(u_base, 3, :)
     u_reshaped_view1 = reshape(u_view, 1, :)
@@ -724,10 +721,17 @@ end
     @test @inferred(ArrayInterface.defines_strides(u_reshaped_view1))
     @test @inferred(ArrayInterface.defines_strides(u_reshaped_view2))
 
+    # See https://github.com/JuliaArrays/ArrayInterface.jl/issues/160
     @test @inferred(ArrayInterface.strides(u_base)) == (StaticInt(1), 10)
     @test @inferred(ArrayInterface.strides(u_view)) == (10,)
     @test @inferred(ArrayInterface.strides(u_reshaped_view1)) == (10, 10)
     @test @inferred(ArrayInterface.strides(u_reshaped_view2)) == (10, 20)
+
+    # See https://github.com/JuliaArrays/ArrayInterface.jl/issues/157
+    @test @inferred(ArrayInterface.dense_dims(u_base)) == (True(), True())
+    @test @inferred(ArrayInterface.dense_dims(u_view)) == (False(),)
+    @test @inferred(ArrayInterface.dense_dims(u_reshaped_view1)) == (False(), False())
+    @test @inferred(ArrayInterface.dense_dims(u_reshaped_view2)) == (False(), False())
 end
 
 @test ArrayInterface.can_avx(ArrayInterface.can_avx) == false

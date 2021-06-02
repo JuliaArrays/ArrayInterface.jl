@@ -414,6 +414,9 @@ function _reshaped_dense_dims(dense::D, ::True, ::Val{N}, ::Val{0}) where {D,N}
         return nothing
     end
 end
+function _reshaped_dense_dims(dense::Tuple{Static.False}, ::True, ::Val{N}, ::Val{0}) where {N}
+    return return ntuple(_ -> False(), Val{N}())
+end
 
 """
     known_strides(::Type{T}[, dim]) -> Tuple
