@@ -88,7 +88,7 @@ end
     contiguous_axis(::Type{T}) -> StaticInt{N}
 
 Returns the axis of an array of type `T` containing contiguous data.
-If no axis is contiguous, it returns `StaticInt{-1}`.
+If no axis is contiguous, it returns a `StaticInt{-1}`.
 If unknown, it returns `nothing`.
 """
 contiguous_axis(x) = contiguous_axis(typeof(x))
@@ -297,7 +297,7 @@ contiguous_batch_size(::Type{<:Base.ReinterpretArray{T,N,S,A}}) where {T,N,S,A} 
 """
     is_column_major(A) -> True/False
 
-Returns `Val{true}` if elements of `A` are stored in column major order. Otherwise returns `Val{false}`.
+Returns `True()` if elements of `A` are stored in column major order. Otherwise returns `False()`.
 """
 is_column_major(A) = is_column_major(stride_rank(A), contiguous_batch_size(A))
 is_column_major(sr::Nothing, cbs) = False()
@@ -310,10 +310,11 @@ _is_column_major(sr::R, cbs::StaticInt) where {R} = False()
 _is_column_major(sr::R, cbs::Union{StaticInt{0},StaticInt{-1}}) where {R} = is_increasing(sr)
 
 """
-    dense_dims(::Type{T}) -> NTuple{N,Bool}
+    dense_dims(::Type{<:AbstractArray{N}}) -> NTuple{N,Bool}
 
 Returns a tuple of indicators for whether each axis is dense.
-An axis `i` of array `A` is dense if `stride(A, i) * Base.size(A, i) == stride(A, j)` where `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
+An axis `i` of array `A` is dense if `stride(A, i) * Base.size(A, i) == stride(A, j)`
+where `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
 """
 dense_dims(x) = dense_dims(typeof(x))
 function dense_dims(::Type{T}) where {T}
@@ -359,7 +360,7 @@ end
 if VERSION ≥ v"1.6.0-DEV.1581"
     @inline function dense_dims(::Type{A}) where {NB, NA, B <: AbstractArray{<:Any,NB},A<: Base.ReinterpretArray{<:Any, NA, <:Any, B, true}}
         ddb = dense_dims(B)
-        IfElse.ifelse(Static.le(StaticInt(NB), StaticInt(NA)), (True(), ddb...), Base.tail(ddb))                      
+        IfElse.ifelse(Static.le(StaticInt(NB), StaticInt(NA)), (True(), ddb...), Base.tail(ddb))
     end
 end
 
@@ -464,13 +465,16 @@ julia> A = rand(3,4);
 
 julia> ArrayInterface.strides(A)
 (static(1), 3)
+```
 
 Additionally, the behavior differs from `Base.strides` for adjoint vectors:
 
+```julia
 julia> x = rand(5);
 
 julia> ArrayInterface.strides(x')
 (static(1), static(1))
+```
 
 This is to support the pattern of using just the first stride for linear indexing, `x[i]`,
 while still producing correct behavior when using valid cartesian indices, such as `x[1,i]`.
@@ -485,6 +489,17 @@ function strides(x)
         return Base.strides(x)
     end
 end
+
+# Fixes the example of https://github.com/JuliaArrays/ArrayInterface.jl/issues/160
+# TODO: Should be generalized to reshaped arrays wrapping more general array types
+function strides(A::ReshapedArray{T,N,P}) where {T, N, P<:AbstractVector}
+    if defines_strides(A)
+        return size_to_strides(size(A), first(strides(parent(A))))
+    else
+        return Base.strides(A)
+    end
+end
+
 @inline bmap(f::F, t::Tuple{}, x::Number) where {F} = ()
 @inline bmap(f::F, t::Tuple{T}, x::Number) where {F, T} = (f(first(t),x), )
 @inline bmap(f::F, t::Tuple, x::Number) where {F} = (f(first(t),x), bmap(f, Base.tail(t), x)...)
