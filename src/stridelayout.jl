@@ -310,7 +310,7 @@ _is_column_major(sr::R, cbs::StaticInt) where {R} = False()
 _is_column_major(sr::R, cbs::Union{StaticInt{0},StaticInt{-1}}) where {R} = is_increasing(sr)
 
 """
-    dense_dims(::Type{<:AbstractArray{N}}) -> NTuple{N,Bool}
+    dense_dims(::Type{<:AbstractArray{N}}) -> NTuple{N,StaticBool}
 
 Returns a tuple of indicators for whether each axis is dense.
 An axis `i` of array `A` is dense if `stride(A, i) * Base.size(A, i) == stride(A, j)`
