@@ -507,7 +507,8 @@ end
 @inline bmap(f::F, t::Tuple{T}, x::Number) where {F, T} = (f(first(t),x), )
 @inline bmap(f::F, t::Tuple, x::Number) where {F} = (f(first(t),x), bmap(f, Base.tail(t), x)...)
 if VERSION ≥ v"1.6.0-DEV.1581"
-  @inline @inline function strides(A::Base.ReinterpretArray{R, N, T, B, true}) where {R,N,T,B}
+  # from `reinterpret(reshape, ...)`
+  @inline function strides(A::Base.ReinterpretArray{R, N, T, B, true}) where {R,N,T,B}
     P = strides(parent(A))
     if sizeof(R) == sizeof(T)
       P
@@ -521,6 +522,18 @@ if VERSION ≥ v"1.6.0-DEV.1581"
       end
     else
       (One(), bmap(*, P, StaticInt(sizeof(T)) ÷ StaticInt(sizeof(R)))...)
+    end
+  end
+
+  # plain `reinterpret(...)`
+  @inline function strides(A::Base.ReinterpretArray{R, N, T, B, false}) where {R,N,T,B}
+    P = strides(parent(A))
+    if sizeof(R) == sizeof(T)
+      P
+    elseif sizeof(R) > sizeof(T)
+      (first(P), bmap(÷, Base.tail(P), StaticInt(sizeof(R)) ÷ StaticInt(sizeof(T)))...)
+    else # sizeof(R) < sizeof(T)
+      (first(P), bmap(*, Base.tail(P), StaticInt(sizeof(T)) ÷ StaticInt(sizeof(R)))...)
     end
   end
 end

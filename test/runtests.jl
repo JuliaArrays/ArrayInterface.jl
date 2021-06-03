@@ -534,6 +534,8 @@ end
     R = StaticInt(1):StaticInt(2);
     Rnr = reinterpret(Int32, R);
     Ar = reinterpret(Float32, A);
+    A2 = zeros(4, 3, 5)
+    A2r = reinterpret(ComplexF64, A2)
 
     sv5 = @SVector(zeros(5)); v5 = Vector{Float64}(undef, 5);
     @test @inferred(ArrayInterface.size(sv5)) === (StaticInt(5),)
@@ -545,6 +547,8 @@ end
     @test @inferred(ArrayInterface.size(R)) === (StaticInt(2),)
     @test @inferred(ArrayInterface.size(Rnr)) === (StaticInt(4),)
     @test @inferred(ArrayInterface.known_length(Rnr)) === 4
+    @test @inferred(ArrayInterface.size(A2)) === (4,3,5)
+    @test @inferred(ArrayInterface.size(A2r)) === (2,3,5)
 
     @test @inferred(ArrayInterface.size(S)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(Sp)) === (2, 2, StaticInt(3))
@@ -576,6 +580,8 @@ end
     @test @inferred(ArrayInterface.known_size(Ar)) === (nothing,nothing, nothing,)
     @test @inferred(ArrayInterface.known_size(Ar, static(1))) === nothing
     @test @inferred(ArrayInterface.known_size(Ar, static(4))) === 1
+    @test @inferred(ArrayInterface.known_size(A2)) === (nothing, nothing, nothing)
+    @test @inferred(ArrayInterface.known_size(A2r)) === (nothing, nothing, nothing)
 
     @test @inferred(ArrayInterface.known_size(S)) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(Wrapper(S))) === (2, 3, 4)
@@ -595,6 +601,8 @@ end
     @test @inferred(ArrayInterface.strides(A)) == strides(A)
     @test @inferred(ArrayInterface.strides(Ap)) == strides(Ap)
     @test @inferred(ArrayInterface.strides(Ar)) === (StaticInt{1}(), 6, 24)
+    @test @inferred(ArrayInterface.strides(A2)) === (StaticInt(1), 4, 12)
+    @test @inferred(ArrayInterface.strides(A2r)) === (StaticInt(1), 2, 6)
 
     @test @inferred(ArrayInterface.strides(S)) === (StaticInt(1), StaticInt(2), StaticInt(6))
     @test @inferred(ArrayInterface.strides(Sp)) === (StaticInt(6), StaticInt(1), StaticInt(2))
@@ -617,6 +625,8 @@ end
     @test @inferred(ArrayInterface.known_strides(Ap)) === (1, nothing)
     @test @inferred(ArrayInterface.known_strides(Ar)) === (1, nothing, nothing)
     @test @inferred(ArrayInterface.known_strides(reshape(view(zeros(100), 1:60), (3,4,5)))) === (1, nothing, nothing)
+    @test @inferred(ArrayInterface.known_strides(A2)) === (1, nothing, nothing)
+    @test @inferred(ArrayInterface.known_strides(A2r)) === (1, nothing, nothing)
 
     @test @inferred(ArrayInterface.known_strides(S)) === (1, 2, 6)
     @test @inferred(ArrayInterface.known_strides(Sp)) === (6, 1, 2)
@@ -634,6 +644,8 @@ end
     @test @inferred(ArrayInterface.offsets(A)) === (StaticInt(1), StaticInt(1), StaticInt(1))
     @test @inferred(ArrayInterface.offsets(Ap)) === (StaticInt(1), StaticInt(1))
     @test @inferred(ArrayInterface.offsets(Ar)) === (StaticInt(1), StaticInt(1), StaticInt(1))
+    @test @inferred(ArrayInterface.offsets(A2)) === (StaticInt(1), StaticInt(1), StaticInt(1))
+    @test @inferred(ArrayInterface.offsets(A2r)) === (StaticInt(1), StaticInt(1), StaticInt(1))
 
     @test @inferred(ArrayInterface.offsets(S)) === (StaticInt(1), StaticInt(1), StaticInt(1))
     @test @inferred(ArrayInterface.offsets(Sp)) === (StaticInt(1), StaticInt(1), StaticInt(1))
@@ -648,6 +660,8 @@ end
     @test @inferred(ArrayInterface.known_offsets(Ar)) === (1, 1, 1)
     @test @inferred(ArrayInterface.known_offsets(Ar, static(1))) === 1
     @test @inferred(ArrayInterface.known_offsets(Ar, static(4))) === 1
+    @test @inferred(ArrayInterface.known_offsets(A2)) === (1, 1, 1)
+    @test @inferred(ArrayInterface.known_offsets(A2r)) === (1, 1, 1)
 
     @test @inferred(ArrayInterface.known_offsets(S)) === (1, 1, 1)
     @test @inferred(ArrayInterface.known_offsets(Sp)) === (1, 1, 1)
@@ -732,6 +746,22 @@ end
     @test @inferred(ArrayInterface.dense_dims(u_view)) == (False(),)
     @test @inferred(ArrayInterface.dense_dims(u_reshaped_view1)) == (False(), False())
     @test @inferred(ArrayInterface.dense_dims(u_reshaped_view2)) == (False(), False())
+end
+
+@testset "Reinterpreted reshaped views" begin
+    u_base = randn(1, 4, 4, 5)
+    u_vectors = reshape(reinterpret(SVector{1, eltype(u_base)}, u_base),
+                        Base.tail(size(u_base))...)
+    u_view = view(u_vectors, 2, :, 3)
+    u_view_reinterpreted = reinterpret(eltype(u_base), u_view)
+    u_view_reshaped = reshape(u_view_reinterpreted, 1, length(u_view))
+
+    # See https://github.com/JuliaArrays/ArrayInterface.jl/issues/163
+    @test @inferred(ArrayInterface.strides(u_base)) == (StaticInt(1), 1, 4, 16)
+    @test @inferred(ArrayInterface.strides(u_vectors)) == (StaticInt(1), 4, 16)
+    @test @inferred(ArrayInterface.strides(u_view)) == (4,)
+    @test @inferred(ArrayInterface.strides(u_view_reinterpreted)) == (4,)
+    @test @inferred(ArrayInterface.strides(u_view_reshaped)) == (4, 4)
 end
 
 @test ArrayInterface.can_avx(ArrayInterface.can_avx) == false
