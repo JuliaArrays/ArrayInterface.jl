@@ -1165,9 +1165,6 @@ function __init__()
         end
         ArrayInterface.axes(A::OffsetArrays.OffsetArray) = Base.axes(A)
         ArrayInterface.axes(A::OffsetArrays.OffsetArray, dim::Integer) = Base.axes(A, dim)
-        function ArrayInterface.device(::Type{T}) where {T<:OffsetArrays.OffsetArray}
-            return device(parent_type(T))
-        end
     end
 end
 
