@@ -12,5 +12,5 @@ function restructure(x::CUDA.CuArray, y)
     return reshape(Adapt.adapt(parameterless_type(x), y), Base.size(x)...)
 end
 
-Device(::Type{<:CUDA.CuArray}) = GPU()
+device(::Type{<:CUDA.CuArray}) = GPU()
 
