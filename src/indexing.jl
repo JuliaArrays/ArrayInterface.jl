@@ -1,45 +1,4 @@
 
-function _check_canonical_indices(A, args)
-    if is_linear_indexing(A, args)
-        if !checkindex(Bool, lazy_axes(A, :), first(args))
-            throw(BoundsError(A, args))
-        end
-    else
-        if !_multi_checkbounds_indices(lazy_axes(A), args)
-            throw(BoundsError(A, args))
-        end
-    end
-end
-@propagate_inbounds function _to_indices(::False, A, args)
-    if is_linear_indexing(A, args)
-        return (to_index(lazy_axes(A, :), first(args)),)
-    else
-        return to_indices(A, lazy_axes(A), args)
-    end
-end
-function _multi_checkbounds_indices(axs::Tuple, args::Tuple)
-    if checkindex(Bool, first(axs), first(args))
-        return _multi_checkbounds_indices(tail(axs), tail(args))
-    else
-        return false
-    end
-end
-function _multi_checkbounds_indices(axs::Tuple, args::Tuple{})
-    if length(first(axs)) == 1
-        return _multi_checkbounds_indices(tail(axs), ())
-    else
-        return false
-    end
-end
-function _multi_checkbounds_indices(::Tuple{}, args::Tuple)
-    if checkindex(Bool, OneTo(1), first(args))
-        return _multi_checkbounds_indices((), tail(args))
-    else
-        return false
-    end
-end
-_multi_checkbounds_indices(::Tuple{}, ::Tuple{}) = true
-
 """ can_flatten(::Type{T}) """ # TODO document new flatten
 @inline flatten(A, inds) = _flatten(can_flatten(inds), A, inds)
 @inline _flatten(::True, A, inds) = flatten_indices(A, inds)
@@ -199,7 +158,9 @@ end
         end
         return args
     else
-        @boundscheck _check_canonical_indices(A, args)
+        @boundscheck if !Base.checkbounds_indices(Bool, lazy_axes(A), args)
+            throw(BoundsError(A, args))
+        end
         return args
     end
 end
@@ -625,6 +586,4 @@ end
 @generated function _unsafe_setindex!(A, x, I::Vararg{Any,N}) where {N}
     return _generate_unsafe_setindex!_body(N)
 end
-
-
 
