@@ -78,7 +78,7 @@ Returns the offset of the linear indices for `x`.
 @inline function offset1(x::X) where {X}
     o1 = known_offset1(X)
     if o1 === nothing
-        return firstinde(x)
+        return firstindex(x)
     else
         return static(o1)
     end

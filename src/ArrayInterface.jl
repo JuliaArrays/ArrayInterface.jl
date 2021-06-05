@@ -935,6 +935,8 @@ function __init__()
         @inline axes(A::OffsetArrays.OffsetArray) = Base.axes(A)
         @inline _axes(A::OffsetArrays.OffsetArray, dim::Integer) = Base.axes(A, dim)
         @inline axes(A::OffsetArrays.OffsetArray{T,N}, ::StaticInt{M}) where {T,M,N} = _axes(A, StaticInt{M}(), gt(StaticInt{M}(),StaticInt{N}()))
+        @inline known_offset1(::Type{<:OffsetArrays.OffsetArray}) = 1
+        @inline known_offset1(::Type{<:OffsetArrays.OffsetVector}) = nothing
     end
 end
 
