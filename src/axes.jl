@@ -146,10 +146,19 @@ function axes(A::LinearIndices{N}, dim::Integer) where {N}
     end
 end
 axes(::LinearAlgebra.AdjOrTrans{T,V}, ::One) where {T,V<:AbstractVector} = One():One()
+axes(A::AbstractArray{T,N}, ::StaticInt{M}) where {T,N,M} = _axes(A, StaticInt{M}(), gt(StaticInt{M}(),StaticInt{N}()))
+axes(A::CartesianIndices{N}, ::StaticInt{M}) where {N,M} = _axes(A, StaticInt{M}(), gt(StaticInt{M}(),StaticInt{N}()))
+axes(A::LinearIndices{N}, ::StaticInt{M}) where {N,M} = _axes(A, StaticInt{M}(), gt(StaticInt{M}(),StaticInt{N}()))
+_axes(::Any, ::Any, ::True) = One():One()
+_axes(A::AbstractArray, ::StaticInt{M}, ::False) where {M} = axes(A, M)
+
 
 axes(A::SubArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
 axes(A::ReinterpretArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
 axes(A::Base.ReshapedArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
+axes(A::SubArray{T,N}, ::StaticInt{M}) where {T,M,N} = _axes(A, StaticInt{M}(), gt(StaticInt{M}(),StaticInt{N}()))
+axes(A::ReinterpretArray{T,N}, ::StaticInt{M}) where {T,M,N} = _axes(A, StaticInt{M}(), gt(StaticInt{M}(),StaticInt{N}()))
+axes(A::Base.ReshapedArray{T,N}, ::StaticInt{M}) where {T,M,N} = _axes(A, StaticInt{M}(), gt(StaticInt{M}(),StaticInt{N}()))
 
 """
     axes(A)

@@ -839,6 +839,8 @@ end
     x = vec(A23); y = vec(A32);
     @test ArrayInterface.indices((x',y'),StaticInt(1)) === Base.Slice(StaticInt(1):StaticInt(1))
     @test ArrayInterface.axes(x',StaticInt(1)) === StaticInt(1):StaticInt(1)
+    @test ArrayInterface.indices((x,y),StaticInt(2)) === Base.Slice(StaticInt(1):StaticInt(1))
+    @test ArrayInterface.axes(x,StaticInt(2)) === StaticInt(1):StaticInt(1)
 end
 
 @testset "insert/deleteat" begin
