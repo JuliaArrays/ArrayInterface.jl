@@ -120,35 +120,41 @@ similar_type(::Type{OptionallyStaticUnitRange{One,StaticInt{N1}}}, ::Type{Int}, 
 
 Return a valid range that maps to each index along dimension `d` of `A`.
 """
-axes(a, dim) = axes(a, to_dims(a, dim))
-axes(a, dims::Tuple{Vararg{Any,K}}) where {K} = (axes(a, first(dims)), axes(a, tail(dims))...)
-axes(a, dims::Tuple{T}) where {T} = (axes(a, first(dims)), )
-axes(a, ::Tuple{}) = ()
-function axes(a::A, dim::Integer) where {A}
+@inline axes(a, dim) = axes(a, to_dims(a, dim))
+@inline axes(a, dims::Tuple{Vararg{Any,K}}) where {K} = (axes(a, first(dims)), axes(a, tail(dims))...)
+@inline axes(a, dims::Tuple{T}) where {T} = (axes(a, first(dims)), )
+@inline axes(a, ::Tuple{}) = ()
+@inline function _axes(a::A, dim::Integer) where {A}
     if parent_type(A) <: A
         return Base.axes(a, Int(dim))
     else
-        return axes(parent(a), to_parent_dims(A, dim))
+        return _axes(parent(a), to_parent_dims(A, dim))
     end
 end
-function axes(A::CartesianIndices{N}, dim::Integer) where {N}
+@inline function _axes(A::CartesianIndices{N}, dim::Integer) where {N}
     if dim > N
         return static(1):static(1)
     else
         return getfield(axes(A), Int(dim))
     end
 end
-function axes(A::LinearIndices{N}, dim::Integer) where {N}
+@inline function _axes(A::LinearIndices{N}, dim::Integer) where {N}
     if dim > N
         return static(1):static(1)
     else
         return getfield(axes(A), Int(dim))
     end
 end
+@inline _axes(::LinearAlgebra.AdjOrTrans{T,V}, ::One) where {T,V<:AbstractVector} = One():One()
+@inline axes(A::AbstractArray, dim::Integer) = _axes(A, dim, False())
+@inline axes(A::AbstractArray{T,N}, ::StaticInt{M}) where {T,N,M} = _axes(A, StaticInt{M}(), gt(StaticInt{M}(),StaticInt{N}()))
+@inline _axes(::Any, ::Any, ::True) = One():One()
+@inline _axes(A::AbstractArray, dim, ::False) = _axes(A, dim)
 
-axes(A::SubArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
-axes(A::ReinterpretArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
-axes(A::Base.ReshapedArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
+
+@inline _axes(A::SubArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
+@inline _axes(A::ReinterpretArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
+@inline _axes(A::Base.ReshapedArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
 
 """
     axes(A)
