@@ -1163,9 +1163,9 @@ function __init__()
         function stride_rank(::Type{A}) where {A<:OffsetArrays.OffsetArray}
             return stride_rank(parent_type(A))
         end
-        axes(A::OffsetArrays.OffsetArray) = Base.axes(A)
-        axes(A::OffsetArrays.OffsetArray, dim::Integer) = Base.axes(A, dim)
-        axes(A::OffsetArrays.OffsetArray{T,N}, ::StaticInt{M}) where {T,M,N} = _axes(A, StaticInt{M}(), gt(StaticInt{M}(),StaticInt{N}()))
+        @inline axes(A::OffsetArrays.OffsetArray) = Base.axes(A)
+        @inline _axes(A::OffsetArrays.OffsetArray, dim::Integer) = Base.axes(A, dim)
+        @inline axes(A::OffsetArrays.OffsetArray{T,N}, ::StaticInt{M}) where {T,M,N} = _axes(A, StaticInt{M}(), gt(StaticInt{M}(),StaticInt{N}()))
     end
 end
 
