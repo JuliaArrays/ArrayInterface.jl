@@ -835,6 +835,10 @@ end
     @test axes(Base.Slice(StaticInt(2):4)) === (Base.IdentityUnitRange(StaticInt(2):4),)
     @test Base.axes1(ArrayInterface.indices(ones(2,2))) === StaticInt(1):4
     @test Base.axes1(Base.Slice(StaticInt(2):4)) === Base.IdentityUnitRange(StaticInt(2):4)
+
+    x = vec(A23); y = vec(A32);
+    @test ArrayInterface.indices((x',y'),StaticInt(1)) === Base.Slice(StaticInt(1):StaticInt(1))
+    @test ArrayInterface.axes(x',StaticInt(1)) === StaticInt(1):StaticInt(1)
 end
 
 @testset "insert/deleteat" begin

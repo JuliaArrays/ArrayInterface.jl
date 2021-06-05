@@ -145,6 +145,7 @@ function axes(A::LinearIndices{N}, dim::Integer) where {N}
         return getfield(axes(A), Int(dim))
     end
 end
+axes(::LinearAlgebra.AdjOrTrans{T,V}, ::One) where {T,V<:AbstractVector} = One():One()
 
 axes(A::SubArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
 axes(A::ReinterpretArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
