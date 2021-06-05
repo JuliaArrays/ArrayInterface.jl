@@ -681,7 +681,11 @@ end
     @test @inferred(ArrayInterface.offsets(Op)) === (11, 4, 8)
 
     @test @inferred(ArrayInterface.offsets((1,2,3))) === (StaticInt(1),)
-
+    @test @inferred(ArrayInterface.offset1(O)) === StaticInt(1)
+    @test @inferred(ArrayInterface.offset1(Op)) === StaticInt(1)
+    o = OffsetArray(vec(A), 8);
+    @test @inferred(ArrayInterface.offset1(o)) === 9
+  
     if VERSION ≥ v"1.6.0-DEV.1581"
         colors = [(R = rand(), G = rand(), B = rand()) for i ∈ 1:100];
 
