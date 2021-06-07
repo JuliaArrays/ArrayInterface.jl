@@ -471,7 +471,7 @@ function _generate_unsafe_get_layout_index!_body(N::Int)
             # the optimizer is not clever enough to split the union without it
             Dy === nothing && return dest
             (idx, state) = Dy
-            dest[idx] = m[Base.Cartesian.@nref($N, lyt, j)]
+            dest[idx] = m[lyt[NDIndex(Base.Cartesian.@ntuple($N, j))]]
             Dy = iterate(D, state)
         end
         return dest
@@ -495,7 +495,7 @@ function _generate_unsafe_get_index!_body(N::Int)
     end
 end
 
-function unsafe_get_index!(lyt::ArrayIndex, dest, src, I::Vararg{Any,N}) where {N}
+@generated function unsafe_get_index!(lyt::ArrayIndex, dest, src, I::Vararg{Any,N}) where {N}
     _generate_unsafe_get_layout_index!_body(N)
 end
 @generated function unsafe_get_index!(::Nothing, dest, src, I::Vararg{Any,N}) where {N}
