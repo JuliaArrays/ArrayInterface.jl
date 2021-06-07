@@ -456,12 +456,26 @@ Returns a collection of `A` given `inds`. `inds` is assumed to have been bounds-
 function unsafe_get_collection(A, inds)
     axs = to_axes(A, inds)
     dest = similar(A, axs)
-    if map(Base.unsafe_length, axes(dest)) == map(Base.unsafe_length, axs)
-        _unsafe_get_index!(dest, A, inds...) # usually a generated function, don't allow it to impact inference result
-    else
-        Base.throw_checksize_error(dest, axs)
-    end
+    unsafe_get_index!(layout(A, AccessStyle(inds)), dest, A, inds...)
     return dest
+end
+
+function _generate_unsafe_get_layout_index!_body(N::Int)
+    quote
+        Base.@_inline_meta
+        D = eachindex(dest)
+        Dy = iterate(D)
+        m = refdata(src)
+        @inbounds Base.Cartesian.@nloops $N j d -> I[d] begin
+            # This condition is never hit, but at the moment
+            # the optimizer is not clever enough to split the union without it
+            Dy === nothing && return dest
+            (idx, state) = Dy
+            dest[idx] = m[Base.Cartesian.@nref($N, lyt, j)]
+            Dy = iterate(D, state)
+        end
+        return dest
+    end
 end
 
 function _generate_unsafe_get_index!_body(N::Int)
@@ -480,8 +494,12 @@ function _generate_unsafe_get_index!_body(N::Int)
         return dest
     end
 end
-@generated function _unsafe_get_index!(dest, src, I::Vararg{Any,N}) where {N}
-    return _generate_unsafe_get_index!_body(N)
+
+function unsafe_get_index!(lyt::ArrayIndex, dest, src, I::Vararg{Any,N}) where {N}
+    _generate_unsafe_get_layout_index!_body(N)
+end
+@generated function unsafe_get_index!(::Nothing, dest, src, I::Vararg{Any,N}) where {N}
+    _generate_unsafe_get_index!_body(N)
 end
 
 _ints2range(x::Integer) = x:x

@@ -902,6 +902,7 @@ end
 include("ndindex.jl")
 include("indexing.jl")
 include("dimensions.jl")
+include("layouts.jl")
 
 @testset "broadcast" begin
     include("broadcast.jl")

@@ -22,7 +22,7 @@ julia> i[1]
 
 ```
 """
-struct NDIndex{N,I<:Tuple{Vararg{Any,N}}} <: AbstractCartesianIndex{N}
+struct NDIndex{N,I<:Tuple{Vararg{CanonicalInt,N}}} <: AbstractCartesianIndex{N}
     index::I
 
     global _NDIndex(index::Tuple{Vararg{Any,N}}) where {N} = new{N,typeof(index)}(index)
@@ -39,6 +39,9 @@ struct NDIndex{N,I<:Tuple{Vararg{Any,N}}} <: AbstractCartesianIndex{N}
 
     NDIndex{0}(::Tuple{}) = new{0,Tuple{}}(())
     NDIndex{0}() = NDIndex{0}(())
+
+    NDIndex(i::Tuple{Vararg{CanonicalInt,N}}) where {N} = new{N,typeof(i)}(i)
+    NDIndex(i::Vararg{CanonicalInt,N}) where {N} = NDIndex(i)
 
     NDIndex(index::Tuple) = _NDIndex(_flatten(index...))
     NDIndex(index...) = _NDIndex(_flatten(index...))

@@ -22,6 +22,10 @@ function ArrayInterface.dimnames(::Type{T}, dim) where {L,T<:NamedDimsWrapper{L}
 end
 ArrayInterface.has_dimnames(::Type{T}) where {T<:NamedDimsWrapper} = true
 Base.parent(x::NamedDimsWrapper) = x.parent
+function ArrayInterface.layout_plan(::Type{A}, s::ArrayInterface.AccessStyle) where {A<:NamedDimsWrapper}
+    ArrayInterface.LayoutPlan(nothing, ArrayInterface.layout_plan(ArrayInterface.parent_type(A), s), parent)
+end
+
 
 @testset "dimension permutations" begin
     a = ones(2, 2, 2)

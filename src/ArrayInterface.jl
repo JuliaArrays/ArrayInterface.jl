@@ -16,6 +16,7 @@ using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretAr
 ## utilites for internal use only ##
 _int_or_static_int(::Nothing) = Int
 _int_or_static_int(x::Int) = StaticInt{x}
+_int_or_static_int(x::Tuple) = Tuple{[_int_or_static_int(x_i) for x_i in x]...}
 
 @static if VERSION >= v"1.7.0-DEV.421"
     using Base: @aggressive_constprop
@@ -26,6 +27,8 @@ else
 end
 
 const CanonicalInt = Union{Int,StaticInt}
+
+_sub_indices_types(::Type{<:SubArray{<:Any,<:Any,<:Any,I}}) where {I} = I
 
 if VERSION ≥ v"1.6.0-DEV.1581"
     _is_reshaped(::Type{ReinterpretArray{T,N,S,A,true}}) where {T,N,S,A} = true
@@ -51,6 +54,7 @@ const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
 
 include("ndindex.jl")
 include("array_index.jl")
+include("layouts.jl")
 
 """
     parent_type(::Type{T})
@@ -68,8 +72,6 @@ parent_type(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A} = A
 parent_type(::Type{Slice{T}}) where {T} = T
 parent_type(::Type{T}) where {T} = T
 parent_type(::Type{R}) where {S,T,A,N,R<:Base.ReinterpretArray{T,N,S,A}} = A
-parent_type(::Type{LoTri{T,M}}) where {T,M} = M
-parent_type(::Type{UpTri{T,M}}) where {T,M} = M
 parent_type(::Type{Diagonal{T,V}}) where {T,V} = V
 
 """
@@ -81,6 +83,19 @@ has_parent(x) = has_parent(typeof(x))
 has_parent(::Type{T}) where {T} = _has_parent(parent_type(T), T)
 _has_parent(::Type{T}, ::Type{T}) where {T} = False()
 _has_parent(::Type{T1}, ::Type{T2}) where {T1,T2} = True()
+
+"""
+    refdata(x)
+
+Returns the most basic representation of `x`'s core data storage. For many types this
+recursively calls `parent`.
+"""
+refdata(x::X) where {X} = _refdata(has_parent(X), x)
+_refdata(::True, x) = refdata(parent(x))
+_refdata(::False, x) = x
+# TODO remove once layouts are implemented for these
+refdata(x::Union{ReinterpretArray,Symmetric,Diagonal,LinearAlgebra.AbstractTriangular}) = x
+
 
 """
     known_length(::Type{T})
