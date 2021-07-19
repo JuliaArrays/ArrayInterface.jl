@@ -2,7 +2,7 @@
 
 @testset "NDIndex" begin
 
-x = NDIndex((1,2,3))
+x = 
 y = NDIndex((1,static(2),3))
 z = NDIndex(static(3), static(3), static(3))
 
@@ -18,7 +18,6 @@ z = NDIndex(static(3), static(3), static(3))
     @test @inferred(NDIndex{3,Tuple{Int,Int,Int}}((1,2, 3))) === x
 end
 
-@test @inferred(ArrayInterface.known_length(x)) === 3
 @test @inferred(length(x)) === 3
 @test @inferred(length(typeof(x))) === 3
 @test @inferred(y[2]) === 2
