@@ -1,7 +1,7 @@
 using ArrayInterface, Test
 using Base: setindex
 using IfElse
-using ArrayInterface: StaticInt, True, False
+using ArrayInterface: StaticInt, True, False, NDIndex
 import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance,
     device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, static, NDIndex,
     is_lazy_conjugate
@@ -17,6 +17,7 @@ using StaticArrays
 @test isone(ArrayInterface.known_first(typeof(StaticArrays.SOneTo(7))))
 @test ArrayInterface.known_last(typeof(StaticArrays.SOneTo(7))) == 7
 @test ArrayInterface.known_length(typeof(StaticArrays.SOneTo(7))) == 7
+@test @inferred(ArrayInterface.known_length(NDIndex((1,2,3)))) === 3
 
 using LinearAlgebra, SparseArrays
 
@@ -899,7 +900,6 @@ end
     @test @inferred(ArrayInterface.axes(Array{Float64}(undef, 4, 3)')) === (Base.OneTo(3),Base.OneTo(4))
 end
 
-include("ndindex.jl")
 include("indexing.jl")
 include("dimensions.jl")
 

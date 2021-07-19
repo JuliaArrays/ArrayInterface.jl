@@ -49,7 +49,6 @@ const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
 @inline static_last(x) = Static.maybe_static(known_last, last, x)
 @inline static_step(x) = Static.maybe_static(known_step, step, x)
 
-include("ndindex.jl")
 include("array_index.jl")
 
 """
@@ -94,6 +93,7 @@ known_length(::Type{T}) where {T<:Slice} = known_length(parent_type(T))
 known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N
 known_length(::Type{T}) where {Itr,T<:Base.Generator{Itr}} = known_length(Itr)
 known_length(::Type{<:Number}) = 1
+known_length(::Type{NDIndex{N,I}}) where {N,I} = N
 function known_length(::Type{T}) where {T}
     if parent_type(T) <: T
         return nothing
