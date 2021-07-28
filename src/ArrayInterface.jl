@@ -393,6 +393,7 @@ a matching `ArrayPartition`.
 function restructure(x, y)
     out = similar(x, eltype(y))
     vec(out) .= vec(y)
+    out
 end
 
 function restructure(x::Array, y)
