@@ -900,6 +900,9 @@ end
     @test @inferred(ArrayInterface.axes(Array{Float64}(undef, 4, 3)')) === (Base.OneTo(3),Base.OneTo(4))
 end
 
+@testset "arrayinterface" begin
+    include("arrayinterface.jl")
+end
 include("indexing.jl")
 include("dimensions.jl")
 
