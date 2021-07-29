@@ -79,13 +79,6 @@ end
 _layout(::IndexLinear, x::Tuple) = LinearIndices(x)
 _layout(::IndexCartesian, x::Tuple) = CartesianIndices(x)
 
-"""
-    ArrayStyle(::Type{A})
-
-Used to customize the meaning of indexing arguments in the context of a given array `A`.
-
-See also: [`argdims`](@ref), [`UnsafeIndex`](@ref)
-"""
 abstract type ArrayStyle end
 
 struct DefaultArrayStyle <: ArrayStyle end
