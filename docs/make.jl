@@ -3,6 +3,7 @@ using Documenter
 
 makedocs(;
     modules=[ArrayInterface],
+    sitename="ArrayInterface",
     pages=[
         "Home" => "index.md",
     ],
