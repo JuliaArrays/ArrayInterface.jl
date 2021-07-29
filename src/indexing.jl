@@ -393,7 +393,7 @@ Changing indexing based on a given argument from `args` should be done through,
 """
 @propagate_inbounds getindex(A, args...) = unsafe_get_index(A, to_indices(A, args))
 @propagate_inbounds function getindex(A; kwargs...)
-    return unsafe_get_index(A, to_indices(A, order_named_inds(dimnames(A), kwargs.data)))
+    return unsafe_get_index(A, to_indices(A, order_named_inds(dimnames(A), values(kwargs))))
 end
 @propagate_inbounds getindex(x::Tuple, i::Int) = getfield(x, i)
 @propagate_inbounds getindex(x::Tuple, ::StaticInt{i}) where {i} = getfield(x, i)
@@ -512,7 +512,7 @@ Store the given values at the given key or index within a collection.
     end
 end
 @propagate_inbounds function setindex!(A, val; kwargs...)
-    return unsafe_set_index!(A, val, to_indices(A, order_named_inds(dimnames(A), kwargs.data)))
+    return unsafe_set_index!(A, val, to_indices(A, order_named_inds(dimnames(A), values(kwargs))))
 end
 
 unsafe_set_index!(A, v, inds::Tuple) = _unsafe_set_index!(_is_element_index(inds), A, v, inds)
