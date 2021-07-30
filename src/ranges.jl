@@ -5,8 +5,13 @@
 If `first` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
 
-@test isnothing(known_first(typeof(1:4)))
-@test isone(known_first(typeof(Base.OneTo(4))))
+```julia
+julia> ArrayInterface.known_first(typeof(1:4))
+nothing
+
+julia> ArrayInterface.known_first(typeof(Base.OneTo(4)))
+1
+```
 """
 known_first(x) = known_first(typeof(x))
 function known_first(::Type{T}) where {T}
@@ -24,9 +29,14 @@ known_first(::Type{Base.OneTo{T}}) where {T} = one(T)
 If `last` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
 
-@test isnothing(known_last(typeof(1:4)))
-using StaticArrays
-@test known_last(typeof(SOneTo(4))) == 4
+```julia
+julia> ArrayInterface.known_last(typeof(1:4))
+nothing
+
+julia> ArrayInterface.known_first(typeof(static(1):static(4)))
+4
+
+```
 """
 known_last(x) = known_last(typeof(x))
 function known_last(::Type{T}) where {T}
@@ -43,8 +53,14 @@ end
 If `step` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
 
-@test isnothing(known_step(typeof(1:0.2:4)))
-@test isone(known_step(typeof(1:4)))
+```julia
+julia> ArrayInterface.known_step(typeof(1:2:8))
+nothing
+
+julia> ArrayInterface.known_step(typeof(1:4))
+1
+
+```
 """
 known_step(x) = known_step(typeof(x))
 function known_step(::Type{T}) where {T}
@@ -65,20 +81,15 @@ at compile time. An `OptionallyStaticUnitRange` is intended to be constructed in
 from other valid indices. Therefore, users should not expect the same checks are used
 to ensure construction of a valid `OptionallyStaticUnitRange` as a `UnitRange`.
 """
-struct OptionallyStaticUnitRange{F<:Integer,L<:Integer} <: AbstractUnitRange{Int}
+struct OptionallyStaticUnitRange{F<:CanonicalInt,L<:CanonicalInt} <: AbstractUnitRange{Int}
     start::F
     stop::L
 
-    function OptionallyStaticUnitRange(start, stop)
-        if eltype(start) <: Int
-            if eltype(stop) <: Int
-                return new{typeof(start),typeof(stop)}(start, stop)
-            else
-                return OptionallyStaticUnitRange(start, Int(stop))
-            end
-        else
-            return OptionallyStaticUnitRange(Int(start), stop)
-        end
+    function OptionallyStaticUnitRange(start::CanonicalInt, stop::CanonicalInt)
+        new{typeof(start),typeof(stop)}(start, stop)
+    end
+    function OptionallyStaticUnitRange(start::Integer, stop::Integer)
+        OptionallyStaticUnitRange(canonicalize(start), canonicalize(stop))
     end
 
     function OptionallyStaticUnitRange{F,L}(x::AbstractRange) where {F,L}
@@ -138,24 +149,18 @@ julia> ArrayInterface.OptionallyStaticStepRange(x, x, 10)
 ArrayInterface.StaticInt{2}():ArrayInterface.StaticInt{2}():10
 ```
 """
-struct OptionallyStaticStepRange{F<:Integer,S<:Integer,L<:Integer} <: OrdinalRange{Int,Int}
+struct OptionallyStaticStepRange{F<:CanonicalInt,S<:CanonicalInt,L<:CanonicalInt} <: OrdinalRange{Int,Int}
     start::F
     step::S
     stop::L
 
-    function OptionallyStaticStepRange(start, step, stop)
-        if eltype(start) <: Int
-            if eltype(stop) <: Int
-                lst = _steprange_last(start, step, stop)
-                return new{typeof(start),typeof(step),typeof(lst)}(start, step, lst)
-            else
-                return OptionallyStaticStepRange(start, step, Int(stop))
-            end
-        else
-            return OptionallyStaticStepRange(Int(start), step, stop)
-        end
+    function OptionallyStaticStepRange(start::CanonicalInt, step::CanonicalInt, stop::CanonicalInt)
+        lst = _steprange_last(start, step, stop)
+        new{typeof(start),typeof(step),typeof(lst)}(start, step, lst)
     end
-
+    function OptionallyStaticStepRange(start::Integer, step::Integer, stop::Integer)
+        OptionallyStaticStepRange(canonicalize(start), canonicalize(step), canonicalize(stop))
+    end
     function OptionallyStaticStepRange(x::AbstractRange)
         return OptionallyStaticStepRange(static_first(x), static_step(x), static_last(x))
     end
@@ -277,22 +282,6 @@ end
 unsafe_isempty_one_to(lst) = lst <= zero(lst)
 unsafe_isempty_unit_range(fst, lst) = fst > lst
 
-unsafe_length_one_to(lst::Int) = lst
-unsafe_length_one_to(::StaticInt{L}) where {L} = L
-
-# TODO this should probably be renamed because the point is that it is safe
-@inline function unsafe_length_step_range(start::Int, step::Int, stop::Int)
-    if step > 1
-        return Base.checked_add(Int(div(unsigned(stop - start), step)), 1)
-    elseif step < -1
-        return Base.checked_add(Int(div(unsigned(start - stop), -step)), 1)
-    elseif step > 0
-        return Base.checked_add(Int(div(Base.checked_sub(stop, start), step)), 1)
-    else
-        return Base.checked_add(Int(div(Base.checked_sub(start, stop), -step)), 1)
-    end
-end
-
 @propagate_inbounds function Base.getindex(
     r::OptionallyStaticUnitRange,
     s::AbstractUnitRange{<:Integer},
@@ -347,81 +336,54 @@ end
     return x
 end
 
-###
-### length
-###
+## length
 @inline function known_length(::Type{T}) where {T<:OptionallyStaticUnitRange}
-    fst = known_first(T)
-    lst = known_last(T)
-    if fst === nothing || lst === nothing
-        return nothing
-    else
-        if fst === oneunit(eltype(T))
-            return unsafe_length_one_to(lst)
-        else
-            return unsafe_length_unit_range(fst, lst)
-        end
-    end
+    return _range_length(known_first(T), known_last(T))
 end
 
 @inline function known_length(::Type{T}) where {T<:OptionallyStaticStepRange}
-    fst = known_first(T)
-    stp = known_step(T)
-    lst = known_last(T)
-    if fst === nothing || stp === nothing || lst === nothing
-        return nothing
-    else
-        if stp === 1
-            if fst === oneunit(eltype(T))
-                return unsafe_length_one_to(lst)
-            else
-                return unsafe_length_unit_range(fst, lst)
-            end
-        else
-            return unsafe_length_step_range(fst, stp, lst)
-        end
-    end
+    _range_length(known_first(T), known_step(T), known_last(T))
 end
 
-function Base.length(r::OptionallyStaticUnitRange)
+@inline function Base.length(r::OptionallyStaticUnitRange)
     if isempty(r)
         return 0
     else
-        if known_first(r) === 1
-            return unsafe_length_one_to(last(r))
-        else
-            return unsafe_length_unit_range(first(r), last(r))
-        end
+        return _range_length(static_first(r), static_last(r))
     end
 end
 
-function Base.length(r::OptionallyStaticStepRange)
+@inline function Base.length(r::OptionallyStaticStepRange)
     if isempty(r)
         return 0
     else
-        if known_step(r) === 1
-            if known_first(r) === 1
-                return unsafe_length_one_to(last(r))
-            else
-                return unsafe_length_unit_range(first(r), last(r))
-            end
-        else
-            return unsafe_length_step_range(Int(first(r)), Int(step(r)), Int(last(r)))
-        end
+        return _range_length(static_first(r), static_step(r), static_last(r))
     end
 end
 
-unsafe_length_unit_range(start::Integer, stop::Integer) = Int((stop - start) + 1)
+_range_length(::StaticInt{1}, stop::Integer) = Int(stop)
+_range_length(start::Integer, stop::Integer) = Int((stop - start) + 1)
+_range_length(start, stop) = nothing
+_range_length(start::Integer, ::StaticInt{1}, stop::Integer) = _range_length(start, stop)
+@inline function _range_length(start::Integer, step::Integer, stop::Integer)
+    if step > 1
+        return Base.checked_add(Int(div(unsigned(stop - start), step)), 1)
+    elseif step < -1
+        return Base.checked_add(Int(div(unsigned(start - stop), -step)), 1)
+    elseif step > 0
+        return Base.checked_add(Int(div(Base.checked_sub(stop, start), step)), 1)
+    else
+        return Base.checked_add(Int(div(Base.checked_sub(start, stop), -step)), 1)
+    end
+end
+_range_length(start, step, stop) = nothing
 
+Base.AbstractUnitRange{Int}(r::OptionallyStaticUnitRange) = r
 function Base.AbstractUnitRange{T}(r::OptionallyStaticUnitRange) where {T}
-    if T <: Int
-        return r
+    if known_first(r) === 1 && T <: Integer
+        return OneTo{T}(last(r))
     else
-        if known_first(r) === 1 && T <: Integer
-            return OneTo{T}(last(r))
-        else
-            return UnitRange{T}(first(r), last(r))
-        end
+        return UnitRange{T}(first(r), last(r))
     end
 end
 
