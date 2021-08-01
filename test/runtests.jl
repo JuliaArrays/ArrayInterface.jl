@@ -694,6 +694,9 @@ end
                 @test ap_index[x_i, y_i] == ap_index[x_i, y_i]
             end
         end
+        @test @inferred(ArrayInterface.known_offsets(ap_index)) === ArrayInterface.known_offsets(Ap)
+        @test @inferred(ArrayInterface.known_offset1(ap_index)) === ArrayInterface.known_offset1(Ap)
+        @test @inferred(ArrayInterface.known_strides(ap_index)) === ArrayInterface.known_strides(Ap)
     end
 
     if VERSION ≥ v"1.6.0-DEV.1581"

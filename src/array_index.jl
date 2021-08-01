@@ -183,6 +183,12 @@ function BandedBlockBandedMatrixIndex(
     rowindobj, colindobj
 end
 
+"""
+    StrideIndex(x)
+
+Subtype of `ArrayIndex` that transforms and index using stride layout information
+derived from `x`.
+"""
 struct StrideIndex{N,R,C,S,O,O1} <: ArrayIndex{N}
     strides::S
     offsets::O
@@ -202,8 +208,9 @@ end
 Base.firstindex(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = 1
 Base.lastindex(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = i.count
 Base.length(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = i.count
-function Base.getindex(ind::BidiagonalIndex, i::Int)
-    1 <= i <= ind.count || throw(BoundsError(ind, i))
+@propagate_inbounds Base.getindex(x::ArrayIndex, i::CanonicalInt, ii::CanonicalInt...) = x[NDIndex(i, ii...)]
+@propagate_inbounds function Base.getindex(ind::BidiagonalIndex, i::Int)
+    @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
     if ind.isup
         ii = i + 1
     else
@@ -212,8 +219,8 @@ function Base.getindex(ind::BidiagonalIndex, i::Int)
     convert(Int, floor(ii / 2))
 end
 
-function Base.getindex(ind::TridiagonalIndex, i::Int)
-    1 <= i <= ind.count || throw(BoundsError(ind, i))
+@propagate_inbounds function Base.getindex(ind::TridiagonalIndex, i::Int)
+    @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
     offsetu = ind.isrow ? 0 : 1
     offsetl = ind.isrow ? 1 : 0
     if 1 <= i <= ind.nsize
@@ -225,8 +232,8 @@ function Base.getindex(ind::TridiagonalIndex, i::Int)
     end
 end
 
-function Base.getindex(ind::BandedMatrixIndex, i::Int)
-    1 <= i <= ind.count || throw(BoundsError(ind, i))
+@propagate_inbounds function Base.getindex(ind::BandedMatrixIndex, i::Int)
+    @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
     _i = i
     p = 1
     while _i - ind.bandsizes[p] > 0
@@ -242,8 +249,8 @@ function Base.getindex(ind::BandedMatrixIndex, i::Int)
     end
 end
 
-function Base.getindex(ind::BlockBandedMatrixIndex, i::Int)
-    1 <= i <= ind.count || throw(BoundsError(ind, i))
+@propagate_inbounds function Base.getindex(ind::BlockBandedMatrixIndex, i::Int)
+    @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
     p = 1
     while i - ind.refinds[p] >= 0
         p += 1
@@ -257,8 +264,8 @@ function Base.getindex(ind::BlockBandedMatrixIndex, i::Int)
     end
 end
 
-function Base.getindex(ind::BandedBlockBandedMatrixIndex, i::Int)
-    1 <= i <= ind.count || throw(BoundsError(ind, i))
+@propagate_inbounds function Base.getindex(ind::BandedBlockBandedMatrixIndex, i::Int)
+    @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
     p = 1
     while i - ind.refinds[p] >= 0
         p += 1
@@ -268,11 +275,16 @@ function Base.getindex(ind::BandedBlockBandedMatrixIndex, i::Int)
     ind.reflocalinds[p][_i] + ind.refcoords[p] - 1
 end
 
-@inline function Base.getindex(x::StrideIndex{N}, i::CanonicalInt...) where {N}
-    return _strides2int(x.offsets, x.strides, Tuple(i)) + x.offset1
+@inline function Base.getindex(x::StrideIndex{N}, i::AbstractCartesianIndex{N}) where {N}
+    return _strides2int(offsets(x), strides(x), Tuple(i)) + offset1(x)
 end
-@inline function _strides2int(o::Tuple, s::Tuple, i::Tuple)
-    return ((first(i) - first(o)) * first(s)) + _strides2int(tail(o), tail(s), tail(i))
+@generated function _strides2int(o::O, s::S, i::I) where {O,S,I}
+    N = known_length(I)
+    out = :()
+    for i in 1:N
+        tmp = :(((getfield(i, $i) - getfield(o, $i)) * getfield(s, $i)))
+        out = ifelse(i === 1, tmp, :($out + $tmp))
+    end
+    return Expr(:block, Expr(:meta, :inline), out)
 end
-_strides2int(::Tuple{}, ::Tuple{}, ::Tuple{}) = static(0)
 
