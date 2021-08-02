@@ -1,11 +1,11 @@
 using ArrayInterface: NDIndex
 
-@testset "index_dims" begin
-    @test @inferred(ArrayInterface.index_dims((1, CartesianIndex(1,2)))) === static((1, 2))
-    @test @inferred(ArrayInterface.index_dims((1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === static((1, 2))
-    @test @inferred(ArrayInterface.index_dims((1, CartesianIndex((2,2))))) === static((1, 2))
-    @test @inferred(ArrayInterface.index_dims((CartesianIndex((2,2)), :, :))) === static((2, 1, 1))
-    @test @inferred(ArrayInterface.index_dims(Vector{Int})) === static(1)
+@testset "ndims_index" begin
+    @test @inferred(ArrayInterface.ndims_index(Array, (1, CartesianIndex(1,2)))) === static((1, 2))
+    @test @inferred(ArrayInterface.ndims_index(Array, (1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === static((1, 2))
+    @test @inferred(ArrayInterface.ndims_index(Array, (1, CartesianIndex((2,2))))) === static((1, 2))
+    @test @inferred(ArrayInterface.ndims_index(Array, (CartesianIndex((2,2)), :, :))) === static((2, 1, 1))
+    @test @inferred(ArrayInterface.ndims_index(Array, Vector{Int})) === static(1)
 end
 
 @testset "to_index" begin

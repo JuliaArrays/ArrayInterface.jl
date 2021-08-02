@@ -1,9 +1,13 @@
 
-## is_canonical ##
+"""
+    is_canonical(::Type{I})::StaticBool
+
+Returns `True` if instances of `I` can be used for indexing without any further change
+(e.g., `Int`, `StaticInt`, `UnitRange{Int}`)
+"""
 is_canonical(x) = is_canonical(typeof(x))
 is_canonical(::Type{T}) where {T} = static(false)
-is_canonical(::Type{Int}) = static(true)
-is_canonical(::Type{<:StaticInt}) = static(true)
+is_canonical(::Type{<:CanonicalInt}) = static(true)
 is_canonical(::Type{StepRange{Int,Int}}) = static(true)
 is_canonical(::Type{UnitRange{Int}}) = static(true)
 is_canonical(::Type{OneTo{Int}}) = static(true)
@@ -35,28 +39,13 @@ function canonicalize_convert(x::AbstractUnitRange{<:Integer})
     return OptionallyStaticUnitRange(static_first(x), static_last(x))
 end
 
-index_dims(i) = index_dims(typeof(i))
-index_dims(::Type{T}) where {T} = nothing
-index_dims(::Type{<:Integer}) = static(1)
-index_dims(::Type{Colon}) = static(1)
-index_dims(::Type{T}) where {T<:AbstractArray} = static(ndims(T))
-index_dims(::Type{T}) where {N,T<:AbstractCartesianIndex{N}} = static(N)
-index_dims(::Type{T}) where {N,T<:AbstractArray{<:AbstractCartesianIndex{N}}} = static(N)
-index_dims(::Type{T}) where {N,T<:AbstractArray{<:Any,N}} = static(N)
-index_dims(::Type{T}) where {N,T<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = static(N)
-_idims(::Type{I}, i::StaticInt) where {I} = index_dims(_get_tuple(I, i))
-index_dims(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}} = eachop(_idims, nstatic(Val(N)), T)
-
-# are the indexing arguments provided a linear collection into a multidim collection
-is_linear_indexing(inds) = isone(sum(index_dims(inds)))
-
 """
     to_indices(A, inds::Tuple)::Tuple
 
-Maps arguments `inds` to the axes of `A`. This is done by iteratively passing each
-axis and argument to [`to_index`](@ref). Unique behavior based on the type of `A` may be
-accomplished by overloading `to_indices(A, inds)`. Unique axis-argument behavior can
-be accomplished using `to_index(axis, index)`.
+Maps indexing arguments `inds` to the axes of `A`, ensures they are converted to a native
+indexing form, and that they are inbounds. Unless all indices in `inds` return `static(true)`
+on a call to [`is_canonical`](@ref), then they each are checked at the axis level with
+[`to_index`](@ref).
 """
 @propagate_inbounds to_indices(A, ::Tuple{}) = to_indices(A, lazy_axes(A), ())
 @propagate_inbounds to_indices(A, inds::Tuple) = _to_indices(is_canonical(inds), A, inds)
@@ -64,8 +53,8 @@ be accomplished using `to_index(axis, index)`.
     to_indices(A, lazy_axes(A), axes(getfield(inds, 1)))
 end
 @propagate_inbounds function _to_indices(::True, A, inds)
-    if is_linear_indexing(inds)
-        @boundscheck if !checkindex(Bool, eachindex(IndexLinear(), A), first(inds))
+    if isone(sum(ndims_index(A, inds)))
+        @boundscheck if !checkindex(Bool, eachindex(IndexLinear(), A), getfield(inds, 1))
             throw(BoundsError(A, inds))
         end
         return inds
@@ -77,7 +66,7 @@ end
     end
 end
 @propagate_inbounds function _to_indices(::False, A, inds)
-    if is_linear_indexing(inds)
+    if isone(sum(ndims_index(A, inds)))
         return (to_index(LazyAxis{:}(A), getfield(inds, 1)),)
     else
         return to_indices(A, lazy_axes(A), inds)
@@ -87,7 +76,7 @@ end
     to_indices(A, axs, (Tuple(getfield(inds, 1))..., tail(inds)...))
 end
 @propagate_inbounds function to_indices(A, axs, inds::Tuple{I,Vararg{Any}}) where {I}
-    _to_indices(index_dims(I), A, axs, inds)
+    _to_indices(ndims_index(typeof(A), I), A, axs, inds)
 end
 
 @propagate_inbounds function _to_indices(::StaticInt{1}, A, axs, inds)
@@ -99,7 +88,6 @@ end
     axsfront, axstail = Base.IteratorsMD.split(axs, Val(N))
     if IndexStyle(A) === IndexLinear()
         index = to_index(LinearIndices(axsfront), getfield(inds, 1))
-        
     else
         index = to_index(CartesianIndices(axsfront), getfield(inds, 1))
     end
@@ -126,7 +114,6 @@ _maybe_first(::Tuple{}) = static(1):static(1)
 _maybe_first(x::Tuple) = getfield(x, 1)
 _maybe_tail(::Tuple{}) = ()
 _maybe_tail(x::Tuple) = tail(x)
-
 
 """
     to_index([::IndexStyle, ]axis, arg) -> index
@@ -274,7 +261,7 @@ indices calling [`to_axis`](@ref).
 @inline function to_axes(A, inds::Tuple)
     if ndims(A) === 1
         return (to_axis(axes(A, 1), first(inds)),)
-    elseif is_linear_indexing(inds)
+    elseif isone(sum(ndims_index(A, inds)))
         return (to_axis(eachindex(IndexLinear(), A), first(inds)),)
     else
         return to_axes(A, axes(A), inds)
@@ -282,7 +269,7 @@ indices calling [`to_axis`](@ref).
 end
 # drop this dimension
 to_axes(A, a::Tuple, i::Tuple{<:Integer,Vararg{Any}}) = to_axes(A, tail(a), tail(i))
-to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}}) where {I} = _to_axes(index_dims(I), A, a, i)
+to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}}) where {I} = _to_axes(ndims_index(typeof(A), I), A, a, i)
 function _to_axes(::StaticInt{1}, A, axs::Tuple, inds::Tuple)
     return (to_axis(first(axs), first(inds)), to_axes(A, tail(axs), tail(inds))...)
 end
@@ -351,13 +338,13 @@ function unsafe_get_index(A, i::Tuple{CanonicalInt,Vararg{CanonicalInt}})
 end
 unsafe_get_index(A, i::Tuple) = unsafe_get_collection(A, i)
 
-"""
+#=
     unsafe_get_element(A::AbstractArray{T}, inds::Tuple) -> T
 
 Returns an element of `A` at the indices `inds`. This method assumes all `inds`
 have been checked for being in bounds. Any new array type using `ArrayInterface.getindex`
 must define `unsafe_get_element(::NewArrayType, inds)`.
-"""
+=#
 unsafe_get_element(a::A, inds) where {A} = _unsafe_get_element(has_parent(A), a, inds)
 _unsafe_get_element(::True, a, inds) = unsafe_get_element(parent(a), inds)
 _unsafe_get_element(::False, a, inds) = @inbounds(parent(a)[inds])
@@ -386,11 +373,11 @@ function unsafe_get_element_error(@nospecialize(A), @nospecialize(i))
 end
 
 # This is based on Base._unsafe_getindex from https://github.com/JuliaLang/julia/blob/c5ede45829bf8eb09f2145bfd6f089459d77b2b1/base/multidimensional.jl#L755.
-"""
+#=
     unsafe_get_collection(A, inds)
 
 Returns a collection of `A` given `inds`. `inds` is assumed to have been bounds-checked.
-"""
+=#
 function unsafe_get_collection(A, inds)
     axs = to_axes(A, inds)
     dest = similar(A, axs)
@@ -432,7 +419,7 @@ _ints2range(x::AbstractRange) = x
     end
 end
 @inline function unsafe_get_collection(A::LinearIndices{N}, inds) where {N}
-    if is_linear_indexing(inds)
+    if isone(sum(ndims_index(A, inds)))
         return @inbounds(eachindex(A)[first(inds)])
     elseif stride_preserving_index(typeof(inds)) === True()
         return LinearIndices(to_axes(A, _ints2range.(inds)))
@@ -468,13 +455,13 @@ function unsafe_set_index!(A, v, i::Tuple{CanonicalInt,Vararg{CanonicalInt}})
 end
 unsafe_set_index!(A, v, i::Tuple) = unsafe_set_collection!(A, v, i)
 
-"""
+#=
     unsafe_set_element!(A, val, inds::Tuple)
 
 Sets an element of `A` to `val` at indices `inds`. This method assumes all `inds`
 have been checked for being in bounds. Any new array type using `ArrayInterface.setindex!`
 must define `unsafe_set_element!(::NewArrayType, val, inds)`.
-"""
+=#
 unsafe_set_element!(a, val, inds) = _unsafe_set_element!(has_parent(a), a, val, inds)
 _unsafe_set_element!(::True, a, val, inds) = unsafe_set_element!(parent(a), val, inds)
 _unsafe_set_element!(::False, a, val, inds) = @inbounds(parent(a)[inds] = val)
@@ -492,11 +479,11 @@ function unsafe_set_element!(A::Array{T}, val, i::Integer) where {T}
 end
 
 # This is based on Base._unsafe_setindex!.
-"""
+#=
     unsafe_set_collection!(A, val, inds)
 
 Sets `inds` of `A` to `val`. `inds` is assumed to have been bounds-checked.
-"""
+=#
 @inline unsafe_set_collection!(A, v, i) = _unsafe_setindex!(A, v, i...)
 
 function _generate_unsafe_setindex!_body(N::Int)

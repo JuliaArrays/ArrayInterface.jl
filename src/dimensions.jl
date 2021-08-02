@@ -22,8 +22,40 @@ function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y}}) where {X, Y}
 end
 is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
 
+#=
+    ndims_index(::Type{A}, ::Type{I})::StaticInt
+
+The number of dimensions an instance of `I` maps to when indexing an instance of `A`.
+=#
+ndims_index(A, i) = ndims_index(typeof(A), typeof(i))
+ndims_index(::Type{A}, ::Type{I}) where {A,I} = static(1)
+ndims_index(::Type{A}, ::Type{I}) where {A,N,I<:AbstractCartesianIndex{N}} = static(N)
+ndims_index(::Type{A}, ::Type{I}) where {A,I<:AbstractArray} = ndims_index(A, eltype(I))
+ndims_index(::Type{A}, ::Type{I}) where {A,I<:AbstractArray{Bool}} = static(ndims(I))
+ndims_index(::Type{A}, ::Type{I}) where {A,N,I<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = static(N)
+_inddims(::Type{A}, ::Type{I}, i::StaticInt) where {A,I} = ndims_index(A, _get_tuple(I, i))
+@inline function ndims_index(::Type{A}, ::Type{I}) where {A,N,I<:Tuple{Vararg{Any,N}}}
+    eachop(_inddims, nstatic(Val(N)), A, I)
+end
+
+#=
+    ndims_subset(::Type{A}, ::Type{I})::StaticInt
+
+The number of dimensions an instance of `I` maps to in the subset produced when indexing an
+instance of `A`.
+=#
+ndims_subset(A, i) = ndims_subset(typeof(A), typeof(i))
+ndims_subset(::Type{A}, ::Type{I}) where {A,I} = static(0)
+ndims_subset(::Type{A}, ::Type{I}) where {A,I<:AbstractArray} = static(ndims(I))
+ndims_subset(::Type{A}, ::Type{I}) where {A,I<:AbstractArray{Bool}} = static(1)
+ndims_subset(::Type{A}, ::Type{I}) where {A,N,I<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = static(1)
+_subdims(::Type{A}, ::Type{I}, i::StaticInt) where {A,I} = ndims_subset(A, _get_tuple(I, i))
+@inline function ndims_subset(::Type{A}, ::Type{I}) where {A,N,I<:Tuple{Vararg{Any,N}}}
+    eachop(_subdims, nstatic(Val(N)), A, I)
+end
+
 """
-    from_parent_dims(::Type{T}) -> Tuple
+    from_parent_dims(::Type{T})::Tuple{Vararg{Union{Int,StaticInt}}}
 
 Returns the mapping from parent dimensions to child dimensions.
 """
@@ -37,7 +69,7 @@ from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A
     dim_i = 1
     for i in 1:ndims(A)
         p = I.parameters[i]
-        if p <: Integer
+        if iszero(ndims_subset(A, p))
             push!(out.args, :(StaticInt(0)))
         else
             push!(out.args, :(StaticInt($dim_i)))
@@ -59,7 +91,7 @@ function from_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}
 end
 
 """
-    from_parent_dims(::Type{T}, dim) -> Integer
+    from_parent_dims(::Type{T}, dim)::Union{Int,StaticInt}
 
 Returns the mapping from child dimensions to parent dimensions.
 """
@@ -85,7 +117,7 @@ function from_parent_dims(::Type{T}, ::StaticInt{dim}) where {T,dim}
 end
 
 """
-    to_parent_dims(::Type{T}) -> Tuple
+    to_parent_dims(::Type{T})::Tuple{Vararg{Union{Int,StaticInt}}}
 
 Returns the mapping from child dimensions to parent dimensions.
 """
@@ -98,7 +130,7 @@ to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(A, I)
     out = Expr(:tuple)
     n = 1
     for p in I.parameters
-        if !(p <: Integer)
+        if ndims_subset(A, p) > 0
             push!(out.args, :(StaticInt($n)))
         end
         n += 1
@@ -117,7 +149,7 @@ function to_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
 end
 
 """
-    to_parent_dims(::Type{T}, dim) -> Integer
+    to_parent_dims(::Type{T}, dim)::Union{Int,StaticInt}
 
 Returns the mapping from child dimensions to parent dimensions.
 """
@@ -143,7 +175,7 @@ function to_parent_dims(::Type{T}, ::StaticInt{dim}) where {T,dim}
 end
 
 """
-    has_dimnames(::Type{T}) -> Bool
+    has_dimnames(::Type{T})::Bool
 
 Returns `true` if `x` has names for each dimension.
 """
@@ -160,8 +192,8 @@ end
 const SUnderscore = StaticSymbol(:_)
 
 """
-    dimnames(::Type{T}) -> Tuple{Vararg{StaticSymbol}}
-    dimnames(::Type{T}, dim) -> StaticSymbol
+    dimnames(::Type{T})::Tuple{Vararg{StaticSymbol}}
+    dimnames(::Type{T}, dim)::StaticSymbol
 
 Return the names of the dimensions for `x`.
 """
@@ -191,7 +223,7 @@ function dimnames(::Type{T}) where {T<:SubArray}
 end
 
 """
-    to_dims(::Type{T}, dim) -> Integer
+    to_dims(::Type{T}, dim)::Union{Int,StaticInt}
 
 This returns the dimension(s) of `x` corresponding to `d`.
 """
