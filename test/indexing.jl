@@ -1,19 +1,11 @@
 using ArrayInterface: NDIndex
 
-#=
-@btime ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), $((1, CartesianIndex(1,2))))
-  0.045 ns (0 allocations: 0 bytes)
-
-@btime ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), $((1, [CartesianIndex(1,2), CartesianIndex(1,3)])))
-  0.047 ns (0 allocations: 0 bytes)
-=#
-
-@testset "argdims" begin
-    @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), (1, CartesianIndex(1,2)))) === static((0, 2))
-    @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), (1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === static((0, 2))
-    @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), (1, CartesianIndex((2,2))))) === static((0, 2))
-    @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), (CartesianIndex((2,2)), :, :))) === static((2, 1, 1))
-    @test @inferred(ArrayInterface.argdims(ArrayInterface.DefaultArrayStyle(), Vector{Int})) === static(1)
+@testset "index_dims" begin
+    @test @inferred(ArrayInterface.index_dims((1, CartesianIndex(1,2)))) === static((1, 2))
+    @test @inferred(ArrayInterface.index_dims((1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === static((1, 2))
+    @test @inferred(ArrayInterface.index_dims((1, CartesianIndex((2,2))))) === static((1, 2))
+    @test @inferred(ArrayInterface.index_dims((CartesianIndex((2,2)), :, :))) === static((2, 1, 1))
+    @test @inferred(ArrayInterface.index_dims(Vector{Int})) === static(1)
 end
 
 @testset "to_index" begin
