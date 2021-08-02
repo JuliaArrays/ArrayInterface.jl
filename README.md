@@ -1,8 +1,8 @@
 # ArrayInterface.jl
 
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://github.com/JuliaArrays/ArrayInterface.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://github.com/JuliaArrays/ArrayInterface.jl/dev)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://juliaarrays.github.io/ArrayInterface.jl/stable)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://juliaarrays.github.io/ArrayInterface.jl/dev)
 [![CI](https://github.com/SciML/ArrayInterface.jl/workflows/CI/badge.svg)](https://github.com/SciML/ArrayInterface.jl/actions?query=workflow%3ACI)
 [![CI (Julia nightly)](https://github.com/SciML/ArrayInterface.jl/workflows/CI%20(Julia%20nightly)/badge.svg)](https://github.com/SciML/ArrayInterface.jl/actions?query=workflow%3A%22CI+%28Julia+nightly%29%22)
 [![Build status](https://badge.buildkite.com/a2db252d92478e1d7196ee7454004efdfb6ab59496cbac91a2.svg?branch=master)](https://buildkite.com/julialang/arrayinterface-dot-jl)
