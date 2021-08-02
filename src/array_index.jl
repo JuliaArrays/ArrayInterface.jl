@@ -194,7 +194,7 @@ struct StrideIndex{N,R,C,S,O,O1} <: ArrayIndex{N}
     offsets::O
     offset1::O1
 
-    function StrideIndex{N,R,C}(s::S, o::O, o1::O1) where {N,R,C,S<:Tuple{Vararg{<:CanonicalInt,N}},O<:Tuple{Vararg{<:CanonicalInt,N}},O1}
+    function StrideIndex{N,R,C}(s::S, o::O, o1::O1) where {N,R,C,S,O,O1}
         return new{N,R::NTuple{N,Int},C::Int,S,O,O1}(s, o, o1)
     end
     function StrideIndex{N,R,C}(a::A) where {N,R,C,A}
@@ -287,4 +287,3 @@ end
     end
     return Expr(:block, Expr(:meta, :inline), out)
 end
-
