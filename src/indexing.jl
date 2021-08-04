@@ -39,6 +39,9 @@ function canonicalize_convert(x::AbstractUnitRange{<:Integer})
     return OptionallyStaticUnitRange(static_first(x), static_last(x))
 end
 
+is_linear_indexing(A, args::Tuple{Arg}) where {Arg} = ndims_index(Arg) < 2
+is_linear_indexing(A, args::Tuple{Arg,Vararg{Any}}) where {Arg} = false
+
 """
     to_indices(A, inds::Tuple)::Tuple
 
@@ -53,7 +56,7 @@ on a call to [`is_canonical`](@ref), then they each are checked at the axis leve
     to_indices(A, lazy_axes(A), axes(getfield(inds, 1)))
 end
 @propagate_inbounds function _to_indices(::True, A, inds)
-    if isone(sum(ndims_index(A, inds)))
+    if isone(sum(ndims_index(inds)))
         @boundscheck if !checkindex(Bool, eachindex(IndexLinear(), A), getfield(inds, 1))
             throw(BoundsError(A, inds))
         end
@@ -66,7 +69,7 @@ end
     end
 end
 @propagate_inbounds function _to_indices(::False, A, inds)
-    if isone(sum(ndims_index(A, inds)))
+    if isone(sum(ndims_index(inds)))
         return (to_index(LazyAxis{:}(A), getfield(inds, 1)),)
     else
         return to_indices(A, lazy_axes(A), inds)
@@ -76,7 +79,7 @@ end
     to_indices(A, axs, (Tuple(getfield(inds, 1))..., tail(inds)...))
 end
 @propagate_inbounds function to_indices(A, axs, inds::Tuple{I,Vararg{Any}}) where {I}
-    _to_indices(ndims_index(typeof(A), I), A, axs, inds)
+    _to_indices(ndims_index(I), A, axs, inds)
 end
 
 @propagate_inbounds function _to_indices(::StaticInt{1}, A, axs, inds)
@@ -261,7 +264,7 @@ indices calling [`to_axis`](@ref).
 @inline function to_axes(A, inds::Tuple)
     if ndims(A) === 1
         return (to_axis(axes(A, 1), first(inds)),)
-    elseif isone(sum(ndims_index(A, inds)))
+    elseif isone(sum(ndims_index(inds)))
         return (to_axis(eachindex(IndexLinear(), A), first(inds)),)
     else
         return to_axes(A, axes(A), inds)
@@ -269,7 +272,7 @@ indices calling [`to_axis`](@ref).
 end
 # drop this dimension
 to_axes(A, a::Tuple, i::Tuple{<:Integer,Vararg{Any}}) = to_axes(A, tail(a), tail(i))
-to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}}) where {I} = _to_axes(ndims_index(typeof(A), I), A, a, i)
+to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}}) where {I} = _to_axes(ndims_index(I), A, a, i)
 function _to_axes(::StaticInt{1}, A, axs::Tuple, inds::Tuple)
     return (to_axis(first(axs), first(inds)), to_axes(A, tail(axs), tail(inds))...)
 end
@@ -419,7 +422,7 @@ _ints2range(x::AbstractRange) = x
     end
 end
 @inline function unsafe_get_collection(A::LinearIndices{N}, inds) where {N}
-    if isone(sum(ndims_index(A, inds)))
+    if isone(sum(ndims_index(inds)))
         return @inbounds(eachindex(A)[first(inds)])
     elseif stride_preserving_index(typeof(inds)) === True()
         return LinearIndices(to_axes(A, _ints2range.(inds)))

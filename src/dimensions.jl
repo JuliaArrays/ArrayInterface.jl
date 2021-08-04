@@ -23,31 +23,18 @@ end
 is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
 
 #=
-    ndims_index(::Type{A}, ::Type{I})::StaticInt
+    ndims_index(::Type{I})::StaticInt
 
 The number of dimensions an instance of `I` maps to when indexing an instance of `A`.
 =#
-ndims_index(A, i) = ndims_index(typeof(A), typeof(i))
-function ndims_index(::Type{A}, ::Type{I}) where {A,I}
-    if I <: keytype(A)
-        return static(1)
-    else  # undefined indexing behavior
-        return nothing
-    end
-end
-ndims_index(::Type{A}, ::Type{<:Integer}) where {A} = static(1)
-ndims_index(::Type{A}, ::Type{Colon}) where {A} = static(1)
-ndims_index(::Type{A}, ::Type{I}) where {A,N,I<:AbstractCartesianIndex{N}} = static(N)
-ndims_index(::Type{A}, ::Type{I}) where {A,I<:AbstractArray} = ndims_index(A, eltype(I))
-ndims_index(::Type{A}, ::Type{I}) where {A,I<:AbstractArray{Bool}} = static(ndims(I))
-ndims_index(::Type{A}, ::Type{I}) where {A,N,I<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = static(N)
-ndims_index(::Type{A}, ::Type{I}) where {A,I<:Tuple} = ndims_index(LazyAxis{1,A}, I)
-@inline function ndims_index(::Type{LazyAxis{N,A}}, ::Type{I}) where {N,A,I1,I<:Tuple{I1,Vararg{Any}}}
-    NI = ndims_index(LazyAxis{N,A}, I1)
-    (NI, ndims_index(LazyAxis{NI + N, A}, Base.tuple_type_tail(I))...)
-end
-ndims_index(::Type{LazyAxis{N,A}}, ::Type{Tuple{I}}) where {N,A,I} = ndims_index(LazyAxis{N,A}, I)
-ndims_index(::Type{LazyAxis{N,A}}, ::Type{Tuple{}}) where {N,A} = ()
+ndims_index(i) = ndims_index(typeof(i))
+ndims_index(::Type{I}) where {I} = static(1)
+ndims_index(::Type{I}) where {N,I<:AbstractCartesianIndex{N}} = static(N)
+ndims_index(::Type{I}) where {I<:AbstractArray} = ndims_index(eltype(I))
+ndims_index(::Type{I}) where {I<:AbstractArray{Bool}} = static(ndims(I))
+ndims_index(::Type{I}) where {N,I<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = static(N)
+_ndims_index(::Type{I}, i::StaticInt) where {I} = ndims_index(_get_tuple(I, i))
+ndims_index(::Type{I}) where {N,I<:Tuple{Vararg{Any,N}}} = eachop(_ndims_index, nstatic(Val(N)), I)
 
 #=
     ndims_subset(::Type{A}, ::Type{I})::StaticInt
@@ -55,31 +42,14 @@ ndims_index(::Type{LazyAxis{N,A}}, ::Type{Tuple{}}) where {N,A} = ()
 The number of dimensions an instance of `I` maps to in the subset produced when indexing an
 instance of `A`.
 =#
-ndims_subset(A, i) = ndims_subset(typeof(A), typeof(i))
-function ndims_subset(::Type{A}, ::Type{I}) where {A,I}
-    if I <: keytype(A)
-        return static(0)
-    else  # undefined indexing behavior
-        return nothing
-    end
-end
-ndims_subset(::Type{A}, ::Type{<:Integer}) where {A} = static(0)
-ndims_subset(::Type{A}, ::Type{<:AbstractCartesianIndex}) where {A} = static(0)
-ndims_subset(::Type{A}, ::Type{Colon}) where {A} = static(1)
-function ndims_subset(::Type{A}, ::Type{I}) where {A,I<:AbstractArray}
-    if ndims_subset(A, eltype(I)) === nothing
-        return nothing
-    else
-        return static(ndims(I))
-    end
-end
-ndims_subset(::Type{A}, ::Type{I}) where {A,I<:AbstractArray{Bool}} = static(1)
-ndims_subset(::Type{A}, ::Type{I}) where {A,N,I<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = static(1)
-@inline function ndims_subset(::Type{LazyAxis{N,A}}, ::Type{I}) where {N,A,I1,I<:Tuple{I1,Vararg{Any}}}
-    NI = ndims_subset(LazyAxis{N,A}, I1)
-    (NI, ndims_subset(LazyAxis{NI + N, A}, Base.tuple_type_tail(I))...)
-end
-ndims_subset(::Type{LazyAxis{N,A}}, ::Type{Tuple{}}) where {N,A} = ()
+ndims_subset(i) = ndims_subset(typeof(i))
+ndims_subset(::Type{I}) where {I} = static(0)
+ndims_subset(::Type{Colon}) = static(1)
+ndims_subset(::Type{I}) where {I<:AbstractArray} = static(ndims(I))
+ndims_subset(::Type{I}) where {I<:AbstractArray{Bool}} = static(1)
+ndims_subset(::Type{I}) where {N,I<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = static(1)
+_ndims_subset(::Type{I}, i::StaticInt) where {I} = ndims_subset(_get_tuple(I, i))
+ndims_subset(::Type{I}) where {N,I<:Tuple{Vararg{Any,N}}} = eachop(_ndims_subset, nstatic(Val(N)), I)
 
 """
     from_parent_dims(::Type{T})::Tuple{Vararg{Union{Int,StaticInt}}}
@@ -96,7 +66,7 @@ from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A
     dim_i = 1
     for i in 1:ndims(A)
         p = I.parameters[i]
-        if iszero(ndims_subset(A, p))
+        if iszero(ndims_subset(p))
             push!(out.args, :(StaticInt(0)))
         else
             push!(out.args, :(StaticInt($dim_i)))
@@ -156,7 +126,7 @@ to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(A, I)
     out = Expr(:tuple)
     n = 1
     for p in I.parameters
-        if ndims_subset(A, p) > 0
+        if ndims_subset(p) > 0
             push!(out.args, :(StaticInt($n)))
         end
         n += 1
