@@ -35,7 +35,7 @@ canonical_convert(x::Integer) = convert(Int, x)
 function canonical_convert(x::AbstractRange)
     return OptionallyStaticStepRange(static_first(x), static_step(x), static_last(x))
 end
-function canonicalize_convert(x::AbstractUnitRange{<:Integer})
+function canonical_convert(x::AbstractUnitRange)
     return OptionallyStaticUnitRange(static_first(x), static_last(x))
 end
 

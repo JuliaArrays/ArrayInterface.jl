@@ -42,7 +42,7 @@ Base.parent(x::NamedDimsWrapper) = x.parent
     @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj), static(3))) == 2
     @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj), 3)) == 2
 
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(a))) == (1, 2, 3)
+    @test @inferred(ArrayInterface.from_parent_dims(a)) == (1, 2, 3)
     @test @inferred(ArrayInterface.from_parent_dims(typeof(perm))) == (2, 3, 1)
     @test @inferred(ArrayInterface.from_parent_dims(typeof(mview))) == (1, 0, 2)
     @test @inferred(ArrayInterface.from_parent_dims(typeof(madj))) == (2, 1)

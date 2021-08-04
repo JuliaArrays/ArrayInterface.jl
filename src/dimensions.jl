@@ -36,21 +36,6 @@ ndims_index(::Type{I}) where {N,I<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} 
 _ndims_index(::Type{I}, i::StaticInt) where {I} = ndims_index(_get_tuple(I, i))
 ndims_index(::Type{I}) where {N,I<:Tuple{Vararg{Any,N}}} = eachop(_ndims_index, nstatic(Val(N)), I)
 
-#=
-    ndims_subset(::Type{A}, ::Type{I})::StaticInt
-
-The number of dimensions an instance of `I` maps to in the subset produced when indexing an
-instance of `A`.
-=#
-ndims_subset(i) = ndims_subset(typeof(i))
-ndims_subset(::Type{I}) where {I} = static(0)
-ndims_subset(::Type{Colon}) = static(1)
-ndims_subset(::Type{I}) where {I<:AbstractArray} = static(ndims(I))
-ndims_subset(::Type{I}) where {I<:AbstractArray{Bool}} = static(1)
-ndims_subset(::Type{I}) where {N,I<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = static(1)
-_ndims_subset(::Type{I}, i::StaticInt) where {I} = ndims_subset(_get_tuple(I, i))
-ndims_subset(::Type{I}) where {N,I<:Tuple{Vararg{Any,N}}} = eachop(_ndims_subset, nstatic(Val(N)), I)
-
 """
     from_parent_dims(::Type{T})::Tuple{Vararg{Union{Int,StaticInt}}}
 
@@ -66,7 +51,7 @@ from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A
     dim_i = 1
     for i in 1:ndims(A)
         p = I.parameters[i]
-        if iszero(ndims_subset(p))
+        if p <: Integer
             push!(out.args, :(StaticInt(0)))
         else
             push!(out.args, :(StaticInt($dim_i)))
@@ -126,7 +111,7 @@ to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(A, I)
     out = Expr(:tuple)
     n = 1
     for p in I.parameters
-        if ndims_subset(p) > 0
+        if !(p <: Integer)
             push!(out.args, :(StaticInt($n)))
         end
         n += 1
