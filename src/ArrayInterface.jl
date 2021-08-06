@@ -27,7 +27,7 @@ end
 
 const CanonicalInt = Union{Int,StaticInt}
 
-if VERSION ≥ v"1.6.0-DEV.1581"
+@static if VERSION ≥ v"1.6.0-DEV.1581"
     _is_reshaped(::Type{ReinterpretArray{T,N,S,A,true}}) where {T,N,S,A} = true
     _is_reshaped(::Type{ReinterpretArray{T,N,S,A,false}}) where {T,N,S,A} = false
 else
@@ -140,7 +140,7 @@ ismutable(::Type{BigFloat}) = false
 ismutable(::Type{BigInt}) = false
 function ismutable(::Type{T}) where {T}
   if parent_type(T) <: T
-    if VERSION ≥ v"1.7.0-DEV.1208"
+    @static if VERSION ≥ v"1.7.0-DEV.1208"
       return Base.ismutabletype(T)
     else
       return T.mutable
@@ -617,7 +617,7 @@ end
 
 
 """
-    is_lazy_conjugate(::AbstractArray)  
+    is_lazy_conjugate(::AbstractArray)
 
 Determine if a given array will lazyily take complex conjugates, such as with `Adjoint`. This will work with
 nested wrappers, so long as there is no type in the chain of wrappers such that `parent_type(T) == T`
