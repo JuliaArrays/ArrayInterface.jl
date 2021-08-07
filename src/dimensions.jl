@@ -22,8 +22,22 @@ function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y}}) where {X, Y}
 end
 is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
 
+#=
+    ndims_index(::Type{I})::StaticInt
+
+The number of dimensions an instance of `I` maps to when indexing an instance of `A`.
+=#
+ndims_index(i) = ndims_index(typeof(i))
+ndims_index(::Type{I}) where {I} = static(1)
+ndims_index(::Type{I}) where {N,I<:AbstractCartesianIndex{N}} = static(N)
+ndims_index(::Type{I}) where {I<:AbstractArray} = ndims_index(eltype(I))
+ndims_index(::Type{I}) where {I<:AbstractArray{Bool}} = static(ndims(I))
+ndims_index(::Type{I}) where {N,I<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = static(N)
+_ndims_index(::Type{I}, i::StaticInt) where {I} = ndims_index(_get_tuple(I, i))
+ndims_index(::Type{I}) where {N,I<:Tuple{Vararg{Any,N}}} = eachop(_ndims_index, nstatic(Val(N)), I)
+
 """
-    from_parent_dims(::Type{T}) -> Tuple
+    from_parent_dims(::Type{T})::Tuple{Vararg{Union{Int,StaticInt}}}
 
 Returns the mapping from parent dimensions to child dimensions.
 """
@@ -37,17 +51,16 @@ from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A
     dim_i = 1
     for i in 1:ndims(A)
         p = I.parameters[i]
-        if argdims(A, p) > 0
+        if p <: Integer
+            push!(out.args, :(StaticInt(0)))
+        else
             push!(out.args, :(StaticInt($dim_i)))
             dim_i += 1
-        else
-            push!(out.args, :(StaticInt(0)))
         end
     end
     out
 end
 from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I} = static(Val(I))
-
 function from_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
     if !_is_reshaped(R) || sizeof(S) === sizeof(T)
         return nstatic(Val(ndims(A)))
@@ -59,7 +72,7 @@ function from_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}
 end
 
 """
-    from_parent_dims(::Type{T}, dim) -> Integer
+    from_parent_dims(::Type{T}, dim)::Union{Int,StaticInt}
 
 Returns the mapping from child dimensions to parent dimensions.
 """
@@ -85,7 +98,7 @@ function from_parent_dims(::Type{T}, ::StaticInt{dim}) where {T,dim}
 end
 
 """
-    to_parent_dims(::Type{T}) -> Tuple
+    to_parent_dims(::Type{T})::Tuple{Vararg{Union{Int,StaticInt}}}
 
 Returns the mapping from child dimensions to parent dimensions.
 """
@@ -98,7 +111,7 @@ to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(A, I)
     out = Expr(:tuple)
     n = 1
     for p in I.parameters
-        if argdims(A, p) > 0
+        if !(p <: Integer)
             push!(out.args, :(StaticInt($n)))
         end
         n += 1
@@ -117,7 +130,7 @@ function to_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
 end
 
 """
-    to_parent_dims(::Type{T}, dim) -> Integer
+    to_parent_dims(::Type{T}, dim)::Union{Int,StaticInt}
 
 Returns the mapping from child dimensions to parent dimensions.
 """
@@ -143,7 +156,7 @@ function to_parent_dims(::Type{T}, ::StaticInt{dim}) where {T,dim}
 end
 
 """
-    has_dimnames(::Type{T}) -> Bool
+    has_dimnames(::Type{T})::Bool
 
 Returns `true` if `x` has names for each dimension.
 """
@@ -160,8 +173,8 @@ end
 const SUnderscore = StaticSymbol(:_)
 
 """
-    dimnames(::Type{T}) -> Tuple{Vararg{StaticSymbol}}
-    dimnames(::Type{T}, dim) -> StaticSymbol
+    dimnames(::Type{T})::Tuple{Vararg{StaticSymbol}}
+    dimnames(::Type{T}, dim)::StaticSymbol
 
 Return the names of the dimensions for `x`.
 """
@@ -191,7 +204,7 @@ function dimnames(::Type{T}) where {T<:SubArray}
 end
 
 """
-    to_dims(::Type{T}, dim) -> Integer
+    to_dims(::Type{T}, dim)::Union{Int,StaticInt}
 
 This returns the dimension(s) of `x` corresponding to `d`.
 """
