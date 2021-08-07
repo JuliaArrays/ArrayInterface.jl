@@ -13,7 +13,7 @@ Modules = [ArrayInterface]
 
 ## Static Traits
 
-The size along one or more dimensions of an array may be know at compile time. 
+The size along one or more dimensions of an array may be known at compile time. 
 `ArrayInterface.known_size` is useful for extracting this information from array types and `ArrayInterface.size` is useful for extracting this information from an instance of an array.
 For example:
 
@@ -45,4 +45,3 @@ Generic support for `ArrayInterface.known_size` relies on calling `known_length`
 Therefore, the recommended approach for supporting static sizing in newly defined array types is defining a new `axes_types` method.
 
 Static information related to subtypes of `AbstractRange` include `known_length`, `known_first`, `known_step`, and `known_last`.
-
