@@ -38,6 +38,10 @@ _fxn(sz::Tuple{StaticInt{S1},Int}, x) where {S1} = ...
 _fxn(sz::Tuple{Int,Int}, x) = ...
 ```
 
+Methods should avoid forcing conversion to static sizes when dynamic sizes could potentially be returned.
+Fore example, `fxn(x) = _fxn(Static.static(ArrayInterface.size(x)), x)` would result in dynamic dispatch if `x` is an instance of `Matrix`.
+Additionally, `ArrayInterface.size` should only be used outside of generated functions to avoid possible world age issues.
+
 Generally, `ArrayInterface.size` uses the return of `known_size` to form a static value for those dimensions with known length and only queries dimensions corresponding to `nothing`.
 For example, the previous example had a known size of `(1, nothing)`.
 Therefore, `ArrayInterface.size` would have compile time information about the first dimension returned as `static(1)` and would only look up the size of the second dimension at run time.
