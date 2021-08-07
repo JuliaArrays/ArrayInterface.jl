@@ -45,6 +45,7 @@ Additionally, `ArrayInterface.size` should only be used outside of generated fun
 Generally, `ArrayInterface.size` uses the return of `known_size` to form a static value for those dimensions with known length and only queries dimensions corresponding to `nothing`.
 For example, the previous example had a known size of `(1, nothing)`.
 Therefore, `ArrayInterface.size` would have compile time information about the first dimension returned as `static(1)` and would only look up the size of the second dimension at run time.
+This means the above example `ArrayInterface.size(a)` would lower to code similar to this at compile time: `Static.StaticInt(1), Base.arraysize(x, 1)`.
 Generic support for `ArrayInterface.known_size` relies on calling `known_length` for each type returned from `axes_types`.
 Therefore, the recommended approach for supporting static sizing in newly defined array types is defining a new `axes_types` method.
 
