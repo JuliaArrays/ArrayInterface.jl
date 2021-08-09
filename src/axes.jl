@@ -1,8 +1,9 @@
 
 """
-    axes_types(::Type{T}, dim)
+    axes_types(::Type{T}) -> Type{Tuple{Vararg{AbstractUnitRange{Int}}}}
+    axes_types(::Type{T}, dim) -> Type{AbstractUnitRange{Int}}
 
-Returns the axis type along dimension `dim`.
+Returns the type of each axis for the `T`, or the type of of the axis along dimension `dim`.
 """
 axes_types(x, dim) = axes_types(typeof(x), dim)
 @inline axes_types(::Type{T}, dim) where {T} = axes_types(T, to_dims(T, dim))
@@ -21,11 +22,6 @@ end
     end
 end
 
-"""
-    axes_types(::Type{T}) -> Type
-
-Returns the type of the axes for `T`
-"""
 axes_types(x) = axes_types(typeof(x))
 axes_types(::Type{T}) where {T<:Array} = Tuple{Vararg{OneTo{Int},ndims(T)}}
 function axes_types(::Type{T}) where {T}
@@ -115,11 +111,6 @@ similar_type(::Type{OptionallyStaticUnitRange{One,StaticInt{N}}}, ::Type{Int}, :
 similar_type(::Type{OptionallyStaticUnitRange{One,StaticInt{N}}}, ::Type{Int}, ::Type{OptionallyStaticUnitRange{One,Int}}) where {N} = OptionallyStaticUnitRange{One,Int}
 similar_type(::Type{OptionallyStaticUnitRange{One,StaticInt{N1}}}, ::Type{Int}, ::Type{OptionallyStaticUnitRange{One,StaticInt{N2}}}) where {N1,N2} = OptionallyStaticUnitRange{One,StaticInt{N2}}
 
-"""
-    axes(A, d)
-
-Return a valid range that maps to each index along dimension `d` of `A`.
-"""
 @inline axes(a, dim) = axes(a, to_dims(a, dim))
 @inline axes(a, dims::Tuple{Vararg{Any,K}}) where {K} = (axes(a, first(dims)), axes(a, tail(dims))...)
 @inline axes(a, dims::Tuple{T}) where {T} = (axes(a, first(dims)), )
@@ -157,9 +148,10 @@ end
 @inline _axes(A::Base.ReshapedArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
 
 """
-    axes(A)
+    axes(A) -> Tuple{Vararg{AbstractUnitRange{Int}}}
+    axes(A, dim) -> AbstractUnitRange{Int}
 
-Return a tuple of ranges where each range maps to each element along a dimension of `A`.
+Returns the axis associated with each dimension of `A` or dimension `dim`
 """
 @inline function axes(a::A) where {A}
     if parent_type(A) <: A
