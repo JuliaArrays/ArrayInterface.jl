@@ -77,8 +77,8 @@ Typically, `dim` is an `Int` with an invariant mapping to the dimensions of `x`.
 Some methods accept `:` or a tuple of dimensions as an argument.
 `ArrayInterface` also considers `StaticInt` a viable dimension argument.
 
-[`ArrayInterface.to_dims`](@ref) helps ensure that `dim` is converted to a viable dimension mapping helps with type stability.
-For example, all `Integers` passed to `to_dims` are converted to an `Int` (unless `dim` is a `StaticInt`).
+[`ArrayInterface.to_dims`](@ref) helps ensure that `dim` is converted to a viable dimension mapping in a manner that helps with type stability.
+For example, all `Integers` passed to `to_dims` are converted to `Int` (unless `dim` is a `StaticInt`).
 This is also useful for arrays that uniquely label dimensions, in which case `to_dims` serves as a safe point of hooking into existing methods with dimension arguments.
 `ArrayInterface` also defines native `Symbol` to `Int` and `StaticSymbol` to `StaticInt` mapping  for arrays defining [`ArrayInterface.dimnames`](@ref).
 
@@ -90,7 +90,7 @@ f(x, dim::Int) = ...
 f(x, dim::StaticInt) = ...
 ```
 
-If `x` has a dimension named `:dim_1` then calling `f(x, :dim_1)` would result in `f(x, 1)`.
+If `x`'s first dimension is named `:dim_1` then calling `f(x, :dim_1)` would result in `f(x, 1)`.
 If users knew they always wanted to call `f(x, 2)` then they could define `h(x) = f(x, static(2))`, ensuring `f` passes along that information while compiling.
 
 ## API
