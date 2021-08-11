@@ -1,6 +1,6 @@
 
 """
-    known_first(::Type{T})
+    known_first(::Type{T}) -> Union{Int,Nothing}
 
 If `first` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
@@ -24,7 +24,7 @@ end
 known_first(::Type{Base.OneTo{T}}) where {T} = one(T)
 
 """
-    known_last(::Type{T})
+    known_last(::Type{T}) -> Union{Int,Nothing}
 
 If `last` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
@@ -48,7 +48,7 @@ function known_last(::Type{T}) where {T}
 end
 
 """
-    known_step(::Type{T})
+    known_step(::Type{T}) -> Union{Int,Nothing}
 
 If `step` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
@@ -572,14 +572,14 @@ end
 end
 
 """
-    indices(x, dim)
+    indices(x, dim) -> AbstractUnitRange{Int}
 
 Given an array `x`, this returns the indices along dimension `dim`.
 """
 @inline indices(x, d) = indices(axes(x, d))
 
 """
-    indices(x) -> AbstractUnitRange
+    indices(x) -> AbstractUnitRange{Int}
 
 Returns valid indices for the entire length of `x`.
 """
@@ -594,7 +594,7 @@ end
 @inline indices(x::AbstractUnitRange{<:Integer}) = Base.Slice(OptionallyStaticUnitRange(x))
 
 """
-    indices(x::Tuple) -> AbstractUnitRange
+    indices(x::Tuple) -> AbstractUnitRange{Int}
 
 Returns valid indices for the entire length of each array in `x`.
 """
@@ -604,7 +604,7 @@ Returns valid indices for the entire length of each array in `x`.
 end
 
 """
-    indices(x::Tuple, dim) -> AbstractUnitRange
+    indices(x::Tuple, dim)  -> AbstractUnitRange{Int}
 
 Returns valid indices for each array in `x` along dimension `dim`
 """
@@ -614,7 +614,7 @@ Returns valid indices for each array in `x` along dimension `dim`
 end
 
 """
-    indices(x::Tuple, dim::Tuple) -> AbstractUnitRange
+    indices(x::Tuple, dim::Tuple) -> AbstractUnitRange{Int}
 
 Returns valid indices given a tuple of arrays `x` and tuple of dimesions for each
 respective array (`dim`).
@@ -625,7 +625,7 @@ respective array (`dim`).
 end
 
 """
-    indices(x, dim::Tuple) -> Tuple{Vararg{AbstractUnitRange}}
+    indices(x, dim::Tuple) -> Tuple{Vararg{AbstractUnitRange{Int}}}
 
 Returns valid indices for array `x` along each dimension specified in `dim`.
 """

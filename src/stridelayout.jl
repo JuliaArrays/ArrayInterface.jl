@@ -20,7 +20,8 @@ function _stride_preserving_index(::Type{T}, i::StaticInt) where {T}
 end
 
 """
-    known_offsets(::Type{T}[, dim]) -> Tuple
+    known_offsets(::Type{T}) -> Tuple
+    known_offsets(::Type{T}, dim) -> Union{Int,Nothing}
 
 Returns a tuple of offset values known at compile time. If the offset of a given axis is
 not known at compile time `nothing` is returned its position.
@@ -44,7 +45,8 @@ _known_offsets(::Type{T}, dim::StaticInt) where {T} = known_first(_get_tuple(T, 
 known_offsets(::Type{<:StrideIndex{N,R,C,S,O,O1}}) where {N,R,C,S,O,O1} = known(O)
 
 """
-    offsets(A[, dim]) -> Tuple
+    offsets(A) -> Tuple
+    offsets(A, dim) -> Union{Int,StaticInt}
 
 Returns offsets of indices with respect to 0. If values are known at compile time,
 it should return them as `Static` numbers.
@@ -75,7 +77,7 @@ _known_offset1(::False, ::Type{T}) where {T} = 1
 known_offset(::Type{<:StrideIndex{N,R,C,S,O,O1}}) where {N,R,C,S,O,O1} = known(O1)
 
 """
-    offset1(x) -> Integer
+    offset1(x) -> Union{Int,StaticInt}
 
 Returns the offset of the linear indices for `x`.
 """
@@ -300,7 +302,7 @@ end
 contiguous_batch_size(::Type{<:Base.ReinterpretArray{T,N,S,A}}) where {T,N,S,A} = Zero()
 
 """
-    is_column_major(A) -> True/False
+    is_column_major(A) -> StaticBool
 
 Returns `True()` if elements of `A` are stored in column major order. Otherwise returns `False()`.
 """
@@ -315,7 +317,7 @@ _is_column_major(sr::R, cbs::StaticInt) where {R} = False()
 _is_column_major(sr::R, cbs::Union{StaticInt{0},StaticInt{-1}}) where {R} = is_increasing(sr)
 
 """
-    dense_dims(::Type{<:AbstractArray{N}}) -> NTuple{N,StaticBool}
+    dense_dims(::Type{<:AbstractArray{N}}) -> Tuple{Vararg{StaticBool,N}}
 
 Returns a tuple of indicators for whether each axis is dense.
 An axis `i` of array `A` is dense if `stride(A, i) * Base.size(A, i) == stride(A, j)`
@@ -424,7 +426,8 @@ function _reshaped_dense_dims(dense::Tuple{Static.False}, ::True, ::Val{N}, ::Va
 end
 
 """
-    known_strides(::Type{T}[, dim]) -> Tuple
+    known_strides(::Type{T}) -> Tuple
+    known_strides(::Type{T}, dim) -> Union{Int,Nothing}
 
 Returns the strides of array `A` known at compile time. Any strides that are not known at
 compile time are represented by `nothing`.

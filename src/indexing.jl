@@ -1,6 +1,6 @@
 
 """
-    is_canonical(::Type{I})::StaticBool
+    is_canonical(::Type{I}) -> StaticBool
 
 Returns `True` if instances of `I` can be used for indexing without any further change
 (e.g., `Int`, `StaticInt`, `UnitRange{Int}`)
@@ -43,7 +43,7 @@ is_linear_indexing(A, args::Tuple{Arg}) where {Arg} = ndims_index(Arg) < 2
 is_linear_indexing(A, args::Tuple{Arg,Vararg{Any}}) where {Arg} = false
 
 """
-    to_indices(A, inds::Tuple)::Tuple
+    to_indices(A, inds::Tuple) -> Tuple
 
 Maps indexing arguments `inds` to the axes of `A`, ensures they are converted to a native
 indexing form, and that they are inbounds. Unless all indices in `inds` return `static(true)`
@@ -255,7 +255,7 @@ function unsafe_reconstruct(A::AbstractUnitRange, data; kwargs...)
 end
 
 """
-    to_axes(A, inds)
+    to_axes(A, inds) -> Tuple
 
 Construct new axes given the corresponding `inds` constructed after
 `to_indices(A, args) -> inds`. This method iterates through each pair of axes and

@@ -37,7 +37,7 @@ _ndims_index(::Type{I}, i::StaticInt) where {I} = ndims_index(_get_tuple(I, i))
 ndims_index(::Type{I}) where {N,I<:Tuple{Vararg{Any,N}}} = eachop(_ndims_index, nstatic(Val(N)), I)
 
 """
-    from_parent_dims(::Type{T})::Tuple{Vararg{Union{Int,StaticInt}}}
+    from_parent_dims(::Type{T}) -> Tuple{Vararg{Union{Int,StaticInt}}}
 
 Returns the mapping from parent dimensions to child dimensions.
 """
@@ -72,7 +72,7 @@ function from_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}
 end
 
 """
-    from_parent_dims(::Type{T}, dim)::Union{Int,StaticInt}
+    from_parent_dims(::Type{T}, dim) -> Union{Int,StaticInt}
 
 Returns the mapping from child dimensions to parent dimensions.
 """
@@ -98,7 +98,7 @@ function from_parent_dims(::Type{T}, ::StaticInt{dim}) where {T,dim}
 end
 
 """
-    to_parent_dims(::Type{T})::Tuple{Vararg{Union{Int,StaticInt}}}
+    to_parent_dims(::Type{T}) -> Tuple{Vararg{Union{Int,StaticInt}}}
 
 Returns the mapping from child dimensions to parent dimensions.
 """
@@ -130,7 +130,7 @@ function to_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
 end
 
 """
-    to_parent_dims(::Type{T}, dim)::Union{Int,StaticInt}
+    to_parent_dims(::Type{T}, dim) -> Union{Int,StaticInt}
 
 Returns the mapping from child dimensions to parent dimensions.
 """
@@ -156,7 +156,7 @@ function to_parent_dims(::Type{T}, ::StaticInt{dim}) where {T,dim}
 end
 
 """
-    has_dimnames(::Type{T})::Bool
+    has_dimnames(::Type{T}) -> Bool
 
 Returns `true` if `x` has names for each dimension.
 """
@@ -173,8 +173,8 @@ end
 const SUnderscore = StaticSymbol(:_)
 
 """
-    dimnames(::Type{T})::Tuple{Vararg{StaticSymbol}}
-    dimnames(::Type{T}, dim)::StaticSymbol
+    dimnames(::Type{T}) -> Tuple{Vararg{StaticSymbol}}
+    dimnames(::Type{T}, dim) -> StaticSymbol
 
 Return the names of the dimensions for `x`.
 """
@@ -204,7 +204,7 @@ function dimnames(::Type{T}) where {T<:SubArray}
 end
 
 """
-    to_dims(::Type{T}, dim)::Union{Int,StaticInt}
+    to_dims(::Type{T}, dim) -> Union{Int,StaticInt}
 
 This returns the dimension(s) of `x` corresponding to `d`.
 """

@@ -1,9 +1,11 @@
 
 """
-  size(A)
+    size(A) -> Tuple
+    size(A, dim) -> Union{Int,StaticInt}
 
-Returns the size of `A`. If the size of any axes are known at compile time,
-these should be returned as `Static` numbers. For example:
+Returns the size of each dimension of `A` or along dimension `dim` of `A`. If the size of
+any axes are known at compile time, these should be returned as `Static` numbers. For
+example:
 ```julia
 julia> using StaticArrays, ArrayInterface
 
@@ -47,11 +49,6 @@ end
 size(A::ReshapedArray) = A.dims
 size(A::AbstractRange) = (static_length(A),)
 
-"""
-    size(A, dim)
-
-Returns the size of `A` along dimension `dim`.
-"""
 size(a, dim) = size(a, to_dims(a, dim))
 size(a::Array, dim::Integer) = Base.arraysize(a, convert(Int, dim))
 function size(a::A, dim::Integer) where {A}
@@ -77,19 +74,15 @@ end
 
 """
     known_size(::Type{T}) -> Tuple
+    known_size(::Type{T}, dim) -> Union{Int,Nothing}
 
-Returns the size of each dimension for `T` known at compile time. If a dimension does not
-have a known size along a dimension then `nothing` is returned in its position.
+Returns the size of each dimension of `A` or along dimension `dim` of `A` that is known at
+compile time. If a dimension does not have a known size along a dimension then `nothing` is
+returned in its position.
 """
 known_size(x) = known_size(typeof(x))
 known_size(::Type{T}) where {T} = eachop(known_size, nstatic(Val(ndims(T))), T)
 
-"""
-    known_size(::Type{T}, dim)
-
-Returns the size along dimension `dim` known at compile time. If it is not known then
-returns `nothing`.
-"""
 @inline known_size(x, dim) = known_size(typeof(x), dim)
 @inline known_size(::Type{T}, dim) where {T} = known_size(T, to_dims(T, dim))
 @inline function known_size(::Type{T}, dim::Integer) where {T}

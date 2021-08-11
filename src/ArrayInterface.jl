@@ -52,7 +52,7 @@ const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
 include("array_index.jl")
 
 """
-    parent_type(::Type{T})
+    parent_type(::Type{T}) -> Type
 
 Returns the parent array that type `T` wraps.
 """
@@ -82,7 +82,7 @@ _has_parent(::Type{T}, ::Type{T}) where {T} = False()
 _has_parent(::Type{T1}, ::Type{T2}) where {T1,T2} = True()
 
 """
-    known_length(::Type{T})
+    known_length(::Type{T}) -> Union{Int,Nothing}
 
 If `length` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
@@ -119,7 +119,7 @@ can_change_size(::Type{<:Base.ImmutableDict}) = false
 function ismutable end
 
 """
-    ismutable(x::DataType)
+    ismutable(x::DataType) -> Bool
 
 Query whether a type is mutable or not, see
 https://github.com/JuliaDiffEq/RecursiveArrayTools.jl/issues/19.
@@ -168,7 +168,7 @@ function Base.setindex(x::AbstractMatrix, v, i::Int, j::Int)
 end
 
 """
-    can_setindex(x::DataType)
+    can_setindex(x::DataType) -> Bool
 
 Query whether a type can use `setindex!`.
 """
@@ -208,7 +208,7 @@ A scalar `setindex!` which is always allowed.
 allowed_setindex!(x, v, i...) = Base.setindex!(x, v, i...)
 
 """
-    isstructured(x::DataType)
+    isstructured(x::DataType) -> Bool
 
 Query whether a type is a representation of a structured matrix.
 """
@@ -224,7 +224,7 @@ isstructured(::Bidiagonal) = true
 isstructured(::Diagonal) = true
 
 """
-    has_sparsestruct(x::AbstractArray)
+    has_sparsestruct(x::AbstractArray) -> Bool
 
 Determine whether `findstructralnz` accepts the parameter `x`.
 """
@@ -238,7 +238,7 @@ has_sparsestruct(x::Type{<:Tridiagonal}) = true
 has_sparsestruct(x::Type{<:SymTridiagonal}) = true
 
 """
-    issingular(A::AbstractMatrix)
+    issingular(A::AbstractMatrix) -> Bool
 
 Determine whether a given abstract matrix is singular.
 """
@@ -354,7 +354,7 @@ Returns the number.
 lu_instance(a::Any) = lu(a, check = false)
 
 """
-safevec(v)
+    safevec(v)
 
 It is a form of `vec` which is safe for all values in vector spaces, i.e., if it
 is already a vector, like an AbstractVector or Number, it will return said
@@ -409,7 +409,7 @@ struct CPUIndex <: AbstractCPU end
 struct GPU <: AbstractDevice end
 
 """
-    device(::Type{T})
+    device(::Type{T}) -> AbstractDevice
 
 Indicates the most efficient way to access elements from the collection in low-level code.
 For `GPUArrays`, will return `ArrayInterface.GPU()`.
@@ -617,7 +617,7 @@ end
 
 
 """
-    is_lazy_conjugate(::AbstractArray)
+    is_lazy_conjugate(::AbstractArray) -> Bool
 
 Determine if a given array will lazyily take complex conjugates, such as with `Adjoint`. This will work with
 nested wrappers, so long as there is no type in the chain of wrappers such that `parent_type(T) == T`
