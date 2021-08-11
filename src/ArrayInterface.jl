@@ -380,6 +380,12 @@ function zeromatrix(u)
     x .* x' .* false
 end
 
+# Reduces compile time burdens
+function zeromatrix(u::Array{T}) where T
+    out = Matrix{T}(undef, length(u), length(u))
+    fill!(out,false)
+end
+
 """
     restructure(x,y)
 
