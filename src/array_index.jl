@@ -184,6 +184,19 @@ function BandedBlockBandedMatrixIndex(
 end
 
 """
+  Equal
+
+Equality indicator. Left generic to indicate possible other uses where it's easy to interpret.
+In case of `(s::StrideIndex).offset1 === Equal()`, this means that `offset1` is
+```julia
+s.offset[1]
+```
+
+Use of `StaticInt`s is preferred when possible for convenience. The purpose here is simply
+compressing runtime size information for when `StrideIndex` is passed as a non-inlined argument.
+"""
+struct Equal end
+"""
     StrideIndex(x)
 
 Subtype of `ArrayIndex` that transforms and index using stride layout information

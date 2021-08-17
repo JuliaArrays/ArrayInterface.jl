@@ -74,7 +74,8 @@ known_offset1(x) = known_offset1(typeof(x))
 known_offset1(::Type{T}) where {T} = _known_offset1(has_parent(T), T)
 _known_offset1(::True, ::Type{T}) where {T} = known_offset1(parent_type(T))
 _known_offset1(::False, ::Type{T}) where {T} = 1
-known_offset(::Type{<:StrideIndex{N,R,C,S,O,O1}}) where {N,R,C,S,O,O1} = known(O1)
+known_offset1(::Type{<:StrideIndex{N,R,C,S,O,O1}}) where {N,R,C,S,O,O1} = known(O1)
+known_offset1(::Type{<:StrideIndex{N,R,C,S,O,Equal}}) where {N,R,C,S,O} = first(known(O))
 
 """
     offset1(x) -> Union{Int,StaticInt}
@@ -90,6 +91,7 @@ Returns the offset of the linear indices for `x`.
     end
 end
 offset1(x::StrideIndex) = getfield(x, :offset1)
+offset1(x::StrideIndex{N,R,C,S,O,Equal}) where {N,R,C,S,O} = getfield(getfield(x, :offsets), 1, false)
 
 """
     contiguous_axis(::Type{T}) -> StaticInt{N}
