@@ -53,7 +53,7 @@ rowind,colind=findstructralnz(Sp)
 
 
 @test !fast_scalar_indexing(qr(rand(10, 10)).Q)
-@test !fast_scalar_indexing(qr(rand(10, 10), Val(true)).Q)
+@test !fast_scalar_indexing(qr(rand(10, 10), ColumnNorm()).Q)
 @test !fast_scalar_indexing(lq(rand(10, 10)).Q)
 
 using BandedMatrices
