@@ -189,16 +189,15 @@ end
 Subtype of `ArrayIndex` that transforms and index using stride layout information
 derived from `x`.
 """
-struct StrideIndex{N,R,C,S,O,O1} <: ArrayIndex{N}
+struct StrideIndex{N,R,C,S,O} <: ArrayIndex{N}
     strides::S
     offsets::O
-    offset1::O1
 
-    function StrideIndex{N,R,C}(s::S, o::O, o1::O1) where {N,R,C,S,O,O1}
-        return new{N,R::NTuple{N,Int},C::Int,S,O,O1}(s, o, o1)
+    function StrideIndex{N,R,C}(s::S, o::O) where {N,R,C,S,O}
+        return new{N,R::NTuple{N,Int},C::Int,S,O}(s, o)
     end
     function StrideIndex{N,R,C}(a::A) where {N,R,C,A}
-        return StrideIndex{N,R,C}(strides(a),offsets(a),offset1(a))
+        return StrideIndex{N,R,C}(strides(a), offsets(a))
     end
     function StrideIndex(a::A) where {A}
         return StrideIndex{ndims(A),known(stride_rank(A)), known(contiguous_axis(A))}(a)

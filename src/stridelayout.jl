@@ -42,7 +42,7 @@ function known_offsets(::Type{T}) where {T}
 end
 _known_offsets(::Type{T}, dim::StaticInt) where {T} = known_first(_get_tuple(T, dim))
 
-known_offsets(::Type{<:StrideIndex{N,R,C,S,O,O1}}) where {N,R,C,S,O,O1} = known(O)
+known_offsets(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(O)
 
 """
     offsets(A) -> Tuple
@@ -70,11 +70,25 @@ end
 
 Returns the linear offset of array `x` if known at compile time.
 """
-known_offset1(x) = known_offset1(typeof(x))
-known_offset1(::Type{T}) where {T} = _known_offset1(has_parent(T), T)
+@inline known_offset1(x) = known_offset1(typeof(x))
+@inline function known_offset1(::Type{T}) where {T}
+    if ndims(T) === 0
+        return 1
+    else
+        return known_offsets(T, 1)
+    end
+end
+#=
 _known_offset1(::True, ::Type{T}) where {T} = known_offset1(parent_type(T))
-_known_offset1(::False, ::Type{T}) where {T} = 1
-known_offset(::Type{<:StrideIndex{N,R,C,S,O,O1}}) where {N,R,C,S,O,O1} = known(O1)
+@inline function _known_offset1(::False, ::Type{T}) where {T}
+    if ndims(T) === 0
+        return 1
+    else
+        return known_offsets(T, 1)
+    end
+end
+known_offset(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(O1)
+=#
 
 """
     offset1(x) -> Union{Int,StaticInt}
@@ -84,12 +98,15 @@ Returns the offset of the linear indices for `x`.
 @inline function offset1(x::X) where {X}
     o1 = known_offset1(X)
     if o1 === nothing
-        return firstindex(x)
+        if ndims(X) === 0
+            return 1
+        else
+            return offsets(x, 1)
+        end
     else
         return static(o1)
     end
 end
-offset1(x::StrideIndex) = getfield(x, :offset1)
 
 """
     contiguous_axis(::Type{T}) -> StaticInt{N}
@@ -442,7 +459,7 @@ function known_strides(::Type{T}, dim::Integer) where {T}
         return known_strides(T)[dim]
     end
 end
-known_strides(::Type{<:StrideIndex{N,R,C,S,O,O1}}) where {N,R,C,S,O,O1} = known(S)
+known_strides(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(S)
 
 known_strides(x) = known_strides(typeof(x))
 known_strides(::Type{T}) where {T<:Vector} = (1,)
