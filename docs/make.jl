@@ -6,6 +6,7 @@ makedocs(;
     sitename="ArrayInterface",
     pages=[
         "Home" => "index.md",
+        "API" => "api.md"
     ],
 )
 

@@ -93,12 +93,3 @@ f(x, dim::StaticInt) = ...
 If `x`'s first dimension is named `:dim_1` then calling `f(x, :dim_1)` would result in `f(x, 1)`.
 If users knew they always wanted to call `f(x, 2)` then they could define `h(x) = f(x, static(2))`, ensuring `f` passes along that information while compiling.
 
-## API
-
-```@index
-```
-
-```@autodocs
-Modules = [ArrayInterface]
-```
-
