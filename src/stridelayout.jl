@@ -78,17 +78,6 @@ Returns the linear offset of array `x` if known at compile time.
         return known_offsets(T, 1)
     end
 end
-#=
-_known_offset1(::True, ::Type{T}) where {T} = known_offset1(parent_type(T))
-@inline function _known_offset1(::False, ::Type{T}) where {T}
-    if ndims(T) === 0
-        return 1
-    else
-        return known_offsets(T, 1)
-    end
-end
-known_offset(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(O1)
-=#
 
 """
     offset1(x) -> Union{Int,StaticInt}
