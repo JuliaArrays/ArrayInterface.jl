@@ -915,35 +915,16 @@ function __init__()
         end
     end
     @require OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881" begin
-        size(A::OffsetArrays.OffsetArray) = size(parent(A))
-        strides(A::OffsetArrays.OffsetArray) = strides(parent(A))
-        function parent_type(
-            ::Type{O},
-        ) where {T,N,A<:AbstractArray{T,N},O<:OffsetArrays.OffsetArray{T,N,A}}
-            return A
-        end
-        device(::Type{A}) where {A<:OffsetArrays.OffsetArray} = device(parent_type(A))
-        function contiguous_axis(::Type{A}) where {A<:OffsetArrays.OffsetArray}
-            return contiguous_axis(parent_type(A))
-        end
-        function contiguous_batch_size(::Type{A}) where {A<:OffsetArrays.OffsetArray}
-            return contiguous_batch_size(parent_type(A))
-        end
-
+        parent_type(::Type{O}) where {T,N,A<:AbstractArray{T,N},O<:OffsetArrays.OffsetArray{T,N,A}} = A
         function _offset_axis_type(::Type{T}, dim::StaticInt{D}) where {T,D}
-            return OffsetArrays.IdOffsetRange{Int,ArrayInterface.axes_types(T, dim)}
+            OffsetArrays.IdOffsetRange{Int,ArrayInterface.axes_types(T, dim)}
         end
         function ArrayInterface.axes_types(::Type{T}) where {T<:OffsetArrays.OffsetArray}
-            return Static.eachop_tuple(_offset_axis_type, Static.nstatic(Val(ndims(T))), ArrayInterface.parent_type(T))
-        end
-        function stride_rank(::Type{A}) where {A<:OffsetArrays.OffsetArray}
-            return stride_rank(parent_type(A))
+            Static.eachop_tuple(_offset_axis_type, Static.nstatic(Val(ndims(T))), ArrayInterface.parent_type(T))
         end
         @inline axes(A::OffsetArrays.OffsetArray) = Base.axes(A)
         @inline _axes(A::OffsetArrays.OffsetArray, dim::Integer) = Base.axes(A, dim)
         @inline axes(A::OffsetArrays.OffsetArray{T,N}, ::StaticInt{M}) where {T,M,N} = _axes(A, StaticInt{M}(), gt(StaticInt{M}(),StaticInt{N}()))
-        @inline known_offset1(::Type{<:OffsetArrays.OffsetArray}) = 1
-        @inline known_offset1(::Type{<:OffsetArrays.OffsetVector}) = nothing
     end
 end
 

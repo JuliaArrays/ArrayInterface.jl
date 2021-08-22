@@ -145,7 +145,7 @@ function to_index(::IndexLinear, x, arg::AbstractCartesianIndex{N}) where {N}
     inds = Tuple(arg)
     o = offsets(x)
     s = size(x)
-    return first(inds) + (offset1(x) - first(o)) + _subs2int(first(s), tail(s), tail(o), tail(inds))
+    return first(inds) + (static(1) - first(o)) + _subs2int(first(s), tail(s), tail(o), tail(inds))
 end
 @inline function _subs2int(stride, s::Tuple{Any,Vararg}, o::Tuple{Any,Vararg}, inds::Tuple{Any,Vararg})
     i = ((first(inds) - first(o)) * stride)
@@ -215,7 +215,7 @@ end
     @boundscheck checkbounds(x, arg)
     return LogicalIndex{Int}(arg)
 end
-to_index(::IndexCartesian, x, i::Integer) = NDIndex(_int2subs(offsets(x), size(x), i - offset1(x)))
+to_index(::IndexCartesian, x, i::Integer) = NDIndex(_int2subs(offsets(x), size(x), i - static(1)))
 @inline function _int2subs(o::Tuple{Any,Vararg{Any}}, s::Tuple{Any,Vararg{Any}}, i)
     len = first(s)
     inext = div(i, len)

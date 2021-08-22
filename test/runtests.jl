@@ -53,7 +53,11 @@ rowind,colind=findstructralnz(Sp)
 
 
 @test !fast_scalar_indexing(qr(rand(10, 10)).Q)
-@test !fast_scalar_indexing(qr(rand(10, 10), Val(true)).Q)
+if VERSION >= v"1.7"
+    @test !fast_scalar_indexing(qr(rand(10, 10), ColumnNorm()).Q)
+else
+    @test !fast_scalar_indexing(qr(rand(10, 10), Val(true)).Q)
+end
 @test !fast_scalar_indexing(lq(rand(10, 10)).Q)
 
 using BandedMatrices
@@ -682,8 +686,6 @@ end
     @test @inferred(ArrayInterface.offsets(Op)) === (11, 4, 8)
 
     @test @inferred(ArrayInterface.offsets((1,2,3))) === (StaticInt(1),)
-    @test @inferred(ArrayInterface.offset1(O)) === StaticInt(1)
-    @test @inferred(ArrayInterface.offset1(Op)) === StaticInt(1)
     o = OffsetArray(vec(A), 8);
     @test @inferred(ArrayInterface.offset1(o)) === 9
 
