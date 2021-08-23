@@ -502,8 +502,10 @@ while still producing correct behavior when using valid cartesian indices, such 
 strides(A::StrideIndex) = getfield(A, :strides)
 @inline strides(A::Vector{<:Any}) = (StaticInt(1),)
 @inline strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
-function strides(x)
-    if defines_strides(x)
+@inline function strides(x::X) where {X}
+    if !(parent_type(X) <: X)
+        return strides(parent(x))
+    elseif defines_strides(X)
         return size_to_strides(size(x), One())
     else
         return Base.strides(x)
@@ -519,6 +521,14 @@ function strides(A::ReshapedArray{T,N,P}) where {T, N, P<:AbstractVector}
         return Base.strides(A)
     end
 end
+function strides(A::ReshapedArray{T,N,P}) where {T, N, P}
+    if defines_strides(A)
+        return size_to_strides(size(A), static(1))
+    else
+        return Base.strides(A)
+    end
+end
+
 
 @inline bmap(f::F, t::Tuple{}, x::Number) where {F} = ()
 @inline bmap(f::F, t::Tuple{T}, x::Number) where {F, T} = (f(first(t),x), )

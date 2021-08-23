@@ -767,7 +767,7 @@ end
 end
 
 @testset "Reinterpreted reshaped views" begin
-    u_base = randn(1, 4, 4, 5)
+    u_base = randn(1, 4, 4, 5);
     u_vectors = reshape(reinterpret(SVector{1, eltype(u_base)}, u_base),
                         Base.tail(size(u_base))...)
     u_view = view(u_vectors, 2, :, 3)
