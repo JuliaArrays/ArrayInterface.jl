@@ -75,11 +75,10 @@ known_step(::Type{<:AbstractUnitRange{T}}) where {T} = one(T)
 """
     OptionallyStaticUnitRange(start, stop) <: AbstractUnitRange{Int}
 
-This range permits diverse representations of arrays to communicate common information
-about their indices. Each field may be an integer or `Val(<:Integer)` if it is known
-at compile time. An `OptionallyStaticUnitRange` is intended to be constructed internally
-from other valid indices. Therefore, users should not expect the same checks are used
-to ensure construction of a valid `OptionallyStaticUnitRange` as a `UnitRange`.
+Similar to `UnitRange` except each field may be an `Int` or `StaticInt`. An
+`OptionallyStaticUnitRange` is intended to be constructed internally from other valid
+indices. Therefore, users should not expect the same checks are used to ensure construction
+of a valid `OptionallyStaticUnitRange` as a `UnitRange`.
 """
 struct OptionallyStaticUnitRange{F<:CanonicalInt,L<:CanonicalInt} <: AbstractUnitRange{Int}
     start::F
