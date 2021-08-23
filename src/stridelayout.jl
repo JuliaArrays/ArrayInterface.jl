@@ -66,7 +66,7 @@ function _offsets(x::X, dim::StaticInt{D}) where {X,D}
 end
 
 """
-    known_offset1(x) -> Union{Int,Nothing}
+    known_offset1(::Type{T}) -> Union{Int,Nothing}
 
 Returns the linear offset of array `x` if known at compile time.
 """
@@ -474,7 +474,8 @@ function known_strides(::Type{T}) where {T}
 end
 
 """
-    strides(A) -> Tuple
+    strides(A) -> Tuple{Vararg{Union{Int,StaticInt}}}
+    strides(A, dim) -> Union{Int,StaticInt}
 
 Returns the strides of array `A`. If any strides are known at compile time,
 these should be returned as `Static` numbers. For example:
