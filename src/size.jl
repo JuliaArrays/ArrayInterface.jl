@@ -12,7 +12,7 @@ julia> using StaticArrays, ArrayInterface
 julia> A = @SMatrix rand(3,4);
 
 julia> ArrayInterface.size(A)
-(StaticInt{3}(), StaticInt{4}())
+(static(3), static(4))
 ```
 """
 function size(a::A) where {A}
