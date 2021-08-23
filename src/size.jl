@@ -22,7 +22,6 @@ function size(a::A) where {A}
         return size(parent(a))
     end
 end
-#size(a::AbstractVector) = (size(a, One()),)
 
 size(x::SubArray) = eachop(_sub_size, to_parent_dims(x), x.indices)
 _sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = static_length(getfield(x, dim))

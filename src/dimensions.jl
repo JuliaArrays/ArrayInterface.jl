@@ -38,6 +38,7 @@ ndims_index(::Type{I}) where {N,I<:Tuple{Vararg{Any,N}}} = eachop(_ndims_index, 
 
 """
     from_parent_dims(::Type{T}) -> Tuple{Vararg{Union{Int,StaticInt}}}
+    from_parent_dims(::Type{T}, dim) -> Union{Int,StaticInt}
 
 Returns the mapping from parent dimensions to child dimensions.
 """
@@ -71,11 +72,6 @@ function from_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}
     end
 end
 
-"""
-    from_parent_dims(::Type{T}, dim) -> Union{Int,StaticInt}
-
-Returns the mapping from child dimensions to parent dimensions.
-"""
 from_parent_dims(x, dim) = from_parent_dims(typeof(x), dim)
 @aggressive_constprop function from_parent_dims(::Type{T}, dim::Int)::Int where {T}
     if dim > ndims(T)
@@ -99,6 +95,7 @@ end
 
 """
     to_parent_dims(::Type{T}) -> Tuple{Vararg{Union{Int,StaticInt}}}
+    to_parent_dims(::Type{T}, dim) -> Union{Int,StaticInt}
 
 Returns the mapping from child dimensions to parent dimensions.
 """
@@ -129,11 +126,6 @@ function to_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
     end
 end
 
-"""
-    to_parent_dims(::Type{T}, dim) -> Union{Int,StaticInt}
-
-Returns the mapping from child dimensions to parent dimensions.
-"""
 to_parent_dims(x, dim) = to_parent_dims(typeof(x), dim)
 @aggressive_constprop function to_parent_dims(::Type{T}, dim::Int)::Int where {T}
     if dim > ndims(T)

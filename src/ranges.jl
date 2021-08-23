@@ -140,13 +140,14 @@ the range operator (i.e., `:`).
 ```julia
 julia> using ArrayInterface
 
-julia> x = ArrayInterface.StaticInt(2);
+julia> x = ArrayInterface.static(2);
 
 julia> x:x:10
-ArrayInterface.StaticInt{2}():ArrayInterface.StaticInt{2}():10
+static(2):static(2):10
 
 julia> ArrayInterface.OptionallyStaticStepRange(x, x, 10)
-ArrayInterface.StaticInt{2}():ArrayInterface.StaticInt{2}():10
+static(2):static(2):10
+
 ```
 """
 struct OptionallyStaticStepRange{F<:CanonicalInt,S<:CanonicalInt,L<:CanonicalInt} <: OrdinalRange{Int,Int}
@@ -422,16 +423,16 @@ function Base.reverse(r::OptionallyStaticStepRange)
     return OptionallyStaticStepRange(static_last(r), -static_step(r), static_first(r))
 end
 
-function Base.show(io::IO, r::OptionallyStaticRange)
-    print(io, first(r))
+function Base.show(io::IO, ::MIME"text/plain", r::OptionallyStaticRange)
+    print(io, static_first(r))
     if known_step(r) === 1
         print(io, ":")
     else
         print(io, ":")
-        print(io, step(r))
+        print(io, static_step(r))
         print(io, ":")
     end
-    print(io, last(r))
+    print(io, static_last(r))
 end
 
 """
@@ -501,40 +502,40 @@ n = 16
 
 More importantly, `reduce_tup(_pick_range, inds)` often performs better than `reduce(_pick_range, inds)`.
 ```julia
-julia> using ArrayInterface, BenchmarkTools
+julia> using ArrayInterface, BenchmarkTools, Static
 
-julia> inds = (Base.OneTo(100), 1:100, 1:ArrayInterface.StaticInt(100))
-(Base.OneTo(100), 1:100, 1:Static(100))
+julia> inds = (Base.OneTo(100), 1:100, 1:static(100))
+(Base.OneTo(100), 1:100, 1:static(100))
 
 julia> @btime reduce(ArrayInterface._pick_range, \$(Ref(inds))[])
   6.405 ns (0 allocations: 0 bytes)
-Base.Slice(Static(1):Static(100))
+Base.Slice(static(1):static(100))
 
 julia> @btime ArrayInterface.reduce_tup(ArrayInterface._pick_range, \$(Ref(inds))[])
   2.570 ns (0 allocations: 0 bytes)
-Base.Slice(Static(1):Static(100))
+Base.Slice(static(1):static(100))
 
 julia> inds = (Base.OneTo(100), 1:100, 1:UInt(100))
 (Base.OneTo(100), 1:100, 0x0000000000000001:0x0000000000000064)
 
 julia> @btime reduce(ArrayInterface._pick_range, \$(Ref(inds))[])
   6.411 ns (0 allocations: 0 bytes)
-Base.Slice(Static(1):100)
+Base.Slice(static(1):100)
 
 julia> @btime ArrayInterface.reduce_tup(ArrayInterface._pick_range, \$(Ref(inds))[])
   2.592 ns (0 allocations: 0 bytes)
-Base.Slice(Static(1):100)
+Base.Slice(static(1):100)
 
 julia> inds = (Base.OneTo(100), 1:100, 1:UInt(100), Int32(1):Int32(100))
 (Base.OneTo(100), 1:100, 0x0000000000000001:0x0000000000000064, 1:100)
 
 julia> @btime reduce(ArrayInterface._pick_range, \$(Ref(inds))[])
   9.048 ns (0 allocations: 0 bytes)
-Base.Slice(Static(1):100)
+Base.Slice(static(1):100)
 
 julia> @btime ArrayInterface.reduce_tup(ArrayInterface._pick_range, \$(Ref(inds))[])
   2.569 ns (0 allocations: 0 bytes)
-Base.Slice(Static(1):100)
+Base.Slice(static(1):100)
 ```
 """
 @generated function reduce_tup(f::F, inds::Tuple{Vararg{Any,N}}) where {F,N}

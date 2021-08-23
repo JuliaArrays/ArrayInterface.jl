@@ -119,13 +119,12 @@ can_change_size(::Type{<:Base.ImmutableDict}) = false
 function ismutable end
 
 """
-    ismutable(x::DataType) -> Bool
+    ismutable(::Type{T}) -> Bool
 
-Query whether a type is mutable or not, see
+Query whether instances of type `T` are mutable or not, see
 https://github.com/JuliaDiffEq/RecursiveArrayTools.jl/issues/19.
 """
 ismutable(x) = ismutable(typeof(x))
-
 function ismutable(::Type{T}) where {T<:AbstractArray}
     if parent_type(T) <: T
         return true
@@ -168,12 +167,12 @@ function Base.setindex(x::AbstractMatrix, v, i::Int, j::Int)
 end
 
 """
-    can_setindex(x::DataType) -> Bool
+    can_setindex(::Type{T}) -> Bool
 
 Query whether a type can use `setindex!`.
 """
-can_setindex(x) = true
-can_setindex(x::AbstractArray) = can_setindex(typeof(x))
+can_setindex(x) = can_setindex(typeof(x))
+can_setindex(::Type) = true
 can_setindex(::Type{<:AbstractRange}) = false
 
 """
@@ -188,8 +187,8 @@ aos_to_soa(x) = x
 
 Query whether an array type has fast scalar indexing.
 """
-fast_scalar_indexing(x) = true
-fast_scalar_indexing(x::AbstractArray) = fast_scalar_indexing(typeof(x))
+fast_scalar_indexing(x) = fast_scalar_indexing(typeof(x))
+fast_scalar_indexing(::Type) = true
 fast_scalar_indexing(::Type{<:LinearAlgebra.AbstractQ}) = false
 fast_scalar_indexing(::Type{<:LinearAlgebra.LQPackedQ}) = false
 
@@ -208,34 +207,34 @@ A scalar `setindex!` which is always allowed.
 allowed_setindex!(x, v, i...) = Base.setindex!(x, v, i...)
 
 """
-    isstructured(x::DataType) -> Bool
+    isstructured(::Type{T}) -> Bool
 
 Query whether a type is a representation of a structured matrix.
 """
-isstructured(x) = false
-isstructured(x::AbstractArray) = isstructured(typeof(x))
-isstructured(::Symmetric) = true
-isstructured(::Hermitian) = true
-isstructured(::UpperTriangular) = true
-isstructured(::LowerTriangular) = true
-isstructured(::Tridiagonal) = true
-isstructured(::SymTridiagonal) = true
-isstructured(::Bidiagonal) = true
-isstructured(::Diagonal) = true
+isstructured(x) = isstructured(typeof(x))
+isstructured(::Type) = false
+isstructured(::Type{<:Symmetric}) = true
+isstructured(::Type{<:Hermitian}) = true
+isstructured(::Type{<:UpperTriangular}) = true
+isstructured(::Type{<:LowerTriangular}) = true
+isstructured(::Type{<:Tridiagonal}) = true
+isstructured(::Type{<:SymTridiagonal}) = true
+isstructured(::Type{<:Bidiagonal}) = true
+isstructured(::Type{<:Diagonal}) = true
 
 """
     has_sparsestruct(x::AbstractArray) -> Bool
 
 Determine whether `findstructralnz` accepts the parameter `x`.
 """
-has_sparsestruct(x) = false
-has_sparsestruct(x::AbstractArray) = has_sparsestruct(typeof(x))
-has_sparsestruct(x::Type{<:AbstractArray}) = false
-has_sparsestruct(x::Type{<:SparseMatrixCSC}) = true
-has_sparsestruct(x::Type{<:Diagonal}) = true
-has_sparsestruct(x::Type{<:Bidiagonal}) = true
-has_sparsestruct(x::Type{<:Tridiagonal}) = true
-has_sparsestruct(x::Type{<:SymTridiagonal}) = true
+has_sparsestruct(x) = has_sparsestruct(typeof(x))
+has_sparsestruct(::Type) = false
+has_sparsestruct(::Type{<:AbstractArray}) = false
+has_sparsestruct(::Type{<:SparseMatrixCSC}) = true
+has_sparsestruct(::Type{<:Diagonal}) = true
+has_sparsestruct(::Type{<:Bidiagonal}) = true
+has_sparsestruct(::Type{<:Tridiagonal}) = true
+has_sparsestruct(::Type{<:SymTridiagonal}) = true
 
 """
     issingular(A::AbstractMatrix) -> Bool
