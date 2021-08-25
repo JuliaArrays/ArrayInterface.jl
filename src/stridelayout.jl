@@ -502,8 +502,10 @@ while still producing correct behavior when using valid cartesian indices, such 
 strides(A::StrideIndex) = getfield(A, :strides)
 @inline strides(A::Vector{<:Any}) = (StaticInt(1),)
 @inline strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
-function strides(x)
-    if defines_strides(x)
+@inline function strides(x::X) where {X}
+    if !(parent_type(X) <: X)
+        return strides(parent(x))
+    elseif defines_strides(X)
         return size_to_strides(size(x), One())
     else
         return Base.strides(x)
@@ -519,11 +521,19 @@ function strides(A::ReshapedArray{T,N,P}) where {T, N, P<:AbstractVector}
         return Base.strides(A)
     end
 end
+function strides(A::ReshapedArray{T,N,P}) where {T, N, P}
+    if defines_strides(A)
+        return size_to_strides(size(A), static(1))
+    else
+        return Base.strides(A)
+    end
+end
+
 
 @inline bmap(f::F, t::Tuple{}, x::Number) where {F} = ()
 @inline bmap(f::F, t::Tuple{T}, x::Number) where {F, T} = (f(first(t),x), )
 @inline bmap(f::F, t::Tuple, x::Number) where {F} = (f(first(t),x), bmap(f, Base.tail(t), x)...)
-if VERSION ≥ v"1.6.0-DEV.1581"
+@static if VERSION ≥ v"1.6.0-DEV.1581"
   # from `reinterpret(reshape, ...)`
   @inline function strides(A::Base.ReinterpretArray{R, N, T, B, true}) where {R,N,T,B}
     P = strides(parent(A))
@@ -541,9 +551,20 @@ if VERSION ≥ v"1.6.0-DEV.1581"
       (One(), bmap(*, P, StaticInt(sizeof(T)) ÷ StaticInt(sizeof(R)))...)
     end
   end
-
   # plain `reinterpret(...)`
   @inline function strides(A::Base.ReinterpretArray{R, N, T, B, false}) where {R,N,T,B}
+    P = strides(parent(A))
+    if sizeof(R) == sizeof(T)
+      P
+    elseif sizeof(R) > sizeof(T)
+      (first(P), bmap(÷, Base.tail(P), StaticInt(sizeof(R)) ÷ StaticInt(sizeof(T)))...)
+    else # sizeof(R) < sizeof(T)
+      (first(P), bmap(*, Base.tail(P), StaticInt(sizeof(T)) ÷ StaticInt(sizeof(R)))...)
+    end
+  end
+else
+  # plain `reinterpret(...)`
+  @inline function strides(A::Base.ReinterpretArray{R, N, T}) where {R,N,T}
     P = strides(parent(A))
     if sizeof(R) == sizeof(T)
       P

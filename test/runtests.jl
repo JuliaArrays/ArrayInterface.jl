@@ -767,7 +767,7 @@ end
 end
 
 @testset "Reinterpreted reshaped views" begin
-    u_base = randn(1, 4, 4, 5)
+    u_base = randn(1, 4, 4, 5);
     u_vectors = reshape(reinterpret(SVector{1, eltype(u_base)}, u_base),
                         Base.tail(size(u_base))...)
     u_view = view(u_vectors, 2, :, 3)
@@ -778,13 +778,8 @@ end
     @test @inferred(ArrayInterface.strides(u_base)) == (StaticInt(1), 1, 4, 16)
     @test @inferred(ArrayInterface.strides(u_vectors)) == (StaticInt(1), 4, 16)
     @test @inferred(ArrayInterface.strides(u_view)) == (4,)
-    if VERSION ≥ v"1.6.0-DEV.1581"
-        @test @inferred(ArrayInterface.strides(u_view_reinterpreted)) == (4,)
-        @test @inferred(ArrayInterface.strides(u_view_reshaped)) == (4, 4)
-    else
-        @test_broken @inferred(ArrayInterface.strides(u_view_reinterpreted)) == (4,)
-        @test_broken @inferred(ArrayInterface.strides(u_view_reshaped)) == (4, 4)
-    end
+    @test @inferred(ArrayInterface.strides(u_view_reinterpreted)) == (4,)
+    @test @inferred(ArrayInterface.strides(u_view_reshaped)) == (4, 4)
 end
 
 @test ArrayInterface.can_avx(ArrayInterface.can_avx) == false
