@@ -1,4 +1,3 @@
-using ArrayInterface: dimnames
 
 @testset "dimensions" begin
 
