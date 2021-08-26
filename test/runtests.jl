@@ -1,25 +1,30 @@
-using ArrayInterface, Test
-using Base: setindex
-using IfElse
+using ArrayInterface
 using ArrayInterface: StaticInt, True, False, NDIndex
+using ArrayInterface: zeromatrix
 import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance,
     device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, static, NDIndex,
-    is_lazy_conjugate
-
+    is_lazy_conjugate, parent_type, dimnames
+using BandedMatrices
+using BlockBandedMatrices
+using Base: setindex
+using IfElse
+using LinearAlgebra
+using OffsetArrays
+using Random
+using SparseArrays
+using StaticArrays
+using SuiteSparse
+using Test
 
 if VERSION ≥ v"1.6"
     using Aqua
     Aqua.test_all(ArrayInterface)
 end
 
-using StaticArrays
-
 @test isone(ArrayInterface.known_first(typeof(StaticArrays.SOneTo(7))))
 @test ArrayInterface.known_last(typeof(StaticArrays.SOneTo(7))) == 7
 @test ArrayInterface.known_length(typeof(StaticArrays.SOneTo(7))) == 7
 @test @inferred(ArrayInterface.known_length(NDIndex((1,2,3)))) === 3
-
-using LinearAlgebra, SparseArrays
 
 D=Diagonal([1,2,3,4])
 @test has_sparsestruct(D)
@@ -41,10 +46,12 @@ Tri=Tridiagonal([1,2,3],[1,2,3,4],[4,5,6])
 @test has_sparsestruct(Tri)
 rowind,colind=findstructralnz(Tri)
 @test [Tri[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,2,3,4,4,5,6,1,2,3]
+
 STri=SymTridiagonal([1,2,3,4],[5,6,7])
 @test has_sparsestruct(STri)
 rowind,colind=findstructralnz(STri)
 @test [STri[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,2,3,4,5,6,7,5,6,7]
+
 
 Sp=sparse([1,2,3],[1,2,3],[1,2,3])
 @test has_sparsestruct(Sp)
@@ -59,8 +66,25 @@ else
     @test !fast_scalar_indexing(qr(rand(10, 10), Val(true)).Q)
 end
 @test !fast_scalar_indexing(lq(rand(10, 10)).Q)
+@test fast_scalar_indexing(Nothing)  # test default
 
-using BandedMatrices
+@testset "can_setindex" begin
+    @test !@inferred(ArrayInterface.can_setindex(1:2))
+    @test @inferred(ArrayInterface.can_setindex(Vector{Int}))
+    @test !@inferred(ArrayInterface.can_setindex(UnitRange{Int}))
+end
+
+@testset "ArrayInterface.isstructured" begin
+    @test !@inferred(ArrayInterface.isstructured(Matrix{Int}))  # default
+    @test @inferred(ArrayInterface.isstructured(Hermitian{Complex{Int64}, Matrix{Complex{Int64}}}))
+    @test @inferred(ArrayInterface.isstructured(Symmetric{Int,Matrix{Int}}))
+    @test @inferred(ArrayInterface.isstructured(LowerTriangular{Int,Matrix{Int}}))
+    @test @inferred(ArrayInterface.isstructured(UpperTriangular{Int,Matrix{Int}}))
+    @test @inferred(ArrayInterface.isstructured(typeof(D)))
+    @test @inferred(ArrayInterface.isstructured(typeof(Bu)))
+    @test @inferred(ArrayInterface.isstructured(typeof(Tri)))
+    @test @inferred(ArrayInterface.isstructured(typeof(STri)))
+end
 
 B=BandedMatrix(Ones(5,5), (-1,2))
 B[band(1)].=[1,2,3,4]
@@ -74,7 +98,6 @@ B[band(2)].=[5,6,7,8]
 rowind,colind=findstructralnz(B)
 @test [B[rowind[i],colind[i]] for i in 1:length(rowind)]==[5,6,7,8,1,2,3,4]
 
-using BlockBandedMatrices
 BB=BlockBandedMatrix(Ones(10,10),[1,2,3,4],[4,3,2,1],(1,0))
 BB[Block(1,1)].=[1 2 3 4]
 BB[Block(2,1)].=[5 6 7 8;9 10 11 12]
@@ -158,7 +181,6 @@ end
     end
 end
 
-using SuiteSparse
 @testset "lu_instance" begin
   for A in [
     randn(5, 5),
@@ -171,29 +193,30 @@ using SuiteSparse
   @test lu_instance(1) === 1
 end
 
-using Random
-using ArrayInterface: issingular
-@testset "issingular" begin
+@testset "ArrayInterface.issingular" begin
     for T in [Float64, ComplexF64]
         R = randn(MersenneTwister(2), T, 5, 5)
         S = Symmetric(R)
         L = UpperTriangular(R)
         U = LowerTriangular(R)
-        @test all(!issingular, [R, S, L, U, U'])
+        @test all(!ArrayInterface.issingular, [R, S, L, U, U'])
         R[:, 2] .= 0
-        @test all(issingular, [R, L, U, U'])
-        @test !issingular(S)
+        @test all(ArrayInterface.issingular, [R, L, U, U'])
+        @test !ArrayInterface.issingular(S)
         R[2, :] .= 0
-        @test issingular(S)
-        @test all(!issingular, [UnitLowerTriangular(R), UnitUpperTriangular(R), UnitUpperTriangular(R)'])
+        @test ArrayInterface.issingular(S)
+        @test all(!ArrayInterface.issingular, [UnitLowerTriangular(R), UnitUpperTriangular(R), UnitUpperTriangular(R)'])
     end
+    @test !@inferred(ArrayInterface.issingular(D))
+    @test @inferred(ArrayInterface.issingular(UniformScaling(0)))
+    @test !@inferred(ArrayInterface.issingular(Bu))
+    @test !@inferred(ArrayInterface.issingular(STri))
+    @test !@inferred(ArrayInterface.issingular(Tri))
 end
 
-using ArrayInterface: zeromatrix
 @test zeromatrix(rand(4,4,4)) == zeros(4*4*4,4*4*4)
 
-using ArrayInterface: parent_type
-@testset "Parent Type" begin
+@testset "parent_type" begin
     x = ones(4, 4)
     @test parent_type(view(x, 1:2, 1:2)) <: typeof(x)
     @test parent_type(reshape(x, 2, :)) <: typeof(x)
@@ -207,98 +230,7 @@ using ArrayInterface: parent_type
     @test parent_type(LowerTriangular{Int,Matrix{Int}}) <: Matrix{Int}
 end
 
-@testset "Range Interface" begin
-    @testset "Range Constructors" begin
-        @test @inferred(StaticInt(1):StaticInt(10)) == 1:10
-        @test @inferred(StaticInt(1):StaticInt(2):StaticInt(10)) == 1:2:10
-        @test @inferred(1:StaticInt(2):StaticInt(10)) == 1:2:10
-        @test @inferred(StaticInt(1):StaticInt(2):10) == 1:2:10
-        @test @inferred(StaticInt(1):2:StaticInt(10)) == 1:2:10
-        @test @inferred(1:2:StaticInt(10)) == 1:2:10
-        @test @inferred(1:StaticInt(2):10) == 1:2:10
-        @test @inferred(StaticInt(1):2:10) == 1:2:10
-        @test @inferred(StaticInt(1):UInt(10)) === StaticInt(1):10
-        @test @inferred(UInt(1):StaticInt(1):StaticInt(10)) === 1:StaticInt(10)
-        @test @inferred(ArrayInterface.OptionallyStaticUnitRange{Int,Int}(1:10)) == 1:10
-        @test @inferred(ArrayInterface.OptionallyStaticUnitRange(1:10)) == 1:10
-
-        @inferred(ArrayInterface.OptionallyStaticUnitRange(1:10))
-
-        @test @inferred(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), 1, UInt(10))) == StaticInt(1):1:10
-        @test @inferred(ArrayInterface.OptionallyStaticStepRange(UInt(1), 1, StaticInt(10))) == StaticInt(1):1:10
-        @test @inferred(ArrayInterface.OptionallyStaticStepRange(1:10)) == 1:1:10
-
-        @test_throws ArgumentError ArrayInterface.OptionallyStaticUnitRange(1:2:10)
-        @test_throws ArgumentError ArrayInterface.OptionallyStaticUnitRange{Int,Int}(1:2:10)
-        @test_throws ArgumentError ArrayInterface.OptionallyStaticStepRange(1, 0, 10)
-
-        @test @inferred(StaticInt(1):StaticInt(1):StaticInt(10)) === ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))
-        @test @inferred(StaticInt(1):StaticInt(1):10) === ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10)
-        @test @inferred(1:StaticInt(1):10) === ArrayInterface.OptionallyStaticUnitRange(1, 10)
-        @test length(StaticInt{-1}():StaticInt{-1}():StaticInt{-10}()) == 10
-
-        @test UnitRange(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))) === UnitRange(1, 10)
-        @test UnitRange{Int}(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))) === UnitRange(1, 10)
-
-        @test AbstractUnitRange{Int}(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))) isa ArrayInterface.OptionallyStaticUnitRange
-        @test AbstractUnitRange{UInt}(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10))) isa Base.OneTo
-        @test AbstractUnitRange{UInt}(ArrayInterface.OptionallyStaticUnitRange(StaticInt(2), StaticInt(10))) isa UnitRange
-
-        @test @inferred((StaticInt(1):StaticInt(10))[StaticInt(2):StaticInt(3)]) === StaticInt(2):StaticInt(3)
-        @test @inferred((StaticInt(1):StaticInt(10))[StaticInt(2):3]) === StaticInt(2):3
-        @test @inferred((StaticInt(1):StaticInt(10))[2:3]) === 2:3
-        @test @inferred((1:StaticInt(10))[StaticInt(2):StaticInt(3)]) === 2:3
-
-        @test -(StaticInt{1}():StaticInt{10}()) === StaticInt{-1}():StaticInt{-1}():StaticInt{-10}()
-
-        @test reverse(StaticInt{1}():StaticInt{10}()) === StaticInt{10}():StaticInt{-1}():StaticInt{1}()
-        @test reverse(StaticInt{1}():StaticInt{2}():StaticInt{9}()) === StaticInt{9}():StaticInt{-2}():StaticInt{1}()
-    end
-
-    @test isnothing(@inferred(ArrayInterface.known_first(typeof(1:4))))
-    @test isone(@inferred(ArrayInterface.known_first(Base.OneTo(4))))
-    @test isone(@inferred(ArrayInterface.known_first(typeof(Base.OneTo(4)))))
-    @test isone(@inferred(ArrayInterface.known_first(typeof(StaticInt(1):2:10))))
-
-    @test isnothing(@inferred(ArrayInterface.known_last(1:4)))
-    @test isnothing(@inferred(ArrayInterface.known_last(typeof(1:4))))
-    @test isone(@inferred(ArrayInterface.known_last(typeof(StaticInt(-1):StaticInt(2):StaticInt(1)))))
-
-    @test isnothing(@inferred(ArrayInterface.known_step(typeof(1:0.2:4))))
-    @test isone(@inferred(ArrayInterface.known_step(1:4)))
-    @test isone(@inferred(ArrayInterface.known_step(typeof(1:4))))
-    @test isone(@inferred(ArrayInterface.known_step(typeof(Base.Slice(1:4)))))
-
-    @testset "length" begin
-        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(1, 0))) == 0
-        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(1, 10))) == 10
-        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10))) == 10
-        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(0), 10))) == 11
-        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), StaticInt(10)))) == 10
-        @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(StaticInt(0), StaticInt(10)))) == 11
-
-        @test @inferred(length(StaticInt(1):StaticInt(2):StaticInt(0))) == 0
-        @test @inferred(length(StaticInt(0):StaticInt(-2):StaticInt(1))) == 0
-
-        @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), 2, 10)))) === nothing
-        @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), StaticInt(1), StaticInt(10))))) === 10
-        @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(StaticInt(2), StaticInt(1), StaticInt(10))))) === 9
-        @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(StaticInt(2), StaticInt(2), StaticInt(10))))) === 5
-        @test @inferred(ArrayInterface.known_length(Int)) === 1
-
-        @test @inferred(length(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), 2, 10))) == 5
-        @test @inferred(length(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), StaticInt(1), StaticInt(10)))) == 10
-        @test @inferred(length(ArrayInterface.OptionallyStaticStepRange(StaticInt(2), StaticInt(1), StaticInt(10)))) == 9
-        @test @inferred(length(ArrayInterface.OptionallyStaticStepRange(StaticInt(2), StaticInt(2), StaticInt(10)))) == 5
-    end
-
-    @test @inferred(getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 1)) == 1
-    @test @inferred(getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(0), 10), 1)) == 0
-    @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 0)
-    @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), 2, 10), 0)
-    @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 11)
-    @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), 2, 10), 11)
-end
+include("ranges.jl")
 
 # Dummy array type with undetermined contiguity properties
 struct DummyZeros{T,N} <: AbstractArray{T,N}
@@ -319,7 +251,6 @@ ArrayInterface.device(::Type{T}) where {T<:Wrapper} = ArrayInterface.device(pare
 struct DenseWrapper{T,N,P<:AbstractArray{T,N}} <: DenseArray{T,N} end
 ArrayInterface.parent_type(::Type{DenseWrapper{T,N,P}}) where {T,N,P} = P
 
-using OffsetArrays
 @testset "Memory Layout" begin
     x = zeros(100);
     # R = reshape(view(x, 1:100), (10,10));

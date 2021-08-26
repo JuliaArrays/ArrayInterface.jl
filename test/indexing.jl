@@ -1,4 +1,3 @@
-using ArrayInterface: NDIndex
 
 @testset "canonical" begin
     @test @inferred(ArrayInterface.is_canonical(Int)) === static(true)
