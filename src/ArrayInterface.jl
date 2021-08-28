@@ -85,7 +85,7 @@ _has_parent(::Type{T1}, ::Type{T2}) where {T1,T2} = True()
     buffer(x)
 
 Return the buffer data that `x` points to. Unlike `parent(x::AbstractArray)`, `buffer(x)`
-may not return another array.type.
+may not return another array type.
 """
 buffer(x) = parent(x)
 buffer(x::SparseMatrixCSC) = getfield(x, :nzval)
