@@ -42,6 +42,7 @@ ArrayInterface.aos_to_soa
 ArrayInterface.axes
 ArrayInterface.axes_types
 ArrayInterface.broadcast_axis
+ArrayInterface.buffer
 ArrayInterface.canonicalize
 ArrayInterface.deleteat
 ArrayInterface.dense_dims

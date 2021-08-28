@@ -82,6 +82,16 @@ _has_parent(::Type{T}, ::Type{T}) where {T} = False()
 _has_parent(::Type{T1}, ::Type{T2}) where {T1,T2} = True()
 
 """
+    buffer(x)
+
+Return the buffer data that `x` points to. Unlike `parent(x::AbstractArray)`, `buffer(x)`
+may not return another array.type.
+"""
+buffer(x) = parent(x)
+buffer(x::SparseMatrixCSC) = getfield(x, :nzval)
+buffer(x::SparseVector) = getfield(x, :nzval)
+
+"""
     known_length(::Type{T}) -> Union{Int,Nothing}
 
 If `length` of an instance of type `T` is known at compile time, return it.
@@ -698,6 +708,9 @@ function __init__()
         can_setindex(::Type{<:StaticArrays.StaticArray}) = false
         ismutable(::Type{<:StaticArrays.MArray}) = true
         ismutable(::Type{<:StaticArrays.SizedArray}) = true
+
+        buffer(A::Union{StaticArrays.SArray,StaticArrays.MArray}) = getfield(A, :data)
+        parent_type(::Type{<:StaticArrays.SizedArray{<:Any,<:Any,<:Any,<:Any,P}}) where {P} = P
 
         function lu_instance(_A::StaticArrays.StaticMatrix{N,N}) where {N}
             A = StaticArrays.SArray(_A)

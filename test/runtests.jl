@@ -228,6 +228,13 @@ end
     @test parent_type(Diagonal{Int,Vector{Int}}) <: Vector{Int}
     @test parent_type(UpperTriangular{Int,Matrix{Int}}) <: Matrix{Int}
     @test parent_type(LowerTriangular{Int,Matrix{Int}}) <: Matrix{Int}
+    @test parent_type(SizedVector{1, Int, Vector{Int}}) <: Vector{Int}
+end
+
+@testset "buffer" begin
+    @test ArrayInterface.buffer(Sp) == [1, 2, 3]
+    @test ArrayInterface.buffer(sparsevec([1, 2, 0, 0, 3, 0])) == [1, 2, 3]
+    @test ArrayInterface.buffer(Diagonal([1,2,3])) == [1, 2, 3]
 end
 
 include("ranges.jl")
