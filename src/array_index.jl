@@ -23,7 +23,7 @@ struct BidiagonalIndex <: MatrixIndex
 end
 
 struct TridiagonalIndex <: MatrixIndex
-    count::Int# count==nsize+nsize-1+nsize-1
+    count::Int  # count==nsize+nsize-1+nsize-1
     nsize::Int
     isrow::Bool
 end
@@ -184,6 +184,53 @@ function BandedBlockBandedMatrixIndex(
 end
 
 """
+    ShapedIndex(size::Tuple{Vararg{CanonicalInt}}})
+
+Subtype of `ArrayIndex` that transforms an a multidimensional index into a linear index.
+"""
+struct ShapedIndex{IS,N,O,S} <: ArrayIndex{N}
+    offsets::O
+    size::S
+
+    function ShapedIndex{IndexLinear}(o::Tuple{Vararg{CanonicalInt,N}}, s::Tuple{Vararg{CanonicalInt,N}}) where {N}
+        new{IndexLinear,N,typeof(o),typeof(s)}(o, s)
+    end
+    function ShapedIndex{IndexCartesian}(o::Tuple{Vararg{CanonicalInt,N}}, s::Tuple{Vararg{CanonicalInt,N}}) where {N}
+        new{IndexCartesian,N,typeof(o),typeof(s)}(o, s)
+    end
+    ShapedIndex{IS}(x) where {IS} = ShapedIndex{IS}(offsets(x), size(x))
+end
+
+"""
+    PermutedIndex
+
+Subtypes of `ArrayIndex` that is responsible for permuting each index prior to accessing
+parent indices.
+"""
+struct PermutedIndex{N,I1,I2} <: ArrayIndex{N}
+    PermutedIndex{N,I1,I2}() where {N,I1,I2} = new{N,I1::NTuple{N,Int},I2::NTuple{N,Int}}()
+    # the only time we permit the inverse permutation to not have the same length as the permutation 
+    PermutedIndex{2,(2,1),(2,)}() = new{2,(2,1),(2,)}()
+
+    function PermutedIndex(perm::Tuple{Vararg{StaticInt,N}}, iperm::Tuple{Vararg{StaticInt}}) where {N}
+        PermutedIndex{N,known(perm),known(iperm)}()
+    end
+    PermutedIndex(::A) where {A} = PermutedIndex(to_parent_dims(A), from_parent_dims(A))
+end
+
+"""
+    SubIndex
+
+Subtype of `ArrayIndex` that provides a multidimensional view of another `ArrayIndex`.
+"""
+struct SubIndex{N,I} <: ArrayIndex{N}
+    indices::I
+
+    SubIndex{N}(inds::Tuple) where {N} = new{N,typeof(inds)}(inds)
+    SubIndex(x::SubArray{T,N}) where {T,N} = SubIndex{N}(x.indices)
+end
+
+"""
     StrideIndex(x)
 
 Subtype of `ArrayIndex` that transforms and index using stride layout information
@@ -207,6 +254,52 @@ end
 Base.firstindex(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = 1
 Base.lastindex(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = i.count
 Base.length(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = i.count
+
+## getindex
+Base.getindex(x::ShapedIndex{IndexCartesian,N}, i::AbstractCartesianIndex) where {N} = i
+function Base.getindex(x::ShapedIndex{IndexCartesian,N}, i::CanonicalInt) where {N}
+    _lin2sub(offsets(x), size(x), i)
+end
+@generated function _lin2sub(o::O, s::S, i::I) where {O,S,I}
+    out = Expr(:block, Expr(:meta, :inline))
+    t = Expr(:tuple)
+    iprev = :(i - 1)
+    N = length(S.parameters)
+    for i in 1:N
+        if i === N
+            push!(t.args, :($iprev + getfield(o, $i)))
+        else
+            len = gensym()
+            inext = gensym()
+            push!(out.args, :($len = getfield(s, $i)))
+            push!(out.args, :($inext = div($iprev, $len)))
+            push!(t.args, :($iprev - $len * $inext + getfield(o, $i)))
+            iprev = inext
+        end
+    end
+    push!(out.args, :(NDIndex($(t))))
+    out
+end
+
+Base.getindex(x::ShapedIndex{IndexLinear}, i::CanonicalInt) = i
+function Base.getindex(x::ShapedIndex{IndexLinear,N}, i::AbstractCartesianIndex{N}) where {N}
+    _sub2lin(offsets(x), size(x), Tuple(i))
+end
+@generated function _sub2lin(o::O, s::S, index::I) where {O,S,I}
+    out = :()
+    stride = 1
+    for i ∈ 1:length(S.parameters)
+        index_i = :(getfield(index, $i))
+        if i == 1
+            out = :($index_i + (1 - getfield(o, 1)))
+            stride = :(getfield(s, 1))
+        else
+            out = :($out + $stride * ($index_i - getfield(o, $i)))
+            stride = :($stride * getfield(s, $i))
+        end
+    end
+    return Expr(:block, Expr(:meta, :inline), out)
+end
 @propagate_inbounds Base.getindex(x::ArrayIndex, i::CanonicalInt, ii::CanonicalInt...) = x[NDIndex(i, ii...)]
 @propagate_inbounds function Base.getindex(ind::BidiagonalIndex, i::Int)
     @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
@@ -286,3 +379,117 @@ end
     end
     return Expr(:block, Expr(:meta, :inline), out)
 end
+
+@inline function Base.getindex(x::SubIndex{N}, i::AbstractCartesianIndex{N}) where {N}
+    return NDIndex(_reindex(x.indices, Tuple(i)))
+end
+@generated function _reindex(subinds::S, inds::I) where {S,I}
+    inds_i = 1
+    subinds_i = 1
+    NS = known_length(S)
+    NI = known_length(I)
+    out = Expr(:tuple)
+    while inds_i <= NI
+        subinds_type = S.parameters[subinds_i]
+        if subinds_type <: Integer
+            push!(out.args, :(getfield(subinds, $subinds_i)))
+            subinds_i += 1
+        elseif eltype(subinds_type) <: AbstractCartesianIndex
+            push!(out.args, :(Tuple(@inbounds(getfield(subinds, $subinds_i)[getfield(inds, $inds_i)]))...))
+            inds_i += 1
+            subinds_i += 1
+        else
+            push!(out.args, :(@inbounds(getfield(subinds, $subinds_i)[getfield(inds, $inds_i)])))
+            inds_i += 1
+            subinds_i += 1
+        end
+    end
+    if subinds_i <= NS
+        for i in subinds_i:NS
+            push!(out.args, :(getfield(subinds, $subinds_i)))
+        end
+    end
+    return Expr(:block, Expr(:meta, :inline), :($out))
+end
+
+Base.getindex(x::PermutedIndex{2,(2,1),(2,)}, i::AbstractCartesianIndex{2}) = getfield(Tuple(i), 2)
+@inline function Base.getindex(x::PermutedIndex{N,I1,I2}, i::AbstractCartesianIndex{N}) where {N,I1,I2}
+    return NDIndex(permute(Tuple(i), Val(I2)))
+end
+
+"""
+    ComposedIndex(i1, i2)
+
+A subtype of `ArrayIndex` that lazily combines index `i1` and `i2`. Indexing a
+`ComposedIndex` whith `i` is equivalent to `i2[i1[i]]`.
+"""
+struct ComposedIndex{N,I1,I2} <: ArrayIndex{N}
+    i1::I1
+    i2::I2
+
+    ComposedIndex(i1::I1, i2::I2) where {I1,I2} = new{ndims(I1),I1,I2}(i1, i2)
+end
+# we should be able to assume that if `i1` was indexed without error than it's inbounds
+@propagate_inbounds function Base.getindex(x::ComposedIndex)
+    ii = getfield(x, :i1)[]
+    @inbounds(getfield(x, :i2)[ii])
+end
+@propagate_inbounds function Base.getindex(x::ComposedIndex, i::CanonicalInt)
+    ii = getfield(x, :i1)[i]
+    @inbounds(getfield(x, :i2)[ii])
+end
+@propagate_inbounds function Base.getindex(x::ComposedIndex, i::AbstractCartesianIndex)
+    ii = getfield(x, :i1)[i]
+    @inbounds(getfield(x, :i2)[ii])
+end
+
+Base.getindex(x::ArrayIndex, i::ArrayIndex) = ComposedIndex(i, x)
+@inline function Base.getindex(x::StrideIndex, i::SubIndex{N,I}) where {N,I}
+    _composed_sub_strides(stride_preserving_index(stride_preserving_index(I)), x, i)
+end
+_composed_sub_strides(::False, x::StrideIndex, i::SubIndex) = ComposedIndex(i, x)
+@inline function _composed_sub_strides(::True, x::StrideIndex{N,R,C}, i::SubIndex{Ns,I}) where {N,R,C,Ns,I<:Tuple{Vararg{Any,N}}}
+    c = static(C)
+    if _get_tuple(I, c) <: AbstractUnitRange
+        c2 = known(getfield(_from_sub_dims(static(N), I), C))
+    elseif (_get_tuple(I, c) <: AbstractArray) && (_get_tuple(I, c) <: Integer)
+        c2 = -1
+    else
+        c2 = nothing
+    end
+
+    pdims = _to_sub_dims(I)
+    return StrideIndex{Ns,permute(R, pdims),c2}(
+        eachop(getmul, pdims, map(maybe_static_step, i.indices), strides(x)),
+        permute(offsets(x), pdims),
+    )
+end
+@inline function Base.getindex(x::StrideIndex{1,R,C}, ::PermutedIndex{2,(2,1),(2,)}) where {R,C}
+    if C === nothing
+        c2 = nothing
+    elseif C === 1
+        c2 = 2
+    else
+        c2 = -1
+    end
+    s = getfield(strides(x), 1)
+    return StrideIndex{2,(2,1),c2}((s, s), (static(1), offset1(x)))
+end
+@inline function Base.getindex(x::StrideIndex{N,R,C}, ::PermutedIndex{N,perm,iperm}) where {N,R,C,perm,iperm}
+    if C === nothing || C === -1
+        c2 = C
+    else
+        c2 = getfield(iperm, C)
+    end
+    return StrideIndex{2,permute(R, Val(perm)),c2}(
+        permute(strides(x), Val(perm)),
+        permute(offsets(x), Val(perm)),
+    )
+end
+@inline function Base.getindex(x::PermutedIndex, i::PermutedIndex)
+    PermutedIndex(
+        permute(to_parent_dims(x), to_parent_dims(i)),
+        permute(from_parent_dims(x), from_parent_dims(i))
+    )
+end
+

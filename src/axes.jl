@@ -1,4 +1,13 @@
 
+_static_range_type(::Nothing, ::Nothing) = OptionallyStaticUnitRange{Int,Int}
+_static_range_type(start::Int, ::Nothing) = OptionallyStaticUnitRange{StaticInt{start},Int}
+function _static_range_type(start::Int, size::Int)
+    OptionallyStaticUnitRange{StaticInt{start},StaticInt{(size - 1) + start}}
+end
+function _static_range(start::CanonicalInt, size::CanonicalInt)
+    OptionallyStaticUnitRange(start, ((size - static(1)) + start))
+end
+
 """
     axes_types(::Type{T}) -> Type{Tuple{Vararg{AbstractUnitRange{Int}}}}
     axes_types(::Type{T}, dim) -> Type{AbstractUnitRange{Int}}
@@ -55,10 +64,14 @@ end
     return eachop_tuple(_sub_axis_type, to_parent_dims(T), T)
 end
 @inline function _sub_axis_type(::Type{A}, dim::StaticInt) where {T,N,P,I,A<:SubArray{T,N,P,I}}
-    return OptionallyStaticUnitRange{
-        _int_or_static_int(known_first(axes_types(P, dim))),
-        _int_or_static_int(known_length(_get_tuple(I, dim)))
-    }
+    _static_range_type(known_first(axes_types(P, dim)),known_length(_get_tuple(I, dim)))
+end
+
+@inline function axes_types(::Type{A}) where {A<:ShapedIndex}
+    eachop_tuple(_shaped_axis_type, nstatic(Val(ndims(A))), A)
+end
+@inline function _shaped_axis_type(::Type{A}, dim::StaticInt) where {A}
+    _static_range_type(known_offsets(A, dim),known_size(A, dim))
 end
 
 function axes_types(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
@@ -111,6 +124,9 @@ similar_type(::Type{OptionallyStaticUnitRange{One,StaticInt{N}}}, ::Type{Int}, :
 similar_type(::Type{OptionallyStaticUnitRange{One,StaticInt{N}}}, ::Type{Int}, ::Type{OptionallyStaticUnitRange{One,Int}}) where {N} = OptionallyStaticUnitRange{One,Int}
 similar_type(::Type{OptionallyStaticUnitRange{One,StaticInt{N1}}}, ::Type{Int}, ::Type{OptionallyStaticUnitRange{One,StaticInt{N2}}}) where {N1,N2} = OptionallyStaticUnitRange{One,StaticInt{N2}}
 
+@inline function axes(a::ShapedIndex{N}, dim::CanonicalInt) where {N}
+    _static_range(static_offset(a, dim), size(a, dim))
+end
 @inline axes(a, dim) = axes(a, to_dims(a, dim))
 @inline axes(a, dims::Tuple{Vararg{Any,K}}) where {K} = (axes(a, first(dims)), axes(a, tail(dims))...)
 @inline axes(a, dims::Tuple{T}) where {T} = (axes(a, first(dims)), )
@@ -161,14 +177,15 @@ Returns the axis associated with each dimension of `A` or dimension `dim`
     end
 end
 axes(A::PermutedDimsArray) = permute(axes(parent(A)), to_parent_dims(A))
-axes(A::Union{Transpose,Adjoint}) = _axes(A, parent(A))
-_axes(A::Union{Transpose,Adjoint}, p::AbstractVector) = (One():One(), axes(p, One()))
-_axes(A::Union{Transpose,Adjoint}, p::AbstractMatrix) = (axes(p, StaticInt(2)), axes(p, One()))
+axes(A::VecAdjTrans) = (One():One(), axes(parent(A), One()))
+axes(A::MatAdjTrans) = (axes(parent(A), StaticInt(2)), axes(parent(A), One()))
 axes(A::SubArray) = Base.axes(A)  # TODO implement ArrayInterface version
 axes(A::ReinterpretArray) = Base.axes(A)  # TODO implement ArrayInterface version
 axes(A::Base.ReshapedArray) = Base.axes(A)  # TODO implement ArrayInterface version
 axes(A::CartesianIndices) = A.indices
 axes(A::LinearIndices) = A.indices
+axes(a::ShapedIndex) = map(_static_range, offsets(a), size(a))
+Base.axes(a::ShapedIndex) = axes(a)
 
 """
     LazyAxis{N}(parent::AbstractArray)

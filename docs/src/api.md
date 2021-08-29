@@ -75,12 +75,17 @@ ArrayInterface.zeromatrix
 
 ## Types
 
+
 ```@docs
 ArrayInterface.ArrayIndex
 ArrayInterface.BroadcastAxis
+ArrayInterface.ComposedIndex
 ArrayInterface.LazyAxis
 ArrayInterface.OptionallyStaticStepRange
 ArrayInterface.OptionallyStaticUnitRange
+ArrayInterface.PermutedIndex
+ArrayInterface.ShapedIndex
 ArrayInterface.StrideIndex
+ArrayInterface.SubIndex
 ```
 

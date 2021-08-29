@@ -47,6 +47,7 @@ function size(a::ReinterpretArray{T,N,S,A}) where {T,N,S,A}
 end
 size(A::ReshapedArray) = A.dims
 size(A::AbstractRange) = (static_length(A),)
+size(x::ShapedIndex) = getfield(x, :size)
 
 size(a, dim) = size(a, to_dims(a, dim))
 size(a::Array, dim::Integer) = Base.arraysize(a, convert(Int, dim))
@@ -91,4 +92,6 @@ known_size(::Type{T}) where {T} = eachop(known_size, nstatic(Val(ndims(T))), T)
         return known_length(axes_types(T, dim))
     end
 end
+
+known_size(::Type{<:ShapedIndex{N,O,S}}) where {N,O,S} = known(S)
 

@@ -43,6 +43,7 @@ end
 _known_offsets(::Type{T}, dim::StaticInt) where {T} = known_first(_get_tuple(T, dim))
 
 known_offsets(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(O)
+known_offsets(::Type{<:ShapedIndex{<:Any,N,O}}) where {N,O} = known(O)
 
 """
     offsets(A) -> Tuple
@@ -53,6 +54,7 @@ it should return them as `Static` numbers.
 For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1))`.
 """
 offsets(x::StrideIndex) = getfield(x, :offsets)
+offsets(x::ShapedIndex) = getfield(x, :offsets)
 @inline offsets(x, i) = static_first(indices(x, i))
 offsets(::Tuple) = (One(),)
 offsets(x) = eachop(_offsets, nstatic(Val(ndims(x))), x)
@@ -105,6 +107,8 @@ If no axis is contiguous, it returns a `StaticInt{-1}`.
 If unknown, it returns `nothing`.
 """
 contiguous_axis(x) = contiguous_axis(typeof(x))
+contiguous_axis(::Type{<:StrideIndex{N,R,C}}) where {N,R,C} = static(C)
+contiguous_axis(::Type{<:StrideIndex{N,R,Nothing}}) where {N,R} = nothing
 function contiguous_axis(::Type{T}) where {T}
     if parent_type(T) <: T
         return nothing
@@ -205,6 +209,8 @@ function stride_rank(::Type{T}) where {T}
         return stride_rank(parent_type(T))
     end
 end
+stride_rank(::Type{<:StrideIndex{N,R}}) where {N,R} = static(R)
+stride_rank(::Type{<:StrideIndex{N,Nothing}}) where {N} = nothing
 stride_rank(::Type{Array{T,N}}) where {T,N} = nstatic(Val(N))
 stride_rank(::Type{BitArray{N}}) where {N} = nstatic(Val(N))
 stride_rank(::Type{<:AbstractRange}) = (One(),)
