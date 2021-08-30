@@ -64,6 +64,9 @@ function _offsets(x::X, dim::StaticInt{D}) where {X,D}
         return static(start)
     end
 end
+# we can't generate an axis for `StrideIndex` so this is performed manually here
+@inline offsets(x::StrideIndex, dim::Int) = getfield(offsets(x), dim)
+@inline offsets(x::StrideIndex, ::StaticInt{dim}) where {dim} = getfield(offsets(x), dim)
 
 """
     known_offset1(::Type{T}) -> Union{Int,Nothing}
@@ -105,6 +108,8 @@ If no axis is contiguous, it returns a `StaticInt{-1}`.
 If unknown, it returns `nothing`.
 """
 contiguous_axis(x) = contiguous_axis(typeof(x))
+contiguous_axis(::Type{<:StrideIndex{N,R,C}}) where {N,R,C} = static(C)
+contiguous_axis(::Type{<:StrideIndex{N,R,Nothing}}) where {N,R} = nothing
 function contiguous_axis(::Type{T}) where {T}
     if parent_type(T) <: T
         return nothing
@@ -197,6 +202,8 @@ function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
     return sp
 end
 
+stride_rank(::Type{<:StrideIndex{N,R}}) where {N,R} = static(R)
+stride_rank(::Type{<:StrideIndex{N,Nothing}}) where {N} = nothing
 stride_rank(x) = stride_rank(typeof(x))
 function stride_rank(::Type{T}) where {T}
     if parent_type(T) <: T

@@ -57,6 +57,15 @@
     @test isnothing(@inferred(ArrayInterface.known_last(typeof(1:4))))
     @test isone(@inferred(ArrayInterface.known_last(typeof(StaticInt(-1):StaticInt(2):StaticInt(1)))))
 
+    # CartesianIndices
+    CI = CartesianIndices((2, 2))
+    @test @inferred(ArrayInterface.known_first(typeof(CI))) == CartesianIndex(1, 1)
+    @test @inferred(ArrayInterface.known_last(typeof(CI))) == nothing
+
+    CI = CartesianIndices((static(1):static(2), static(1):static(2)))
+    @test @inferred(ArrayInterface.known_first(typeof(CI))) == CartesianIndex(1, 1)
+    @test @inferred(ArrayInterface.known_last(typeof(CI))) == CartesianIndex(2, 2)
+
     @test isnothing(@inferred(ArrayInterface.known_step(typeof(1:0.2:4))))
     @test isone(@inferred(ArrayInterface.known_step(1:4)))
     @test isone(@inferred(ArrayInterface.known_step(typeof(1:4))))

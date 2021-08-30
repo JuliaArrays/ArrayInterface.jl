@@ -10,7 +10,6 @@ struct NamedDimsWrapper{L,T,N,P<:AbstractArray{T,N}} <: ArrayInterface.AbstractA
     NamedDimsWrapper{L}(p) where {L} = new{L,eltype(p),ndims(p),typeof(p)}(p)
 end
 ArrayInterface.parent_type(::Type{T}) where {P,T<:NamedDimsWrapper{<:Any,<:Any,<:Any,P}} = P
-ArrayInterface.has_dimnames(::Type{T}) where {T<:NamedDimsWrapper} = true
 ArrayInterface.dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L}} = static(Val(L))
 function ArrayInterface.dimnames(::Type{T}, dim) where {L,T<:NamedDimsWrapper{L}}
     if ndims(T) < dim
@@ -19,7 +18,6 @@ function ArrayInterface.dimnames(::Type{T}, dim) where {L,T<:NamedDimsWrapper{L}
         return static(L[dim])
     end
 end
-ArrayInterface.has_dimnames(::Type{T}) where {T<:NamedDimsWrapper} = true
 Base.parent(x::NamedDimsWrapper) = x.parent
 
 @testset "dimension permutations" begin
@@ -90,18 +88,17 @@ end
     @test_throws ErrorException ArrayInterface.order_named_inds(n2, (x=30, y=20, z=40))
 end
 
-val_has_dimnames(x) = Val(ArrayInterface.has_dimnames(x))
 
 @testset "dimnames" begin
     d = (static(:x), static(:y))
     x = NamedDimsWrapper{d}(ones(2,2));
     y = NamedDimsWrapper{(:x,)}(ones(2));
     dnums = ntuple(+, length(d))
-    @test @inferred(val_has_dimnames(x)) === Val(true)
-    @test @inferred(ArrayInterface.has_dimnames(ones(2,2))) === false
-    @test @inferred(ArrayInterface.has_dimnames(Array{Int,2})) === false
-    @test @inferred(val_has_dimnames(typeof(x))) === Val(true)
-    @test @inferred(val_has_dimnames(typeof(view(x, :, 1, :)))) === Val(true)
+    @test @inferred(ArrayInterface.has_dimnames(x)) == true
+    @test @inferred(ArrayInterface.has_dimnames(ones(2,2))) == false
+    @test @inferred(ArrayInterface.has_dimnames(Array{Int,2})) == false
+    @test @inferred(ArrayInterface.has_dimnames(typeof(x))) == true
+    @test @inferred(ArrayInterface.has_dimnames(typeof(view(x, :, 1, :)))) == true
     @test @inferred(dimnames(x)) === d
     @test @inferred(dimnames(parent(x))) === (static(:_), static(:_))
     @test @inferred(dimnames(x')) === reverse(d)
