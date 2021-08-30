@@ -109,7 +109,7 @@ If unknown, it returns `nothing`.
 """
 contiguous_axis(x) = contiguous_axis(typeof(x))
 contiguous_axis(::Type{<:StrideIndex{N,R,C}}) where {N,R,C} = static(C)
-contiguous_axis(::Type{<:StrideIndex{N,R,Nothing}}) where {N,R} = nothing
+contiguous_axis(::Type{<:StrideIndex{N,R,nothing}}) where {N,R} = nothing
 function contiguous_axis(::Type{T}) where {T}
     if parent_type(T) <: T
         return nothing
