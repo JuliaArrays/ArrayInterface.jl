@@ -24,7 +24,7 @@ function known_first(::Type{T}) where {T}
         return known_first(parent_type(T))
     end
 end
-known_first(::Type{Base.OneTo{T}}) where {T} = one(T)
+known_first(::Type{Base.OneTo{T}}) where {T} = 1
 function known_first(::Type{T}) where {N,R,T<:CartesianIndices{N,R}}
     _cartesian_index(ntuple(i -> known_first(R.parameters[i]), Val(N)))
 end
