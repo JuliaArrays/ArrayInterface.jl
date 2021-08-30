@@ -14,9 +14,6 @@ using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretAr
 
 
 ## utilites for internal use only ##
-_int_or_static_int(::Nothing) = Int
-_int_or_static_int(x::Int) = StaticInt{x}
-
 @static if VERSION >= v"1.7.0-DEV.421"
     using Base: @aggressive_constprop
 else

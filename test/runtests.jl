@@ -627,18 +627,6 @@ end
     o = OffsetArray(vec(A), 8);
     @test @inferred(ArrayInterface.offset1(o)) === 9
 
-    @testset "StrideIndex" begin
-        ap_index = ArrayInterface.StrideIndex(Ap)
-        for x_i in axes(Ap, 1)
-            for y_i in axes(Ap, 2)
-                @test ap_index[x_i, y_i] == ap_index[x_i, y_i]
-            end
-        end
-        @test @inferred(ArrayInterface.known_offsets(ap_index)) === ArrayInterface.known_offsets(Ap)
-        @test @inferred(ArrayInterface.known_offset1(ap_index)) === ArrayInterface.known_offset1(Ap)
-        @test @inferred(ArrayInterface.known_strides(ap_index)) === ArrayInterface.known_strides(Ap)
-    end
-
     if VERSION ≥ v"1.6.0-DEV.1581"
         colors = [(R = rand(), G = rand(), B = rand()) for i ∈ 1:100];
 
@@ -678,6 +666,10 @@ end
         Ac2t_static = reinterpret(reshape, Tuple{Float64,Float64}, view(@MMatrix(rand(ComplexF64, 5, 7)), 2:4, 3:6));
         @test @inferred(ArrayInterface.strides(Ac2t_static)) === (StaticInt(1), StaticInt(5))
     end
+end
+
+@testset "" begin
+    include("array_index.jl")
 end
 
 @testset "Reshaped views" begin

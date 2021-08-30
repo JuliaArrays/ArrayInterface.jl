@@ -1,4 +1,10 @@
 
+_static_range_type(::Any, ::Any) = OptionallyStaticUnitRange{Int,Int}
+_static_range_type(start::Int, ::Nothing) = OptionallyStaticUnitRange{StaticInt{start},Int}
+function _static_range_type(start::Int, size::Int)
+    OptionallyStaticUnitRange{StaticInt{start},StaticInt{(size - 1) + start}}
+end
+
 """
     axes_types(::Type{T}) -> Type{Tuple{Vararg{AbstractUnitRange{Int}}}}
     axes_types(::Type{T}, dim) -> Type{AbstractUnitRange{Int}}
@@ -54,11 +60,9 @@ end
 @inline function axes_types(::Type{T}) where {N,P,I,T<:SubArray{<:Any,N,P,I}}
     return eachop_tuple(_sub_axis_type, to_parent_dims(T), T)
 end
+
 @inline function _sub_axis_type(::Type{A}, dim::StaticInt) where {T,N,P,I,A<:SubArray{T,N,P,I}}
-    return OptionallyStaticUnitRange{
-        _int_or_static_int(known_first(axes_types(P, dim))),
-        _int_or_static_int(known_length(_get_tuple(I, dim)))
-    }
+    _static_range_type(known_first(axes_types(P, dim)),known_length(_get_tuple(I, dim)))
 end
 
 function axes_types(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
