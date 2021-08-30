@@ -46,11 +46,11 @@ from_parent_dims(x) = from_parent_dims(typeof(x))
 from_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
 from_parent_dims(::Type{T}) where {T<:VecAdjTrans} = (StaticInt(2),)
 from_parent_dims(::Type{T}) where {T<:MatAdjTrans} = (StaticInt(2), One())
-from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(A, I)
-@generated function _from_sub_dims(::Type{A}, ::Type{I}) where {A,I<:Tuple}
+from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(I)
+@generated function _from_sub_dims(::Type{I}) where {I<:Tuple}
     out = Expr(:tuple)
     dim_i = 1
-    for i in 1:ndims(A)
+    for i in 1:length(I.parameters)
         p = I.parameters[i]
         if p <: Integer
             push!(out.args, :(StaticInt(0)))
@@ -103,8 +103,8 @@ to_parent_dims(x) = to_parent_dims(typeof(x))
 to_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
 to_parent_dims(::Type{T}) where {T<:Union{Transpose,Adjoint}} = (StaticInt(2), One())
 to_parent_dims(::Type{<:PermutedDimsArray{T,N,I}}) where {T,N,I} = static(Val(I))
-to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(A, I)
-@generated function _to_sub_dims(::Type{A}, ::Type{I}) where {A,N,I<:Tuple{Vararg{Any,N}}}
+to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(I)
+@generated function _to_sub_dims(::Type{I}) where {I<:Tuple}
     out = Expr(:tuple)
     n = 1
     for p in I.parameters
@@ -150,16 +150,12 @@ end
 """
     has_dimnames(::Type{T}) -> Bool
 
-Returns `true` if `x` has names for each dimension.
+Returns `static(true)` if `x` has on or more named dimensions.
 """
-@inline has_dimnames(x) = has_dimnames(typeof(x))
-function has_dimnames(::Type{T}) where {T}
-    if parent_type(T) <: T
-        return false
-    else
-        return has_dimnames(parent_type(T))
-    end
-end
+has_dimnames(x) = has_dimnames(typeof(x))
+@inline has_dimnames(::Type{T}) where {T} = _has_dimnames(dimnames(T))
+_has_dimnames(::Tuple{Vararg{StaticSymbol{:_}}}) = static(false)
+_has_dimnames(::Tuple) = static(true)
 
 # this takes the place of dimension names that aren't defined
 const SUnderscore = StaticSymbol(:_)

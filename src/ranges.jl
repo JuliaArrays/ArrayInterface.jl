@@ -1,4 +1,7 @@
 
+_cartesian_index(i::Tuple{Vararg{Int}}) = CartesianIndex(i)
+_cartesian_index(::Any) = nothing
+
 """
     known_first(::Type{T}) -> Union{Int,Nothing}
 
@@ -22,6 +25,10 @@ function known_first(::Type{T}) where {T}
     end
 end
 known_first(::Type{Base.OneTo{T}}) where {T} = one(T)
+function known_first(::Type{T}) where {N,R,T<:CartesianIndices{N,R}}
+    _cartesian_index(ntuple(i -> known_first(R.parameters[i]), Val(N)))
+end
+
 
 """
     known_last(::Type{T}) -> Union{Int,Nothing}
@@ -45,6 +52,9 @@ function known_last(::Type{T}) where {T}
     else
         return known_last(parent_type(T))
     end
+end
+function known_last(::Type{T}) where {N,R,T<:CartesianIndices{N,R}}
+    _cartesian_index(ntuple(i -> known_last(R.parameters[i]), Val(N)))
 end
 
 """
