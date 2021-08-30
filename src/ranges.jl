@@ -70,7 +70,7 @@ function known_step(::Type{T}) where {T}
         return known_step(parent_type(T))
     end
 end
-known_step(::Type{<:AbstractUnitRange{T}}) where {T} = one(T)
+known_step(::Type{<:AbstractUnitRange}) = 1
 
 """
     OptionallyStaticUnitRange(start, stop) <: AbstractUnitRange{Int}

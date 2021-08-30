@@ -92,5 +92,7 @@
     @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), 2, 10), 0)
     @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticUnitRange(StaticInt(1), 10), 11)
     @test_throws BoundsError getindex(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), 2, 10), 11)
+
+    @test ArrayInterface.static_step(Base.OneTo(one(UInt))) === static(1)
 end
 
