@@ -1,5 +1,5 @@
 
-_static_range_type(::Nothing, ::Nothing) = OptionallyStaticUnitRange{Int,Int}
+_static_range_type(::Any, ::Any) = OptionallyStaticUnitRange{Int,Int}
 _static_range_type(start::Int, ::Nothing) = OptionallyStaticUnitRange{StaticInt{start},Int}
 function _static_range_type(start::Int, size::Int)
     OptionallyStaticUnitRange{StaticInt{start},StaticInt{(size - 1) + start}}
