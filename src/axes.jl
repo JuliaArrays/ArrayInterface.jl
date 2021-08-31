@@ -148,7 +148,12 @@ end
 
 
 @inline _axes(A::SubArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
-@inline _axes(A::ReinterpretArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
+@inline function _axes(A::ReinterpretArray{T,N,S}, dim::Integer) where {T,N,S}
+  if _is_reshaped(typeof(A)) && (sizeof(S) > sizeof(T)) && dim == 1
+    return One():static(div(sizeof(S), sizeof(T)))
+  end
+  Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
+end
 @inline _axes(A::Base.ReshapedArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
 
 """
