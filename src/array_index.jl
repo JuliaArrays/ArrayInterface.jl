@@ -205,7 +205,7 @@ struct StrideIndex{N,R,C,S,O} <: ArrayIndex{N}
 end
 
 """
-    ShapedIndex(size::Tuple{Vararg{CanonicalInt}}})
+    ShapedIndex(offsets::Tuple{Vararg{CanonicalInt}}}, size::Tuple{Vararg{CanonicalInt}}})
 
 Subtype of `ArrayIndex` that transforms a linear index into a multidimensional index.
 """

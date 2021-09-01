@@ -81,6 +81,7 @@ ArrayInterface.BroadcastAxis
 ArrayInterface.LazyAxis
 ArrayInterface.OptionallyStaticStepRange
 ArrayInterface.OptionallyStaticUnitRange
+ArrayInterface.ShapedIndex
 ArrayInterface.StrideIndex
 ```
 
