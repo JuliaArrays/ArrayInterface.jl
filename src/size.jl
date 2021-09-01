@@ -80,15 +80,16 @@ compile time. If a dimension does not have a known size along a dimension then `
 returned in its position.
 """
 known_size(x) = known_size(typeof(x))
-known_size(::Type{T}) where {T} = eachop(known_size, nstatic(Val(ndims(T))), T)
+known_size(::Type{T}) where {T} = eachop(_known_size, nstatic(Val(ndims(T))), axes_types(T))
+_known_size(::Type{T}, dim::StaticInt) where {T} = known_length(_get_tuple(T, dim))
 known_size(::Type{<:ShapedIndex{N,O,S}}) where {N,O,S} = known(S)
 @inline known_size(x, dim) = known_size(typeof(x), dim)
 @inline known_size(::Type{T}, dim) where {T} = known_size(T, to_dims(T, dim))
-@inline function known_size(::Type{T}, dim::Integer) where {T}
+@inline function known_size(::Type{T}, dim::CanonicalInt) where {T}
     if ndims(T) < dim
         return 1
     else
-        return known_length(axes_types(T, dim))
+        return known_size(T)[dim]
     end
 end
 

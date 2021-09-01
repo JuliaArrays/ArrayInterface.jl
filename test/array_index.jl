@@ -18,3 +18,9 @@ end
 @test @inferred(ArrayInterface.contiguous_axis(ArrayInterface.StrideIndex{2,(1,2),nothing,NTuple{2,Int},NTuple{2,Int}})) == nothing
 @test @inferred(ArrayInterface.stride_rank(ap_index)) == (1, 3)
 
+
+SI = ArrayInterface.ShapedIndex(A)
+@test @inferred(ArrayInterface.known_offsets(SI)) == (1, 1, 1)
+@test @inferred(ArrayInterface.known_size(SI)) == (nothing,nothing,nothing)
+@test @inferred(ArrayInterface.axes_types(typeof(SI))) <: NTuple{3,ArrayInterface.OptionallyStaticUnitRange{StaticInt{1},Int}}
+
