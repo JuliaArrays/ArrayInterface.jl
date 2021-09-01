@@ -43,6 +43,7 @@ end
 _known_offsets(::Type{T}, dim::StaticInt) where {T} = known_first(_get_tuple(T, dim))
 
 known_offsets(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(O)
+known_offsets(::Type{<:ShapedIndex{N,O}}) where {N,O} = known(O)
 
 """
     offsets(A) -> Tuple
@@ -52,7 +53,7 @@ Returns offsets of indices with respect to 0. If values are known at compile tim
 it should return them as `Static` numbers.
 For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1))`.
 """
-offsets(x::StrideIndex) = getfield(x, :offsets)
+offsets(x::Union{StrideIndex,ShapedIndex}) = getfield(x, :offsets)
 @inline offsets(x, i) = static_first(indices(x, i))
 offsets(::Tuple) = (One(),)
 offsets(x) = eachop(_offsets, nstatic(Val(ndims(x))), x)
@@ -65,8 +66,10 @@ function _offsets(x::X, dim::StaticInt{D}) where {X,D}
     end
 end
 # we can't generate an axis for `StrideIndex` so this is performed manually here
-@inline offsets(x::StrideIndex, dim::Int) = getfield(offsets(x), dim)
-@inline offsets(x::StrideIndex, ::StaticInt{dim}) where {dim} = getfield(offsets(x), dim)
+@inline offsets(x::Union{StrideIndex,ShapedIndex}, dim::Int) = getfield(offsets(x), dim)
+@inline function offsets(x::Union{StrideIndex,ShapedIndex}, ::StaticInt{dim}) where {dim}
+    getfield(offsets(x), dim)
+end
 
 """
     known_offset1(::Type{T}) -> Union{Int,Nothing}
