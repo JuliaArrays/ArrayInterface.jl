@@ -202,9 +202,11 @@ end
 
 # TODO delete this once the layout interface is working
 _array_index(::IndexLinear, a, i::CanonicalInt) = i
-_array_index(::IndexStyle, a, i::CanonicalInt) = ShapedIndex(offsets(a), size(a))[i]
+@inline function _array_index(::IndexStyle, a, i::CanonicalInt)
+    CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))[i]
+end
 _array_index(::IndexLinear, a, i::AbstractCartesianIndex{1}) = getfield(Tuple(i), 1)
-function _array_index(::IndexLinear, a, i::AbstractCartesianIndex)
+@inline function _array_index(::IndexLinear, a, i::AbstractCartesianIndex)
     N = ndims(a)
     StrideIndex{N,ntuple(+, Val(N)),nothing}(size_to_strides(size(a), static(1)), offsets(a))[i]
 end
@@ -353,7 +355,7 @@ unsafe_getindex(A::Array, i::CanonicalInt) = Base.arrayref(false, A, Int(i))
 
 unsafe_getindex(A::LinearIndices, i::CanonicalInt) = Int(i)
 
-unsafe_getindex(A::CartesianIndices, i::NDIndex) = CartesianIndex(i)
+unsafe_getindex(A::CartesianIndices, i::AbstractCartesianIndex) = CartesianIndex(i)
 
 unsafe_getindex(A::SubArray, i::CanonicalInt) = @inbounds(A[i])
 unsafe_getindex(A::SubArray, i::AbstractCartesianIndex) = @inbounds(A[i])

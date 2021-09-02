@@ -4,10 +4,6 @@ _static_range_type(start::Int, ::Nothing) = OptionallyStaticUnitRange{StaticInt{
 function _static_range_type(start::Int, size::Int)
     OptionallyStaticUnitRange{StaticInt{start},StaticInt{(size - 1) + start}}
 end
-function _static_range(start::CanonicalInt, size::CanonicalInt)
-    OptionallyStaticUnitRange(start, ((size - static(1)) + start))
-end
-
 
 """
     axes_types(::Type{T}) -> Type{Tuple{Vararg{AbstractUnitRange{Int}}}}
@@ -103,12 +99,6 @@ function _non_reshaped_axis_type(::Type{R}, dim::One) where {T,N,S,A,R<:Reinterp
     end
     return similar_type(paxis, Int, raxis)
 end
-@inline function axes_types(::Type{A}) where {A<:ShapedIndex}
-    eachop_tuple(_shaped_axis_type, nstatic(Val(ndims(A))), A)
-end
-@inline function _shaped_axis_type(::Type{A}, dim::StaticInt) where {A}
-    _static_range_type(known_offsets(A, dim),known_size(A, dim))
-end
 
 #=
     similar_type(orignal_type, new_data_type)
@@ -188,7 +178,6 @@ axes(A::ReinterpretArray) = Base.axes(A)  # TODO implement ArrayInterface versio
 axes(A::Base.ReshapedArray) = Base.axes(A)  # TODO implement ArrayInterface version
 axes(A::CartesianIndices) = A.indices
 axes(A::LinearIndices) = A.indices
-@inline axes(a::ShapedIndex, d::CanonicalInt) = _static_range(offsets(a, dim), size(a, d))
 
 """
     LazyAxis{N}(parent::AbstractArray)

@@ -25,7 +25,6 @@ end
 
 size(x::SubArray) = eachop(_sub_size, to_parent_dims(x), x.indices)
 _sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = static_length(getfield(x, dim))
-size(x::ShapedIndex) = getfield(x, :size)
 @inline size(B::VecAdjTrans) = (One(), length(parent(B)))
 @inline size(B::MatAdjTrans) = permute(size(parent(B)), to_parent_dims(B))
 @inline function size(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A}
@@ -82,7 +81,6 @@ returned in its position.
 known_size(x) = known_size(typeof(x))
 known_size(::Type{T}) where {T} = eachop(_known_size, nstatic(Val(ndims(T))), axes_types(T))
 _known_size(::Type{T}, dim::StaticInt) where {T} = known_length(_get_tuple(T, dim))
-known_size(::Type{<:ShapedIndex{N,O,S}}) where {N,O,S} = known(S)
 @inline known_size(x, dim) = known_size(typeof(x), dim)
 @inline known_size(::Type{T}, dim) where {T} = known_size(T, to_dims(T, dim))
 @inline function known_size(::Type{T}, dim::CanonicalInt) where {T}

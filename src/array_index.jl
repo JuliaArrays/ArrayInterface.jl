@@ -204,48 +204,11 @@ struct StrideIndex{N,R,C,S,O} <: ArrayIndex{N}
     end
 end
 
-"""
-    ShapedIndex(offsets::Tuple{Vararg{CanonicalInt}}}, size::Tuple{Vararg{CanonicalInt}}})
-
-Subtype of `ArrayIndex` that transforms a linear index into a multidimensional index.
-"""
-struct ShapedIndex{N,O,S} <: ArrayIndex{N}
-    offsets::O
-    size::S
-
-    function ShapedIndex(o::Tuple{Vararg{CanonicalInt,N}}, s::Tuple{Vararg{CanonicalInt,N}}) where {N}
-        new{N,typeof(o),typeof(s)}(o, s)
-    end
-    ShapedIndex(x) = ShapedIndex(offsets(x), size(x))
-end
-
 Base.firstindex(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = 1
 Base.lastindex(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = i.count
 Base.length(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = i.count
 
 ## getindex
-Base.getindex(x::ShapedIndex, i::AbstractCartesianIndex) = i
-Base.getindex(x::ShapedIndex, i::CanonicalInt) = _lin2sub(offsets(x), size(x), i)
-@generated function _lin2sub(o::O, s::S, i::I) where {O,S,I}
-    out = Expr(:block, Expr(:meta, :inline))
-    t = Expr(:tuple)
-    iprev = :(i - 1)
-    N = length(S.parameters)
-    for i in 1:N
-        if i === N
-            push!(t.args, :($iprev + getfield(o, $i)))
-        else
-            len = gensym()
-            inext = gensym()
-            push!(out.args, :($len = getfield(s, $i)))
-            push!(out.args, :($inext = div($iprev, $len)))
-            push!(t.args, :($iprev - $len * $inext + getfield(o, $i)))
-            iprev = inext
-        end
-    end
-    push!(out.args, :(NDIndex($(t))))
-    out
-end
 @propagate_inbounds Base.getindex(x::ArrayIndex, i::CanonicalInt, ii::CanonicalInt...) = x[NDIndex(i, ii...)]
 @propagate_inbounds function Base.getindex(ind::BidiagonalIndex, i::Int)
     @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
