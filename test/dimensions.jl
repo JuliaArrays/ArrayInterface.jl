@@ -10,14 +10,7 @@ struct NamedDimsWrapper{L,T,N,P<:AbstractArray{T,N}} <: ArrayInterface.AbstractA
     NamedDimsWrapper{L}(p) where {L} = new{L,eltype(p),ndims(p),typeof(p)}(p)
 end
 ArrayInterface.parent_type(::Type{T}) where {P,T<:NamedDimsWrapper{<:Any,<:Any,<:Any,P}} = P
-ArrayInterface.dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L}} = static(Val(L))
-function ArrayInterface.dimnames(::Type{T}, dim) where {L,T<:NamedDimsWrapper{L}}
-    if ndims(T) < dim
-        return static(:_)
-    else
-        return static(L[dim])
-    end
-end
+ArrayInterface.dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L}} = static(L)
 Base.parent(x::NamedDimsWrapper) = x.parent
 
 @testset "dimension permutations" begin
