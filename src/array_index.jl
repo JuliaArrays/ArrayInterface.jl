@@ -207,6 +207,8 @@ end
 Base.firstindex(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = 1
 Base.lastindex(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = i.count
 Base.length(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = i.count
+
+## getindex
 @propagate_inbounds Base.getindex(x::ArrayIndex, i::CanonicalInt, ii::CanonicalInt...) = x[NDIndex(i, ii...)]
 @propagate_inbounds function Base.getindex(ind::BidiagonalIndex, i::Int)
     @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
@@ -274,11 +276,11 @@ end
     ind.reflocalinds[p][_i] + ind.refcoords[p] - 1
 end
 
-@inline function Base.getindex(x::StrideIndex{N}, i::AbstractCartesianIndex{N}) where {N}
-    return _strides2int(offsets(x), strides(x), Tuple(i)) + offset1(x)
+@inline function Base.getindex(x::StrideIndex{N}, i::AbstractCartesianIndex) where {N}
+    return _strides2int(offsets(x), strides(x), Tuple(i)) + static(1)
 end
 @generated function _strides2int(o::O, s::S, i::I) where {O,S,I}
-    N = known_length(I)
+    N = known_length(S)
     out = :()
     for i in 1:N
         tmp = :(((getfield(i, $i) - getfield(o, $i)) * getfield(s, $i)))

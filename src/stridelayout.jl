@@ -52,9 +52,9 @@ Returns offsets of indices with respect to 0. If values are known at compile tim
 it should return them as `Static` numbers.
 For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1))`.
 """
-offsets(x::StrideIndex) = getfield(x, :offsets)
 @inline offsets(x, i) = static_first(indices(x, i))
 offsets(::Tuple) = (One(),)
+offsets(x::StrideIndex) = getfield(x, :offsets)
 offsets(x) = eachop(_offsets, nstatic(Val(ndims(x))), x)
 function _offsets(x::X, dim::StaticInt{D}) where {X,D}
     start = known_first(axes_types(X, dim))
