@@ -45,13 +45,13 @@ for i in eachindex(IndexCartesian(), Apperm)
 end
 
 idx = @inferred(ArrayInterface.ArrayIndex{1}(1:2))
-@inferred idx[@inferred(ArrayInterface.ArrayIndex{1}((1:2)'))] isa ArrayInterface.OffsetIndex{StaticInt{0}}
+@test idx[@inferred(ArrayInterface.ArrayIndex{1}((1:2)'))] isa ArrayInterface.OffsetIndex{StaticInt{0}}
 @test @inferred(ArrayInterface.ArrayIndex{2}((1:2)'))[CartesianIndex(1, 2)] == 2
 @test @inferred(ArrayInterface.ArrayIndex{1}(1:2)) isa ArrayInterface.OffsetIndex{StaticInt{0}}
 @test @inferred(ArrayInterface.ArrayIndex{1}((1:2)')) isa ArrayInterface.OffsetIndex{StaticInt{0}}
 @test @inferred(ArrayInterface.ArrayIndex{1}(PermutedDimsArray(1:2, (1,)))) isa ArrayInterface.OffsetIndex{StaticInt{0}}
-@test @inferred(ArrayInterface.ArrayIndex{1}(reshape(1:10, 2, 5)) isa ArrayInterface.OffsetIndex{StaticInt{0}}
-@test @inferred(ArrayInterface.ArrayIndex{2}(reshape(1:10, 2, 5)) isa ArrayInterface.StridIndex
+@test @inferred(ArrayInterface.ArrayIndex{1}(reshape(1:10, 2, 5))) isa ArrayInterface.OffsetIndex{StaticInt{0}}
+@test @inferred(ArrayInterface.ArrayIndex{2}(reshape(1:10, 2, 5))) isa ArrayInterface.StrideIndex
 
 ap_index = ArrayInterface.StrideIndex(Ap)
 @test @inferred(ArrayInterface.known_offsets(ap_index)) === ArrayInterface.known_offsets(Ap)
