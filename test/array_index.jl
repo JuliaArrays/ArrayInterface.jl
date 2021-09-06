@@ -42,6 +42,13 @@ for i in eachindex(IndexCartesian(), Apperm)
     @test A[idx[i]] == Apperm[i]
 end
 
+v = Vector{Int}(undef, 4);
+vp = v'
+vnot = @inferred(ArrayInterface.ArrayIndex{1}(v))
+vidx = @inferred(vnot[ArrayInterface.StrideIndex(v)])
+@test @inferred(vidx[ArrayInterface.ArrayIndex{2}(vp)]) isa ArrayInterface.StrideIndex{2,(2,1)}
+
+
 idx = @inferred(ArrayInterface.ArrayIndex{1}(1:2))
 @test idx[@inferred(ArrayInterface.ArrayIndex{1}((1:2)'))] isa ArrayInterface.OffsetIndex{StaticInt{0}}
 @test @inferred(ArrayInterface.ArrayIndex{2}((1:2)'))[CartesianIndex(1, 2)] == 2
