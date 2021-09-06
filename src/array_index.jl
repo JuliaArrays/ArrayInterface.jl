@@ -499,13 +499,10 @@ end
 ArrayIndex{2}(::MatAdjTrans) = PermutedIndex{2,(2,1),(2,1)}()
 ArrayIndex{2}(::VecAdjTrans) = PermutedIndex{2,(2,1),(2,)}()
 ArrayIndex{1}(x::MatAdjTrans) = ComposedIndex(_to_cartesian(x), ArrayIndex{2}(x))
-ArrayIndex{1}(x::VecAdjTrans) = OffsetIndex(static(0))  # jus unwrap permuting struct
-
+ArrayIndex{1}(x::VecAdjTrans) = OffsetIndex(static(0))  # just unwrap permuting struct
+ArrayIndex{1}(::PermutedDimsArray{<:Any,1}) = OffsetIndex(static(0))
 function ArrayIndex{N}(::PermutedDimsArray{<:Any,N,perm,iperm}) where {N,perm,iperm}
     PermutedIndex{N,perm,iperm}()
-end
-function ArrayIndex{1}(::PermutedDimsArray{<:Any,1,perm,iperm}) where {perm,iperm}
-    OffsetIndex(static(0))
 end
 function ArrayIndex{1}(x::PermutedDimsArray{<:Any,N,perm,iperm}) where {N,perm,iperm}
     ComposedIndex(_to_cartesian(x), PermutedIndex{N,perm,iperm}())
