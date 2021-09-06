@@ -214,15 +214,13 @@ end
 Subtypes of `ArrayIndex` that is responsible for permuting each index prior to accessing
 parent indices.
 """
-struct PermutedIndex{N,I1,I2} <: ArrayIndex{N}
-    PermutedIndex{N,I1,I2}() where {N,I1,I2} = new{N,I1::NTuple{N,Int},I2::NTuple{N,Int}}()
-    # the only time we permit the inverse permutation to not have the same length as the permutation 
-    PermutedIndex{2,(2,1),(2,)}() = new{2,(2,1),(2,)}()
+struct PermutedIndex{N,I1,I2} <: ArrayIndex{N} end
 
-    function PermutedIndex(perm::Tuple{Vararg{StaticInt,N}}, iperm::Tuple{Vararg{StaticInt}}) where {N}
-        PermutedIndex{N,known(perm),known(iperm)}()
-    end
-    PermutedIndex(::A) where {A} = PermutedIndex(to_parent_dims(A), from_parent_dims(A))
+function Base.getindex(x::PermutedIndex{2,(2,1),(2,)}, i::AbstractCartesianIndex{2})
+    getfield(Tuple(i), 2)
+end
+@inline function Base.getindex(x::PermutedIndex{N,I1,I2}, i::AbstractCartesianIndex{N}) where {N,I1,I2}
+    return NDIndex(permute(Tuple(i), Val(I2)))
 end
 
 """
@@ -234,7 +232,6 @@ struct SubIndex{N,I} <: ArrayIndex{N}
     indices::I
 
     SubIndex{N}(inds::Tuple) where {N} = new{N,typeof(inds)}(inds)
-    SubIndex(x::SubArray{T,N}) where {T,N} = SubIndex{N}(getfield(x, :indices))
 end
 
 @inline function Base.getindex(x::SubIndex{N}, i::AbstractCartesianIndex{N}) where {N}
@@ -404,6 +401,34 @@ end
     return Expr(:block, Expr(:meta, :inline), out)
 end
 
+@inline function Base.getindex(x::StrideIndex, i::SubIndex{N,I}) where {N,I}
+    _composed_sub_strides(stride_preserving_index(I), x, i)
+end
+_composed_sub_strides(::False, x::StrideIndex, i::SubIndex) = ComposedIndex(i, x)
+@inline function _composed_sub_strides(::True, x::StrideIndex{N,R,C}, i::SubIndex{Ns,I}) where {N,R,C,Ns,I<:Tuple{Vararg{Any,N}}}
+    c = static(C)
+    if _get_tuple(I, c) <: AbstractUnitRange
+        c2 = known(getfield(_from_sub_dims(I), C))
+    elseif (_get_tuple(I, c) <: AbstractArray) && (_get_tuple(I, c) <: Integer)
+        c2 = -1
+    else
+        c2 = nothing
+    end
+
+    pdims = _to_sub_dims(I)
+    o = offsets(x)
+    s = strides(x)
+    inds = getfield(i, :indices)
+    out = StrideIndex{Ns,permute(R, pdims),c2}(
+        eachop(getmul, pdims, map(maybe_static_step, inds), s),
+        permute(o, pdims)
+    )
+    return OffsetIndex(reduce_tup(+, map(*, map(_diff, inds, o), s)))[out]
+end
+@inline _diff(::Base.Slice, ::Any) = Zero()
+@inline _diff(x::AbstractRange, o) = static_first(x) - o
+@inline _diff(x::Integer, o) = x - o
+
 @inline function Base.getindex(x::StrideIndex{1,R,C}, ::PermutedIndex{2,(2,1),(2,)}) where {R,C}
     if C === nothing
         c2 = nothing
@@ -431,5 +456,45 @@ end
         permute(to_parent_dims(x), to_parent_dims(i)),
         permute(from_parent_dims(x), from_parent_dims(i))
     )
+end
+
+## ArrayIndex constructorrs
+@inline _to_cartesian(a) = CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))
+@inline function _to_linear(a)
+    N = ndims(a)
+    StrideIndex{N,ntuple(+, Val(N)),nothing}(size_to_strides(size(a), static(1)), offsets(a))
+end
+
+## DenseArray
+ArrayIndex{N}(x::DenseArray) where {N} = StrideIndex(x)
+ArrayIndex{1}(x::DenseArray) = OffsetIndex(static(0))
+
+ArrayIndex{1}(x::ReshapedArray) = OffsetIndex(static(0))
+ArrayIndex{N}(x::ReshapedArray) where {N} = _to_linear(x)
+
+## SubArray
+ArrayIndex{N}(x::SubArray) where {N} = SubIndex{ndims(x)}(getfield(x, :indices))
+function ArrayIndex{1}(x::SubArray{<:Any,N}) where {N}
+    ComposedIndex(_to_cartesian(x), SubIndex{N}(getfield(x, :indices)))
+end
+ArrayIndex{1}(x::Base.FastContiguousSubArray) = OffsetIndex(getfield(x, :offset1))
+function ArrayIndex{1}(x::Base.FastSubArray)
+    LinearSubIndex(getfield(x, :offset1), getfield(x, :stride1))
+end
+
+## Permuted arrays
+ArrayIndex{2}(::MatAdjTrans) = PermutedIndex{2,(2,1),(2,1)}()
+ArrayIndex{2}(::VecAdjTrans) = PermutedIndex{2,(2,1),(2,)}()
+ArrayIndex{1}(x::MatAdjTrans) = ComposedIndex(_to_cartesian(x), ArrayIndex{2}(x))
+ArrayIndex{1}(x::VecAdjTrans) = OffsetIndex(static(0))  # jus unwrap permuting struct
+
+function ArrayIndex{N}(::PermutedDimsArray{<:Any,N,perm,iperm}) where {N,perm,iperm}
+    PermutedIndex{N,perm,iperm}()
+end
+function ArrayIndex{1}(::PermutedDimsArray{<:Any,1,perm,iperm}) where {perm,iperm}
+    OffsetIndex(static(0))
+end
+function ArrayIndex{1}(x::PermutedDimsArray{<:Any,N,perm,iperm}) where {N,perm,iperm}
+    ComposedIndex(_to_cartesian(x), PermutedIndex{N,perm,iperm}())
 end
 

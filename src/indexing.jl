@@ -202,14 +202,9 @@ end
 
 # TODO delete this once the layout interface is working
 _array_index(::IndexLinear, a, i::CanonicalInt) = i
-@inline function _array_index(::IndexStyle, a, i::CanonicalInt)
-    CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))[i]
-end
+@inline _array_index(::IndexStyle, a, i::CanonicalInt) = @inbounds(_to_cartesian(a)[i])
 _array_index(::IndexLinear, a, i::AbstractCartesianIndex{1}) = getfield(Tuple(i), 1)
-@inline function _array_index(::IndexLinear, a, i::AbstractCartesianIndex)
-    N = ndims(a)
-    StrideIndex{N,ntuple(+, Val(N)),nothing}(size_to_strides(size(a), static(1)), offsets(a))[i]
-end
+@inline _array_index(::IndexLinear, a, i::AbstractCartesianIndex) = _to_linear(a)[i]
 _array_index(::IndexStyle, a, i::AbstractCartesianIndex) = i
 
 """

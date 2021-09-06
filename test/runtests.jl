@@ -668,7 +668,7 @@ end
     end
 end
 
-@testset "" begin
+@testset "ArrayIndex" begin
     include("array_index.jl")
 end
 
