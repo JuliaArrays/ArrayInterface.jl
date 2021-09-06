@@ -1,27 +1,24 @@
 
-
 function test_array_index(x)
     @testset "$x" begin
-        linear_idx = ArrayInterface.ArrayIndex{1}(x)
+        linear_idx = @inferred(ArrayInterface.ArrayIndex{1}(x))
         b = ArrayInterface.buffer(x)
         for i in eachindex(IndexLinear(), x)
             @test b[linear_idx[i]] == x[i]
         end
-        cartesian_idx = ArrayInterface.ArrayIndex{ndims(x)}(x)
+        cartesian_idx = @inferred(ArrayInterface.ArrayIndex{ndims(x)}(x))
         for i in eachindex(IndexCartesian(), x)
             @test b[cartesian_idx[i]] == x[i]
         end
     end
 end
 
-
 A = zeros(3, 4, 5);
 A[:] = 1:60;
 Aperm = PermutedDimsArray(A,(3,1,2));
 Aview = @view(Aperm[:,1:2,1]);
 Ap = Aview';
-
-#ArrayInterface.ArrayIndex{1}(x)
+Apperm = PermutedDimsArray(Ap, (2, 1));
 
 test_array_index(A)
 test_array_index(Aperm)
@@ -29,6 +26,24 @@ test_array_index(Aview)
 test_array_index(Ap)
 test_array_index(view(A, :, :, 1))  # FastContiguousSubArray
 test_array_index(view(A, 2, :, :))  # FastSubArray
+
+idx = @inferred(ArrayInterface.ArrayIndex{3}(A)[ArrayInterface.ArrayIndex{3}(Aperm)])
+for i in eachindex(IndexCartesian(), Aperm)
+    @test A[idx[i]] == Aperm[i]
+end
+idx = @inferred(idx[ArrayInterface.ArrayIndex{2}(Aview)])
+for i in eachindex(IndexCartesian(), Aview)
+    @test A[idx[i]] == Aview[i]
+end
+idx = @inferred(idx[ArrayInterface.ArrayIndex{2}(Ap)])
+for i in eachindex(IndexCartesian(), Ap)
+    @test A[idx[i]] == Ap[i]
+end
+idx = @inferred(idx[ArrayInterface.ArrayIndex{2}(Apperm)])
+for i in eachindex(IndexCartesian(), Apperm)
+    @test A[idx[i]] == Apperm[i]
+end
+
 
 ap_index = ArrayInterface.StrideIndex(Ap)
 @test @inferred(ArrayInterface.known_offsets(ap_index)) === ArrayInterface.known_offsets(Ap)
@@ -40,6 +55,15 @@ ap_index = ArrayInterface.StrideIndex(Ap)
 @test @inferred(ArrayInterface.contiguous_axis(ArrayInterface.StrideIndex{2,(1,2),nothing,NTuple{2,Int},NTuple{2,Int}})) == nothing
 @test @inferred(ArrayInterface.stride_rank(ap_index)) == (1, 3)
 
+
+
+#=
+idx1 = ArrayInterface.ArrayIndex{ndims(A)}(A)
+idx2 = ArrayInterface.ArrayIndex{ndims(Aperm)}(Aperm)
+idx1[idx2]
+
+idx = ArrayInterface.ArrayIndex{1}(Aperm)
+=#
 
 #=
 using Revise

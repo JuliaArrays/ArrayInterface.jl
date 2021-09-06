@@ -15,6 +15,7 @@ const MatrixIndex = ArrayIndex{2}
 
 const VectorIndex = ArrayIndex{1}
 
+Base.ndims(::ArrayIndex{N}) where {N} = N
 Base.ndims(::Type{<:ArrayIndex{N}}) where {N} = N
 
 struct BidiagonalIndex <: MatrixIndex
@@ -458,6 +459,16 @@ end
     )
 end
 
+@inline function Base.getindex(x::LinearSubIndex, i::LinearSubIndex)
+    s = getfield(x, :stride)
+    LinearSubIndex(
+        getfield(x, :offset) + getfield(i, :offset) * s,
+        getfield(i, :stride) * s
+    )
+end
+Base.getindex(::OffsetIndex{StaticInt{0}}, i::StrideIndex) = i
+
+
 ## ArrayIndex constructorrs
 @inline _to_cartesian(a) = CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))
 @inline function _to_linear(a)
@@ -471,6 +482,8 @@ ArrayIndex{1}(x::DenseArray) = OffsetIndex(static(0))
 
 ArrayIndex{1}(x::ReshapedArray) = OffsetIndex(static(0))
 ArrayIndex{N}(x::ReshapedArray) where {N} = _to_linear(x)
+
+ArrayIndex{1}(x::AbstractRange) = OffsetIndex(static(0))
 
 ## SubArray
 ArrayIndex{N}(x::SubArray) where {N} = SubIndex{ndims(x)}(getfield(x, :indices))
