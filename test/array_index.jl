@@ -35,11 +35,9 @@ idx = @inferred(idx[ArrayInterface.ArrayIndex{2}(Aview)])
 for i in eachindex(IndexCartesian(), Aview)
     @test A[idx[i]] == Aview[i]
 end
-idx = @inferred(idx[ArrayInterface.ArrayIndex{2}(Ap)])
-for i in eachindex(IndexCartesian(), Ap)
-    @test A[idx[i]] == Ap[i]
-end
-idx = @inferred(idx[ArrayInterface.ArrayIndex{2}(Apperm)])
+
+idx_perm = @inferred(ArrayInterface.ArrayIndex{2}(Ap)[ArrayInterface.ArrayIndex{2}(Apperm)])
+idx = @inferred(idx[idx_perm])
 for i in eachindex(IndexCartesian(), Apperm)
     @test A[idx[i]] == Apperm[i]
 end

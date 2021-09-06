@@ -215,7 +215,12 @@ end
 Subtypes of `ArrayIndex` that is responsible for permuting each index prior to accessing
 parent indices.
 """
-struct PermutedIndex{N,I1,I2} <: ArrayIndex{N} end
+struct PermutedIndex{N,I1,I2} <: ArrayIndex{N}
+    PermutedIndex{N,I1,I2}() where {N,I1,I2} = new{N,I1,I2}()
+    function PermutedIndex(p::Tuple{Vararg{StaticInt,N}}, ip::Tuple{Vararg{StaticInt}}) where {N}
+        PermutedIndex{N,known(p),known(ip)}()
+    end
+end
 
 function Base.getindex(x::PermutedIndex{2,(2,1),(2,)}, i::AbstractCartesianIndex{2})
     getfield(Tuple(i), 2)
