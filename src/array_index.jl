@@ -482,6 +482,22 @@ Base.getindex(::OffsetIndex{StaticInt{0}}, i::StrideIndex) = i
 end
 
 ## DenseArray
+"""
+    ArrayIndex{N}(A) -> index
+
+Constructs a subtype of `ArrayIndex` such that an `N` dimensional indexing argument may be
+converted to an appropriate state for accessing the buffer of `A`. For example:
+
+```julia
+julia> A = reshape(1:20, 4, 5);
+
+julia> index = ArrayInterface.ArrayIndex{2}(A);
+
+julia> ArrayInterface.buffer(A)[index[2, 2]] == A[2, 2]
+true
+
+```
+"""
 ArrayIndex{N}(x::DenseArray) where {N} = StrideIndex(x)
 ArrayIndex{1}(x::DenseArray) = OffsetIndex(static(0))
 

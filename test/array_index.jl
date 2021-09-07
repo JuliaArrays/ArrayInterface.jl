@@ -59,6 +59,7 @@ idx = @inferred(ArrayInterface.ArrayIndex{1}(1:2))
 @test @inferred(ArrayInterface.ArrayIndex{2}(reshape(1:10, 2, 5))) isa ArrayInterface.StrideIndex
 
 ap_index = ArrayInterface.StrideIndex(Ap)
+@test @inferred(ndims(ap_index)) == ndims(Ap)
 @test @inferred(ArrayInterface.known_offsets(ap_index)) === ArrayInterface.known_offsets(Ap)
 @test @inferred(ArrayInterface.known_offset1(ap_index)) === ArrayInterface.known_offset1(Ap)
 @test @inferred(ArrayInterface.offsets(ap_index, 1)) === ArrayInterface.offset1(Ap)
