@@ -707,7 +707,6 @@ function __init__()
         ismutable(::Type{<:StaticArrays.SizedArray}) = true
 
         buffer(A::Union{StaticArrays.SArray,StaticArrays.MArray}) = getfield(A, :data)
-        parent_type(::Type{<:StaticArrays.SizedArray{<:Any,<:Any,<:Any,<:Any,P}}) where {P} = P
 
         function lu_instance(_A::StaticArrays.StaticMatrix{N,N}) where {N}
             A = StaticArrays.SArray(_A)
