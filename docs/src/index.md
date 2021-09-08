@@ -82,7 +82,7 @@ For example, all `Integers` passed to `to_dims` are converted to `Int` (unless `
 This is also useful for arrays that uniquely label dimensions, in which case `to_dims` serves as a safe point of hooking into existing methods with dimension arguments.
 `ArrayInterface` also defines native `Symbol` to `Int` and `StaticSymbol` to `StaticInt` mapping  for arrays defining [`ArrayInterface.dimnames`](@ref).
 
-Methods accepting dimension specific arguments should use some variation of the following pattern.
+Methods requiring dimension specific arguments should use some variation of the following pattern.
 
 ```julia
 f(x, dim) = f(x, ArrayInterface.to_dims(x, dim))
@@ -92,4 +92,19 @@ f(x, dim::StaticInt) = ...
 
 If `x`'s first dimension is named `:dim_1` then calling `f(x, :dim_1)` would result in `f(x, 1)`.
 If users knew they always wanted to call `f(x, 2)` then they could define `h(x) = f(x, static(2))`, ensuring `f` passes along that information while compiling.
+
+New types defining dimension names can do something similar to:
+```julia
+using Static
+using ArrayInterface
+
+struct NewType{dnames} end  # where dnames::Tuple{Vararg{Symbol}}
+
+ArrayInterface.dimnames(::Type{NewType{dnames}}) = static(dnames)
+```
+
+Dimension names should be appropriately propagated between nested arrays using `ArrayInterface.to_parent_dims`. 
+This allows types such as `SubArray` and `PermutedDimsArray` to work with named dimensions.
+Similarly, other methods that return information corresponding to dimensions (e.g., `ArrayInterfce.size`, `ArrayInterface.axes`) use `to_parent_dims` to appropriately propagate parent information.
+
 

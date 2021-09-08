@@ -158,7 +158,7 @@ end
 
 # Piracy
 function Base.setindex(x::AbstractArray, v, i...)
-    _x = copy(x)
+    _x = Base.copymutable(x)
     _x[i...] = v
     return _x
 end

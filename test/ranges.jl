@@ -104,5 +104,7 @@
 
     @test ArrayInterface.static_first(Base.OneTo(one(UInt))) === static(1)
     @test ArrayInterface.static_step(Base.OneTo(one(UInt))) === static(1)
+    
+    @test Base.setindex(1:5, [6,2], 1:2) == [6,2,3,4,5]
 end
 

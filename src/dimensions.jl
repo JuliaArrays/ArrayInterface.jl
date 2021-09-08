@@ -150,7 +150,8 @@ end
 """
     has_dimnames(::Type{T}) -> Bool
 
-Returns `static(true)` if `x` has on or more named dimensions.
+Returns `static(true)` if `x` has on or more named dimensions. If all dimensions correspond
+to `static(:_)`, then `static(false)` is returned.
 """
 has_dimnames(x) = has_dimnames(typeof(x))
 @inline has_dimnames(::Type{T}) where {T} = _has_dimnames(dimnames(T))
@@ -164,31 +165,24 @@ const SUnderscore = StaticSymbol(:_)
     dimnames(::Type{T}) -> Tuple{Vararg{StaticSymbol}}
     dimnames(::Type{T}, dim) -> StaticSymbol
 
-Return the names of the dimensions for `x`.
+Return the names of the dimensions for `x`. `static(:_)` is used to indicate a dimension
+does not have a name.
 """
 @inline dimnames(x) = dimnames(typeof(x))
+@inline dimnames(::Type{T}) where {T} = _dimnames(has_parent(T), T)
+_dimnames(::False, ::Type{T}) where {T} = ntuple(_->static(:_), Val(ndims(T)))
+@inline function _dimnames(::True, ::Type{T}) where {T}
+    eachop(_perm_dimnames, to_parent_dims(T), dimnames(parent_type(T)))
+end
+
 @inline dimnames(x, dim) = dimnames(typeof(x), dim)
-@inline function dimnames(::Type{T}, dim) where {T}
-    if parent_type(T) <: T
-        return SUnderscore
+@inline dimnames(::Type{T}, dim::Integer) where {T} = _perm_dimnames(dimnames(T), dim)
+function _perm_dimnames(dnames::Tuple{Vararg{StaticSymbol,N}}, dim) where {N}
+    if dim > N
+        return static(:_)
     else
-        return dimnames(parent_type(T), to_parent_dims(T, dim))
+        return @inbounds(dnames[dim])
     end
-end
-@inline function dimnames(::Type{T}) where {T}
-    if parent_type(T) <: T
-        return ntuple(_ -> SUnderscore, Val(ndims(T)))
-    else
-        perm = to_parent_dims(T)
-        if invariant_permutation(perm, perm) isa True
-            return dimnames(parent_type(T))
-        else
-            return eachop(dimnames, perm, parent_type(T))
-        end
-    end
-end
-function dimnames(::Type{T}) where {T<:SubArray}
-    return eachop(dimnames, to_parent_dims(T), parent_type(T))
 end
 
 """
