@@ -15,9 +15,9 @@ using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretAr
 
 ## utilites for internal use only ##
 @static if VERSION >= v"1.7.0-DEV.421"
-    using Base: @aggressive_constprop
+    using Base: @constprop
 else
-    macro aggressive_constprop(ex)
+    macro constprop(_, ex)
         ex
     end
 end
