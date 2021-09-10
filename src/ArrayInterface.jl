@@ -14,7 +14,7 @@ using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretAr
 
 
 ## utilites for internal use only ##
-@static if VERSION >= v"1.7.0-DEV.421"
+@static if isdefined(Base, Symbol("@constprop"))
     using Base: @constprop
 else
     macro constprop(_, ex)
