@@ -73,7 +73,7 @@ function from_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}
 end
 
 from_parent_dims(x, dim) = from_parent_dims(typeof(x), dim)
-@constprop :aggressive function from_parent_dims(::Type{T}, dim::Int)::Int where {T}
+Compat.@constprop :aggressive function from_parent_dims(::Type{T}, dim::Int)::Int where {T}
     if dim > ndims(T)
         return static(ndims(parent_type(T)) + dim - ndims(T))
     elseif dim > 0
@@ -127,7 +127,7 @@ function to_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
 end
 
 to_parent_dims(x, dim) = to_parent_dims(typeof(x), dim)
-@constprop :aggressive function to_parent_dims(::Type{T}, dim::Int)::Int where {T}
+Compat.@constprop :aggressive function to_parent_dims(::Type{T}, dim::Int)::Int where {T}
     if dim > ndims(T)
         return static(ndims(parent_type(T)) + dim - ndims(T))
     elseif dim > 0
@@ -200,7 +200,7 @@ function to_dims(::Type{T}, dim::StaticSymbol) where {T}
     end
     return i
 end
-@constprop :aggressive function to_dims(::Type{T}, dim::Symbol) where {T}
+Compat.@constprop :aggressive function to_dims(::Type{T}, dim::Symbol) where {T}
     i = find_first_eq(dim, map(Symbol, dimnames(T)))
     if i === nothing
         throw_dim_error(T, dim)
@@ -227,7 +227,7 @@ order_named_inds(x::Tuple, ::NamedTuple{(),Tuple{}}) = ()
 function order_named_inds(x::Tuple, nd::NamedTuple{L}) where {L}
     return order_named_inds(x, static(Val(L)), Tuple(nd))
 end
-@constprop :aggressive function order_named_inds(
+Compat.@constprop :aggressive function order_named_inds(
     x::Tuple{Vararg{Any,N}},
     nd::Tuple,
     inds::Tuple
