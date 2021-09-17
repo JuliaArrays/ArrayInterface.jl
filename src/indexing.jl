@@ -374,7 +374,7 @@ end
 
 function _generate_unsafe_get_index!_body(N::Int)
     quote
-        Base.@_inline_meta
+        Compat.@inline()
         D = eachindex(dest)
         Dy = iterate(D)
         @inbounds Base.Cartesian.@nloops $N j d -> I[d] begin

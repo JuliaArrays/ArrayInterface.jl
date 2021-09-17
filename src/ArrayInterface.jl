@@ -8,19 +8,10 @@ using Static
 using Static: Zero, One, nstatic, _get_tuple, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
     find_first_eq, permute, invariant_permutation
 using Base.Cartesian
+import Compat
 
 using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray,
     ReshapedArray, AbstractCartesianIndex
-
-
-## utilites for internal use only ##
-@static if VERSION >= v"1.7.0-DEV.421"
-    using Base: @aggressive_constprop
-else
-    macro aggressive_constprop(ex)
-        ex
-    end
-end
 
 const CanonicalInt = Union{Int,StaticInt}
 
