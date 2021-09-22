@@ -364,6 +364,13 @@ ArrayInterface.parent_type(::Type{DenseWrapper{T,N,P}}) where {T,N,P} = P
     @test @inferred(stride_rank(DummyZeros(3,4)')) === nothing
     @test @inferred(stride_rank(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === nothing
     @test @inferred(stride_rank(view(DummyZeros(3,4), 1, :))) === nothing
+    uA = reinterpret(reshape, UInt64, A)
+    @test @inferred(stride_rank(uA)) === stride_rank(A)
+    rA = reinterpret(reshape, SVector{3,Float64}, A)
+    @test @inferred(stride_rank(rA)) === (static(1), static(2))
+    cA = copy(rA)
+    rcA = reinterpret(reshape, Float64, cA)
+    @test @inferred(stride_rank(rcA)) === stride_rank(A)
 
     #=
     @btime ArrayInterface.is_column_major($(PermutedDimsArray(A,(3,1,2))))
