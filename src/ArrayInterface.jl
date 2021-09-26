@@ -15,12 +15,10 @@ using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretAr
 
 const CanonicalInt = Union{Int,StaticInt}
 
-@static if VERSION ≥ v"1.6.0-DEV.1581"
-    _is_reshaped(::Type{ReinterpretArray{T,N,S,A,true}}) where {T,N,S,A} = true
-    _is_reshaped(::Type{ReinterpretArray{T,N,S,A,false}}) where {T,N,S,A} = false
-else
-    _is_reshaped(::Type{ReinterpretArray{T,N,S,A}}) where {T,N,S,A} = false
+@static if isdefined(Base, :ReshapedReinterpretArray)
+    _is_reshaped(::Type{<:Base.ReshapedReinterpretArray}) = true
 end
+_is_reshaped(::Type{<:ReinterpretArray}) = false
 
 Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))

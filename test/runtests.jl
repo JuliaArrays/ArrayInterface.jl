@@ -433,7 +433,7 @@ ArrayInterface.parent_type(::Type{DenseWrapper{T,N,P}}) where {T,N,P} = P
     Am = @MMatrix rand(2,10);
     @test @inferred(ArrayInterface.strides(view(Am,1,:))) === (StaticInt(2),)
 
-    if VERSION ≥ v"1.6.0-DEV.1581" # reinterpret(reshape,...) tests
+    if isdefined(Base, :ReshapedReinterpretArray) # reinterpret(reshape,...) tests
         C1 = reinterpret(reshape, Float64, PermutedDimsArray(Array{Complex{Float64}}(undef, 3,4,5), (2,1,3)));
         C2 = reinterpret(reshape, Complex{Float64}, PermutedDimsArray(view(A,1:2,:,:), (1,3,2)));
         C3 = reinterpret(reshape, Complex{Float64}, PermutedDimsArray(Wrapper(reshape(view(x, 1:24), (2,3,4))), (1,3,2)));
@@ -717,6 +717,8 @@ end
     @test @inferred(ArrayInterface.strides(u_view)) == (4,)
     @test @inferred(ArrayInterface.strides(u_view_reinterpreted)) == (4,)
     @test @inferred(ArrayInterface.strides(u_view_reshaped)) == (4, 4)
+
+    @test_broken @inferred(ArrayInterface.axes(u_vectors)) isa ArrayInterface.axes_types(u_vectors)
 end
 
 @test ArrayInterface.can_avx(ArrayInterface.can_avx) == false
@@ -834,6 +836,17 @@ end
     @test @inferred(lzaxis[1:2]) === axis[1:2]
     @test @inferred(ArrayInterface.axes(Array{Float64}(undef, 4)')) === (StaticInt(1):StaticInt(1),Base.OneTo(4))
     @test @inferred(ArrayInterface.axes(Array{Float64}(undef, 4, 3)')) === (Base.OneTo(3),Base.OneTo(4))
+
+    if isdefined(Base, :ReshapedReinterpretArray)
+        a = rand(3, 5)
+        ua = reinterpret(reshape, UInt64, a)
+        @test ArrayInterface.axes(ua) === ArrayInterface.axes(a)
+        @test @inferred(ArrayInterface.axes(ua)) isa ArrayInterface.axes_types(ua)
+        u8a = reinterpret(reshape, UInt8, a)
+        @test @inferred(ArrayInterface.axes(u8a)) isa ArrayInterface.axes_types(u8a)
+        fa = reinterpret(reshape, Float64, copy(u8a))
+        @inferred(ArrayInterface.axes(fa)) isa ArrayInterface.axes_types(fa)
+    end
 end
 
 @testset "arrayinterface" begin

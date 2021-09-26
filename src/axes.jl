@@ -149,10 +149,10 @@ end
 
 @inline _axes(A::SubArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
 @inline function _axes(A::ReinterpretArray{T,N,S}, dim::Integer) where {T,N,S}
-  if _is_reshaped(typeof(A)) && (sizeof(S) > sizeof(T)) && dim == 1
-    return One():static(div(sizeof(S), sizeof(T)))
-  end
-  Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
+    if _is_reshaped(typeof(A)) && (sizeof(S) > sizeof(T)) && dim == 1
+        return One():static(div(sizeof(S), sizeof(T)))
+    end
+    Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
 end
 @inline _axes(A::Base.ReshapedArray, dim::Integer) = Base.axes(A, Int(dim))  # TODO implement ArrayInterface version
 
@@ -174,6 +174,13 @@ axes(A::Union{Transpose,Adjoint}) = _axes(A, parent(A))
 _axes(A::Union{Transpose,Adjoint}, p::AbstractVector) = (One():One(), axes(p, One()))
 _axes(A::Union{Transpose,Adjoint}, p::AbstractMatrix) = (axes(p, StaticInt(2)), axes(p, One()))
 axes(A::SubArray) = Base.axes(A)  # TODO implement ArrayInterface version
+if isdefined(Base, :ReshapedReinterpretArray)
+    function axes(A::Base.ReshapedReinterpretArray{T,N,S}) where {T,N,S}
+        sizeof(S) > sizeof(T) && return (_axes(A, 1), axes(parent(A))...)
+        sizeof(S) < sizeof(T) && return Base.tail(axes(parent(A)))
+        return axes(parent(A))
+    end
+end
 axes(A::ReinterpretArray) = Base.axes(A)  # TODO implement ArrayInterface version
 axes(A::Base.ReshapedArray) = Base.axes(A)  # TODO implement ArrayInterface version
 axes(A::CartesianIndices) = A.indices
