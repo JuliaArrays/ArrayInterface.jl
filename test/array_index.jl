@@ -1,71 +1,28 @@
 
-function test_array_index(x)
+function test_layout(x)
     @testset "$x" begin
-        linear_idx = @inferred(ArrayInterface.ArrayIndex{1}(x))
-        b = ArrayInterface.buffer(x)
+        linear_lyt = ArrayInterface.instantiate(ArrayInterface.layout(x, ArrayInterface.AccessElement{1}()))
         for i in eachindex(IndexLinear(), x)
-            @test b[linear_idx[i]] == x[i]
+            @test linear_lyt[i] == x[i]
         end
-        cartesian_idx = @inferred(ArrayInterface.ArrayIndex{ndims(x)}(x))
+        cartesian_lyt = ArrayInterface.instantiate(ArrayInterface.layout(x, ArrayInterface.AccessElement{ndims(x)}()))
         for i in eachindex(IndexCartesian(), x)
-            @test b[cartesian_idx[i]] == x[i]
+            @test cartesian_lyt[i] == x[i]
         end
     end
+    return nothing
 end
 
-A = zeros(3, 4, 5);
-A[:] = 1:60;
+A = rand(4,4,4);
+A[:] .= eachindex(A);
 Aperm = PermutedDimsArray(A,(3,1,2));
 Aview = @view(Aperm[:,1:2,1]);
 Ap = Aview';
 Apperm = PermutedDimsArray(Ap, (2, 1));
 
-test_array_index(A)
-test_array_index(Aperm)
-test_array_index(Aview)
-test_array_index(Ap)
-test_array_index(view(A, :, :, 1))  # FastContiguousSubArray
-test_array_index(view(A, 2, :, :))  # FastSubArray
-
-idx = @inferred(ArrayInterface.ArrayIndex{3}(A)[ArrayInterface.ArrayIndex{3}(Aperm)])
-for i in eachindex(IndexCartesian(), Aperm)
-    @test A[idx[i]] == Aperm[i]
-end
-idx = @inferred(idx[ArrayInterface.ArrayIndex{2}(Aview)])
-for i in eachindex(IndexCartesian(), Aview)
-    @test A[idx[i]] == Aview[i]
-end
-
-idx_perm = @inferred(ArrayInterface.ArrayIndex{2}(Ap)[ArrayInterface.ArrayIndex{2}(Apperm)])
-idx = @inferred(idx[idx_perm])
-for i in eachindex(IndexCartesian(), Apperm)
-    @test A[idx[i]] == Apperm[i]
-end
-
-v = Vector{Int}(undef, 4);
-vp = v'
-vnot = @inferred(ArrayInterface.ArrayIndex{1}(v))
-vidx = @inferred(vnot[ArrayInterface.StrideIndex(v)])
-@test @inferred(vidx[ArrayInterface.ArrayIndex{2}(vp)]) isa ArrayInterface.StrideIndex{2,(2,1)}
-
-
-idx = @inferred(ArrayInterface.ArrayIndex{1}(1:2))
-@test idx[@inferred(ArrayInterface.ArrayIndex{1}((1:2)'))] isa ArrayInterface.OffsetIndex{StaticInt{0}}
-@test @inferred(ArrayInterface.ArrayIndex{2}((1:2)'))[CartesianIndex(1, 2)] == 2
-@test @inferred(ArrayInterface.ArrayIndex{1}(1:2)) isa ArrayInterface.OffsetIndex{StaticInt{0}}
-@test @inferred(ArrayInterface.ArrayIndex{1}((1:2)')) isa ArrayInterface.OffsetIndex{StaticInt{0}}
-@test @inferred(ArrayInterface.ArrayIndex{1}(PermutedDimsArray(1:2, (1,)))) isa ArrayInterface.OffsetIndex{StaticInt{0}}
-@test @inferred(ArrayInterface.ArrayIndex{1}(reshape(1:10, 2, 5))) isa ArrayInterface.OffsetIndex{StaticInt{0}}
-@test @inferred(ArrayInterface.ArrayIndex{2}(reshape(1:10, 2, 5))) isa ArrayInterface.StrideIndex
-
-ap_index = ArrayInterface.StrideIndex(Ap)
-@test @inferred(ndims(ap_index)) == ndims(Ap)
-@test @inferred(ArrayInterface.known_offsets(ap_index)) === ArrayInterface.known_offsets(Ap)
-@test @inferred(ArrayInterface.known_offset1(ap_index)) === ArrayInterface.known_offset1(Ap)
-@test @inferred(ArrayInterface.offsets(ap_index, 1)) === ArrayInterface.offset1(Ap)
-@test @inferred(ArrayInterface.offsets(ap_index, static(1))) === ArrayInterface.offset1(Ap)
-@test @inferred(ArrayInterface.known_strides(ap_index)) === ArrayInterface.known_strides(Ap)
-@test @inferred(ArrayInterface.contiguous_axis(ap_index)) == 1
-@test @inferred(ArrayInterface.contiguous_axis(ArrayInterface.StrideIndex{2,(1,2),nothing,NTuple{2,Int},NTuple{2,Int}})) == nothing
-@test @inferred(ArrayInterface.stride_rank(ap_index)) == (1, 3)
+test_layout(A)
+test_layout(Aperm)
+test_layout(Aview)
+test_layout(Ap)
+test_layout(Apperm)
 

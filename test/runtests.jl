@@ -254,6 +254,9 @@ end
 ArrayInterface.parent_type(::Type{<:Wrapper{T,N,P}}) where {T,N,P} = P
 Base.parent(x::Wrapper) = x.parent
 ArrayInterface.device(::Type{T}) where {T<:Wrapper} = ArrayInterface.device(parent_type(T))
+function ArrayInterface.layout(x::Wrapper, s::ArrayInterface.AccessElement)
+    ArrayInterface.Layouted{typeof(s)}(parent(x), nothing)
+end
 
 struct DenseWrapper{T,N,P<:AbstractArray{T,N}} <: DenseArray{T,N} end
 ArrayInterface.parent_type(::Type{DenseWrapper{T,N,P}}) where {T,N,P} = P
@@ -668,10 +671,6 @@ end
     end
 end
 
-@testset "ArrayIndex" begin
-    include("array_index.jl")
-end
-
 @testset "Reshaped views" begin
     u_base = randn(10, 10)
     u_view = view(u_base, 3, :)
@@ -834,6 +833,10 @@ end
 end
 include("indexing.jl")
 include("dimensions.jl")
+@testset "ArrayIndex" begin
+    include("array_index.jl")
+end
+
 
 @testset "broadcast" begin
     include("broadcast.jl")

@@ -184,10 +184,6 @@ function BandedBlockBandedMatrixIndex(
     rowindobj, colindobj
 end
 
-Base.firstindex(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = 1
-Base.lastindex(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = i.count
-Base.length(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = i.count
-
 """
     StrideIndex(x)
 
@@ -222,13 +218,6 @@ struct PermutedIndex{N,I1,I2} <: ArrayIndex{N}
     end
 end
 
-function Base.getindex(x::PermutedIndex{2,(2,1),(2,)}, i::AbstractCartesianIndex{2})
-    getfield(Tuple(i), 2)
-end
-@inline function Base.getindex(x::PermutedIndex{N,I1,I2}, i::AbstractCartesianIndex{N}) where {N,I1,I2}
-    return NDIndex(permute(Tuple(i), Val(I2)))
-end
-
 """
     SubIndex(indices)
 
@@ -238,38 +227,6 @@ struct SubIndex{N,I} <: ArrayIndex{N}
     indices::I
 
     SubIndex{N}(inds::Tuple) where {N} = new{N,typeof(inds)}(inds)
-end
-
-@inline function Base.getindex(x::SubIndex{N}, i::AbstractCartesianIndex{N}) where {N}
-    return NDIndex(_reindex(x.indices, Tuple(i)))
-end
-@generated function _reindex(subinds::S, inds::I) where {S,I}
-    inds_i = 1
-    subinds_i = 1
-    NS = known_length(S)
-    NI = known_length(I)
-    out = Expr(:tuple)
-    while inds_i <= NI
-        subinds_type = S.parameters[subinds_i]
-        if subinds_type <: Integer
-            push!(out.args, :(getfield(subinds, $subinds_i)))
-            subinds_i += 1
-        elseif eltype(subinds_type) <: AbstractCartesianIndex
-            push!(out.args, :(Tuple(@inbounds(getfield(subinds, $subinds_i)[getfield(inds, $inds_i)]))...))
-            inds_i += 1
-            subinds_i += 1
-        else
-            push!(out.args, :(@inbounds(getfield(subinds, $subinds_i)[getfield(inds, $inds_i)])))
-            inds_i += 1
-            subinds_i += 1
-        end
-    end
-    if subinds_i <= NS
-        for i in subinds_i:NS
-            push!(out.args, :(getfield(subinds, $subinds_i)))
-        end
-    end
-    return Expr(:block, Expr(:meta, :inline), :($out))
 end
 
 """
@@ -286,58 +243,35 @@ end
 const OffsetIndex{O} = LinearSubIndex{O,StaticInt{1}}
 OffsetIndex(offset::CanonicalInt) = LinearSubIndex(offset, static(1))
 
-@inline function Base.getindex(x::LinearSubIndex, i::CanonicalInt)
-    getfield(x, :offset) + getfield(x, :stride) * i
-end
-
-"""
-    ComposedIndex(i1, i2)
-
-A subtype of `ArrayIndex` that lazily combines index `i1` and `i2`. Indexing a
-`ComposedIndex` whith `i` is equivalent to `i2[i1[i]]`.
-"""
-struct ComposedIndex{N,I1,I2} <: ArrayIndex{N}
+struct CombinedIndex{N,I1,I2} <: ArrayIndex{N}
     i1::I1
     i2::I2
 
-    ComposedIndex(i1::I1, i2::I2) where {I1,I2} = new{ndims(I1),I1,I2}(i1, i2)
+    CombinedIndex(i1::I1, i2::I2) where {I1,I2} = new{ndims(I1),I1,I2}(i1, i2)
 end
+
 # we should be able to assume that if `i1` was indexed without error than it's inbounds
-@propagate_inbounds function Base.getindex(x::ComposedIndex)
-    ii = getfield(x, :i1)[]
-    @inbounds(getfield(x, :i2)[ii])
+@propagate_inbounds function Base.getindex(x::CombinedIndex)
+    i2 = getfield(x, :i1)[]
+    @inbounds(getfield(x, :i1)[ii])
 end
-@propagate_inbounds function Base.getindex(x::ComposedIndex, i::CanonicalInt)
-    ii = getfield(x, :i1)[i]
-    @inbounds(getfield(x, :i2)[ii])
+@propagate_inbounds function Base.getindex(x::CombinedIndex, i::CanonicalInt)
+    ii = getfield(x, :i2)[i]
+    @inbounds(getfield(x, :i1)[ii])
 end
-@propagate_inbounds function Base.getindex(x::ComposedIndex, i::AbstractCartesianIndex)
-    ii = getfield(x, :i1)[i]
-    @inbounds(getfield(x, :i2)[ii])
-end
-
-Base.getindex(x::ArrayIndex, i::ArrayIndex) = ComposedIndex(i, x)
-@inline function Base.getindex(x::ComposedIndex, i::ArrayIndex)
-    ComposedIndex(getfield(x, :i1)[i], getfield(x, :i2))
-end
-@inline function Base.getindex(x::ArrayIndex, i::ComposedIndex)
-    ComposedIndex(getfield(i, :i1), x[getfield(i, :i2)])
-end
-@inline function Base.getindex(x::ComposedIndex, i::ComposedIndex)
-    ComposedIndex(getfield(i, :i1), ComposedIndex(getfield(x, :i1)[getfield(i, :i2)], getfield(x, :i2)))
+@propagate_inbounds function Base.getindex(x::CombinedIndex, i::AbstractCartesianIndex)
+    ii = getfield(x, :i2)[i]
+    @inbounds(getfield(x, :i1)[ii])
 end
 
+## Traits
+
+Base.firstindex(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = 1
+Base.lastindex(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = i.count
+Base.length(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = i.count
+
+## getindex
 @propagate_inbounds Base.getindex(x::ArrayIndex, i::CanonicalInt, ii::CanonicalInt...) = x[NDIndex(i, ii...)]
-@propagate_inbounds function Base.getindex(ind::BidiagonalIndex, i::Int)
-    @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
-    if ind.isup
-        ii = i + 1
-    else
-        ii = i + 1 + 1
-    end
-    convert(Int, floor(ii / 2))
-end
-
 @propagate_inbounds function Base.getindex(ind::TridiagonalIndex, i::Int)
     @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
     offsetu = ind.isrow ? 0 : 1
@@ -406,12 +340,84 @@ end
     end
     return Expr(:block, Expr(:meta, :inline), out)
 end
-
-@inline function Base.getindex(x::StrideIndex, i::SubIndex{N,I}) where {N,I}
-    _composed_sub_strides(stride_preserving_index(I), x, i)
+function Base.getindex(x::PermutedIndex{2,(2,1),(2,)}, i::AbstractCartesianIndex{2})
+    getfield(Tuple(i), 2)
 end
-_composed_sub_strides(::False, x::StrideIndex, i::SubIndex) = ComposedIndex(i, x)
-@inline function _composed_sub_strides(::True, x::StrideIndex{N,R,C}, i::SubIndex{Ns,I}) where {N,R,C,Ns,I<:Tuple{Vararg{Any,N}}}
+@inline function Base.getindex(x::PermutedIndex{N,I1,I2}, i::AbstractCartesianIndex{N}) where {N,I1,I2}
+    return NDIndex(permute(Tuple(i), Val(I2)))
+end
+@inline function Base.getindex(x::SubIndex{N}, i::AbstractCartesianIndex{N}) where {N}
+    return NDIndex(_reindex(x.indices, Tuple(i)))
+end
+@generated function _reindex(subinds::S, inds::I) where {S,I}
+    inds_i = 1
+    subinds_i = 1
+    NS = known_length(S)
+    NI = known_length(I)
+    out = Expr(:tuple)
+    while inds_i <= NI
+        subinds_type = S.parameters[subinds_i]
+        if subinds_type <: Integer
+            push!(out.args, :(getfield(subinds, $subinds_i)))
+            subinds_i += 1
+        elseif eltype(subinds_type) <: AbstractCartesianIndex
+            push!(out.args, :(Tuple(@inbounds(getfield(subinds, $subinds_i)[getfield(inds, $inds_i)]))...))
+            inds_i += 1
+            subinds_i += 1
+        else
+            push!(out.args, :(@inbounds(getfield(subinds, $subinds_i)[getfield(inds, $inds_i)])))
+            inds_i += 1
+            subinds_i += 1
+        end
+    end
+    if subinds_i <= NS
+        for i in subinds_i:NS
+            push!(out.args, :(getfield(subinds, $subinds_i)))
+        end
+    end
+    return Expr(:block, Expr(:meta, :inline), :($out))
+end
+@inline function Base.getindex(x::LinearSubIndex, i::CanonicalInt)
+    getfield(x, :offset) + getfield(x, :stride) * i
+end
+@propagate_inbounds function Base.getindex(ind::BidiagonalIndex, i::Int)
+    @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
+    if ind.isup
+        ii = i + 1
+    else
+        ii = i + 1 + 1
+    end
+    convert(Int, floor(ii / 2))
+end
+
+"""
+    combined_index(i1, i2)
+
+Given two subtypes of `ArrayIndex`, combines a new instance that when indexed is equivalent
+to `i1[i2[i]]`. Default behavior produces a `CombinedIndex`, but more `i1` and `i2` may be
+consolidated into a more efficient representation.
+"""
+combined_index(::Nothing, y::ArrayIndex) = y
+combined_index(x::ArrayIndex, ::Nothing) = x
+combined_index(::Nothing, ::Nothing) = nothing
+combined_index(x::ArrayIndex, y::ArrayIndex) = CombinedIndex(x, y)
+@inline function combined_index(x::CombinedIndex, y::ArrayIndex)
+    CombinedIndex(getfield(x, :i1), combined_index(getfield(x, :i2), y))
+end
+@inline function combined_index(x::ArrayIndex, y::CombinedIndex)
+    CombinedIndex(combined_index(x, getfield(y, :i1)), getfield(y, :i2))
+end
+@inline function combined_index(x::CombinedIndex, y::CombinedIndex)
+    CombinedIndex(
+        getfield(x, :i1),
+        CombinedIndex(combined_index(getfield(x, :i2), getfield(y, :i1)), getfield(y, :i2))
+    )
+end
+@inline function combined_index(x::StrideIndex, y::SubIndex{N,I}) where {N,I}
+    _combined_sub_strides(stride_preserving_index(I), x, y)
+end
+_combined_sub_strides(::False, x::StrideIndex, i::SubIndex) = CombinedIndex(x, i)
+@inline function _combined_sub_strides(::True, x::StrideIndex{N,R,C}, i::SubIndex{Ns,I}) where {N,R,C,Ns,I<:Tuple{Vararg{Any,N}}}
     c = static(C)
     if _get_tuple(I, c) <: AbstractUnitRange
         c2 = known(getfield(_from_sub_dims(I), C))
@@ -429,13 +435,13 @@ _composed_sub_strides(::False, x::StrideIndex, i::SubIndex) = ComposedIndex(i, x
         eachop(getmul, pdims, map(maybe_static_step, inds), s),
         permute(o, pdims)
     )
-    return OffsetIndex(reduce_tup(+, map(*, map(_diff, inds, o), s)))[out]
+    return combined_index(OffsetIndex(reduce_tup(+, map(*, map(_diff, inds, o), s))), out)
 end
 @inline _diff(::Base.Slice, ::Any) = Zero()
 @inline _diff(x::AbstractRange, o) = static_first(x) - o
 @inline _diff(x::Integer, o) = x - o
 
-@inline function Base.getindex(x::StrideIndex{1,R,C}, ::PermutedIndex{2,(2,1),(2,)}) where {R,C}
+@inline function combined_index(x::StrideIndex{1,R,C}, ::PermutedIndex{2,(2,1),(2,)}) where {R,C}
     if C === nothing
         c2 = nothing
     elseif C === 1
@@ -446,7 +452,9 @@ end
     s = getfield(strides(x), 1)
     return StrideIndex{2,(2,1),c2}((s, s), (static(1), offset1(x)))
 end
-@inline function Base.getindex(x::StrideIndex{N,R,C}, ::PermutedIndex{N,perm,iperm}) where {N,R,C,perm,iperm}
+
+
+@inline function combined_index(x::StrideIndex{N,R,C}, ::PermutedIndex{N,perm,iperm}) where {N,R,C,perm,iperm}
     if C === nothing || C === -1
         c2 = C
     else
@@ -457,75 +465,25 @@ end
         permute(offsets(x), Val(perm)),
     )
 end
-@inline function Base.getindex(x::PermutedIndex, i::PermutedIndex)
-    PermutedIndex(
-        permute(to_parent_dims(x), to_parent_dims(i)),
-        permute(from_parent_dims(x), from_parent_dims(i))
-    )
+@inline function combined_index(::PermutedIndex{<:Any,I11,I12},::PermutedIndex{<:Any,I21,I22}) where {I11,I12,I21,I22}
+    PermutedIndex(permute(static(I11), static(I21)), permute(static(I12), static(I22)))
 end
-
-@inline function Base.getindex(x::LinearSubIndex, i::LinearSubIndex)
+@inline function combined_index(x::LinearSubIndex, i::LinearSubIndex)
     s = getfield(x, :stride)
     LinearSubIndex(
         getfield(x, :offset) + getfield(i, :offset) * s,
         getfield(i, :stride) * s
     )
 end
-Base.getindex(::OffsetIndex{StaticInt{0}}, i::StrideIndex) = i
+combined_index(::OffsetIndex{StaticInt{0}}, y::StrideIndex) = y
 
+combined_index(x::ArrayIndex, y::CartesianIndices) = CombinedIndex(x, y)
+combined_index(x::CartesianIndices, y::ArrayIndex) = CombinedIndex(x, y)
 
-## ArrayIndex constructorrs
+## ArrayIndex constructors
 @inline _to_cartesian(a) = CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))
 @inline function _to_linear(a)
     N = ndims(a)
     StrideIndex{N,ntuple(+, Val(N)),nothing}(size_to_strides(size(a), static(1)), offsets(a))
-end
-
-## DenseArray
-"""
-    ArrayIndex{N}(A) -> index
-
-Constructs a subtype of `ArrayIndex` such that an `N` dimensional indexing argument may be
-converted to an appropriate state for accessing the buffer of `A`. For example:
-
-```julia
-julia> A = reshape(1:20, 4, 5);
-
-julia> index = ArrayInterface.ArrayIndex{2}(A);
-
-julia> ArrayInterface.buffer(A)[index[2, 2]] == A[2, 2]
-true
-
-```
-"""
-ArrayIndex{N}(x::DenseArray) where {N} = StrideIndex(x)
-ArrayIndex{1}(x::DenseArray) = OffsetIndex(static(0))
-
-ArrayIndex{1}(x::ReshapedArray) = OffsetIndex(static(0))
-ArrayIndex{N}(x::ReshapedArray) where {N} = _to_linear(x)
-
-ArrayIndex{1}(x::AbstractRange) = OffsetIndex(static(0))
-
-## SubArray
-ArrayIndex{N}(x::SubArray) where {N} = SubIndex{ndims(x)}(getfield(x, :indices))
-function ArrayIndex{1}(x::SubArray{<:Any,N}) where {N}
-    ComposedIndex(_to_cartesian(x), SubIndex{N}(getfield(x, :indices)))
-end
-ArrayIndex{1}(x::Base.FastContiguousSubArray) = OffsetIndex(getfield(x, :offset1))
-function ArrayIndex{1}(x::Base.FastSubArray)
-    LinearSubIndex(getfield(x, :offset1), getfield(x, :stride1))
-end
-
-## Permuted arrays
-ArrayIndex{2}(::MatAdjTrans) = PermutedIndex{2,(2,1),(2,1)}()
-ArrayIndex{2}(::VecAdjTrans) = PermutedIndex{2,(2,1),(2,)}()
-ArrayIndex{1}(x::MatAdjTrans) = ComposedIndex(_to_cartesian(x), ArrayIndex{2}(x))
-ArrayIndex{1}(x::VecAdjTrans) = OffsetIndex(static(0))  # just unwrap permuting struct
-ArrayIndex{1}(::PermutedDimsArray{<:Any,1}) = OffsetIndex(static(0))
-function ArrayIndex{N}(::PermutedDimsArray{<:Any,N,perm,iperm}) where {N,perm,iperm}
-    PermutedIndex{N,perm,iperm}()
-end
-function ArrayIndex{1}(x::PermutedDimsArray{<:Any,N,perm,iperm}) where {N,perm,iperm}
-    ComposedIndex(_to_cartesian(x), PermutedIndex{N,perm,iperm}())
 end
 

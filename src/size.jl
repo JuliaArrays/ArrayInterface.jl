@@ -26,10 +26,8 @@ end
 size(x::SubArray) = eachop(_sub_size, to_parent_dims(x), x.indices)
 _sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = static_length(getfield(x, dim))
 @inline size(B::VecAdjTrans) = (One(), length(parent(B)))
-@inline size(B::MatAdjTrans) = permute(size(parent(B)), to_parent_dims(B))
-@inline function size(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A}
-    return permute(size(parent(B)), to_parent_dims(B))
-end
+@inline size(B::MatAdjTrans) = permute(size(parent(B)), (static(2), static(1)))
+@inline size(B::PermutedDimsArray{T,N,I}) where {T,N,I} = permute(size(parent(B)), static(I))
 function size(a::ReinterpretArray{T,N,S,A}) where {T,N,S,A}
     psize = size(parent(a))
     if _is_reshaped(typeof(a))
