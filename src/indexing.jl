@@ -433,15 +433,11 @@ which are then used to construct a layout given the arguments `A` and `inds`, an
 `dest`. If `relayout_constructor` returns `nothing` then it is not used to in the
 recomposing stage.
 
-
-For example, if `A` had the parent type `B` and `B` had the parent type `C` the following
-steps would occure to to derive new layouts:
-
     A--relayout_constructor(A)--> rc_a--> rc_a(A, inds)--> lyt_a
-     \
-      parent_type(A) -> B--relayout_constructor(B)--> rc_b--> rc_b(A, inds)--> lyt_b
-                         \
-                          parent_type(B)--> C --relayout_constructor(C)--> nothing
+    |
+    parent_type(A) -> B--relayout_constructor(B)--> rc_b--> rc_b(A, inds)--> lyt_b
+                      |
+                      parent_type(B)--> C --relayout_constructor(C)--> nothing
 
 These results would finally be called as `dest ∘ lyt_b ∘ lyt_a`
 """
