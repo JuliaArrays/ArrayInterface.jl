@@ -254,9 +254,7 @@ end
 ArrayInterface.parent_type(::Type{<:Wrapper{T,N,P}}) where {T,N,P} = P
 Base.parent(x::Wrapper) = x.parent
 ArrayInterface.device(::Type{T}) where {T<:Wrapper} = ArrayInterface.device(parent_type(T))
-function ArrayInterface.layout(x::Wrapper, s::ArrayInterface.AccessElement)
-    ArrayInterface.Layouted{typeof(s)}(parent(x), nothing)
-end
+ArrayInterface.ArrayIndex{N}(x::Wrapper) where {N} = ArrayInterface.IdentityIndex{N}()
 
 struct DenseWrapper{T,N,P<:AbstractArray{T,N}} <: DenseArray{T,N} end
 ArrayInterface.parent_type(::Type{DenseWrapper{T,N,P}}) where {T,N,P} = P

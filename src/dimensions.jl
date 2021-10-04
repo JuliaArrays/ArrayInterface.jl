@@ -23,18 +23,43 @@ end
 is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
 
 #=
-    ndims_index(::Type{I})::StaticInt
+    index_ndims(::Type{I})::StaticInt
 
-The number of dimensions an instance of `I` maps to when indexing an instance of `A`.
+The number of dimensions an instance of `I` maps to when used as an index.
 =#
-ndims_index(i) = ndims_index(typeof(i))
-ndims_index(::Type{I}) where {I} = static(1)
-ndims_index(::Type{I}) where {N,I<:AbstractCartesianIndex{N}} = static(N)
-ndims_index(::Type{I}) where {I<:AbstractArray} = ndims_index(eltype(I))
-ndims_index(::Type{I}) where {I<:AbstractArray{Bool}} = static(ndims(I))
-ndims_index(::Type{I}) where {N,I<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = static(N)
-_ndims_index(::Type{I}, i::StaticInt) where {I} = ndims_index(_get_tuple(I, i))
-ndims_index(::Type{I}) where {N,I<:Tuple{Vararg{Any,N}}} = eachop(_ndims_index, nstatic(Val(N)), I)
+index_ndims(x) = index_ndims(typeof(x))
+index_ndims(x::Type{I}) where {I} = static(1)
+index_ndims(x::Type{I}) where {N,I<:Base.AbstractCartesianIndex{N}} = static(N)
+index_ndims(x::Type{I}) where {I<:AbstractArray} = index_ndims(eltype(I))
+index_ndims(x::Type{I}) where {I<:AbstractArray{Bool}} = static(ndims(I))
+index_ndims(x::Type{I}) where {N,I<:Base.LogicalIndex{Int,<:AbstractArray{Bool,N}}} = static(1)
+index_ndims(x::Type{I}) where {N,I<:Base.LogicalIndex{CartesianIndex{N},<:AbstractArray{Bool,N}}} = static(N)
+index_ndims(x::Type{<:PermutedIndex{N,I1,I2}}) where {N,I1,I2} = static(length(I2))
+index_ndims(x::Type{<:SubIndex{N,I}}) where {N,I} = index_dimsum(I)
+index_ndims(x::Type{<:IdentityIndex{N}}) where {N} = static(N)
+index_ndims(x::Type{<:StrideIndex}) = static(1)
+index_ndims(x::Type{<:LinearSubIndex}) = static(1)
+index_ndims(x::Type{<:ComposedIndex{N,O,I}}) where {N,O,I} = index_ndims(O)
+_index_ndims(::Type{I}, i::StaticInt) where {I} = index_ndims(_get_tuple(I, i))
+index_ndims(::Type{I}) where {N,I<:Tuple{Vararg{Any,N}}} = eachop(_index_ndims, nstatic(Val(N)), I)
+
+# index_dimsum(x)::StaticInt - returns the total number of dimension that `x` maps to
+@inline index_dimsum(x) = sum(index_ndims(x)) 
+
+_mapsub(f, ::Tuple{}) = ()
+@inline function _mapsub(f, x::Tuple{I,Vararg{Any}}) where {I}
+    if (I<:AbstractCartesianIndex) || (I<:Integer)
+        return _mapsub(f, tail(x))
+    else
+        return (f(getfield(x, 1)), _mapsub(f, tail(x))...)
+    end
+end
+_mapsub(f, ::Type{Tuple{}}) = ()
+_mapsub(f, ::Type{I}) where {I} = __mapsub(f, I, _to_sub_dims(I))
+@inline function __mapsub(f, ::Type{I}, x::Tuple{StaticInt{N},Vararg{Any}}) where {I,N}
+    (f(_get_tuple(I, static(N))), __mapsub(f, I, tail(x))...)
+end
+__mapsub(f, ::Type{I}, ::Tuple{}) where {I} = ()
 
 """
     from_parent_dims(::Type{T}) -> Tuple{Vararg{Union{Int,StaticInt}}}

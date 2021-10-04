@@ -35,7 +35,6 @@ function known_offsets(::Type{T}, dim::Integer) where {T}
         return known_offsets(T)[dim]
     end
 end
-
 known_offsets(x) = known_offsets(typeof(x))
 function known_offsets(::Type{T}) where {T}
     return eachop(_known_offsets, nstatic(Val(ndims(T))), axes_types(T))

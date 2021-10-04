@@ -226,7 +226,8 @@ Subtype of `ArrayIndex` that provides a multidimensional view of another `ArrayI
 struct SubIndex{N,I} <: ArrayIndex{N}
     indices::I
 
-    SubIndex{N}(inds::Tuple) where {N} = new{N,typeof(inds)}(inds)
+    SubIndex{N}(inds::Tuple) where {N} = new{N,typeof(inds)}(Base.ensure_indexable(inds))
+    SubIndex(x::SubArray{T,N,P,I}) where {T,N,P,I} = new{N,I}(getfield(x, :indices))
 end
 
 """
@@ -240,38 +241,121 @@ struct LinearSubIndex{O<:CanonicalInt,S<:CanonicalInt} <: VectorIndex
     stride::S
 end
 
+offset1(x::LinearSubIndex) = getfield(x, :offset)
+stride1(x::LinearSubIndex) = getfield(x, :stride)
+
 const OffsetIndex{O} = LinearSubIndex{O,StaticInt{1}}
 OffsetIndex(offset::CanonicalInt) = LinearSubIndex(offset, static(1))
 
-struct CombinedIndex{N,I1,I2} <: ArrayIndex{N}
-    i1::I1
-    i2::I2
+"""
+    IdentityIndex{N}
 
-    CombinedIndex(i1::I1, i2::I2) where {I1,I2} = new{ndims(I1),I1,I2}(i1, i2)
+Used to specify that indices don't need any transformation.
+"""
+struct IdentityIndex{N} <: ArrayIndex{N} end
+
+"""
+    UnkownIndex{N}
+
+This default return type when calling `ArrayIndex{N}(x)`.
+"""
+struct UnkownIndex{N} <: ArrayIndex{N} end
+
+
+struct ComposedIndex{N,O,I} <: ArrayIndex{N}
+    outer::O
+    inner::I
+
+    ComposedIndex(i1::I1, i2::I2) where {I1,I2} = new{ndims(I1),I1,I2}(i1, i2)
 end
 
-# we should be able to assume that if `i1` was indexed without error than it's inbounds
-@propagate_inbounds function Base.getindex(x::CombinedIndex)
-    i2 = getfield(x, :i1)[]
-    @inbounds(getfield(x, :i1)[ii])
+outer(x::ComposedIndex) = getfield(x, :outer)
+inner(x::ComposedIndex) = getfield(x, :inner)
+
+@inline _to_cartesian(x) = CartesianIndices(indices(x, ntuple(+, Val(ndims(x)))))
+@inline function _to_linear(x)
+    N = ndims(x)
+    StrideIndex{N,ntuple(+, Val(N)),nothing}(size_to_strides(size(x), static(1)), offsets(x))
 end
-@propagate_inbounds function Base.getindex(x::CombinedIndex, i::CanonicalInt)
-    ii = getfield(x, :i2)[i]
-    @inbounds(getfield(x, :i1)[ii])
+
+"""
+    ArrayIndex{N}(A)
+
+Constructs a subtype of `ArrayIndex` such that an `N` dimensional indexing argument may be
+converted to an appropriate state for accessing the buffer of `A`. For example:
+
+```julia
+julia> A = reshape(1:20, 4, 5);
+
+julia> index = ArrayInterface.ArrayIndex{2}(A);
+
+julia> ArrayInterface.buffer(A)[index[2, 2]] == A[2, 2]
+true
+
+```
+"""
+ArrayIndex{N}(x) where {N} = UnkownIndex{N}()
+ArrayIndex{N}(x::Array) where {N} = StrideIndex(x)
+ArrayIndex{1}(x::Array) = OffsetIndex(static(0))
+
+ArrayIndex{1}(x::ReshapedArray) = IdentityIndex{1}()
+ArrayIndex{N}(x::ReshapedArray) where {N} = _to_linear(x)
+
+# TODO should we only define index constructors for explicit types?
+ArrayIndex{1}(x::AbstractRange) = OffsetIndex(offset1(x) - static(1))
+
+## SubArray
+ArrayIndex{N}(x::SubArray) where {N} = SubIndex{ndims(x)}(getfield(x, :indices))
+@inline function ArrayIndex{1}(x::SubArray{T,N}) where {T,N}
+    if N === 1
+        return SubIndex(x)
+    else
+        return compose(SubIndex(x), _to_cartesian(x))
+    end
 end
-@propagate_inbounds function Base.getindex(x::CombinedIndex, i::AbstractCartesianIndex)
-    ii = getfield(x, :i2)[i]
-    @inbounds(getfield(x, :i1)[ii])
+ArrayIndex{1}(x::Base.FastContiguousSubArray) = OffsetIndex(getfield(x, :offset1))
+function ArrayIndex{1}(x::Base.FastSubArray)
+    LinearSubIndex(getfield(x, :offset1), getfield(x, :stride1))
+end
+
+## PermutedDimsArray
+@inline function ArrayIndex{1}(x::PermutedDimsArray{T,N,I1,I2}) where {T,N,I1,I2}
+    if N === 1
+        return IdentityIndex{1}()
+    else
+        return compose(PermutedIndex{N,I1,I2}(), _to_cartesian(x))
+    end
+end
+@inline ArrayIndex{N}(x::PermutedDimsArray{T,N,I1,I2}) where {T,N,I1,I2} = PermutedIndex{N,I1,I2}()
+
+## Transpose/Adjoint{Real}
+@inline function ArrayIndex{2}(x::Union{Transpose{<:Any,<:AbstractMatrix},Adjoint{<:Real,<:AbstractMatrix}})
+    PermutedIndex{2,(2,1),(2,1)}()
+end
+@inline function ArrayIndex{2}(x::Union{Transpose{<:Any,<:AbstractVector},Adjoint{<:Real,<:AbstractVector}})
+    PermutedIndex{2,(2,1),(2,)}()
+end
+@inline function ArrayIndex{1}(x::Union{Transpose{<:Any,<:AbstractMatrix},Adjoint{<:Real,<:AbstractMatrix}})
+    compose(PermutedIndex{2,(2,1),(2,1)}(), _to_cartesian(x))
+end
+@inline function ArrayIndex{1}(x::Union{Transpose{<:Any,<:AbstractVector},Adjoint{<:Real,<:AbstractVector}})
+    IdentityIndex{1}()
 end
 
 ## Traits
-
 Base.firstindex(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = 1
 Base.lastindex(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = i.count
 Base.length(i::Union{TridiagonalIndex,BandedBlockBandedMatrixIndex,BandedMatrixIndex,BidiagonalIndex,BlockBandedMatrixIndex}) = i.count
 
 ## getindex
 @propagate_inbounds Base.getindex(x::ArrayIndex, i::CanonicalInt, ii::CanonicalInt...) = x[NDIndex(i, ii...)]
+Base.getindex(x::IdentityIndex, i::CanonicalInt) = 1
+Base.getindex(x::IdentityIndex, i::AbstractCartesianIndex) = i
+# we should be able to assume that if `i1` was indexed without error than it's inbounds
+@propagate_inbounds Base.getindex(x::ComposedIndex) = @inbounds(outer(x)[inner(x)[]])
+@propagate_inbounds Base.getindex(x::ComposedIndex, i::CanonicalInt) = @inbounds(outer(x)[inner(x)[i]])
+@propagate_inbounds Base.getindex(x::ComposedIndex, i::AbstractCartesianIndex) = @inbounds(outer(x)[inner(x)[i]])
+
 @propagate_inbounds function Base.getindex(ind::TridiagonalIndex, i::Int)
     @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
     offsetu = ind.isrow ? 0 : 1
@@ -328,7 +412,7 @@ end
     ind.reflocalinds[p][_i] + ind.refcoords[p] - 1
 end
 
-@inline function Base.getindex(x::StrideIndex{N}, i::AbstractCartesianIndex) where {N}
+@inline function Base.getindex(x::StrideIndex{N}, i::AbstractCartesianIndex{N}) where {N}
     return _strides2int(offsets(x), strides(x), Tuple(i)) + static(1)
 end
 @generated function _strides2int(o::O, s::S, i::I) where {O,S,I}
@@ -377,9 +461,7 @@ end
     end
     return Expr(:block, Expr(:meta, :inline), :($out))
 end
-@inline function Base.getindex(x::LinearSubIndex, i::CanonicalInt)
-    getfield(x, :offset) + getfield(x, :stride) * i
-end
+@inline Base.getindex(x::LinearSubIndex, i::CanonicalInt) = offset1(x) + stride1(x) * i
 @propagate_inbounds function Base.getindex(ind::BidiagonalIndex, i::Int)
     @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
     if ind.isup
@@ -390,33 +472,30 @@ end
     convert(Int, floor(ii / 2))
 end
 
+const compose = ∘
+
 """
-    combined_index(i1, i2)
+    compose(outer_index, inner_index)
+    outer_index ∘ inner_index
 
 Given two subtypes of `ArrayIndex`, combines a new instance that when indexed is equivalent
-to `i1[i2[i]]`. Default behavior produces a `CombinedIndex`, but more `i1` and `i2` may be
+to `i1[i2[i]]`. Default behavior produces a `ComposedIndex`, but more `i1` and `i2` may be
 consolidated into a more efficient representation.
 """
-combined_index(::Nothing, y::ArrayIndex) = y
-combined_index(x::ArrayIndex, ::Nothing) = x
-combined_index(::Nothing, ::Nothing) = nothing
-combined_index(x::ArrayIndex, y::ArrayIndex) = CombinedIndex(x, y)
-@inline function combined_index(x::CombinedIndex, y::ArrayIndex)
-    CombinedIndex(getfield(x, :i1), combined_index(getfield(x, :i2), y))
+compose(x::ArrayIndex, y::ArrayIndex) = _compose(x, y)
+_compose(x, y::IdentityIndex) = x
+_compose(x, y) = ComposedIndex(x, y)
+_compose(x, y::ComposedIndex) = ComposedIndex(compose(x, outer(y)), inner(y))
+
+compose(::IdentityIndex, y::ArrayIndex) = y
+@inline compose(x::ComposedIndex, y::ArrayIndex) = ComposedIndex(outer(x), compose(inner(x), y))
+@inline function compose(x::ComposedIndex, y::ComposedIndex)
+    ComposedIndex(outer(x), ComposedIndex(compose(inner(x), outer(y)), inner(y)))
 end
-@inline function combined_index(x::ArrayIndex, y::CombinedIndex)
-    CombinedIndex(combined_index(x, getfield(y, :i1)), getfield(y, :i2))
-end
-@inline function combined_index(x::CombinedIndex, y::CombinedIndex)
-    CombinedIndex(
-        getfield(x, :i1),
-        CombinedIndex(combined_index(getfield(x, :i2), getfield(y, :i1)), getfield(y, :i2))
-    )
-end
-@inline function combined_index(x::StrideIndex, y::SubIndex{N,I}) where {N,I}
+@inline function compose(x::StrideIndex, y::SubIndex{N,I}) where {N,I}
     _combined_sub_strides(stride_preserving_index(I), x, y)
 end
-_combined_sub_strides(::False, x::StrideIndex, i::SubIndex) = CombinedIndex(x, i)
+_combined_sub_strides(::False, x::StrideIndex, i::SubIndex) = ComposedIndex(x, i)
 @inline function _combined_sub_strides(::True, x::StrideIndex{N,R,C}, i::SubIndex{Ns,I}) where {N,R,C,Ns,I<:Tuple{Vararg{Any,N}}}
     c = static(C)
     if _get_tuple(I, c) <: AbstractUnitRange
@@ -435,13 +514,13 @@ _combined_sub_strides(::False, x::StrideIndex, i::SubIndex) = CombinedIndex(x, i
         eachop(getmul, pdims, map(maybe_static_step, inds), s),
         permute(o, pdims)
     )
-    return combined_index(OffsetIndex(reduce_tup(+, map(*, map(_diff, inds, o), s))), out)
+    return compose(OffsetIndex(reduce_tup(+, map(*, map(_diff, inds, o), s))), out)
 end
 @inline _diff(::Base.Slice, ::Any) = Zero()
 @inline _diff(x::AbstractRange, o) = static_first(x) - o
 @inline _diff(x::Integer, o) = x - o
 
-@inline function combined_index(x::StrideIndex{1,R,C}, ::PermutedIndex{2,(2,1),(2,)}) where {R,C}
+@inline function compose(x::StrideIndex{1,R,C}, ::PermutedIndex{2,(2,1),(2,)}) where {R,C}
     if C === nothing
         c2 = nothing
     elseif C === 1
@@ -453,37 +532,50 @@ end
     return StrideIndex{2,(2,1),c2}((s, s), (static(1), offset1(x)))
 end
 
-
-@inline function combined_index(x::StrideIndex{N,R,C}, ::PermutedIndex{N,perm,iperm}) where {N,R,C,perm,iperm}
+@inline function compose(x::StrideIndex{N,R,C}, ::PermutedIndex{N,I1,I2}) where {N,R,C,I1,I2}
     if C === nothing || C === -1
         c2 = C
     else
-        c2 = getfield(iperm, C)
+        c2 = getfield(I2, C)
     end
-    return StrideIndex{N,permute(R, Val(perm)),c2}(
-        permute(strides(x), Val(perm)),
-        permute(offsets(x), Val(perm)),
+    return StrideIndex{N,permute(R, Val(I1)),c2}(
+        permute(strides(x), Val(I1)),
+        permute(offsets(x), Val(I1)),
     )
 end
-@inline function combined_index(::PermutedIndex{<:Any,I11,I12},::PermutedIndex{<:Any,I21,I22}) where {I11,I12,I21,I22}
+@inline function compose(x::PermutedIndex{<:Any,I11,I12},::PermutedIndex{<:Any,I21,I22}) where {I11,I12,I21,I22}
     PermutedIndex(permute(static(I11), static(I21)), permute(static(I12), static(I22)))
 end
-@inline function combined_index(x::LinearSubIndex, i::LinearSubIndex)
-    s = getfield(x, :stride)
-    LinearSubIndex(
-        getfield(x, :offset) + getfield(i, :offset) * s,
-        getfield(i, :stride) * s
-    )
+@inline function compose(x::LinearSubIndex, y::LinearSubIndex)
+    LinearSubIndex(offset1(x) + offset1(y) * stride1(x), stride1(y) * stride1(x))
 end
-combined_index(::OffsetIndex{StaticInt{0}}, y::StrideIndex) = y
+compose(::OffsetIndex{StaticInt{0}}, y::StrideIndex) = y
+compose(x::ArrayIndex, y::CartesianIndices) = ComposedIndex(x, y)
 
-combined_index(x::ArrayIndex, y::CartesianIndices) = CombinedIndex(x, y)
-combined_index(x::CartesianIndices, y::ArrayIndex) = CombinedIndex(x, y)
-
-## ArrayIndex constructors
-@inline _to_cartesian(a) = CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))
-@inline function _to_linear(a)
-    N = ndims(a)
-    StrideIndex{N,ntuple(+, Val(N)),nothing}(size_to_strides(size(a), static(1)), offsets(a))
+function compose(x::AbstractArray{T,N}, ::PermutedIndex{N,I1,I2}) where {T,N,I1,I2}
+    PermutedDimsArray{T,N,I1,I2,typeof(x)}(x)
 end
+# TODO call to more direct constructors so that we don't repeat checks already performed
+# when constructin SubIndex
+compose(x::AbstractArray, y::SubIndex) = SubArray(x, getfield(y, :indices))
+compose(x::AbstractArray, y::ComposedIndex) = compose(compose(x, outer(y)), inner(y))
+compose(x::AbstractArray, y::ArrayIndex) = ComposedIndex(x, y)
+
+## show(::IO, ::MIME, ::ArrayIndex)
+function Base.show(io::IO, ::MIME"text/plain", @nospecialize(x::StrideIndex))
+    print(io, "StrideIndex{$(ndims(x)), $(known(stride_rank(x))), $(known(contiguous_axis(x)))}($(strides(x)), $(offsets(x)))")
+end
+function Base.show(io::IO, ::MIME"text/plain", @nospecialize(x::SubIndex))
+    print(io, "SubIndex{$(ndims(x))}($(x.indices))")
+end
+function Base.show(io::IO, ::MIME"text/plain", @nospecialize(x::LinearSubIndex))
+    print(io, "LinearSubIndex(offset=$(offset1(x)),stride=$(stride1(x)))")
+end
+function Base.show(io::IO, m::MIME"text/plain", @nospecialize(x::ComposedIndex))
+    show(io, m, outer(x))
+    print(io, " ∘ ")
+    show(io, m, inner(x))
+    #print(io, "$(outer(x)) ∘ $(inner(x))")
+end
+
 

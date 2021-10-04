@@ -9,12 +9,12 @@
     @test @inferred(ArrayInterface.canonicalize(Int32(2):Int32(1):Int32(3))) isa ArrayInterface.OptionallyStaticStepRange{Int,Int,Int}
 end
 
-@testset "ndims_index" begin
-    @test @inferred(ArrayInterface.ndims_index((1, CartesianIndex(1,2)))) === static((1, 2))
-    @test @inferred(ArrayInterface.ndims_index((1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === static((1, 2))
-    @test @inferred(ArrayInterface.ndims_index((1, CartesianIndex((2,2))))) === static((1, 2))
-    @test @inferred(ArrayInterface.ndims_index((CartesianIndex((2,2)), :, :))) === static((2, 1, 1))
-    @test @inferred(ArrayInterface.ndims_index(Vector{Int})) === static(1)
+@testset "index_ndims" begin
+    @test @inferred(ArrayInterface.index_ndims((1, CartesianIndex(1,2)))) === static((1, 2))
+    @test @inferred(ArrayInterface.index_ndims((1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === static((1, 2))
+    @test @inferred(ArrayInterface.index_ndims((1, CartesianIndex((2,2))))) === static((1, 2))
+    @test @inferred(ArrayInterface.index_ndims((CartesianIndex((2,2)), :, :))) === static((2, 1, 1))
+    @test @inferred(ArrayInterface.index_ndims(Vector{Int})) === static(1)
 end
 
 @testset "to_index" begin

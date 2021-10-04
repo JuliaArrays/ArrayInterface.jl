@@ -12,9 +12,7 @@ end
 ArrayInterface.parent_type(::Type{T}) where {P,T<:NamedDimsWrapper{<:Any,<:Any,<:Any,P}} = P
 ArrayInterface.dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L}} = static(L)
 Base.parent(x::NamedDimsWrapper) = x.parent
-function ArrayInterface.layout(x::NamedDimsWrapper, s::ArrayInterface.AccessElement)
-    ArrayInterface.Layouted{typeof(s)}(parent(x), nothing)
-end
+ArrayInterface.ArrayIndex{N}(x::NamedDimsWrapper) where {N} = ArrayInterface.IdentityIndex{N}()
 
 @testset "dimension permutations" begin
     a = ones(2, 2, 2)

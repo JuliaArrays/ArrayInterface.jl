@@ -39,6 +39,9 @@ function canonical_convert(x::AbstractUnitRange)
     return OptionallyStaticUnitRange(static_first(x), static_last(x))
 end
 
+is_linear_indexing(A, args::Tuple{Arg}) where {Arg} = index_ndims(Arg) < 2
+is_linear_indexing(A, args::Tuple{Arg,Vararg{Any}}) where {Arg} = false
+
 """
     to_indices(A, inds::Tuple) -> Tuple
 
@@ -53,7 +56,7 @@ on a call to [`is_canonical`](@ref), then they each are checked at the axis leve
     to_indices(A, lazy_axes(A), axes(getfield(inds, 1)))
 end
 @propagate_inbounds function _to_indices(::True, A, inds)
-    if isone(sum(ndims_index(inds)))
+    if isone(sum(index_ndims(inds)))
         @boundscheck if !checkindex(Bool, eachindex(IndexLinear(), A), getfield(inds, 1))
             throw(BoundsError(A, inds))
         end
@@ -72,7 +75,7 @@ end
 end
 
 @propagate_inbounds function _to_indices(::False, A, inds)
-    if isone(sum(ndims_index(inds)))
+    if isone(sum(index_ndims(inds)))
         return (to_index(LazyAxis{:}(A), getfield(inds, 1)),)
     else
         return to_indices(A, lazy_axes(A), inds)
@@ -82,7 +85,7 @@ end
     to_indices(A, axs, (Tuple(getfield(inds, 1))..., tail(inds)...))
 end
 @propagate_inbounds function to_indices(A, axs, inds::Tuple{I,Vararg{Any}}) where {I}
-    _to_indices(ndims_index(I), A, axs, inds)
+    _to_indices(index_ndims(I), A, axs, inds)
 end
 
 @propagate_inbounds function _to_indices(::StaticInt{1}, A, axs, inds)
@@ -244,7 +247,7 @@ indices calling [`to_axis`](@ref).
 @inline function to_axes(A, inds::Tuple)
     if ndims(A) === 1
         return (to_axis(axes(A, 1), first(inds)),)
-    elseif isone(sum(ndims_index(inds)))
+    elseif isone(sum(index_ndims(inds)))
         return (to_axis(eachindex(IndexLinear(), A), first(inds)),)
     else
         return to_axes(A, axes(A), inds)
@@ -252,7 +255,7 @@ indices calling [`to_axis`](@ref).
 end
 # drop this dimension
 to_axes(A, a::Tuple, i::Tuple{<:Integer,Vararg{Any}}) = to_axes(A, tail(a), tail(i))
-to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}}) where {I} = _to_axes(ndims_index(I), A, a, i)
+to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}}) where {I} = _to_axes(index_ndims(I), A, a, i)
 function _to_axes(::StaticInt{1}, A, axs::Tuple, inds::Tuple)
     return (to_axis(first(axs), first(inds)), to_axes(A, tail(axs), tail(inds))...)
 end
@@ -314,50 +317,25 @@ end
 @propagate_inbounds getindex(x::Tuple, i::Int) = getfield(x, i)
 @propagate_inbounds getindex(x::Tuple, ::StaticInt{i}) where {i} = getfield(x, i)
 
-## unsafe_getindex ##
+## unsafe_getindex
 function unsafe_getindex(a::A) where {A}
     parent_type(A) <: A && throw(MethodError(unsafe_getindex, (A,)))
     return unsafe_getindex(parent(a))
 end
 unsafe_getindex(A::Array) = Base.arrayref(false, A, 1)
-
-unsafe_getindex(A::LinearIndices, i::CanonicalInt) = @inbounds(A[Int(i)])
-@inline function unsafe_getindex(A::LinearIndices, i::CanonicalInt, ii::Vararg{CanonicalInt})
-    Int(@inbounds(_to_linear(A)[NDIndex(i, ii...)]))
+@inline function unsafe_getindex(A, inds::Vararg{CanonicalInt,N}) where {N}
+    buf, lyt = layout(A, static(N))
+    @inbounds(buf[lyt[inds...]])
+end
+@inline function unsafe_getindex(A, inds::Vararg{Any})
+    buf, lyt = layout(A, index_dimsum(inds))
+    return relayout(getlayout(device(buf), buf, lyt, inds), A, inds)
 end
 
-unsafe_getindex(A::CartesianIndices, i::AbstractCartesianIndex) = @inbounds(A[CartesianIndex(i)])
-unsafe_getindex(A::CartesianIndices, i::CanonicalInt) = @inbounds(A[CartesianIndex(i)])
-unsafe_getindex(A::CartesianIndices, i::CanonicalInt, ii::Vararg{CanonicalInt}) = CartesianIndex(i, ii...)
-
-@inline unsafe_getindex(a, i::Vararg{Any}) = _unsafe_getindex(layout(a, i))
-@inline function _unsafe_getindex(x::Layouted{S}) where {S<:AccessElement}
-    lyt = instantiate(x)
-    return getfield(lyt, :f)(@inbounds(parent(lyt)[getfield(lyt, :indices)]))
-end
-@generated function _unsafe_getindex(x::Layouted{S}) where {N,S<:AccessIndices{N}}
-    quote
-        Compat.@inline()
-        lyt = instantiate(x)
-        buf = parent(lyt)
-        I = getfield(lyt, :indices)
-        dest = similar(parent(x), to_axes(parent(x), I))
-        D = eachindex(dest)
-        Dy = iterate(D)
-        @inbounds Base.Cartesian.@nloops $N j d -> I[d] begin
-            # This condition is never hit, but at the moment
-            # the optimizer is not clever enough to split the union without it
-            Dy === nothing && return dest
-            (idx, state) = Dy
-            dest[idx] = buf[NDIndex(Base.Cartesian.@ntuple($N, j))]
-            Dy = iterate(D, state)
-        end
-        return dest
-    end
-end
-
+## CartesianIndices/LinearIndices
 _ints2range(x::Integer) = x:x
 _ints2range(x::AbstractRange) = x
+unsafe_getindex(A::CartesianIndices, i::Vararg{CanonicalInt,N}) where {N} = @inbounds(A[CartesianIndex(i)])
 @inline function unsafe_getindex(A::CartesianIndices{N}, inds::Vararg{Any}) where {N}
     if (length(inds) === 1 && N > 1) || stride_preserving_index(typeof(inds)) === False()
         return Base._getindex(IndexStyle(A), A, inds...)
@@ -365,8 +343,16 @@ _ints2range(x::AbstractRange) = x
         return CartesianIndices(to_axes(A, _ints2range.(inds)))
     end
 end
+
+function unsafe_getindex(A::LinearIndices, i::Vararg{CanonicalInt,N}) where {N}
+    if N === 1
+        return Int(@inbounds(i[1]))
+    else
+        return Int(@inbounds(_to_linear(A)[NDIndex(i...)]))
+    end
+end
 @inline function unsafe_getindex(A::LinearIndices{N}, inds::Vararg{Any}) where {N}
-    if isone(sum(ndims_index(inds)))
+    if isone(sum(index_ndims(inds)))
         return @inbounds(eachindex(A)[first(inds)])
     elseif stride_preserving_index(typeof(inds)) === True()
         return LinearIndices(to_axes(A, _ints2range.(inds)))
@@ -400,19 +386,158 @@ function unsafe_setindex!(a::A, v) where {A}
     return unsafe_setindex!(parent(a), v)
 end
 unsafe_setindex!(A::Array{T}, v) where {T} = Base.arrayset(false, A, convert(T, v)::T, 1)
-@inline unsafe_setindex!(a, v, i::Vararg{Any}) = _unsafe_setindex!(layout(a, i), v)
-@inline function _unsafe_setindex!(x::Layouted{S}, v) where {S<:AccessElement}
-    lyt = instantiate(x)
-    @inbounds(Base.setindex!(parent(lyt), getfield(lyt, :f)(v), getfield(lyt, :indices)))
+@inline function unsafe_setindex!(A, v, i::Vararg{CanonicalInt,N}) where {N}
+    buf, lyt = layout(A, static(N))
+    setlayout!(device(buf), buf, lyt, v, i)
 end
-@generated function _unsafe_setindex!(x::Layouted{S}, v) where {N,S<:AccessIndices{N}}
+
+## layouts - TODO finalize `layout(x, access)` design
+@inline layout(x, ::StaticInt{N}) where {N} = _layout(x, buffer(x), ArrayIndex{N}(x))
+@inline function _layout(x::X, y::Y, index::ArrayIndex{N}) where {X,Y,N}
+    b, i = layout(y, index_dimsum(index))
+    return b, compose(i, index)
+end
+# end recursion b/c no new buffer
+_layout(x::X, y::X, i::ArrayIndex) where {X} = x, i
+# no new buffer and unkown index transformation, s
+_layout(x::X, y::X, ::UnkownIndex{N}) where {X,N} = x, IdentityIndex{N}()
+# new buffer, but don't know how to transform indices properly
+_layout(x::X, y::Y, ::UnkownIndex{N}) where {X,Y,N} = x, IdentityIndex{N}()
+
+"""
+    relayout_constructor(::Type{T}) -> Function
+
+Returns a function that construct a new layout for wrapping sub indices of an array.
+This method is called in the context of the indexing arguments and at the array's top level.
+Therefore, in the call `relayout_constructor(T)(A, inds) -> layout` the array `A` may be a wrapper
+around instance of `T`.
+
+It is assumed that the return of this function can appropriately recompose an layouted array
+via `buffer ∘ layout`
+"""
+relayout_constructor(::Type{T}) where {T} = nothing
+
+@inline function _relayout_constructors(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return (relayout_constructor(T),)
+    else
+        return (relayout_constructor(T), _relayout_constructors(parent_type(T))...)
+    end
+end
+
+"""
+    relayout(dest, A, inds)
+
+Derives the function from [`relayout_constructor`](@ref) for each nested parent type of `A`,
+which are then used to construct a layout given the arguments `A` and `inds`, and recompose
+`dest`. If `relayout_constructor` returns `nothing` then it is not used to in the
+recomposing stage.
+
+
+For example, if `A` had the parent type `B` and `B` had the parent type `C` the following
+steps would occure to to derive new layouts:
+```
+ A--relayout_constructor(A)--> rc_a--> rc_a(A, inds)--> lyt_a
+  \
+   parent_type(A) -> B--relayout_constructor(B)--> rc_b--> rc_b(A, inds)--> lyt_b
+                      \
+                       parent_type(B)--> C --relayout_constructor(C)--> nothing
+```
+These results would finally be called as `dest ∘ lyt_b ∘ lyt_a`
+"""
+relayout(dest, A, inds) = _relayout(_relayout_constructors(typeof(A)), dest, A, inds)
+@generated function _relayout(fxns::F, B, A, inds) where {F}
+    N = length(F.parameters)
+    bexpr = :B
+    for i in N:-1:1
+        if !(F.parameters[i] <: Nothing)
+            bexpr = :(compose($bexpr, getfield(fxns, $i)(A, inds)))
+        end
+    end
+    Expr(:block, Expr(:meta, :inline), bexpr)
+end
+
+@generated getlayout(::CPUTuple, buf::B, lyt::L, inds::I) where {B,L,I} = _tup_lyt(B, L, I)
+@generated getlayout(::CPUIndex, buf::B, lyt::L, inds::I) where {B,L,I} = _idx_lyt(B, L, I)
+@generated getlayout(::CPUPointer, buf::B, lyt::L, inds::I) where {B,L,I} = _ptr_lyt(B, L, I)
+
+## CPUTuple
+function _tup_lyt(B::Type, L::Type, I::Type)
+    N = length(I.parameters)
+    s = Vector{Int}(undef, N)
+    o = Vector{Int}(undef, N)
+    static_check = true
+    @inbounds for i in 1:N
+        s_i = ArrayInterface.known_length(I.parameters[i])
+        if s_i === nothing
+            static_check = false
+            break
+        else
+            s[i] = s_i
+        end
+        o_i = ArrayInterface.known_offset1(I.parameters[i])
+        if o_i === nothing
+            static_check = false
+            break
+        else
+            o[i] = o_i
+        end
+    end
+    if static_check
+        t = Expr(:tuple)
+        foreach(i->push!(t.args, :(buf[lyt[$(i...)]])), Iterators.product(map((o_i, s_i) -> o_i:(o_i + s_i -1), o, s)...))
+        return t
+    else # don't know size and offsets so we can't compose tuple statically
+        return _idx_lyt(B, L, I)
+    end
+end
+
+## CPUPointer
+function _ptr_lyt(B::Type, L::Type, I::Type)
+    if known(index_ndims(I)) === 1
+        _idx_lyt(B, L, I)
+    else # cant use pointer b/c layout doesn't converge to an integer
+        _idx_lyt(B, L, I)
+    end
+end
+
+## CPUIndex
+function _idx_lyt(B::Type, L::Type, I::Type)
+    T = eltype(B)
+    N = length(I.parameters)
     quote
-        lyt = instantiate(x)
-        buf = parent(lyt)
-        I = getfield(lyt, :indices)
-        f = getfield(lyt, :f)
+        Compat.@inline()
+        dest = Array{$T}(undef, _mapsub(length, inds))
+        D = eachindex(dest)
+        Dy = iterate(D)
+        @inbounds Base.Cartesian.@nloops $N j d -> inds[d] begin
+            # This condition is never hit, but at the moment
+            # the optimizer is not clever enough to split the union without it
+            Dy === nothing && return dest
+            (idx, state) = Dy
+            dest[idx] = buf[lyt[NDIndex(Base.Cartesian.@ntuple($N, j))]]
+            Dy = iterate(D, state)
+        end
+        return dest
+    end
+end
+
+function unsafe_setindex!(A, v, inds::Vararg{Any,N}) where {N}
+    buf, lyt = layout(A, index_dimsum(inds))
+    return setlayout!(device(buf), buf, lyt, v, inds)
+end
+
+function setlayout!(::AbstractDevice, buf::B, lyt::L, v, inds::Tuple{Vararg{CanonicalInt}}) where {B,L}
+    @inbounds(Base.setindex!(buf, v, lyt[inds...]))
+end
+@generated function setlayout!(::AbstractDevice, buf::B, lyt::L, v, inds::Tuple{Vararg{Any,N}}) where {B,L,N}
+    _setlayout!(N)
+end
+
+function _setlayout!(N::Int)
+    quote
         x′ = Base.unalias(buf, v)
-        Base.Cartesian.@nexprs $N d -> (I_d = Base.unalias(buf, I[d]))
+        Base.Cartesian.@nexprs $N d -> (I_d = Base.unalias(buf, inds[d]))
         idxlens = Base.Cartesian.@ncall $N Base.index_lengths I
         Base.Cartesian.@ncall $N Base.setindex_shape_check x′ (d -> idxlens[d])
         Xy = iterate(x′)
@@ -421,7 +546,7 @@ end
             # the optimizer that it does not need to emit error paths
             Xy === nothing && break
             (val, state) = Xy
-            buf[NDIndex(Base.Cartesian.@ntuple($N, i))] = f(val)
+            buf[lyt[NDIndex(Base.Cartesian.@ntuple($N, i))]] = val
             Xy = iterate(x′, state)
         end
     end

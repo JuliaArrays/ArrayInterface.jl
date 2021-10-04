@@ -1,13 +1,13 @@
 
 function test_layout(x)
     @testset "$x" begin
-        linear_lyt = ArrayInterface.instantiate(ArrayInterface.layout(x, ArrayInterface.AccessElement{1}()))
+        linbuf, linlyt = ArrayInterface.layout(x, static(1))
         for i in eachindex(IndexLinear(), x)
-            @test linear_lyt[i] == x[i]
+            @test linbuf[linlyt[i]] == x[i]
         end
-        cartesian_lyt = ArrayInterface.instantiate(ArrayInterface.layout(x, ArrayInterface.AccessElement{ndims(x)}()))
+        carbuf, carlyt = ArrayInterface.layout(x, static(ndims(x)))
         for i in eachindex(IndexCartesian(), x)
-            @test cartesian_lyt[i] == x[i]
+            @test carbuf[carlyt[i]] == x[i]
         end
     end
     return nothing

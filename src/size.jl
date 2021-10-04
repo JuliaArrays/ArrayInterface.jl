@@ -23,8 +23,10 @@ function size(a::A) where {A}
     end
 end
 
-size(x::SubArray) = eachop(_sub_size, to_parent_dims(x), x.indices)
-_sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = static_length(getfield(x, dim))
+size(x::SubArray) = _subsize(x.indices)
+@inline _subsize(x::Tuple) = _mapsub(static_length, x)
+Base.size(x::SubIndex) = size(x)
+size(x::SubIndex) = _subsize(getfield(x, :indices))
 @inline size(B::VecAdjTrans) = (One(), length(parent(B)))
 @inline size(B::MatAdjTrans) = permute(size(parent(B)), (static(2), static(1)))
 @inline size(B::PermutedDimsArray{T,N,I}) where {T,N,I} = permute(size(parent(B)), static(I))

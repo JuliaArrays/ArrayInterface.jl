@@ -665,7 +665,6 @@ function _is_lazy_conjugate(::Type{T}, isconj) where {T <: Adjoint}
 end
 
 include("ranges.jl")
-include("Experimental/Experimental.jl")
 include("axes.jl")
 include("size.jl")
 include("dimensions.jl")
@@ -757,9 +756,21 @@ function __init__()
             @inline strides(B::StaticArrays.SizedArray{S,T,M,N,A}) where {S,T,M,N,A<:SubArray} = strides(B.data)
             parent_type(::Type{<:StaticArrays.SizedArray{S,T,M,N,A}}) where {S,T,M,N,A} = A
         else
-            parent_type(::Type{<:StaticArrays.SizedArray{S,T,M,N}}) where {S,T,M,N} =
-                Array{T,N}
+            parent_type(::Type{<:StaticArrays.SizedArray{S,T,M,N}}) where {S,T,M,N} = Array{T,N}
         end
+
+        function static_size(x, inds)
+            StaticArrays.Size(ArrayInterface._mapsub(ArrayInterface.known_length, inds))
+        end
+
+        function ArrayInterface.relayout_constructor(::Type{<:StaticArrays.SArray})
+            static_size
+        end
+
+        function ArrayInterface.compose(x::NTuple{N}, y::StaticArrays.Size{S}) where {N,S}
+            StaticArrays.SArray{Tuple{S...},eltype(x),length(S),N}(x)
+        end
+
         @require Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
             function Adapt.adapt_storage(
                 ::Type{<:StaticArrays.SArray{S}},
