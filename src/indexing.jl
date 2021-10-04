@@ -152,7 +152,7 @@ end
     return LogicalIndex{Int}(arg)
 end
 @propagate_inbounds function to_index(::IndexLinear, x, arg::AbstractArray{<:AbstractCartesianIndex})
-    @boundscheck _multi_check_index(axes(x), arg) || throw(BoundsError(x, arg))
+    @boundscheck Base.checkindex(Bool, axes(x), arg) || throw(BoundsError(x, arg))
     return arg
 end
 @propagate_inbounds function to_index(::IndexLinear, x, arg::LogicalIndex)
@@ -181,24 +181,16 @@ to_index(::IndexCartesian, x, arg::Colon) = CartesianIndices(x)
 to_index(::IndexCartesian, x, arg::CartesianIndices{0}) = arg
 to_index(::IndexCartesian, x, arg::AbstractCartesianIndex) = arg
 function to_index(::IndexCartesian, x, arg)
-    @boundscheck _multi_check_index(axes(x), arg) || throw(BoundsError(x, arg))
+    @boundscheck Base.checkindex(Bool, axes(x), arg) || throw(BoundsError(x, arg))
     return arg
 end
 @propagate_inbounds function to_index(::IndexCartesian, x, arg::AbstractArray{<:AbstractCartesianIndex})
-    @boundscheck _multi_check_index(axes(x), arg) || throw(BoundsError(x, arg))
+    @boundscheck Base.checkindex(Bool, axes(x), arg) || throw(BoundsError(x, arg))
     return arg
 end
 @propagate_inbounds function to_index(::IndexCartesian, x, arg::AbstractArray{Bool})
     @boundscheck checkbounds(x, arg)
     return LogicalIndex(arg)
-end
-
-function _multi_check_index(axs::Tuple, arg::AbstractArray{T}) where {T<:AbstractCartesianIndex}
-    b = true
-    for i in arg
-        b &= Base.checkbounds_indices(Bool, axs, (i,))
-    end
-    return b
 end
 
 @propagate_inbounds function to_index(::IndexCartesian, x, arg::Union{Array{Bool}, BitArray})
