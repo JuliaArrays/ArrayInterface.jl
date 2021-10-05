@@ -23,7 +23,7 @@ end
 """
     canonicalize(x)
 
-Checks if `x` is in a canonical form for indexing. If `x` is already in a canonical form
+Checks if `x` is in  canonical form for indexing. If `x` is already in a canonical form
 then it is returned unchanged. If `x` is not in a canonical form then it is passed to
 `canonical_convert`.
 """
@@ -50,12 +50,12 @@ indexing form, and that they are inbounds. Unless all indices in `inds` return `
 on a call to [`is_canonical`](@ref), then they each are checked at the axis level with
 [`to_index`](@ref).
 """
-@propagate_inbounds to_indices(A, ::Tuple{}) = to_indices(A, lazy_axes(A), ())
-@propagate_inbounds to_indices(A, inds::Tuple) = _to_indices(is_canonical(inds), A, inds)
-@propagate_inbounds function to_indices(A, inds::Tuple{LinearIndices})
+@inline @propagate_inbounds to_indices(A, ::Tuple{}) = to_indices(A, lazy_axes(A), ())
+@inline @propagate_inbounds to_indices(A, inds::Tuple) = _to_indices(is_canonical(inds), A, inds)
+@inline @propagate_inbounds function to_indices(A, inds::Tuple{LinearIndices})
     to_indices(A, lazy_axes(A), axes(getfield(inds, 1)))
 end
-@propagate_inbounds function _to_indices(::True, A, inds)
+@inline @propagate_inbounds function _to_indices(::True, A, inds)
     if isone(sum(index_ndims(inds)))
         @boundscheck if !checkindex(Bool, eachindex(IndexLinear(), A), getfield(inds, 1))
             throw(BoundsError(A, inds))
@@ -74,26 +74,26 @@ end
     end
 end
 
-@propagate_inbounds function _to_indices(::False, A, inds)
+@inline @propagate_inbounds function _to_indices(::False, A, inds)
     if isone(sum(index_ndims(inds)))
         return (to_index(LazyAxis{:}(A), getfield(inds, 1)),)
     else
         return to_indices(A, lazy_axes(A), inds)
     end
 end
-@propagate_inbounds function to_indices(A, axs, inds::Tuple{<:AbstractCartesianIndex,Vararg{Any}})
+@inline @propagate_inbounds function to_indices(A, axs, inds::Tuple{<:AbstractCartesianIndex,Vararg{Any}})
     to_indices(A, axs, (Tuple(getfield(inds, 1))..., tail(inds)...))
 end
-@propagate_inbounds function to_indices(A, axs, inds::Tuple{I,Vararg{Any}}) where {I}
+@inline @propagate_inbounds function to_indices(A, axs, inds::Tuple{I,Vararg{Any}}) where {I}
     _to_indices(index_ndims(I), A, axs, inds)
 end
 
-@propagate_inbounds function _to_indices(::StaticInt{1}, A, axs, inds)
+@inline @propagate_inbounds function _to_indices(::StaticInt{1}, A, axs, inds)
     (to_index(_maybe_first(axs), getfield(inds, 1)),
      to_indices(A, _maybe_tail(axs), _maybe_tail(inds))...)
 end
 
-@propagate_inbounds function _to_indices(::StaticInt{N}, A, axs, inds) where {N}
+@inline @propagate_inbounds function _to_indices(::StaticInt{N}, A, axs, inds) where {N}
     axsfront, axstail = Base.IteratorsMD.split(axs, Val(N))
     if IndexStyle(A) === IndexLinear()
         index = to_index(LinearIndices(axsfront), getfield(inds, 1))
@@ -103,14 +103,14 @@ end
     return (index, to_indices(A, axstail, _maybe_tail(inds))...)
 end
 # When used as indices themselves, CartesianIndices can simply become its tuple of ranges
-@propagate_inbounds function to_indices(A, axs, inds::Tuple{CartesianIndices, Vararg{Any}})
+@inline @propagate_inbounds function to_indices(A, axs, inds::Tuple{CartesianIndices, Vararg{Any}})
     to_indices(A, axs, (axes(getfield(inds, 1))..., tail(inds)...))
 end
 # but preserve CartesianIndices{0} as they consume a dimension.
-@propagate_inbounds function to_indices(A, axs, inds::Tuple{CartesianIndices{0},Vararg{Any}})
+@inline @propagate_inbounds function to_indices(A, axs, inds::Tuple{CartesianIndices{0},Vararg{Any}})
     (getfield(inds, 1), to_indices(A, _maybe_tail(axs), tail(inds))...)
 end
-@propagate_inbounds function to_indices(A, axs, ::Tuple{})
+@inline @propagate_inbounds function to_indices(A, axs, ::Tuple{})
     @boundscheck if length(getfield(axs, 1)) != 1
         error("Cannot drop dimension of size $(length(first(axs))).")
     end
@@ -141,7 +141,8 @@ function to_index(s, axis, arg)
     throw(ArgumentError("invalid index: IndexStyle $s does not support indices of " *
                         "type $(typeof(arg)) for instances of type $(typeof(axis))."))
 end
-to_index(::IndexLinear, axis, arg::Colon) = indices(axis) # Colons get converted to slices by `indices`
+# Colons get converted to slices by `indices`
+@inline to_index(::IndexLinear, axis, arg::Colon) = indices(axis)
 to_index(::IndexLinear, axis, arg::CartesianIndices{0}) = arg
 to_index(::IndexLinear, axis, arg::CartesianIndices{1}) = axes(arg, 1)
 @propagate_inbounds function to_index(::IndexLinear, axis, arg::AbstractCartesianIndex{1})
@@ -369,13 +370,13 @@ Store the given values at the given key or index within a collection.
     end
 end
 @propagate_inbounds function setindex!(A, val; kwargs...)
-    return unsafe_setindex!(A, val, to_indices(A, order_named_inds(dimnames(A), values(kwargs)))...)
+    unsafe_setindex!(A, val, to_indices(A, order_named_inds(dimnames(A), values(kwargs)))...)
 end
 
 ## unsafe_setindex! ##
 function unsafe_setindex!(a::A, v) where {A}
     parent_type(A) <: A && throw(MethodError(unsafe_setindex!, (A, v)))
-    return unsafe_setindex!(parent(a), v)
+    unsafe_setindex!(parent(a), v)
 end
 unsafe_setindex!(A::Array{T}, v) where {T} = Base.arrayset(false, A, convert(T, v)::T, 1)
 @inline function unsafe_setindex!(A, v, i::Vararg{CanonicalInt,N}) where {N}
@@ -445,11 +446,9 @@ relayout(dest, A, inds) = _relayout(_relayout_constructors(typeof(A)), dest, A, 
     Expr(:block, Expr(:meta, :inline), bexpr)
 end
 
-@generated getlayout(::CPUTuple, buf::B, lyt::L, inds::I) where {B,L,I} = _tup_lyt(B, L, I)
-@generated getlayout(::CPUIndex, buf::B, lyt::L, inds::I) where {B,L,I} = _idx_lyt(B, L, I)
-@generated getlayout(::CPUPointer, buf::B, lyt::L, inds::I) where {B,L,I} = _ptr_lyt(B, L, I)
 
 ## CPUTuple
+@generated getlayout(::CPUTuple, buf::B, lyt::L, inds::I) where {B,L,I} = _tup_lyt(B, L, I)
 function _tup_lyt(B::Type, L::Type, I::Type)
     N = length(I.parameters)
     s = Vector{Int}(undef, N)
@@ -480,22 +479,14 @@ function _tup_lyt(B::Type, L::Type, I::Type)
     end
 end
 
-## CPUPointer
-function _ptr_lyt(B::Type, L::Type, I::Type)
-    if known(index_ndims(I)) === 1
-        _idx_lyt(B, L, I)
-    else # cant use pointer b/c layout doesn't converge to an integer
-        _idx_lyt(B, L, I)
-    end
-end
-
 ## CPUIndex
-function _idx_lyt(B::Type, L::Type, I::Type)
-    T = eltype(B)
+function getlayout(::AbstractDevice, buf::B, lyt::L, inds::I) where {B,L,I}
+    _idx_lyt(similar(buf, Base.index_shape(inds...)), buf, lyt, inds)
+end
+@generated function _idx_lyt(dest, src, lyt, inds::I) where {I}
     N = length(I.parameters)
     quote
         Compat.@inline()
-        dest = Array{$T}(undef, _mapsub(length, inds))
         D = eachindex(dest)
         Dy = iterate(D)
         @inbounds Base.Cartesian.@nloops $N j d -> inds[d] begin
@@ -503,7 +494,7 @@ function _idx_lyt(B::Type, L::Type, I::Type)
             # the optimizer is not clever enough to split the union without it
             Dy === nothing && return dest
             (idx, state) = Dy
-            dest[idx] = buf[lyt[NDIndex(Base.Cartesian.@ntuple($N, j))]]
+            dest[idx] = src[lyt[NDIndex(Base.Cartesian.@ntuple($N, j))]]
             Dy = iterate(D, state)
         end
         return dest

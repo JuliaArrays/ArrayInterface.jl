@@ -1,13 +1,13 @@
 
 function test_layout(x)
     @testset "$x" begin
-        linbuf, linlyt = ArrayInterface.layout(x, static(1))
+        linbuf, linlyt = @inferred(ArrayInterface.layout(x, static(1)))
         for i in eachindex(IndexLinear(), x)
-            @test linbuf[linlyt[i]] == x[i]
+            @test @inferred(linbuf[linlyt[i]]) == x[i]
         end
-        carbuf, carlyt = ArrayInterface.layout(x, static(ndims(x)))
+        carbuf, carlyt = @inferred(ArrayInterface.layout(x, static(ndims(x))))
         for i in eachindex(IndexCartesian(), x)
-            @test carbuf[carlyt[i]] == x[i]
+            @test @inferred(carbuf[carlyt[i]]) == x[i]
         end
     end
     return nothing

@@ -261,7 +261,12 @@ This default return type when calling `ArrayIndex{N}(x)`.
 """
 struct UnkownIndex{N} <: ArrayIndex{N} end
 
+"""
+    ComposedIndex(outer, inner)
 
+A subtype of `ArrayIndex` that lazily combines index `outer` and `inner`. Indexing a
+`ComposedIndex` whith `i` is equivalent to `outer[inner[i]]`.
+"""
 struct ComposedIndex{N,O,I} <: ArrayIndex{N}
     outer::O
     inner::I
@@ -431,35 +436,7 @@ end
     return NDIndex(permute(Tuple(i), Val(I2)))
 end
 @inline function Base.getindex(x::SubIndex{N}, i::AbstractCartesianIndex{N}) where {N}
-    return NDIndex(_reindex(x.indices, Tuple(i)))
-end
-@generated function _reindex(subinds::S, inds::I) where {S,I}
-    inds_i = 1
-    subinds_i = 1
-    NS = known_length(S)
-    NI = known_length(I)
-    out = Expr(:tuple)
-    while inds_i <= NI
-        subinds_type = S.parameters[subinds_i]
-        if subinds_type <: Integer
-            push!(out.args, :(getfield(subinds, $subinds_i)))
-            subinds_i += 1
-        elseif eltype(subinds_type) <: AbstractCartesianIndex
-            push!(out.args, :(Tuple(@inbounds(getfield(subinds, $subinds_i)[getfield(inds, $inds_i)]))...))
-            inds_i += 1
-            subinds_i += 1
-        else
-            push!(out.args, :(@inbounds(getfield(subinds, $subinds_i)[getfield(inds, $inds_i)])))
-            inds_i += 1
-            subinds_i += 1
-        end
-    end
-    if subinds_i <= NS
-        for i in subinds_i:NS
-            push!(out.args, :(getfield(subinds, $subinds_i)))
-        end
-    end
-    return Expr(:block, Expr(:meta, :inline), :($out))
+    return NDIndex(Base.reindex(getfield(x, :indices), Tuple(i)))
 end
 @inline Base.getindex(x::LinearSubIndex, i::CanonicalInt) = offset1(x) + stride1(x) * i
 @propagate_inbounds function Base.getindex(ind::BidiagonalIndex, i::Int)
@@ -575,7 +552,6 @@ function Base.show(io::IO, m::MIME"text/plain", @nospecialize(x::ComposedIndex))
     show(io, m, outer(x))
     print(io, " ∘ ")
     show(io, m, inner(x))
-    #print(io, "$(outer(x)) ∘ $(inner(x))")
 end
 
 

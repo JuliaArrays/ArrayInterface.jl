@@ -44,6 +44,7 @@ ArrayInterface.axes_types
 ArrayInterface.broadcast_axis
 ArrayInterface.buffer
 ArrayInterface.canonicalize
+ArrayInterface.compose
 ArrayInterface.deleteat
 ArrayInterface.dense_dims
 ArrayInterface.findstructralnz
@@ -58,6 +59,8 @@ ArrayInterface.offset1
 ArrayInterface.offsets
 ArrayInterface.parent_type
 ArrayInterface.reduce_tup
+ArrayInterface.relayout
+ArrayInterface.relayout_constructor
 ArrayInterface.restructure
 ArrayInterface.safevec
 ArrayInterface.setindex!
@@ -78,9 +81,15 @@ ArrayInterface.zeromatrix
 ```@docs
 ArrayInterface.ArrayIndex
 ArrayInterface.BroadcastAxis
+ArrayInterface.ComposedIndex
 ArrayInterface.LazyAxis
+ArrayInterface.LinearSubIndex
+ArrayInterface.IdentityIndex
 ArrayInterface.OptionallyStaticStepRange
 ArrayInterface.OptionallyStaticUnitRange
+ArrayInterface.PermutedIndex
+ArrayInterface.SubIndex
 ArrayInterface.StrideIndex
+ArrayInterface.UnkownIndex
 ```
 
