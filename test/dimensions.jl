@@ -12,6 +12,11 @@ end
 ArrayInterface.parent_type(::Type{T}) where {P,T<:NamedDimsWrapper{<:Any,<:Any,<:Any,P}} = P
 ArrayInterface.dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L}} = static(L)
 Base.parent(x::NamedDimsWrapper) = x.parent
+Base.getindex(A::NamedDimsWrapper, inds::Vararg) = parent(A)[inds...]
+Base.getindex(A::NamedDimsWrapper; kwargs...) = parent(A)[ArrayInterface.order_named_inds(ArrayInterface.dimnames(A), values(kwargs))...]
+
+Base.setindex!(A::NamedDimsWrapper, val, inds::Vararg) = setindex!(parent(A), val, inds...)
+Base.setindex!(A::NamedDimsWrapper, v; kwargs...) = setindex!(parent(A), v, ArrayInterface.order_named_inds(ArrayInterface.dimnames(A), values(kwargs))...)
 
 @testset "dimension permutations" begin
     a = ones(2, 2, 2)

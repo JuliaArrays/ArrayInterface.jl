@@ -254,6 +254,7 @@ end
 ArrayInterface.parent_type(::Type{<:Wrapper{T,N,P}}) where {T,N,P} = P
 Base.parent(x::Wrapper) = x.parent
 ArrayInterface.device(::Type{T}) where {T<:Wrapper} = ArrayInterface.device(parent_type(T))
+Base.getindex(x::Wrapper, inds::Vararg) = parent(x)[inds...]
 
 struct DenseWrapper{T,N,P<:AbstractArray{T,N}} <: DenseArray{T,N} end
 ArrayInterface.parent_type(::Type{DenseWrapper{T,N,P}}) where {T,N,P} = P
@@ -839,7 +840,6 @@ end
 @testset "arrayinterface" begin
     include("arrayinterface.jl")
 end
-include("indexing.jl")
 include("dimensions.jl")
 
 @testset "broadcast" begin

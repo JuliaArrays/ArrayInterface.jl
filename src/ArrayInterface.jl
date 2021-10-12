@@ -668,9 +668,49 @@ include("ranges.jl")
 include("axes.jl")
 include("size.jl")
 include("dimensions.jl")
-include("indexing.jl")
 include("stridelayout.jl")
 include("broadcast.jl")
+
+"""
+    is_canonical(::Type{I}) -> StaticBool
+
+Returns `True` if instances of `I` can be used for indexing without any further change
+(e.g., `Int`, `StaticInt`, `UnitRange{Int}`)
+"""
+is_canonical(x) = is_canonical(typeof(x))
+is_canonical(::Type{T}) where {T} = static(false)
+is_canonical(::Type{<:CanonicalInt}) = static(true)
+is_canonical(::Type{StepRange{Int,Int}}) = static(true)
+is_canonical(::Type{UnitRange{Int}}) = static(true)
+is_canonical(::Type{OneTo{Int}}) = static(true)
+is_canonical(::Type{<:OptionallyStaticRange}) = static(true)
+is_canonical(::Type{Vector{Int}}) = static(true)
+is_canonical(::Type{<:Slice}) = static(true)
+@inline is_canonical(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}} = _is_canon(T, static(N))
+_is_canon(::Type{T}, ::StaticInt{0}) where {T} = static(true)
+@inline function _is_canon(::Type{T}, n::StaticInt{N}) where {T,N}
+    return is_canonical(_get_tuple(T, n)) & _is_canon(T, n - static(1))
+end
+
+"""
+    canonicalize(x)
+
+Checks if `x` is in a canonical form for indexing. If `x` is already in a canonical form
+then it is returned unchanged. If `x` is not in a canonical form then it is passed to
+`canonical_convert`.
+"""
+canonicalize(x) = _canonicalize(is_canonical(x), x)
+_canonicalize(::True, x) = x
+_canonicalize(::False, x) = canonical_convert(x)
+
+canonical_convert(x::Integer) = convert(Int, x)
+function canonical_convert(x::AbstractRange)
+    return OptionallyStaticStepRange(static_first(x), static_step(x), static_last(x))
+end
+function canonical_convert(x::AbstractUnitRange)
+    return OptionallyStaticUnitRange(static_first(x), static_last(x))
+end
+
 
 
 
