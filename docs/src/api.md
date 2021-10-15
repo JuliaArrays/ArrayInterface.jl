@@ -66,13 +66,10 @@ ArrayInterface.safevec
 ArrayInterface.setindex!
 ArrayInterface.size
 ArrayInterface.strides
-ArrayInterface.to_axes
-ArrayInterface.to_axis
 ArrayInterface.to_dims
 ArrayInterface.to_index
 ArrayInterface.to_indices
 ArrayInterface.to_parent_dims
-ArrayInterface.unsafe_reconstruct
 ArrayInterface.zeromatrix
 ```
 

@@ -37,20 +37,6 @@ end
     @test_throws ArgumentError ArrayInterface.to_index(axis, error)
 end
 
-@testset "unsafe_reconstruct" begin
-    one_to = Base.OneTo(10)
-    opt_ur = StaticInt(1):10
-    ur = 1:10
-    @test @inferred(ArrayInterface.unsafe_reconstruct(one_to, opt_ur)) === one_to
-    @test @inferred(ArrayInterface.unsafe_reconstruct(one_to, one_to)) === one_to
-
-    @test @inferred(ArrayInterface.unsafe_reconstruct(opt_ur, opt_ur)) === opt_ur
-    @test @inferred(ArrayInterface.unsafe_reconstruct(opt_ur, one_to)) === opt_ur
-
-    @test @inferred(ArrayInterface.unsafe_reconstruct(ur, ur)) === ur
-    @test @inferred(ArrayInterface.unsafe_reconstruct(ur, one_to)) === ur
-end
-
 @testset "to_indices" begin
     a = ones(2,2,1)
     v = ones(2)
@@ -80,24 +66,6 @@ end
 
     # FIXME @test_throws BoundsError ArrayInterface.to_indices(a, (fill(true, 2, 2, 2),))
     # FIXME @test_throws ErrorException ArrayInterface.to_indices(ones(2,2,2), (1, 1))
-end
-
-@testset "to_axes" begin
-    A = ones(3, 3)
-    axis = StaticInt(1):StaticInt(3)
-    inds = StaticInt(1):StaticInt(2)
-    multi_inds = [CartesianIndex(1, 1), CartesianIndex(1, 2)]
-
-    @test @inferred(ArrayInterface.to_axes(A, (axis, axis), (inds, inds))) === (inds, inds)
-    # vector indexing
-    @test @inferred(ArrayInterface.to_axes(ones(3), (axis,), (inds,))) === (inds,)
-    # linear indexing
-    @test @inferred(ArrayInterface.to_axes(A, (axis, axis), (inds,))) === (inds,)
-    # multidim arg
-    @test @inferred(ArrayInterface.to_axes(A, (axis, axis), (multi_inds,))) === (static(1):2,)
-
-    @test ArrayInterface.to_axis(axis, axis) === axis
-    @test ArrayInterface.to_axis(axis, ArrayInterface.indices(axis)) === axis
 end
 
 @testset "0-dimensional" begin

@@ -199,99 +199,6 @@ end
     return LogicalIndex{Int}(arg)
 end
 
-"""
-    unsafe_reconstruct(A, data; kwargs...)
-
-Reconstruct `A` given the values in `data`. New methods using `unsafe_reconstruct`
-should only dispatch on `A`.
-"""
-function unsafe_reconstruct(axis::OneTo, data; kwargs...)
-    if axis === data
-        return axis
-    else
-        return OneTo(data)
-    end
-end
-function unsafe_reconstruct(axis::UnitRange, data; kwargs...)
-    if axis === data
-        return axis
-    else
-        return UnitRange(first(data), last(data))
-    end
-end
-function unsafe_reconstruct(axis::OptionallyStaticUnitRange, data; kwargs...)
-    if axis === data
-        return axis
-    else
-        return OptionallyStaticUnitRange(static_first(data), static_last(data))
-    end
-end
-function unsafe_reconstruct(A::AbstractUnitRange, data; kwargs...)
-    return static_first(data):static_last(data)
-end
-
-"""
-    to_axes(A, inds) -> Tuple
-
-Construct new axes given the corresponding `inds` constructed after
-`to_indices(A, args) -> inds`. This method iterates through each pair of axes and
-indices calling [`to_axis`](@ref).
-"""
-@inline function to_axes(A, inds::Tuple)
-    if ndims(A) === 1
-        return (to_axis(axes(A, 1), first(inds)),)
-    elseif isone(sum(index_ndims(inds)))
-        return (to_axis(eachindex(IndexLinear(), A), first(inds)),)
-    else
-        return to_axes(A, axes(A), inds)
-    end
-end
-# drop this dimension
-to_axes(A, a::Tuple, i::Tuple{<:Integer,Vararg{Any}}) = to_axes(A, tail(a), tail(i))
-to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}}) where {I} = _to_axes(index_ndims(I), A, a, i)
-function _to_axes(::StaticInt{1}, A, axs::Tuple, inds::Tuple)
-    return (to_axis(first(axs), first(inds)), to_axes(A, tail(axs), tail(inds))...)
-end
-@propagate_inbounds function _to_axes(::StaticInt{N}, A, axs::Tuple, inds::Tuple) where {N}
-    axes_front, axes_tail = Base.IteratorsMD.split(axs, Val(N))
-    if IndexStyle(A) === IndexLinear()
-        axis = to_axis(LinearIndices(axes_front), getfield(inds, 1))
-    else
-        axis = to_axis(CartesianIndices(axes_front), getfield(inds, 1))
-    end
-    return (axis, to_axes(A, axes_tail, tail(inds))...)
-end
-to_axes(A, ::Tuple{Ax,Vararg{Any}}, ::Tuple{}) where {Ax} = ()
-to_axes(A, ::Tuple{}, ::Tuple{}) = ()
-
-"""
-    to_axis(old_axis, index) -> new_axis
-
-Construct an `new_axis` for a newly constructed array that corresponds to the
-previously executed `to_index(old_axis, arg) -> index`. `to_axis` assumes that
-`index` has already been confirmed to be in bounds. The underlying indices of
-`new_axis` begins at one and extends the length of `index` (i.e., one-based indexing).
-"""
-@inline function to_axis(axis, inds)
-    if !can_change_size(axis) &&
-       (known_length(inds) !== nothing && known_length(axis) === known_length(inds))
-        return axis
-    else
-        return to_axis(IndexStyle(axis), axis, inds)
-    end
-end
-
-# don't need to check size b/c slice means it's the entire axis
-@inline function to_axis(axis, inds::Slice)
-    if can_change_size(axis)
-        return copy(axis)
-    else
-        return axis
-    end
-end
-to_axis(S::IndexLinear, axis, inds) = StaticInt(1):static_length(inds)
-
-
 ################
 ### getindex ###
 ################
@@ -300,8 +207,8 @@ to_axis(S::IndexLinear, axis, inds) = StaticInt(1):static_length(inds)
 
 Retrieve the value(s) stored at the given key or index within a collection. Creating
 another instance of `ArrayInterface.getindex` should only be done by overloading `A`.
-Changing indexing based on a given argument from `args` should be done through,
-[`to_index`](@ref), or [`to_axis`](@ref).
+Changing indexing based on a given argument from `args` should be done through
+[`to_index`](@ref).
 """
 @propagate_inbounds getindex(A, args...) = unsafe_getindex(A, to_indices(A, args)...)
 @propagate_inbounds function getindex(A; kwargs...)
@@ -326,14 +233,17 @@ end
 end
 
 ## CartesianIndices/LinearIndices
-_ints2range(x::Integer) = x:x
-_ints2range(x::AbstractRange) = x
+# TODO replace _ints2range with something that actually indexes each axis
+_ints2range(::Tuple{}) = ()
+@inline _ints2range(x::Tuple{Any,Vararg{Any}}) = (getfield(x, 1), _ints2range(tail(x))...)
+@inline _ints2range(x::Tuple{<:Integer,Vararg{Any}}) = _ints2range(tail(x))
+
 unsafe_getindex(A::CartesianIndices, i::Vararg{CanonicalInt,N}) where {N} = @inbounds(A[CartesianIndex(i)])
 @inline function unsafe_getindex(A::CartesianIndices{N}, inds::Vararg{Any}) where {N}
     if (length(inds) === 1 && N > 1) || stride_preserving_index(typeof(inds)) === False()
         return Base._getindex(IndexStyle(A), A, inds...)
     else
-        return CartesianIndices(to_axes(A, _ints2range.(inds)))
+        return CartesianIndices(_ints2range(inds))
     end
 end
 
@@ -348,7 +258,7 @@ end
     if isone(sum(index_ndims(inds)))
         return @inbounds(eachindex(A)[first(inds)])
     elseif stride_preserving_index(typeof(inds)) === True()
-        return LinearIndices(to_axes(A, _ints2range.(inds)))
+        return LinearIndices(_ints2range(inds))
     else
         return Base._getindex(IndexStyle(A), A, inds...)
     end
