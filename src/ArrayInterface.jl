@@ -887,7 +887,7 @@ function __init__()
                     (startinds[blockcolors[i]]:endinds[blockcolors[i]])[1:cols[i]]
                     for i = 1:nblock
                 ]
-                return vcat(colors...)
+                return reduce(vcat,colors)
             end
 
             function matrix_colors(A::BlockBandedMatrices.BandedBlockBandedMatrix)
@@ -909,7 +909,7 @@ function __init__()
                     _cycle(startinds[blockcolors[i]]:endinds[blockcolors[i]], cols[i])
                     for i = 1:nblock
                 ]
-                return vcat(colors...)
+                return reduce(vcat,colors)
             end
         end
     end
