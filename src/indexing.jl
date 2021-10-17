@@ -146,7 +146,7 @@ end
     return LogicalIndex{Int}(arg)
 end
 @propagate_inbounds function to_index(::IndexLinear, x, arg::AbstractArray{<:AbstractCartesianIndex})
-    @boundscheck _multi_check_index(axes(x), arg) || throw(BoundsError(x, arg))
+    @boundscheck Base.checkindex(Bool, axes(x), arg) || throw(BoundsError(x, arg))
     return arg
 end
 @propagate_inbounds function to_index(::IndexLinear, x, arg::LogicalIndex)
@@ -175,27 +175,18 @@ to_index(::IndexCartesian, x, arg::Colon) = CartesianIndices(x)
 to_index(::IndexCartesian, x, arg::CartesianIndices{0}) = arg
 to_index(::IndexCartesian, x, arg::AbstractCartesianIndex) = arg
 function to_index(::IndexCartesian, x, arg)
-    @boundscheck _multi_check_index(axes(x), arg) || throw(BoundsError(x, arg))
+    @boundscheck Base.checkindex(Bool, axes(x), arg) || throw(BoundsError(x, arg))
     return arg
 end
-@propagate_inbounds function to_index(::IndexCartesian, x, arg::AbstractArray{<:AbstractCartesianIndex})
-    @boundscheck _multi_check_index(axes(x), arg) || throw(BoundsError(x, arg))
+function to_index(::IndexCartesian, x, arg::AbstractArray{<:AbstractCartesianIndex})
+    @boundscheck Base.checkindex(Bool, axes(x), arg) || throw(BoundsError(x, arg))
     return arg
 end
-@propagate_inbounds function to_index(::IndexCartesian, x, arg::AbstractArray{Bool})
+function to_index(::IndexCartesian, x, arg::AbstractArray{Bool})
     @boundscheck checkbounds(x, arg)
     return LogicalIndex(arg)
 end
-
-function _multi_check_index(axs::Tuple, arg::AbstractArray{T}) where {T<:AbstractCartesianIndex}
-    b = true
-    for i in arg
-        b &= Base.checkbounds_indices(Bool, axs, (i,))
-    end
-    return b
-end
-
-@propagate_inbounds function to_index(::IndexCartesian, x, arg::Union{Array{Bool}, BitArray})
+function to_index(::IndexCartesian, x, arg::Union{Array{Bool}, BitArray})
     @boundscheck checkbounds(x, arg)
     return LogicalIndex{Int}(arg)
 end
@@ -370,33 +361,12 @@ function unsafe_get_collection(A, inds)
     axs = to_axes(A, inds)
     dest = similar(A, axs)
     if map(Base.unsafe_length, axes(dest)) == map(Base.unsafe_length, axs)
-        _unsafe_get_index!(dest, A, inds...) # usually a generated function, don't allow it to impact inference result
+        Base._unsafe_getindex!(dest, A, inds...)
     else
         Base.throw_checksize_error(dest, axs)
     end
     return dest
 end
-
-function _generate_unsafe_get_index!_body(N::Int)
-    quote
-        Compat.@inline()
-        D = eachindex(dest)
-        Dy = iterate(D)
-        @inbounds Base.Cartesian.@nloops $N j d -> I[d] begin
-            # This condition is never hit, but at the moment
-            # the optimizer is not clever enough to split the union without it
-            Dy === nothing && return dest
-            (idx, state) = Dy
-            dest[idx] = unsafe_getindex(src, NDIndex(Base.Cartesian.@ntuple($N, j)))
-            Dy = iterate(D, state)
-        end
-        return dest
-    end
-end
-@generated function _unsafe_get_index!(dest, src, I::Vararg{Any,N}) where {N}
-    return _generate_unsafe_get_index!_body(N)
-end
-
 _ints2range(x::Integer) = x:x
 _ints2range(x::AbstractRange) = x
 @inline function unsafe_get_collection(A::CartesianIndices{N}, inds) where {N}
@@ -476,28 +446,5 @@ unsafe_setindex!(a, v, i::Vararg{Any}) = unsafe_set_collection!(a, v, i)
 
 Sets `inds` of `A` to `val`. `inds` is assumed to have been bounds-checked.
 =#
-@inline unsafe_set_collection!(A, v, i) = _unsafe_setindex!(A, v, i...)
-
-function _generate_unsafe_setindex!_body(N::Int)
-    quote
-        x′ = Base.unalias(A, x)
-        Base.Cartesian.@nexprs $N d -> (I_d = Base.unalias(A, I[d]))
-        idxlens = Base.Cartesian.@ncall $N Base.index_lengths I
-        Base.Cartesian.@ncall $N Base.setindex_shape_check x′ (d -> idxlens[d])
-        Xy = iterate(x′)
-        @inbounds Base.Cartesian.@nloops $N i d->I_d begin
-            # This is never reached, but serves as an assumption for
-            # the optimizer that it does not need to emit error paths
-            Xy === nothing && break
-            (val, state) = Xy
-            unsafe_setindex!(A, val, NDIndex(Base.Cartesian.@ntuple($N, i)))
-            Xy = iterate(x′, state)
-        end
-        A
-    end
-end
-
-@generated function _unsafe_setindex!(A, x, I::Vararg{Any,N}) where {N}
-    return _generate_unsafe_setindex!_body(N)
-end
+unsafe_set_collection!(A, v, i) = Base._unsafe_setindex!(IndexStyle(A), A, v, i...)
 
