@@ -18,3 +18,10 @@ end
 @test @inferred(ArrayInterface.contiguous_axis(ArrayInterface.StrideIndex{2,(1,2),nothing,NTuple{2,Int},NTuple{2,Int}})) == nothing
 @test @inferred(ArrayInterface.stride_rank(ap_index)) == (1, 3)
 
+let v = Float64.(1:10)', v2 = transpose(parent(v))
+  sv = @view(v[1:5])'
+  sv2 = @view(v2[1:5])'
+  @test @inferred(ArrayInterface.StrideIndex(sv)) === @inferred(ArrayInterface.StrideIndex(sv2)) === ArrayInterface.StrideIndex{2, (2, 1), 2}((StaticInt(1), StaticInt(1)), (StaticInt(1), StaticInt(1)))
+  @test @inferred(ArrayInterface.stride_rank(parent(sv))) === @inferred(ArrayInterface.stride_rank(parent(sv2))) === (StaticInt(1),)
+end
+

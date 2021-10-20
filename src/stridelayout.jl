@@ -151,6 +151,15 @@ function contiguous_axis(::Type{T}) where {T<:PermutedDimsArray}
         return from_parent_dims(T, c)
     end
 end
+function contiguous_axis(::Type{Base.ReshapedArray{T, 1, A, Tuple{}}}) where {T, A}
+  IfElse.ifelse(is_column_major(A) & is_dense(A), static(1), nothing)
+end
+function contiguous_axis(::Type{Base.ReshapedArray{T, 1, LinearAlgebra.Adjoint{T, A}, Tuple{}}}) where {T, A <: AbstractVector{T}}
+  IfElse.ifelse(is_column_major(A) & is_dense(A), static(1), nothing)
+end
+function contiguous_axis(::Type{Base.ReshapedArray{T, 1, LinearAlgebra.Transpose{T, A}, Tuple{}}}) where {T, A <: AbstractVector{T}}
+  IfElse.ifelse(is_column_major(A) & is_dense(A), static(1), nothing)
+end
 function contiguous_axis(::Type{T}) where {T<:SubArray}
     return _contiguous_axis(T, contiguous_axis(parent_type(T)))
 end
@@ -267,6 +276,16 @@ end
 function stride_rank(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.SignedMultiplicativeInverse{Int},M}}}}) where {T,N,P,M}
     _reshaped_striderank(is_column_major(P), Val{N}(), Val{M}())
 end
+function stride_rank(::Type{Base.ReshapedArray{T, 1, A, Tuple{}}}) where {T, A}
+    IfElse.ifelse(is_column_major(A) & is_dense(A), (static(1),), nothing)
+end
+function stride_rank(::Type{Base.ReshapedArray{T, 1, LinearAlgebra.Adjoint{T, A}, Tuple{}}}) where {T, A <: AbstractVector{T}}
+    IfElse.ifelse(is_dense(A), (static(1),), nothing)
+end
+function stride_rank(::Type{Base.ReshapedArray{T, 1, LinearAlgebra.Transpose{T, A}, Tuple{}}}) where {T, A <: AbstractVector{T}}
+    IfElse.ifelse(is_dense(A), (static(1),), nothing)
+end
+
 _reshaped_striderank(::True, ::Val{N}, ::Val{0}) where {N} = nstatic(Val(N))
 _reshaped_striderank(_, __, ___) = nothing
 
@@ -425,6 +444,14 @@ end
 function dense_dims(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.SignedMultiplicativeInverse{Int},M}}}}) where {T,N,P,M}
     return _reshaped_dense_dims(dense_dims(P), is_column_major(P), Val{N}(), Val{M}())
 end
+is_dense(A) = is_dense(typeof(A))
+is_dense(::Type{A}) where {A} = _is_dense(dense_dims(A))
+_is_dense(::Tuple{False,Vararg}) = False()
+_is_dense(t::Tuple{True,Vararg}) = _is_dense(Base.tail(t))
+_is_dense(t::Tuple{True}) = True()
+_is_dense(t::Tuple{}) = True()
+
+
 _reshaped_dense_dims(_, __, ___, ____) = nothing
 function _reshaped_dense_dims(dense::D, ::True, ::Val{N}, ::Val{0}) where {D,N}
     if all(dense)
