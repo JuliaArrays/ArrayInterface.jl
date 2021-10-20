@@ -160,9 +160,6 @@ end
 function contiguous_axis(::Type{Base.ReshapedArray{T, 1, LinearAlgebra.Transpose{T, A}, Tuple{}}}) where {T, A <: AbstractVector{T}}
   IfElse.ifelse(is_column_major(A) & is_dense(A), static(1), nothing)
 end
-function stride_rank(::Type{Base.ReshapedArray{T, 1, LinearAlgebra.Transpose{T, A}, Tuple{}}}) where {T, A <: AbstractVector{T}}
-    IfElse.ifelse(is_dense(A), (static(1),), nothing)
-end
 function contiguous_axis(::Type{T}) where {T<:SubArray}
     return _contiguous_axis(T, contiguous_axis(parent_type(T)))
 end
@@ -283,6 +280,9 @@ function stride_rank(::Type{Base.ReshapedArray{T, 1, A, Tuple{}}}) where {T, A}
     IfElse.ifelse(is_column_major(A) & is_dense(A), (static(1),), nothing)
 end
 function stride_rank(::Type{Base.ReshapedArray{T, 1, LinearAlgebra.Adjoint{T, A}, Tuple{}}}) where {T, A <: AbstractVector{T}}
+    IfElse.ifelse(is_dense(A), (static(1),), nothing)
+end
+function stride_rank(::Type{Base.ReshapedArray{T, 1, LinearAlgebra.Transpose{T, A}, Tuple{}}}) where {T, A <: AbstractVector{T}}
     IfElse.ifelse(is_dense(A), (static(1),), nothing)
 end
 
