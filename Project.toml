@@ -14,7 +14,7 @@ Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
 Compat = "3.37"
 IfElse = "0.1"
 Requires = "0.5, 1.0"
-Static = "0.3.3"
+Static = "0.3.3, 0.4"
 julia = "1.2"
 
 [extras]
