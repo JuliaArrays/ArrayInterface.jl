@@ -107,7 +107,7 @@
     
     @test Base.setindex(1:5, [6,2], 1:2) == [6,2,3,4,5]
 
-    @test @inferred(eachindex(static(-7):static(-7))) === static(1):static(15)
+    @test @inferred(eachindex(static(-7):static(7))) === static(1):static(15)
     @test @inferred((static(-7):static(7))[first(eachindex(static(-7):static(7)))]) == -7
 end
 
