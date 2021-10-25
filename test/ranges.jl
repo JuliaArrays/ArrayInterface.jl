@@ -2,6 +2,7 @@
 @testset "Range Interface" begin
     @testset "Range Constructors" begin
         @test @inferred(StaticInt(1):StaticInt(10)) == 1:10
+        @test @inferred(ArrayInterface.SUnitRange{1,10}()) == 1:10
         @test @inferred(StaticInt(1):StaticInt(2):StaticInt(10)) == 1:2:10
         @test @inferred(1:StaticInt(2):StaticInt(10)) == 1:2:10
         @test @inferred(StaticInt(1):StaticInt(2):10) == 1:2:10
@@ -84,6 +85,7 @@
         @test @inferred(length(StaticInt(0):StaticInt(-2):StaticInt(1))) == 0
 
         @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), 2, 10)))) === nothing
+        @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.SOneTo{-10}()))) === 0
         @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(StaticInt(1), StaticInt(1), StaticInt(10))))) === 10
         @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(StaticInt(2), StaticInt(1), StaticInt(10))))) === 9
         @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(StaticInt(2), StaticInt(2), StaticInt(10))))) === 5

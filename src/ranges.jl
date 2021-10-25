@@ -101,33 +101,31 @@ struct OptionallyStaticUnitRange{F<:CanonicalInt,L<:CanonicalInt} <: AbstractUni
         OptionallyStaticUnitRange(canonicalize(start), canonicalize(stop))
     end
 
-    function OptionallyStaticUnitRange{F,L}(x::AbstractRange) where {F,L}
-        if step(x) == 1
-            return OptionallyStaticUnitRange(static_first(x), static_last(x))
-        else
-            throw(ArgumentError("step must be 1, got $(step(x))"))
-        end
-    end
-
     function OptionallyStaticUnitRange(x::AbstractRange)
-        if step(x) == 1
-            return OptionallyStaticUnitRange(static_first(x), static_last(x))
-        else
-            throw(ArgumentError("step must be 1, got $(step(x))"))
-        end
+        step(x) == 1 && return OptionallyStaticUnitRange(static_first(x), static_last(x))
+
+        errmsg(x) = throw(ArgumentError("step must be 1, got $(step(x))")) # avoid GC frame
+        errmsg(x)
+    end
+    OptionallyStaticUnitRange{F,L}(x::AbstractRange) where {F,L} = OptionallyStaticUnitRange(x)
+    function OptionallyStaticUnitRange{StaticInt{F},StaticInt{L}}() where {F,L}
+        new{StaticInt{F},StaticInt{L}}()
     end
 end
 
+const SUnitRange{F,L} = OptionallyStaticUnitRange{StaticInt{F},StaticInt{L}}
+const SOneTo{L} = SUnitRange{1,L}
+
 function Base.first(r::OptionallyStaticUnitRange)::Int
     if known_first(r) === nothing
-        return r.start
+        return getfield(r, :start)
     else
         return known_first(r)
     end
 end
 function Base.last(r::OptionallyStaticUnitRange)::Int
     if known_last(r) === nothing
-        return r.stop
+        return getfield(r, :stop)
     else
         return known_last(r)
     end
@@ -214,21 +212,21 @@ end
 end
 function Base.first(r::OptionallyStaticStepRange)::Int
     if known_first(r) === nothing
-        return r.start
+        return getfield(r, :start)
     else
         return known_first(r)
     end
 end
 function Base.step(r::OptionallyStaticStepRange)::Int
     if known_step(r) === nothing
-        return r.step
+        return getfield(r, :step)
     else
         return known_step(r)
     end
 end
 function Base.last(r::OptionallyStaticStepRange)::Int
     if known_last(r) === nothing
-        return r.stop
+        return getfield(r, :stop)
     else
         return known_last(r)
     end
@@ -264,33 +262,27 @@ end
 function Base.:(:)(::StaticInt{F}, step::Integer, stop::Integer) where {F}
     return OptionallyStaticStepRange(StaticInt(F), step, stop)
 end
-function Base.:(:)(::StaticInt{F}, ::StaticInt{1}, ::StaticInt{L}) where {F,L}
-    return OptionallyStaticUnitRange(StaticInt(F), StaticInt(L))
-end
-function Base.:(:)(start::Integer, ::StaticInt{1}, ::StaticInt{L}) where {L}
-    return OptionallyStaticUnitRange(start, StaticInt(L))
-end
-function Base.:(:)(::StaticInt{F}, ::StaticInt{1}, stop::Integer) where {F}
-    return OptionallyStaticUnitRange(StaticInt(F), stop)
-end
+Base.:(:)(start::StaticInt{F}, ::StaticInt{1}, stop::StaticInt{L}) where {F,L} = start:stop
+Base.:(:)(start::Integer, ::StaticInt{1}, stop::StaticInt{L}) where {L} = start:stop
+Base.:(:)(start::StaticInt{F}, ::StaticInt{1}, stop::Integer) where {F} = start:stop
 function Base.:(:)(start::Integer, ::StaticInt{1}, stop::Integer)
-    return OptionallyStaticUnitRange(start, stop)
+    OptionallyStaticUnitRange(start, stop)
 end
 
-function Base.isempty(r::OptionallyStaticUnitRange)
-    if known_first(r) === oneunit(eltype(r))
-        return unsafe_isempty_one_to(last(r))
-    else
-        return unsafe_isempty_unit_range(first(r), last(r))
-    end
-end
-
+Base.isempty(r::OptionallyStaticUnitRange{One}) = last(r) <= 0
+Base.isempty(r::OptionallyStaticUnitRange) = first(r) > last(r)
 function Base.isempty(r::OptionallyStaticStepRange)
-    return (r.start != r.stop) & ((r.step > zero(r.step)) != (r.stop > r.start))
+    (r.start != r.stop) & ((r.step > 0) != (r.stop > r.start))
 end
 
-unsafe_isempty_one_to(lst) = lst <= zero(lst)
-unsafe_isempty_unit_range(fst, lst) = fst > lst
+function Base.checkindex(
+    ::Type{Bool},
+    ::SUnitRange{F1,L1},
+    ::SUnitRange{F2,L2}
+) where {F1,L1,F2,L2}
+
+    (F1::Int <= F2::Int) && (L1::Int >= L2::Int)
+end
 
 @propagate_inbounds function Base.getindex(
     r::OptionallyStaticUnitRange,
@@ -302,27 +294,14 @@ unsafe_isempty_unit_range(fst, lst) = fst > lst
     return (fnew+static_first(s)):(fnew+static_last(s))
 end
 
-@propagate_inbounds function Base.getindex(r::OptionallyStaticUnitRange, i::Integer)
-    if known_first(r) === oneunit(eltype(r))
-        return get_index_one_to(r, i)
-    else
-        return get_index_unit_range(r, i)
-    end
+@propagate_inbounds function Base.getindex(x::OptionallyStaticUnitRange{StaticInt{1}}, i::Int)
+    @boundscheck checkbounds(x, i)
+    i
 end
-
-@inline function get_index_one_to(r, i)
-    @boundscheck if ((i < 1) || (i > last(r)))
-        throw(BoundsError(r, i))
-    end
-    return convert(eltype(r), i)
-end
-
-@inline function get_index_unit_range(r, i)
-    val = first(r) + (i - 1)
-    @boundscheck if (i < 1) || val > last(r)
-        throw(BoundsError(r, i))
-    end
-    return convert(eltype(r), val)
+@propagate_inbounds function Base.getindex(x::OptionallyStaticUnitRange, i::Int)
+    val = first(x) + (i - 1)
+    @boundscheck ((i < 1) || val > last(x)) && throw(BoundsError(x, i))
+    val::Int
 end
 
 @inline _try_static(::StaticInt{N}, ::StaticInt{N}) where {N} = StaticInt{N}()
@@ -355,14 +334,7 @@ end
     _range_length(known_first(T), known_step(T), known_last(T))
 end
 
-@inline function Base.length(r::OptionallyStaticUnitRange)
-    if isempty(r)
-        return 0
-    else
-        return _range_length(static_first(r), static_last(r))
-    end
-end
-
+Base.length(r::OptionallyStaticUnitRange) = _range_length(static_first(r), static_last(r))
 @inline function Base.length(r::OptionallyStaticStepRange)
     if isempty(r)
         return 0
@@ -371,11 +343,16 @@ end
     end
 end
 
-_range_length(::StaticInt{1}, stop::Integer) = Int(stop)
-_range_length(start::Integer, stop::Integer) = Int((stop - start) + 1)
 _range_length(start, stop) = nothing
-_range_length(start::Integer, ::StaticInt{1}, stop::Integer) = _range_length(start, stop)
-@inline function _range_length(start::Integer, step::Integer, stop::Integer)
+function _range_length(start::CanonicalInt, stop::CanonicalInt)
+    if start > stop
+        return 0
+    else
+        return Int((stop - start) + 1)
+    end
+end
+_range_length(start::CanonicalInt, ::One, stop::CanonicalInt) = _range_length(start, stop)
+@inline function _range_length(start::CanonicalInt, step::CanonicalInt, stop::CanonicalInt)
     if step > 1
         return Base.checked_add(Int(div(unsigned(stop - start), step)), 1)
     elseif step < -1
@@ -405,31 +382,36 @@ Base.eachindex(r::OptionallyStaticRange) = One():static_length(r)
     fi = Int(first(r));
     fi, fi
 end
+function Base.iterate(::SUnitRange{F,L}) where {F,L}
+    if L::Int < F::Int
+        return nothing
+    else
+        return (F::Int, F::Int)
+    end
+end
+function Base.iterate(::SOneTo{n}, s::Int) where {n}
+    if s < n::Int
+        s2 = s + 1
+        return (s2, s2)
+    else
+        return nothing
+    end
+end
 
 Base.to_shape(x::OptionallyStaticRange) = length(x)
 Base.to_shape(x::Slice{T}) where {T<:OptionallyStaticRange} = length(x)
+Base.axes(S::Slice{<:OptionallyStaticUnitRange{One}}) = (S.indices,)
+Base.axes(S::Slice{<:OptionallyStaticRange}) = (Base.IdentityUnitRange(S.indices),)
 
-@inline function Base.axes(S::Slice{T}) where {T<:OptionallyStaticRange}
-    if known_first(T) === 1 && known_step(T) === 1
-        return (S.indices,)
-    else
-        return (Base.IdentityUnitRange(S.indices),)
-    end
-end
-
-@inline function Base.axes1(S::Slice{T}) where {T<:OptionallyStaticRange}
-    if known_first(T) === 1 && known_step(T) === 1
-        return S.indices
-    else
-        return Base.IdentityUnitRange(S.indices)
-    end
-end
+Base.axes1(S::Slice{<:OptionallyStaticUnitRange{One}}) = S.indices
+Base.axes1(S::Slice{<:OptionallyStaticRange}) = Base.IdentityUnitRange(S.indices)
+Base.unsafe_indices(S::Base.Slice{<:OptionallyStaticUnitRange{One}}) = (S.indices,)
 
 Base.:(-)(r::OptionallyStaticRange) = -static_first(r):-static_step(r):-static_last(r)
 
 Base.reverse(r::OptionallyStaticUnitRange) = static_last(r):static(-1):static_first(r)
 function Base.reverse(r::OptionallyStaticStepRange)
-    return OptionallyStaticStepRange(static_last(r), -static_step(r), static_first(r))
+    OptionallyStaticStepRange(static_last(r), -static_step(r), static_first(r))
 end
 
 function Base.show(io::IO, ::MIME"text/plain", r::OptionallyStaticRange)
@@ -442,6 +424,18 @@ function Base.show(io::IO, ::MIME"text/plain", r::OptionallyStaticRange)
         print(io, ":")
     end
     print(io, static_last(r))
+end
+
+@inline function Base.getproperty(x::OptionallyStaticRange, s::Symbol)
+    if s === :start
+        return first(x)
+    elseif s === :step
+        return step(x)
+    elseif s === :stop
+        return last(x)
+    else
+        error("$x has no property $s")
+    end
 end
 
 """
