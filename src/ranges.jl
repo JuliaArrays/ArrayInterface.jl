@@ -399,7 +399,7 @@ end
 
 const OptionallyStaticRange = Union{<:OptionallyStaticUnitRange,<:OptionallyStaticStepRange}
 
-Base.eachindex(r::OptionallyStaticRange) = r
+Base.eachindex(r::OptionallyStaticRange) = One():static_length(r)
 @inline function Base.iterate(r::OptionallyStaticRange)
     isempty(r) && return nothing
     fi = Int(first(r));
