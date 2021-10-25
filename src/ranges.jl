@@ -275,7 +275,7 @@ function Base.isempty(r::OptionallyStaticStepRange)
     (r.start != r.stop) & ((r.step > 0) != (r.stop > r.start))
 end
 
-Base.@pure function Base.checkindex(
+function Base.checkindex(
     ::Type{Bool},
     ::SUnitRange{F1,L1},
     ::SUnitRange{F2,L2}
@@ -382,11 +382,11 @@ Base.eachindex(r::OptionallyStaticRange) = One():static_length(r)
     fi = Int(first(r));
     fi, fi
 end
-Base.@pure function Base.iterate(::SUnitRange{F,L}) where {F,L}
+function Base.iterate(::SUnitRange{F,L}) where {F,L}
     if L::Int < F::Int
         return nothing
     else
-        (F::Int, F::Int)
+        return (F::Int, F::Int)
     end
 end
 function Base.iterate(::SOneTo{n}, s::Int) where {n}
