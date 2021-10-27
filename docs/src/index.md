@@ -8,7 +8,7 @@ Designs for new Base array interface primitives, used widely through scientific 
 
 ## Inheriting Array Traits
 
-Creating an array type with unique behavior in Julia is often accomplished by creating a lazy wrapper around previously defined array types.
+Creating an array type with unique behavior in Julia is often accomplished by creating a lazy wrapper around previously defined array types (e.g. [composition by inheritance](https://en.wikipedia.org/wiki/Composition_over_inheritance)).
 This allows the new array type to inherit functionality by redirecting methods to the parent array (e.g., `Base.size(x::Wrapper) = size(parent(x))`).
 Generic design limits the need to define an excessive number of methods like this.
 However, methods used to describe a type's traits often need to be explicitly defined for each trait method.
@@ -32,7 +32,7 @@ Most traits in `ArrayInterface` are a variant on this pattern.
 
 ## Static Traits
 
-The size along one or more dimensions of an array may be known at compile time. 
+The size along one or more dimensions of an array may be known at compile time.
 `ArrayInterface.known_size` is useful for extracting this information from array types and `ArrayInterface.size` is useful for extracting this information from an instance of an array.
 For example:
 
@@ -94,6 +94,7 @@ If `x`'s first dimension is named `:dim_1` then calling `f(x, :dim_1)` would res
 If users knew they always wanted to call `f(x, 2)` then they could define `h(x) = f(x, static(2))`, ensuring `f` passes along that information while compiling.
 
 New types defining dimension names can do something similar to:
+
 ```julia
 using Static
 using ArrayInterface
@@ -107,4 +108,70 @@ Dimension names should be appropriately propagated between nested arrays using `
 This allows types such as `SubArray` and `PermutedDimsArray` to work with named dimensions.
 Similarly, other methods that return information corresponding to dimensions (e.g., `ArrayInterfce.size`, `ArrayInterface.axes`) use `to_parent_dims` to appropriately propagate parent information.
 
+## Axes
+
+Where Julia's currently documented [array interface]( https://docs.julialang.org/en/v1/manual/interfaces/#man-interface-array) requires defining `Base.size`, ArrayInterface instead requires defining [`ArrayInterface.axes`](@ref) and [`ArrayInterface.axes_types`](@ref).
+`ArrayInterface.axes_types(::Type{T})` facilitates propagation of a number of traits known at compile time (e.g., `known_size`, `known_offsets`) and `ArrayInterface.axes(::AbstractArray)` replaces `Base.OneTo` with `ArrayInterface.OptionallyStaticUnitRange` in situations where static information would otherwise be lost.
+`ArrayInterface.axes(::AbstractArray, dim)` utilizes `to_dims`, [as described elsewhere](#dimensions).
+
+### Simple Wrappers
+
+Let's say we have a new array type doesn't affect axes then this is as simple as:
+```julia
+Base.axes(x::SimpleWrapper) = ArrayInterface.axes(parent(x))
+Base.axes(x::SimpleWrapper, dim) = ArrayInterface.axes(parent(x), dim)
+ArrayInterface.axes_types(::Type{T}) where {T<:SimpleWrapper} = axes_types(parent_type(T))
+```
+
+To reiterate, `ArrayInterface.axes` improves on `Base.axes` for few Base array types but is otherwise identical.
+Therefore, the first method simply ensures you don't have to define multiple parametric methods of your new type (e.g., `SimpleWrapper{T,N,<:Transpose{T,<:AbstractVector}}`).
+This is otherwise identical to standard inheritance by composition.
+
+### New Axis Types
+
+`OffsetArray` changes the first index for each axis.
+It produces axes of type `IdOffsetRange`, where the first field is the offset and the second is the parent axis.
+
+```julia
+# Note that generating a `Tuple` type piecewise like may be type unstable and should be
+# tested using `Test.@inferred`. It's often necessary to use generated function
+# (`@generated`) or methods defined in Static.jl.
+@generated function ArrayInterface.axes_types(::Type{A}) where {A<:OffsetArray}
+    out = Expr(:curly, :Tuple)
+    P = parent_type(A)
+    for i in 1:ndims(A)
+        O = ArrayInterface.known_offsets(A, i)
+        if O === nothing  # offset is not known at compile time and is an `Int`
+            push!(out.args, :(IdOffsetRange{Int, axes_types($P, $d)}))
+        else # offset is known, therefor is is a `StaticInt`
+            push!(out.args, :(IdOffsetRange{StaticInt{$O}, axes_types($P, $d)}))
+        end
+    end
+end
+function Base.axes(A::OffsetArray)
+    map(IdOffsetRange, ArrayInterface.offsets(A), ArrayInterface.axes(parent(A)))
+end
+function Base.axes(A::OffsetArray, dim)
+    d = to_dims(A, dim)
+    IdOffsetRange(offsets(A, d), ArrayInterface.axes(parent(A), d)
+end
+```
+
+### When to Discard Axis Information
+
+Occasionally we can't preserve axis information.
+For example, we can't map axis information from the parent array of `ReshapedArray`.
+In this case we simply build axes from the new size information.
+
+```julia
+function ArrayInterface.axes_types(::Type{T}) where {T<:ReshapedArray}
+    NTuple{ndims(T),OneTo{Int}}  # ReshapedArray never has static sizes
+end
+ArrayInterface.axes(A::ReshapedArray) = map(OneTo, size(A))
+```
+
+Some instances wrap an array but there's no way to propagate
+
+ are required definitions and `size` 
+`ArrayInterface.axes` and `ArrayInterface.axes_types` are fundamental to the interface defined here.
 
