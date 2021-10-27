@@ -4,8 +4,9 @@
     size(A, dim) -> Union{Int,StaticInt}
 
 Returns the size of each dimension of `A` or along dimension `dim` of `A`. If the size of
-any axes are known at compile time, these should be returned as `Static` numbers. For
-example:
+any axes are known at compile time, these should be returned as `Static` numbers. Otherwise,
+`ArrayInterface.size(A)` is identical to `Base.size(A)`
+
 ```julia
 julia> using StaticArrays, ArrayInterface
 
@@ -15,20 +16,13 @@ julia> ArrayInterface.size(A)
 (static(3), static(4))
 ```
 """
-function size(a::A) where {A}
-    if parent_type(A) <: A
-        return map(static_length, axes(a))
-    else
-        return size(parent(a))
-    end
-end
-
+@inline size(A) = map(static_length, axes(A))
 size(x::SubArray) = eachop(_sub_size, to_parent_dims(x), x.indices)
 _sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = static_length(getfield(x, dim))
 @inline size(B::VecAdjTrans) = (One(), length(parent(B)))
 @inline size(B::MatAdjTrans) = permute(size(parent(B)), to_parent_dims(B))
-@inline function size(B::PermutedDimsArray{T,N,I1,I2,A}) where {T,N,I1,I2,A}
-    return permute(size(parent(B)), to_parent_dims(B))
+@inline function size(B::PermutedDimsArray{T,N,I1}) where {T,N,I1}
+    permute(size(parent(B)), static(I1))
 end
 function size(a::ReinterpretArray{T,N,S,A}) where {T,N,S,A}
     psize = size(parent(a))
@@ -44,7 +38,7 @@ function size(a::ReinterpretArray{T,N,S,A}) where {T,N,S,A}
         return (div(first(psize) * static(sizeof(S)), static(sizeof(T))), tail(psize)...,)
     end
 end
-size(A::ReshapedArray) = A.dims
+size(A::ReshapedArray) = Base.size(A)
 size(A::AbstractRange) = (static_length(A),)
 
 size(a, dim) = size(a, to_dims(a, dim))
@@ -90,4 +84,3 @@ _known_size(::Type{T}, dim::StaticInt) where {T} = known_length(_get_tuple(T, di
         return known_size(T)[dim]
     end
 end
-

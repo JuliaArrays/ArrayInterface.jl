@@ -1,6 +1,6 @@
 name = "ArrayInterface"
 uuid = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
-version = "3.1.36"
+version = "3.1.37"
 
 [deps]
 Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"

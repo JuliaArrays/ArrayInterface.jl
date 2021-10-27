@@ -583,12 +583,15 @@ abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
 Base.size(A::AbstractArray2) = map(Int, ArrayInterface.size(A))
 Base.size(A::AbstractArray2, dim) = Int(ArrayInterface.size(A, dim))
 
-Base.axes(A::AbstractArray2) = ArrayInterface.axes(A)
+function Base.axes(A::AbstractArray2)
+    !(parent_type(A) <: typeof(A)) && return ArrayInterface.axes(parent(A))
+    throw(ArgumentError("Subtypes of `AbstractArray2` must define an axes method"))
+end
 Base.axes(A::AbstractArray2, dim) = ArrayInterface.axes(A, dim)
 
 function Base.strides(A::AbstractArray2)
-    defines_strides(A) || throw(MethodError(Base.strides, (A,)))
-    return map(Int, ArrayInterface.strides(A))
+    defines_strides(A) && return map(Int, ArrayInterface.strides(A))
+    throw(MethodError(Base.strides, (A,)))
 end
 Base.strides(A::AbstractArray2, dim) = Int(ArrayInterface.strides(A, dim))
 
@@ -603,7 +606,7 @@ end
 function Base.length(A::AbstractArray2)
     len = known_length(A)
     if len === nothing
-        return prod(size(A))
+        return Int(prod(size(A)))
     else
         return Int(len)
     end
@@ -931,7 +934,6 @@ function __init__()
                 return getfield(relative_offsets(A), dim)
             end
         end
- 
         ArrayInterface.parent_type(::Type{<:OffsetArrays.OffsetArray{T,N,A}}) where {T,N,A} = A
         function _offset_axis_type(::Type{T}, dim::StaticInt{D}) where {T,D}
             OffsetArrays.IdOffsetRange{Int,ArrayInterface.axes_types(T, dim)}
@@ -943,11 +945,11 @@ function __init__()
             ntuple(identity -> nothing, Val(ndims(A)))
         end
         function ArrayInterface.offsets(A::OffsetArrays.OffsetArray)
-            map(-, relative_offsets(A), ArrayInterface.offsets(parent(A)))
+            map(+, ArrayInterface.offsets(parent(A)), relative_offsets(A))
         end
        @inline function ArrayInterface.offsets(A::OffsetArrays.OffsetArray, dim)
             d = ArrayInterface.to_dims(A, dim)
-            relative_offsets(A, d) - ArrayInterface.offsets(parent(A), d)
+            ArrayInterface.offsets(parent(A), d) + relative_offsets(A, d)
         end
         @inline function ArrayInterface.axes(A::OffsetArrays.OffsetArray)
             map(OffsetArrays.IdOffsetRange, ArrayInterface.axes(parent(A)), relative_offsets(A))

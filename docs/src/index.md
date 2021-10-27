@@ -124,54 +124,53 @@ ArrayInterface.axes_types(::Type{T}) where {T<:SimpleWrapper} = axes_types(paren
 ```
 
 To reiterate, `ArrayInterface.axes` improves on `Base.axes` for few Base array types but is otherwise identical.
-Therefore, the first method simply ensures you don't have to define multiple parametric methods of your new type (e.g., `SimpleWrapper{T,N,<:Transpose{T,<:AbstractVector}}`).
+Therefore, the first method simply ensures you don't have to define multiple parametric methods for your new type to preserve statically sized nested axes (e.g., `SimpleWrapper{T,N,<:Transpose{T,<:AbstractVector}}`).
 This is otherwise identical to standard inheritance by composition.
+
+### When to Discard Axis Information
+
+Occasionally the parent array's axis information can't be preserved.
+For example, we can't map axis information from the parent array of `Base.ReshapedArray`.
+In this case we can simply build axes from the new size information.
+
+```julia
+ArrayInterface.axes_types(T::Type{<:ReshapedArray}) = NTuple{ndims(T),OneTo{Int}}
+ArrayInterface.axes(A::ReshapedArray) = map(OneTo, size(A))
+```
 
 ### New Axis Types
 
 `OffsetArray` changes the first index for each axis.
-It produces axes of type `IdOffsetRange`, where the first field is the offset and the second is the parent axis.
+It produces axes of type `IdOffsetRange`, which contains the value of the relative offset and the parent axis.
 
 ```julia
+using ArrayInterface: axes_types, parent_type, to_dims
 # Note that generating a `Tuple` type piecewise like may be type unstable and should be
 # tested using `Test.@inferred`. It's often necessary to use generated function
 # (`@generated`) or methods defined in Static.jl.
 @generated function ArrayInterface.axes_types(::Type{A}) where {A<:OffsetArray}
     out = Expr(:curly, :Tuple)
     P = parent_type(A)
-    for i in 1:ndims(A)
-        O = ArrayInterface.known_offsets(A, i)
+    for dim in 1:ndims(A)
+        # offset relative to parent array
+        O = relative_known_offsets(A, dim)
         if O === nothing  # offset is not known at compile time and is an `Int`
-            push!(out.args, :(IdOffsetRange{Int, axes_types($P, $d)}))
+            push!(out.args, :(IdOffsetRange{Int, axes_types($P, $(static(dim)))}))
         else # offset is known, therefor is is a `StaticInt`
-            push!(out.args, :(IdOffsetRange{StaticInt{$O}, axes_types($P, $d)}))
+            push!(out.args, :(IdOffsetRange{StaticInt{$O}, axes_types($P, $(static(dim))}))
         end
     end
 end
 function Base.axes(A::OffsetArray)
-    map(IdOffsetRange, ArrayInterface.offsets(A), ArrayInterface.axes(parent(A)))
+    map(IdOffsetRange, ArrayInterface.axes(parent(A)), relative_offsets(A))
 end
 function Base.axes(A::OffsetArray, dim)
     d = to_dims(A, dim)
-    IdOffsetRange(offsets(A, d), ArrayInterface.axes(parent(A), d)
+    IdOffsetRange(ArrayInterface.axes(parent(A), d), relative_offsets(A, d))
 end
 ```
 
-### When to Discard Axis Information
-
-Occasionally we can't preserve axis information.
-For example, we can't map axis information from the parent array of `ReshapedArray`.
-In this case we simply build axes from the new size information.
-
-```julia
-function ArrayInterface.axes_types(::Type{T}) where {T<:ReshapedArray}
-    NTuple{ndims(T),OneTo{Int}}  # ReshapedArray never has static sizes
-end
-ArrayInterface.axes(A::ReshapedArray) = map(OneTo, size(A))
-```
-
-Some instances wrap an array but there's no way to propagate
-
- are required definitions and `size` 
-`ArrayInterface.axes` and `ArrayInterface.axes_types` are fundamental to the interface defined here.
-
+Defining these two methods ensures that other array types that wrap `OffsetArray` and appropriately define these methods propagate offsets independent of any dependency on `OffsetArray`.
+It is entirely optional to define `ArrayInterface.size` for `OffsetArray` because the size can be derived from the axes.
+However, in this particularly case we should also define
+ `ArrayInterface.size(A::OffsetArray)  = ArrayInterface.size(parent(A))` because the relative offsets attached to `OffsetArray` do not change the size but may hide static sizes if using a relative offset that is defined with an `Int`.

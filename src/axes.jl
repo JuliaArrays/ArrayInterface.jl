@@ -66,7 +66,7 @@ function _non_reshaped_axis_type(::Type{A}, d::StaticInt{D}) where {A,D}
         if known_length(paxis) === nothing
             return paxis
         else
-            return SOneTo{div(len * sizeof(eltype(parent_type(A))), sizeof(eltyp(A)))}
+            return SOneTo{div(known_length(paxis) * sizeof(eltype(parent_type(A))), sizeof(eltype(A)))}
         end
     else
         return paxis
@@ -77,32 +77,33 @@ end
     axes(A) -> Tuple{Vararg{AbstractUnitRange{Int}}}
     axes(A, dim) -> AbstractUnitRange{Int}
 
-Returns the axis associated with each dimension of `A` or dimension `dim`
+Returns the axis associated with each dimension of `A` or dimension `dim`.
+`ArrayInterface.axes(::AbstractArray)` behaves nearly identical to `Base.axes` with the
+exception of a handful of types replace `Base.OneTo{Int}` with `ArrayInterface.SOneTo`. For
+example, the axis along the first dimension of `Transpose{T,<:AbstractVector{T}}` and
+`Adjoint{T,<:AbstractVector{T}}` can be represented by `SOneTo(1)`. Similarly,
+`Base.ReinterpretArray`'s first axis may be statically sized. 
 """
-@inline function axes(a::A) where {A}
-    if parent_type(A) <: A
-        return Base.axes(a)
-    else
-        return axes(parent(a))
-    end
-end
+@inline axes(A) = Base.axes(A)
 axes(A::ReshapedArray) = Base.axes(A)
 axes(A::PermutedDimsArray) = permute(axes(parent(A)), to_parent_dims(A))
 axes(A::MatAdjTrans) = permute(axes(parent(A)), to_parent_dims(A))
 axes(A::VecAdjTrans) = (SOneTo{1}(), axes(parent(A), 1))
 axes(A::SubArray) = map(Base.axes1, permute(A.indices, to_parent_dims(A)))
 
-axes(A::ReshapedArray, dim) = Base.axes(A, Int(dim))
-@inline function axes(a::A, dim) where {A}
-    d = to_dims(A, dim)
-    if parent_type(A) <: A
-        if d > ndims(A)
-            return SOneTo{1}()
-        else
-            return Base.axes(a, Int(d))
-        end
+@inline axes(A, dim) = _axes(A, to_dims(A, dim))
+@inline function _axes(A, dim::Int)
+    if dim > ndims(A)
+        return OneTo(1)
     else
-        return axes(parent(a), to_parent_dims(a, d))
+        return getfield(axes(A), Int(dim))
+    end
+end
+@inline function _axes(A, ::StaticInt{dim}) where {dim}
+    if dim > ndims(A)
+        return SOneTo{1}()
+    else
+        return getfield(axes(A), Int(dim))
     end
 end
 axes(A::SubArray, dim) = Base.axes(getindex(A.indices, to_parent_dims(A, to_dims(A, dim))), 1)
