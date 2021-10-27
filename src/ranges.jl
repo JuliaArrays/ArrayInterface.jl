@@ -114,7 +114,14 @@ struct OptionallyStaticUnitRange{F<:CanonicalInt,L<:CanonicalInt} <: AbstractUni
 end
 
 const SUnitRange{F,L} = OptionallyStaticUnitRange{StaticInt{F},StaticInt{L}}
+
+"""
+    SOneTo(n::Int)
+
+An alias for `OptionallyStaticUnitRange` usfeul for statically sized axes.
+"""
 const SOneTo{L} = SUnitRange{1,L}
+SOneTo(n::Int) = SOneTo{n}()
 
 function Base.first(r::OptionallyStaticUnitRange)::Int
     if known_first(r) === nothing
