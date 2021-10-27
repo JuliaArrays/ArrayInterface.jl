@@ -73,6 +73,12 @@ function _non_reshaped_axis_type(::Type{A}, d::StaticInt{D}) where {A,D}
     end
 end
 
+# FUTURE NOTE: we avoid  `SOneTo(1)` when `axis(A, dim::Int)``. This is inended to decreases
+# breaking changes for this adopting this method to situations where they clearly benefit
+# from the propagation of static axes. This creates the somewhat awkward situation of
+# conditionally typed (but inferrable) axes. It also means we can't depend on constant
+# propagation to preserve statically sized axes. This should probably be addressed before
+# merging into Base Julia.
 """
     axes(A) -> Tuple{Vararg{AbstractUnitRange{Int}}}
     axes(A, dim) -> AbstractUnitRange{Int}
