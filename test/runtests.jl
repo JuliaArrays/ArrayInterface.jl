@@ -843,9 +843,12 @@ end
         a = rand(3, 5)
         ua = reinterpret(reshape, UInt64, a)
         @test ArrayInterface.axes(ua) === ArrayInterface.axes(a)
+        @test ArrayInterface.axes(ua, 1) === ArrayInterface.axes(a, 1)
         @test @inferred(ArrayInterface.axes(ua)) isa ArrayInterface.axes_types(ua)
         u8a = reinterpret(reshape, UInt8, a)
         @test @inferred(ArrayInterface.axes(u8a)) isa ArrayInterface.axes_types(u8a)
+        @test @inferred(ArrayInterface.axes(u8a, static(1))) isa ArrayInterface.axes_types(u8a, 1)
+        @test @inferred(ArrayInterface.axes(u8a, static(2))) isa ArrayInterface.axes_types(u8a, 2)
         fa = reinterpret(reshape, Float64, copy(u8a))
         @inferred(ArrayInterface.axes(fa)) isa ArrayInterface.axes_types(fa)
     end

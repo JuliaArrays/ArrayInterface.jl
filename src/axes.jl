@@ -126,7 +126,7 @@ if isdefined(Base, :ReshapedReinterpretArray)
     end
     @inline function axes(A::Base.ReshapedReinterpretArray{T,N,S}) where {T,N,S}
         if sizeof(S) > sizeof(T)
-            return (static(1):static(div(sizeof(S), sizeof(T))), axes(parent(A))...)
+            return (SOneTo(div(sizeof(S), sizeof(T))), axes(parent(A))...)
         elseif sizeof(S) < sizeof(T)
             return tail(axes(parent(A)))
         else
@@ -137,7 +137,7 @@ if isdefined(Base, :ReshapedReinterpretArray)
         d = to_dims(A, dim)
         if sizeof(S) > sizeof(T)
             if d == 1
-                return static(1):static(div(sizeof(S), sizeof(T)))
+                return SOneTo(div(sizeof(S), sizeof(T)))
             else
                 return axes(parent(A), d - static(1))
             end
