@@ -23,9 +23,9 @@ end
 end
 axes_types(x) = axes_types(typeof(x))
 axes_types(::Type{T}) where {T<:Array} = NTuple{ndims(T),OneTo{Int}}
-function axes_types(::Type{T}) where {T}
+@inline function axes_types(::Type{T}) where {T}
     if parent_type(T) <: T
-        return Tuple{Vararg{OptionallyStaticUnitRange{One,Int},ndims(T)}}
+        return NTuple{ndims(T),OptionallyStaticUnitRange{One,Int}}
     else
         return axes_types(parent_type(T))
     end
@@ -157,7 +157,10 @@ A lazy representation of `axes(parent, N)`.
 struct LazyAxis{N,P} <: AbstractUnitRange{Int}
     parent::P
 
-    LazyAxis{N}(parent::P) where {N,P} = new{N::Int,P}(parent)
+    function LazyAxis{N}(parent::P) where {N,P}
+        N > 0 && return new{N::Int,P}(parent)
+        throw_dim_error(parent, N)
+    end
     @inline LazyAxis{:}(parent::P) where {P} = new{ifelse(ndims(P) === 1, 1, :),P}(parent)
 end
 
@@ -187,21 +190,8 @@ Base.IndexStyle(::Type{T}) where {T<:LazyAxis} = IndexStyle(parent_type(T))
 
 can_change_size(::Type{LazyAxis{N,P}}) where {N,P} = can_change_size(P)
 
-known_first(::Type{T}) where {T<:LazyAxis} = known_first(parent_type(T))
-
-known_length(::Type{LazyAxis{N,P}}) where {N,P} = known_size(P, N)
-known_length(::Type{LazyAxis{:,P}}) where {P} = known_length(P)
-
-@inline function known_last(::Type{T}) where {T<:LazyAxis}
-    return _lazy_axis_known_last(known_first(T), known_length(T))
-end
-_lazy_axis_known_last(start::Int, length::Int) = (length + start) - 1
-_lazy_axis_known_last(::Any, ::Any) = nothing
-
-Base.axes(S::Slice{<:LazyAxis}) = (S.indices,)
-Base.axes1(S::Slice{<:LazyAxis}) = S.indices
-Base.unsafe_indices(S::Base.Slice{<:LazyAxis}) = (S.indices,)
-
+known_first(::Type{LazyAxis{N,P}}) where {N,P} = known_offsets(P, static(N))
+known_first(::Type{LazyAxis{:,P}}) where {P} = 1
 @inline function Base.first(x::LazyAxis{N})::Int where {N}
     if known_first(x) === nothing
         return Int(offsets(parent(x), static(N)))
@@ -211,39 +201,39 @@ Base.unsafe_indices(S::Base.Slice{<:LazyAxis}) = (S.indices,)
 end
 @inline function Base.first(x::LazyAxis{:})::Int
     if known_first(x) === nothing
-        return firstindex(getfield(x, :parent))
+        return firstindex(parent(x))
     else
         return known_first(x)
     end
 end
+known_last(::Type{LazyAxis{N,P}}) where {N,P} = known_last(axes_types(P, static(N)))
+known_last(::Type{LazyAxis{:,P}}) where {P} = known_length(P)
+Base.last(x::LazyAxis) = _last(known_last(x), x)
+_last(::Nothing, x) = last(parent(x))
+_last(N::Int, x) = N
 
+known_length(::Type{LazyAxis{N,P}}) where {N,P} = known_size(P, static(N))
+known_length(::Type{LazyAxis{:,P}}) where {P} = known_length(P)
 @inline function Base.length(x::LazyAxis{N})::Int where {N}
     if known_length(x) === nothing
-        return size(getfield(x, :parent), static(N))
+        return size(parent(x), static(N))
     else
         return known_length(x)
     end
 end
 @inline function Base.length(x::LazyAxis{:})::Int
     if known_length(x) === nothing
-        return lastindex(getfield(x, :parent))
+        return length(parent(x))
     else
         return known_length(x)
     end
 end
 
-@inline function Base.last(x::LazyAxis)::Int
-    if known_last(x) === nothing
-        if known_first(x) === 1
-            return length(x)
-        else
-            return (static_length(x) + static_first(x)) - 1
-        end
-    else
-        return known_last(x)
-    end
-end
-
+Base.axes(x::LazyAxis) = (Base.axes1(x),)
+Base.axes1(x::LazyAxis) = x
+Base.axes(S::Slice{<:LazyAxis}) = (S.indices,)
+Base.axes1(S::Slice{<:LazyAxis}) = S.indices
+Base.unsafe_indices(S::Base.Slice{<:LazyAxis}) = (S.indices,)
 Base.to_shape(x::LazyAxis) = length(x)
 
 @inline function Base.checkindex(::Type{Bool}, x::LazyAxis, i::Integer)
@@ -258,7 +248,10 @@ end
     @boundscheck checkindex(Bool, x, i) || throw(BoundsError(x, i))
     return Int(i)
 end
-@propagate_inbounds Base.getindex(x::LazyAxis, i::StepRange{T}) where {T<:Integer} = parent(x)[i]
+@propagate_inbounds function Base.getindex(x::LazyAxis, s::StepRange{<:Integer})
+    @boundscheck checkbounds(x, s)
+    range(Int(first(x) + s.start-1), step=Int(step(s)), length=Int(length(s)))
+end
 @propagate_inbounds Base.getindex(x::LazyAxis, i::AbstractUnitRange{<:Integer}) = parent(x)[i]
 
 Base.show(io::IO, x::LazyAxis{N}) where {N} = print(io, "LazyAxis{$N}($(parent(x))))")
@@ -270,10 +263,7 @@ Produces a tuple of axes where each axis is constructed lazily. If an axis of `x
 constructed or it is simply retrieved.
 """
 @generated function lazy_axes(x::X) where {X}
-    Expr(:block,
-         Expr(:meta, :inline),
-         Expr(:tuple, [:(LazyAxis{$dim}(x)) for dim in 1:ndims(X)]...)
-    )
+    Expr(:block, Expr(:meta, :inline), Expr(:tuple, [:(LazyAxis{$dim}(x)) for dim in 1:ndims(X)]...))
 end
 lazy_axes(x::LinearIndices) = axes(x)
 lazy_axes(x::CartesianIndices) = axes(x)

@@ -202,13 +202,13 @@ SOneTo(n::Int) = SOneTo{n}()
 const OptionallyStaticRange = Union{<:OptionallyStaticUnitRange,<:OptionallyStaticStepRange}
 
 
-known_first(::Type{<:OptionallyStaticUnitRange{StaticInt{F}}}) where {F} = F
-known_first(::Type{<:OptionallyStaticStepRange{StaticInt{F}}}) where {F} = F
+known_first(::Type{<:OptionallyStaticUnitRange{StaticInt{F}}}) where {F} = F::Int
+known_first(::Type{<:OptionallyStaticStepRange{StaticInt{F}}}) where {F} = F::Int
 
-known_step(::Type{<:OptionallyStaticStepRange{<:Any,StaticInt{S}}}) where {S} = S
+known_step(::Type{<:OptionallyStaticStepRange{<:Any,StaticInt{S}}}) where {S} = S::Int
 
-known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = L
-known_last(::Type{<:OptionallyStaticStepRange{<:Any,<:Any,StaticInt{L}}}) where {L} = L
+known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = L::Int
+known_last(::Type{<:OptionallyStaticStepRange{<:Any,<:Any,StaticInt{L}}}) where {L} = L::Int
 
 Base.firstindex(x::OptionallyStaticRange) = first(x)
 @inline function Base.first(r::OptionallyStaticRange)::Int
@@ -225,7 +225,6 @@ function Base.step(r::OptionallyStaticStepRange)::Int
         return known_step(r)
     end
 end
-Base.lastindex(x::OptionallyStaticRange) = last(x)
 @inline function Base.last(r::OptionallyStaticRange)::Int
     if known_last(r) === nothing
         return getfield(r, :stop)
@@ -332,6 +331,7 @@ end
     _range_length(known_first(T), known_step(T), known_last(T))
 end
 
+Base.lastindex(x::OptionallyStaticRange) = length(x)
 Base.length(r::OptionallyStaticUnitRange) = _range_length(static_first(r), static_last(r))
 @inline function Base.length(r::OptionallyStaticStepRange)
     if isempty(r)
@@ -340,7 +340,6 @@ Base.length(r::OptionallyStaticUnitRange) = _range_length(static_first(r), stati
         return _range_length(static_first(r), static_step(r), static_last(r))
     end
 end
-
 _range_length(start, stop) = nothing
 function _range_length(start::CanonicalInt, stop::CanonicalInt)
     if start > stop
@@ -399,9 +398,11 @@ Base.to_shape(x::Slice{T}) where {T<:OptionallyStaticRange} = length(x)
 Base.axes(S::Slice{<:OptionallyStaticUnitRange{One}}) = (S.indices,)
 Base.axes(S::Slice{<:OptionallyStaticRange}) = (Base.IdentityUnitRange(S.indices),)
 
-Base.axes1(S::Slice{<:OptionallyStaticUnitRange{One}}) = S.indices
-Base.axes1(S::Slice{<:OptionallyStaticRange}) = Base.IdentityUnitRange(S.indices)
-Base.unsafe_indices(S::Base.Slice{<:OptionallyStaticUnitRange{One}}) = (S.indices,)
+Base.axes(x::OptionallyStaticRange) = (Base.axes1(x),)
+Base.axes1(x::OptionallyStaticRange) = eachindex(x)
+Base.axes1(x::Slice{<:OptionallyStaticUnitRange{One}}) = x.indices
+Base.axes1(x::Slice{<:OptionallyStaticRange}) = Base.IdentityUnitRange(x.indices)
+Base.unsafe_indices(x::Base.Slice{<:OptionallyStaticUnitRange{One}}) = (x.indices,)
 
 Base.:(-)(r::OptionallyStaticRange) = -static_first(r):-static_step(r):-static_last(r)
 
@@ -410,16 +411,11 @@ function Base.reverse(r::OptionallyStaticStepRange)
     OptionallyStaticStepRange(static_last(r), -static_step(r), static_first(r))
 end
 
-function Base.show(io::IO, ::MIME"text/plain", r::OptionallyStaticRange)
-    print(io, static_first(r))
-    if known_step(r) === 1
-        print(io, ":")
-    else
-        print(io, ":")
-        print(io, static_step(r))
-        print(io, ":")
-    end
-    print(io, static_last(r))
+function Base.show(io::IO, ::MIME"text/plain", @nospecialize(r::OptionallyStaticUnitRange))
+    print(io, "$(getfield(r, :start)):$(getfield(r, :stop))")
+end
+function Base.show(io::IO, ::MIME"text/plain", @nospecialize(r::OptionallyStaticStepRange))
+    print(io, "$(getfield(r, :start)):$(getfield(r, :step)):$(getfield(r, :stop))")
 end
 
 @inline function Base.getproperty(x::OptionallyStaticRange, s::Symbol)

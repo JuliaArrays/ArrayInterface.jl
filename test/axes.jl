@@ -18,6 +18,11 @@
     @test @inferred(length(lzc)) === @inferred(length(slzc))
     @test @inferred(Base.to_shape(lzc)) == length(slzc)
     @test @inferred(Base.checkindex(Bool, lzc, 1)) & @inferred(Base.checkindex(Bool, slzc, 1))
+    @test axes(lzc)[1] == Base.axes1(lzc)
+
+    @test @inferred(getindex(lz1, 2)) == 2
+    @test @inferred(getindex(lz1, 1:2)) == 1:2
+    @test @inferred(getindex(lz1, 1:1:3)) == 1:1:3
 
     @test @inferred(ArrayInterface.parent_type(ArrayInterface.LazyAxis{4}(A))) <: ArrayInterface.SOneTo{1}
     @test ArrayInterface.can_change_size(ArrayInterface.LazyAxis{1,Vector{Any}})

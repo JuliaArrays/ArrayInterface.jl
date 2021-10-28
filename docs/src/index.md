@@ -156,7 +156,7 @@ using ArrayInterface: axes_types, parent_type, to_dims
         O = relative_known_offsets(A, dim)
         if O === nothing  # offset is not known at compile time and is an `Int`
             push!(out.args, :(IdOffsetRange{Int, axes_types($P, $(static(dim)))}))
-        else # offset is known, therefor is is a `StaticInt`
+        else # offset is known, therefore it is a `StaticInt`
             push!(out.args, :(IdOffsetRange{StaticInt{$O}, axes_types($P, $(static(dim))}))
         end
     end
