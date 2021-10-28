@@ -676,8 +676,6 @@ include("indexing.jl")
 include("stridelayout.jl")
 include("broadcast.jl")
 
-
-
 function __init__()
 
     @require SuiteSparse = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9" begin

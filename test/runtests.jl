@@ -823,35 +823,7 @@ end
 end
 
 @testset "axes" begin
-    A = zeros(3,4,5);
-    Ap = @view(PermutedDimsArray(A, (3,1,2))[:,1:2,1])';
-
-    axs = @inferred(ArrayInterface.axes(Ap))
-    lzaxs = @inferred(ArrayInterface.lazy_axes(Ap))
-    axis = axs[2]
-    lzaxis = lzaxs[2]
-
-    @test map(parent, lzaxs) === axs
-    @test @inferred(first(lzaxis)) === first(axis)
-    @test @inferred(lzaxis[2]) === axis[2]
-    @test @inferred(lzaxis[1:2:5]) === axis[1:2:5]
-    @test @inferred(lzaxis[1:2]) === axis[1:2]
-    @test @inferred(ArrayInterface.axes(Array{Float64}(undef, 4)')) === (StaticInt(1):StaticInt(1),Base.OneTo(4))
-    @test @inferred(ArrayInterface.axes(Array{Float64}(undef, 4, 3)')) === (Base.OneTo(3),Base.OneTo(4))
-
-    if isdefined(Base, :ReshapedReinterpretArray)
-        a = rand(3, 5)
-        ua = reinterpret(reshape, UInt64, a)
-        @test ArrayInterface.axes(ua) === ArrayInterface.axes(a)
-        @test ArrayInterface.axes(ua, 1) === ArrayInterface.axes(a, 1)
-        @test @inferred(ArrayInterface.axes(ua)) isa ArrayInterface.axes_types(ua)
-        u8a = reinterpret(reshape, UInt8, a)
-        @test @inferred(ArrayInterface.axes(u8a)) isa ArrayInterface.axes_types(u8a)
-        @test @inferred(ArrayInterface.axes(u8a, static(1))) isa ArrayInterface.axes_types(u8a, 1)
-        @test @inferred(ArrayInterface.axes(u8a, static(2))) isa ArrayInterface.axes_types(u8a, 2)
-        fa = reinterpret(reshape, Float64, copy(u8a))
-        @inferred(ArrayInterface.axes(fa)) isa ArrayInterface.axes_types(fa)
-    end
+    include("axes.jl")
 end
 
 @testset "arrayinterface" begin

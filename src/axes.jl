@@ -158,13 +158,7 @@ struct LazyAxis{N,P} <: AbstractUnitRange{Int}
     parent::P
 
     LazyAxis{N}(parent::P) where {N,P} = new{N::Int,P}(parent)
-    @inline function LazyAxis{:}(parent::P) where {P}
-        if ndims(P) === 1
-            return new{1,P}(parent)
-        else
-            return new{:,P}(parent)
-        end
-    end
+    @inline LazyAxis{:}(parent::P) where {P} = new{ifelse(ndims(P) === 1, 1, :),P}(parent)
 end
 
 @inline Base.parent(x::LazyAxis{N,P}) where {N,P} = axes(getfield(x, :parent), static(N))
@@ -183,7 +177,7 @@ parent_type(::Type{LazyAxis{:,P}}) where {P<:Array} = OneTo{Int}
     if known_length(P) === nothing
         return OptionallyStaticUnitRange{StaticInt{1},Int}
     else
-        return OptionallyStaticUnitRange{StaticInt{1},StaticInt{known_length(P)}}
+        return SOneTo{known_length(P)}
     end
 end
 
@@ -204,11 +198,15 @@ end
 _lazy_axis_known_last(start::Int, length::Int) = (length + start) - 1
 _lazy_axis_known_last(::Any, ::Any) = nothing
 
+Base.axes(S::Slice{<:LazyAxis}) = (S.indices,)
+Base.axes1(S::Slice{<:LazyAxis}) = S.indices
+Base.unsafe_indices(S::Base.Slice{<:LazyAxis}) = (S.indices,)
+
 @inline function Base.first(x::LazyAxis{N})::Int where {N}
     if known_first(x) === nothing
-        return offsets(getfield(x, :parent), static(N))
+        return Int(offsets(parent(x), static(N)))
     else
-        return known_first(x)
+        return Int(known_first(x))
     end
 end
 @inline function Base.first(x::LazyAxis{:})::Int
@@ -280,5 +278,5 @@ end
 lazy_axes(x::LinearIndices) = axes(x)
 lazy_axes(x::CartesianIndices) = axes(x)
 @inline lazy_axes(x::MatAdjTrans) = reverse(lazy_axes(parent(x)))
-@inline lazy_axes(x::VecAdjTrans) = (LazyAxis{1}(x), first(lazy_axes(parent(x))))
-@inline lazy_axes(x::PermutedDimsArray) = permute(lazy_axes(parent(x)), to_parent_dims(A))
+@inline lazy_axes(x::VecAdjTrans) = (SOneTo{1}(), first(lazy_axes(parent(x))))
+@inline lazy_axes(x::PermutedDimsArray) = permute(lazy_axes(parent(x)), to_parent_dims(x))

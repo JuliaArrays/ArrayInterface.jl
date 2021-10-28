@@ -113,35 +113,6 @@ struct OptionallyStaticUnitRange{F<:CanonicalInt,L<:CanonicalInt} <: AbstractUni
     end
 end
 
-const SUnitRange{F,L} = OptionallyStaticUnitRange{StaticInt{F},StaticInt{L}}
-
-"""
-    SOneTo(n::Int)
-
-An alias for `OptionallyStaticUnitRange` usfeul for statically sized axes.
-"""
-const SOneTo{L} = SUnitRange{1,L}
-SOneTo(n::Int) = SOneTo{n}()
-
-function Base.first(r::OptionallyStaticUnitRange)::Int
-    if known_first(r) === nothing
-        return getfield(r, :start)
-    else
-        return known_first(r)
-    end
-end
-function Base.last(r::OptionallyStaticUnitRange)::Int
-    if known_last(r) === nothing
-        return getfield(r, :stop)
-    else
-        return known_last(r)
-    end
-end
-
-known_first(::Type{<:OptionallyStaticUnitRange{StaticInt{F}}}) where {F} = F
-known_step(::Type{<:OptionallyStaticUnitRange}) = 1
-known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = L
-
 """
     OptionallyStaticStepRange(start, step, stop) <: OrdinalRange{Int,Int}
 
@@ -217,7 +188,30 @@ end
         end
     end
 end
-function Base.first(r::OptionallyStaticStepRange)::Int
+
+const SUnitRange{F,L} = OptionallyStaticUnitRange{StaticInt{F},StaticInt{L}}
+
+"""
+    SOneTo(n::Int)
+
+An alias for `OptionallyStaticUnitRange` usfeul for statically sized axes.
+"""
+const SOneTo{L} = SUnitRange{1,L}
+SOneTo(n::Int) = SOneTo{n}()
+
+const OptionallyStaticRange = Union{<:OptionallyStaticUnitRange,<:OptionallyStaticStepRange}
+
+
+known_first(::Type{<:OptionallyStaticUnitRange{StaticInt{F}}}) where {F} = F
+known_first(::Type{<:OptionallyStaticStepRange{StaticInt{F}}}) where {F} = F
+
+known_step(::Type{<:OptionallyStaticStepRange{<:Any,StaticInt{S}}}) where {S} = S
+
+known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = L
+known_last(::Type{<:OptionallyStaticStepRange{<:Any,<:Any,StaticInt{L}}}) where {L} = L
+
+Base.firstindex(x::OptionallyStaticRange) = first(x)
+@inline function Base.first(r::OptionallyStaticRange)::Int
     if known_first(r) === nothing
         return getfield(r, :start)
     else
@@ -231,17 +225,14 @@ function Base.step(r::OptionallyStaticStepRange)::Int
         return known_step(r)
     end
 end
-function Base.last(r::OptionallyStaticStepRange)::Int
+Base.lastindex(x::OptionallyStaticRange) = last(x)
+@inline function Base.last(r::OptionallyStaticRange)::Int
     if known_last(r) === nothing
         return getfield(r, :stop)
     else
         return known_last(r)
     end
 end
-
-known_first(::Type{<:OptionallyStaticStepRange{StaticInt{F}}}) where {F} = F
-known_step(::Type{<:OptionallyStaticStepRange{<:Any,StaticInt{S}}}) where {S} = S
-known_last(::Type{<:OptionallyStaticStepRange{<:Any,<:Any,StaticInt{L}}}) where {L} = L
 
 Base.:(:)(L::Integer, ::StaticInt{U}) where {U} = OptionallyStaticUnitRange(L, StaticInt(U))
 Base.:(:)(::StaticInt{L}, U::Integer) where {L} = OptionallyStaticUnitRange(StaticInt(L), U)
@@ -380,8 +371,6 @@ function Base.AbstractUnitRange{T}(r::OptionallyStaticUnitRange) where {T}
         return UnitRange{T}(first(r), last(r))
     end
 end
-
-const OptionallyStaticRange = Union{<:OptionallyStaticUnitRange,<:OptionallyStaticStepRange}
 
 Base.eachindex(r::OptionallyStaticRange) = One():static_length(r)
 @inline function Base.iterate(r::OptionallyStaticRange)
