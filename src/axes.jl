@@ -192,6 +192,7 @@ can_change_size(::Type{LazyAxis{N,P}}) where {N,P} = can_change_size(P)
 
 known_first(::Type{LazyAxis{N,P}}) where {N,P} = known_offsets(P, static(N))
 known_first(::Type{LazyAxis{:,P}}) where {P} = 1
+Base.firstindex(x::LazyAxis) = first(x)
 @inline function Base.first(x::LazyAxis{N})::Int where {N}
     if known_first(x) === nothing
         return Int(offsets(parent(x), static(N)))
@@ -201,13 +202,14 @@ known_first(::Type{LazyAxis{:,P}}) where {P} = 1
 end
 @inline function Base.first(x::LazyAxis{:})::Int
     if known_first(x) === nothing
-        return firstindex(parent(x))
+        return first(parent(x))
     else
         return known_first(x)
     end
 end
 known_last(::Type{LazyAxis{N,P}}) where {N,P} = known_last(axes_types(P, static(N)))
 known_last(::Type{LazyAxis{:,P}}) where {P} = known_length(P)
+Base.lastindex(x::LazyAxis) = last(x)
 Base.last(x::LazyAxis) = _last(known_last(x), x)
 _last(::Nothing, x) = last(parent(x))
 _last(N::Int, x) = N
@@ -231,9 +233,10 @@ end
 
 Base.axes(x::LazyAxis) = (Base.axes1(x),)
 Base.axes1(x::LazyAxis) = x
-Base.axes(S::Slice{<:LazyAxis}) = (S.indices,)
-Base.axes1(S::Slice{<:LazyAxis}) = S.indices
-Base.unsafe_indices(S::Base.Slice{<:LazyAxis}) = (S.indices,)
+Base.axes(x::Slice{<:LazyAxis}) = (Base.axes1(x),)
+# assuming that lazy loaded params like dynamic length from `size(::Array, dim)` are going
+# be used again later with `Slice{LazyAxis}`, we quickly load indices
+Base.axes1(x::Slice{<:LazyAxis}) = indices(parent(x.indices))
 Base.to_shape(x::LazyAxis) = length(x)
 
 @inline function Base.checkindex(::Type{Bool}, x::LazyAxis, i::Integer)

@@ -1,6 +1,11 @@
 
-@test @inferred(ArrayInterface.axes(Array{Float64}(undef, 4)')) === (StaticInt(1):StaticInt(1),Base.OneTo(4))
-@test @inferred(ArrayInterface.axes(Array{Float64}(undef, 4, 3)')) === (Base.OneTo(3),Base.OneTo(4))
+
+v = Array{Float64}(undef, 4)
+m = Array{Float64}(undef, 4, 3)
+@test @inferred(ArrayInterface.axes(v')) === (StaticInt(1):StaticInt(1),Base.OneTo(4))
+@test @inferred(ArrayInterface.axes(m')) === (Base.OneTo(3),Base.OneTo(4))
+@test ArrayInterface.axes(v', StaticInt(1)) === StaticInt(1):StaticInt(1)
+@test ArrayInterface.axes(v, StaticInt(2)) === StaticInt(1):StaticInt(1)
 
 @testset "LazyAxis" begin
     A = zeros(3,4,5);
@@ -18,13 +23,15 @@
     @test @inferred(length(lzc)) === @inferred(length(slzc))
     @test @inferred(Base.to_shape(lzc)) == length(slzc)
     @test @inferred(Base.checkindex(Bool, lzc, 1)) & @inferred(Base.checkindex(Bool, slzc, 1))
-    @test axes(lzc)[1] == Base.axes1(lzc)
+    @test axes(lzc)[1] == Base.axes1(lzc) == axes(Base.Slice(lzc))[1] == Base.axes1(Base.Slice(lzc))
 
     @test @inferred(getindex(lz1, 2)) == 2
     @test @inferred(getindex(lz1, 1:2)) == 1:2
     @test @inferred(getindex(lz1, 1:1:3)) == 1:1:3
 
-    @test @inferred(ArrayInterface.parent_type(ArrayInterface.LazyAxis{4}(A))) <: ArrayInterface.SOneTo{1}
+    @test @inferred(ArrayInterface.parent_type(ArrayInterface.LazyAxis{:}(A))) <: Base.OneTo{Int}
+    @test @inferred(ArrayInterface.parent_type(ArrayInterface.LazyAxis{4}(SA))) <: ArrayInterface.SOneTo{1}
+    @test @inferred(ArrayInterface.parent_type(ArrayInterface.LazyAxis{:}(SA))) <: ArrayInterface.SOneTo{60}
     @test ArrayInterface.can_change_size(ArrayInterface.LazyAxis{1,Vector{Any}})
 
     Aperm = PermutedDimsArray(A, (3,1,2))
@@ -33,6 +40,8 @@
     @test map(parent, @inferred(ArrayInterface.lazy_axes(Aview))) === @inferred(ArrayInterface.axes(Aview))
     @test map(parent, @inferred(ArrayInterface.lazy_axes(Aview'))) === @inferred(ArrayInterface.axes(Aview'))
     @test map(parent, @inferred(ArrayInterface.lazy_axes((1:2)'))) === @inferred(ArrayInterface.axes((1:2)'))
+
+    @test_throws DimensionMismatch ArrayInterface.LazyAxis{0}(A)
 end
 
 if isdefined(Base, :ReshapedReinterpretArray)

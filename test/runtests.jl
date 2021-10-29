@@ -735,10 +735,10 @@ end
 
 @testset "known_length" begin
     @test ArrayInterface.known_length(@inferred(ArrayInterface.indices(SOneTo(7)))) == 7
-    @test ArrayInterface.known_length(1:2) == nothing
+    @test ArrayInterface.known_length(1:2) === nothing
     @test ArrayInterface.known_length((1,)) == 1
     @test ArrayInterface.known_length((a=1,b=2)) == 2
-    @test ArrayInterface.known_length([]) == nothing
+    @test ArrayInterface.known_length([]) === nothing
 
     x = view(SArray{Tuple{3,3,3}}(ones(3,3,3)), :, SOneTo(2), 2)
     @test @inferred(ArrayInterface.known_length(x)) == 6
@@ -792,9 +792,7 @@ end
 
     x = vec(A23); y = vec(A32);
     @test ArrayInterface.indices((x',y'),StaticInt(1)) === Base.Slice(StaticInt(1):StaticInt(1))
-    @test ArrayInterface.axes(x', StaticInt(1)) === StaticInt(1):StaticInt(1)
     @test ArrayInterface.indices((x,y), StaticInt(2)) === Base.Slice(StaticInt(1):StaticInt(1))
-    @test ArrayInterface.axes(x, StaticInt(2)) === StaticInt(1):StaticInt(1)
 end
 
 @testset "insert/deleteat" begin

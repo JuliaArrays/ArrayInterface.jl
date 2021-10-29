@@ -29,7 +29,6 @@ function known_first(::Type{T}) where {N,R,T<:CartesianIndices{N,R}}
     _cartesian_index(ntuple(i -> known_first(R.parameters[i]), Val(N)))
 end
 
-
 """
     known_last(::Type{T}) -> Union{Int,Nothing}
 
@@ -402,7 +401,6 @@ Base.axes(x::OptionallyStaticRange) = (Base.axes1(x),)
 Base.axes1(x::OptionallyStaticRange) = eachindex(x)
 Base.axes1(x::Slice{<:OptionallyStaticUnitRange{One}}) = x.indices
 Base.axes1(x::Slice{<:OptionallyStaticRange}) = Base.IdentityUnitRange(x.indices)
-Base.unsafe_indices(x::Base.Slice{<:OptionallyStaticUnitRange{One}}) = (x.indices,)
 
 Base.:(-)(r::OptionallyStaticRange) = -static_first(r):-static_step(r):-static_last(r)
 
