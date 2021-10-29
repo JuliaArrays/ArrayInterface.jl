@@ -436,7 +436,7 @@ ArrayInterface.parent_type(::Type{DenseWrapper{T,N,P}}) where {T,N,P} = P
     Am = @MMatrix rand(2,10);
     @test @inferred(ArrayInterface.strides(view(Am,1,:))) === (StaticInt(2),)
 
-    if VERSION ≥ v"1.6.0-DEV.1581" # reinterpret(reshape,...) tests
+    if isdefined(Base, :ReshapedReinterpretArray) # reinterpret(reshape,...) tests
         C1 = reinterpret(reshape, Float64, PermutedDimsArray(Array{Complex{Float64}}(undef, 3,4,5), (2,1,3)));
         C2 = reinterpret(reshape, Complex{Float64}, PermutedDimsArray(view(A,1:2,:,:), (1,3,2)));
         C3 = reinterpret(reshape, Complex{Float64}, PermutedDimsArray(Wrapper(reshape(view(x, 1:24), (2,3,4))), (1,3,2)));
@@ -720,6 +720,7 @@ end
     @test @inferred(ArrayInterface.strides(u_view)) == (4,)
     @test @inferred(ArrayInterface.strides(u_view_reinterpreted)) == (4,)
     @test @inferred(ArrayInterface.strides(u_view_reshaped)) == (4, 4)
+    @test @inferred(ArrayInterface.axes(u_vectors)) isa ArrayInterface.axes_types(u_vectors)
 end
 
 @test ArrayInterface.can_avx(ArrayInterface.can_avx) == false
@@ -734,10 +735,10 @@ end
 
 @testset "known_length" begin
     @test ArrayInterface.known_length(@inferred(ArrayInterface.indices(SOneTo(7)))) == 7
-    @test ArrayInterface.known_length(1:2) == nothing
+    @test ArrayInterface.known_length(1:2) === nothing
     @test ArrayInterface.known_length((1,)) == 1
     @test ArrayInterface.known_length((a=1,b=2)) == 2
-    @test ArrayInterface.known_length([]) == nothing
+    @test ArrayInterface.known_length([]) === nothing
 
     x = view(SArray{Tuple{3,3,3}}(ones(3,3,3)), :, SOneTo(2), 2)
     @test @inferred(ArrayInterface.known_length(x)) == 6
@@ -791,9 +792,7 @@ end
 
     x = vec(A23); y = vec(A32);
     @test ArrayInterface.indices((x',y'),StaticInt(1)) === Base.Slice(StaticInt(1):StaticInt(1))
-    @test ArrayInterface.axes(x',StaticInt(1)) === StaticInt(1):StaticInt(1)
-    @test ArrayInterface.indices((x,y),StaticInt(2)) === Base.Slice(StaticInt(1):StaticInt(1))
-    @test ArrayInterface.axes(x,StaticInt(2)) === StaticInt(1):StaticInt(1)
+    @test ArrayInterface.indices((x,y), StaticInt(2)) === Base.Slice(StaticInt(1):StaticInt(1))
 end
 
 @testset "insert/deleteat" begin
@@ -822,21 +821,7 @@ end
 end
 
 @testset "axes" begin
-    A = zeros(3,4,5);
-    Ap = @view(PermutedDimsArray(A, (3,1,2))[:,1:2,1])';
-
-    axs = @inferred(ArrayInterface.axes(Ap))
-    lzaxs = @inferred(ArrayInterface.lazy_axes(Ap))
-    axis = axs[2]
-    lzaxis = lzaxs[2]
-
-    @test map(parent, lzaxs) === axs
-    @test @inferred(first(lzaxis)) === first(axis)
-    @test @inferred(lzaxis[2]) === axis[2]
-    @test @inferred(lzaxis[1:2:5]) === axis[1:2:5]
-    @test @inferred(lzaxis[1:2]) === axis[1:2]
-    @test @inferred(ArrayInterface.axes(Array{Float64}(undef, 4)')) === (StaticInt(1):StaticInt(1),Base.OneTo(4))
-    @test @inferred(ArrayInterface.axes(Array{Float64}(undef, 4, 3)')) === (Base.OneTo(3),Base.OneTo(4))
+    include("axes.jl")
 end
 
 @testset "arrayinterface" begin

@@ -15,13 +15,14 @@ using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretAr
 
 const CanonicalInt = Union{Int,StaticInt}
 
-@static if VERSION ≥ v"1.6.0-DEV.1581"
-    _is_reshaped(::Type{ReinterpretArray{T,N,S,A,true}}) where {T,N,S,A} = true
-    _is_reshaped(::Type{ReinterpretArray{T,N,S,A,false}}) where {T,N,S,A} = false
-else
-    _is_reshaped(::Type{ReinterpretArray{T,N,S,A}}) where {T,N,S,A} = false
+@static if isdefined(Base, :ReshapedReinterpretArray)
+    _is_reshaped(::Type{<:Base.ReshapedReinterpretArray}) = true
 end
+_is_reshaped(::Type{<:ReinterpretArray}) = false
 
+@generated function merge_tuple_type(::Type{X}, ::Type{Y}) where {X<:Tuple,Y<:Tuple}
+    Tuple{X.parameters..., Y.parameters...}
+end
 Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
 parameterless_type(x::Type) = __parameterless_type(x)
@@ -582,12 +583,15 @@ abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
 Base.size(A::AbstractArray2) = map(Int, ArrayInterface.size(A))
 Base.size(A::AbstractArray2, dim) = Int(ArrayInterface.size(A, dim))
 
-Base.axes(A::AbstractArray2) = ArrayInterface.axes(A)
+function Base.axes(A::AbstractArray2)
+    !(parent_type(A) <: typeof(A)) && return ArrayInterface.axes(parent(A))
+    throw(ArgumentError("Subtypes of `AbstractArray2` must define an axes method"))
+end
 Base.axes(A::AbstractArray2, dim) = ArrayInterface.axes(A, dim)
 
 function Base.strides(A::AbstractArray2)
-    defines_strides(A) || throw(MethodError(Base.strides, (A,)))
-    return map(Int, ArrayInterface.strides(A))
+    defines_strides(A) && return map(Int, ArrayInterface.strides(A))
+    throw(MethodError(Base.strides, (A,)))
 end
 Base.strides(A::AbstractArray2, dim) = Int(ArrayInterface.strides(A, dim))
 
@@ -602,7 +606,7 @@ end
 function Base.length(A::AbstractArray2)
     len = known_length(A)
     if len === nothing
-        return prod(size(A))
+        return Int(prod(size(A)))
     else
         return Int(len)
     end
@@ -671,8 +675,6 @@ include("dimensions.jl")
 include("indexing.jl")
 include("stridelayout.jl")
 include("broadcast.jl")
-
-
 
 function __init__()
 
@@ -914,16 +916,46 @@ function __init__()
         end
     end
     @require OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881" begin
-        parent_type(::Type{O}) where {T,N,A<:AbstractArray{T,N},O<:OffsetArrays.OffsetArray{T,N,A}} = A
+        relative_offsets(r::OffsetArrays.IdOffsetRange) = (getfield(r, :offset),)
+        relative_offsets(A::OffsetArrays.OffsetArray) = getfield(A, :offsets)
+        function relative_offsets(A::OffsetArrays.OffsetArray, ::StaticInt{dim}) where {dim}
+            if dim > ndims(A)
+                return static(0)
+            else
+                return getfield(relative_offsets(A), dim)
+            end
+        end
+        function relative_offsets(A::OffsetArrays.OffsetArray, dim::Int)
+            if dim > ndims(A)
+                return 0
+            else
+                return getfield(relative_offsets(A), dim)
+            end
+        end
+        ArrayInterface.parent_type(::Type{<:OffsetArrays.OffsetArray{T,N,A}}) where {T,N,A} = A
         function _offset_axis_type(::Type{T}, dim::StaticInt{D}) where {T,D}
             OffsetArrays.IdOffsetRange{Int,ArrayInterface.axes_types(T, dim)}
         end
         function ArrayInterface.axes_types(::Type{T}) where {T<:OffsetArrays.OffsetArray}
             Static.eachop_tuple(_offset_axis_type, Static.nstatic(Val(ndims(T))), ArrayInterface.parent_type(T))
         end
-        @inline axes(A::OffsetArrays.OffsetArray) = Base.axes(A)
-        @inline _axes(A::OffsetArrays.OffsetArray, dim::Integer) = Base.axes(A, dim)
-        @inline axes(A::OffsetArrays.OffsetArray{T,N}, ::StaticInt{M}) where {T,M,N} = _axes(A, StaticInt{M}(), gt(StaticInt{M}(),StaticInt{N}()))
+        function ArrayInterface.known_offsets(::Type{A}) where {A<:OffsetArrays.OffsetArray}
+            ntuple(identity -> nothing, Val(ndims(A)))
+        end
+        function ArrayInterface.offsets(A::OffsetArrays.OffsetArray)
+            map(+, ArrayInterface.offsets(parent(A)), relative_offsets(A))
+        end
+       @inline function ArrayInterface.offsets(A::OffsetArrays.OffsetArray, dim)
+            d = ArrayInterface.to_dims(A, dim)
+            ArrayInterface.offsets(parent(A), d) + relative_offsets(A, d)
+        end
+        @inline function ArrayInterface.axes(A::OffsetArrays.OffsetArray)
+            map(OffsetArrays.IdOffsetRange, ArrayInterface.axes(parent(A)), relative_offsets(A))
+        end
+        @inline function ArrayInterface.axes(A::OffsetArrays.OffsetArray, dim)
+            d = to_dims(A, dim)
+            OffsetArrays.IdOffsetRange(ArrayInterface.axes(parent(A), d), relative_offsets(A, d))
+        end
     end
 end
 

@@ -29,7 +29,6 @@ function known_first(::Type{T}) where {N,R,T<:CartesianIndices{N,R}}
     _cartesian_index(ntuple(i -> known_first(R.parameters[i]), Val(N)))
 end
 
-
 """
     known_last(::Type{T}) -> Union{Int,Nothing}
 
@@ -113,28 +112,6 @@ struct OptionallyStaticUnitRange{F<:CanonicalInt,L<:CanonicalInt} <: AbstractUni
     end
 end
 
-const SUnitRange{F,L} = OptionallyStaticUnitRange{StaticInt{F},StaticInt{L}}
-const SOneTo{L} = SUnitRange{1,L}
-
-function Base.first(r::OptionallyStaticUnitRange)::Int
-    if known_first(r) === nothing
-        return getfield(r, :start)
-    else
-        return known_first(r)
-    end
-end
-function Base.last(r::OptionallyStaticUnitRange)::Int
-    if known_last(r) === nothing
-        return getfield(r, :stop)
-    else
-        return known_last(r)
-    end
-end
-
-known_first(::Type{<:OptionallyStaticUnitRange{StaticInt{F}}}) where {F} = F
-known_step(::Type{<:OptionallyStaticUnitRange}) = 1
-known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = L
-
 """
     OptionallyStaticStepRange(start, step, stop) <: OrdinalRange{Int,Int}
 
@@ -210,7 +187,30 @@ end
         end
     end
 end
-function Base.first(r::OptionallyStaticStepRange)::Int
+
+const SUnitRange{F,L} = OptionallyStaticUnitRange{StaticInt{F},StaticInt{L}}
+
+"""
+    SOneTo(n::Int)
+
+An alias for `OptionallyStaticUnitRange` usfeul for statically sized axes.
+"""
+const SOneTo{L} = SUnitRange{1,L}
+SOneTo(n::Int) = SOneTo{n}()
+
+const OptionallyStaticRange = Union{<:OptionallyStaticUnitRange,<:OptionallyStaticStepRange}
+
+
+known_first(::Type{<:OptionallyStaticUnitRange{StaticInt{F}}}) where {F} = F::Int
+known_first(::Type{<:OptionallyStaticStepRange{StaticInt{F}}}) where {F} = F::Int
+
+known_step(::Type{<:OptionallyStaticStepRange{<:Any,StaticInt{S}}}) where {S} = S::Int
+
+known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = L::Int
+known_last(::Type{<:OptionallyStaticStepRange{<:Any,<:Any,StaticInt{L}}}) where {L} = L::Int
+
+Base.firstindex(x::OptionallyStaticRange) = first(x)
+@inline function Base.first(r::OptionallyStaticRange)::Int
     if known_first(r) === nothing
         return getfield(r, :start)
     else
@@ -224,17 +224,13 @@ function Base.step(r::OptionallyStaticStepRange)::Int
         return known_step(r)
     end
 end
-function Base.last(r::OptionallyStaticStepRange)::Int
+@inline function Base.last(r::OptionallyStaticRange)::Int
     if known_last(r) === nothing
         return getfield(r, :stop)
     else
         return known_last(r)
     end
 end
-
-known_first(::Type{<:OptionallyStaticStepRange{StaticInt{F}}}) where {F} = F
-known_step(::Type{<:OptionallyStaticStepRange{<:Any,StaticInt{S}}}) where {S} = S
-known_last(::Type{<:OptionallyStaticStepRange{<:Any,<:Any,StaticInt{L}}}) where {L} = L
 
 Base.:(:)(L::Integer, ::StaticInt{U}) where {U} = OptionallyStaticUnitRange(L, StaticInt(U))
 Base.:(:)(::StaticInt{L}, U::Integer) where {L} = OptionallyStaticUnitRange(StaticInt(L), U)
@@ -334,6 +330,7 @@ end
     _range_length(known_first(T), known_step(T), known_last(T))
 end
 
+Base.lastindex(x::OptionallyStaticRange) = length(x)
 Base.length(r::OptionallyStaticUnitRange) = _range_length(static_first(r), static_last(r))
 @inline function Base.length(r::OptionallyStaticStepRange)
     if isempty(r)
@@ -342,7 +339,6 @@ Base.length(r::OptionallyStaticUnitRange) = _range_length(static_first(r), stati
         return _range_length(static_first(r), static_step(r), static_last(r))
     end
 end
-
 _range_length(start, stop) = nothing
 function _range_length(start::CanonicalInt, stop::CanonicalInt)
     if start > stop
@@ -374,8 +370,6 @@ function Base.AbstractUnitRange{T}(r::OptionallyStaticUnitRange) where {T}
     end
 end
 
-const OptionallyStaticRange = Union{<:OptionallyStaticUnitRange,<:OptionallyStaticStepRange}
-
 Base.eachindex(r::OptionallyStaticRange) = One():static_length(r)
 @inline function Base.iterate(r::OptionallyStaticRange)
     isempty(r) && return nothing
@@ -403,9 +397,10 @@ Base.to_shape(x::Slice{T}) where {T<:OptionallyStaticRange} = length(x)
 Base.axes(S::Slice{<:OptionallyStaticUnitRange{One}}) = (S.indices,)
 Base.axes(S::Slice{<:OptionallyStaticRange}) = (Base.IdentityUnitRange(S.indices),)
 
-Base.axes1(S::Slice{<:OptionallyStaticUnitRange{One}}) = S.indices
-Base.axes1(S::Slice{<:OptionallyStaticRange}) = Base.IdentityUnitRange(S.indices)
-Base.unsafe_indices(S::Base.Slice{<:OptionallyStaticUnitRange{One}}) = (S.indices,)
+Base.axes(x::OptionallyStaticRange) = (Base.axes1(x),)
+Base.axes1(x::OptionallyStaticRange) = eachindex(x)
+Base.axes1(x::Slice{<:OptionallyStaticUnitRange{One}}) = x.indices
+Base.axes1(x::Slice{<:OptionallyStaticRange}) = Base.IdentityUnitRange(x.indices)
 
 Base.:(-)(r::OptionallyStaticRange) = -static_first(r):-static_step(r):-static_last(r)
 
@@ -414,16 +409,11 @@ function Base.reverse(r::OptionallyStaticStepRange)
     OptionallyStaticStepRange(static_last(r), -static_step(r), static_first(r))
 end
 
-function Base.show(io::IO, ::MIME"text/plain", r::OptionallyStaticRange)
-    print(io, static_first(r))
-    if known_step(r) === 1
-        print(io, ":")
-    else
-        print(io, ":")
-        print(io, static_step(r))
-        print(io, ":")
-    end
-    print(io, static_last(r))
+function Base.show(io::IO, ::MIME"text/plain", @nospecialize(r::OptionallyStaticUnitRange))
+    print(io, "$(getfield(r, :start)):$(getfield(r, :stop))")
+end
+function Base.show(io::IO, ::MIME"text/plain", @nospecialize(r::OptionallyStaticStepRange))
+    print(io, "$(getfield(r, :start)):$(getfield(r, :step)):$(getfield(r, :stop))")
 end
 
 @inline function Base.getproperty(x::OptionallyStaticRange, s::Symbol)
