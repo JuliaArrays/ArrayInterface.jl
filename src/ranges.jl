@@ -188,7 +188,13 @@ end
     end
 end
 
+"""
+    SUnitRange(start::Int, stop::Int)
+
+An alias for `OptionallyStaticUnitRange` where both the start and stop are known statically.
+"""
 const SUnitRange{F,L} = OptionallyStaticUnitRange{StaticInt{F},StaticInt{L}}
+SUnitRange(start::Int, stop::Int) = SUnitRange{start,stop}()
 
 """
     SOneTo(n::Int)

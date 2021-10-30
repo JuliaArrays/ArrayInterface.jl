@@ -12,6 +12,7 @@
         @test @inferred(static(1):2:10) == 1:2:10
         @test @inferred(static(1):UInt(10)) === static(1):10
         @test @inferred(UInt(1):static(1):static(10)) === 1:static(10)
+        @test ArrayInterface.SUnitRange(1, 10) == 1:10
         @test @inferred(ArrayInterface.OptionallyStaticUnitRange{Int,Int}(1:10)) == 1:10
         @test @inferred(ArrayInterface.OptionallyStaticUnitRange(1:10)) == 1:10
 
