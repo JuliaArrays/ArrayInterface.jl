@@ -82,6 +82,7 @@ ArrayInterface.LazyAxis
 ArrayInterface.OptionallyStaticStepRange
 ArrayInterface.OptionallyStaticUnitRange
 ArrayInteraface.SOneTo
+ArrayInteraface.SUnitRange
 ArrayInterface.StrideIndex
 ```
 
