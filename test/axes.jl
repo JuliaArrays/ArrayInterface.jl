@@ -44,6 +44,29 @@ m = Array{Float64}(undef, 4, 3)
     @test_throws DimensionMismatch ArrayInterface.LazyAxis{0}(A)
 end
 
+@testset "`axes(A, dim)`` with `dim > ndims(A)` (#224)" begin
+    m = 2
+    n = 3
+    B = Array{Float64, 2}(undef, m, n)
+    b = view(B, :, 1)
+
+    @test @inferred(ArrayInterface.axes(B, 1)) == 1:m
+    @test @inferred(ArrayInterface.axes(B, 2)) == 1:n
+    @test @inferred(ArrayInterface.axes(B, 3)) == 1:1
+
+    @test @inferred(ArrayInterface.axes(B, static(1))) == 1:m
+    @test @inferred(ArrayInterface.axes(B, static(2))) == 1:n
+    @test @inferred(ArrayInterface.axes(B, static(3))) == 1:1
+
+    @test @inferred(ArrayInterface.axes(b, 1)) == 1:m
+    @test @inferred(ArrayInterface.axes(b, 2)) == 1:1
+    @test @inferred(ArrayInterface.axes(b, 3)) == 1:1
+
+    @test @inferred(ArrayInterface.axes(b, static(1))) == 1:m
+    @test @inferred(ArrayInterface.axes(b, static(2))) == 1:1
+    @test @inferred(ArrayInterface.axes(b, static(3))) == 1:1
+end
+
 if isdefined(Base, :ReshapedReinterpretArray)
     a = rand(3, 5)
     ua = reinterpret(reshape, UInt64, a)

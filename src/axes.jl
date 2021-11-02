@@ -88,7 +88,7 @@ Returns the axis associated with each dimension of `A` or dimension `dim`.
 exception of a handful of types replace `Base.OneTo{Int}` with `ArrayInterface.SOneTo`. For
 example, the axis along the first dimension of `Transpose{T,<:AbstractVector{T}}` and
 `Adjoint{T,<:AbstractVector{T}}` can be represented by `SOneTo(1)`. Similarly,
-`Base.ReinterpretArray`'s first axis may be statically sized. 
+`Base.ReinterpretArray`'s first axis may be statically sized.
 """
 @inline axes(A) = Base.axes(A)
 axes(A::ReshapedArray) = Base.axes(A)
@@ -112,7 +112,22 @@ end
         return getfield(axes(A), Int(dim))
     end
 end
-axes(A::SubArray, dim) = Base.axes(getindex(A.indices, to_parent_dims(A, to_dims(A, dim))), 1)
+
+@inline function axes(A::SubArray, dim::Integer)
+    if dim > ndims(A)
+        return OneTo(1)
+    else
+        return axes(getindex(A.indices, to_parent_dims(A, to_dims(A, dim))), 1)
+    end
+end
+@inline function axes(A::SubArray, ::StaticInt{dim}) where {dim}
+    if dim > ndims(A)
+        return SOneTo{1}()
+    else
+        return axes(getindex(A.indices, to_parent_dims(A, to_dims(A, dim))), 1)
+    end
+end
+
 if isdefined(Base, :ReshapedReinterpretArray)
     function axes_types(::Type{A}) where {T,N,S,A<:Base.ReshapedReinterpretArray{T,N,S}}
         if sizeof(S) > sizeof(T)
