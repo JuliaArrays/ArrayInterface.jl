@@ -739,6 +739,7 @@ end
     @test ArrayInterface.known_length((1,)) == 1
     @test ArrayInterface.known_length((a=1,b=2)) == 2
     @test ArrayInterface.known_length([]) === nothing
+    @test ArrayInterface.known_length(CartesianIndex((1,2,3))) === 3
 
     x = view(SArray{Tuple{3,3,3}}(ones(3,3,3)), :, SOneTo(2), 2)
     @test @inferred(ArrayInterface.known_length(x)) == 6

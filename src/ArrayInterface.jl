@@ -92,7 +92,7 @@ known_length(::Type{T}) where {T<:Slice} = known_length(parent_type(T))
 known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N
 known_length(::Type{T}) where {Itr,T<:Base.Generator{Itr}} = known_length(Itr)
 known_length(::Type{<:Number}) = 1
-known_length(::Type{NDIndex{N,I}}) where {N,I} = N
+known_length(::Type{<:AbstractCartesianIndex{N}}) where {N} = N
 function known_length(::Type{T}) where {T}
     if parent_type(T) <: T
         return nothing
