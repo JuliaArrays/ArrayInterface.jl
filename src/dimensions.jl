@@ -22,19 +22,39 @@ function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y}}) where {X, Y}
 end
 is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
 
-#=
+"""
     ndims_index(::Type{I})::StaticInt
 
-The number of dimensions an instance of `I` maps to when indexing an instance of `A`.
-=#
+Returns the number of dimension that an instance of `I` maps to when indexing. For example,
+`CartesianIndex{3}` maps to 3 dimensions. If this method is not explicitly defined, then `1`
+is returned.
+"""
 ndims_index(i) = ndims_index(typeof(i))
 ndims_index(::Type{I}) where {I} = static(1)
-ndims_index(::Type{I}) where {N,I<:AbstractCartesianIndex{N}} = static(N)
-ndims_index(::Type{I}) where {I<:AbstractArray} = ndims_index(eltype(I))
-ndims_index(::Type{I}) where {I<:AbstractArray{Bool}} = static(ndims(I))
-ndims_index(::Type{I}) where {N,I<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = static(N)
+ndims_index(::Type{<:AbstractCartesianIndex{N}}) where {N} = static(N)
+ndims_index(::Type{<:AbstractArray{T}}) where {T} = ndims_index(T)
+ndims_index(::Type{<:AbstractArray{Bool,N}}) where {N} = static(N)
+ndims_index(::Type{<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}}) where {N} = static(N)
 _ndims_index(::Type{I}, i::StaticInt) where {I} = ndims_index(_get_tuple(I, i))
 ndims_index(::Type{I}) where {N,I<:Tuple{Vararg{Any,N}}} = eachop(_ndims_index, nstatic(Val(N)), I)
+
+"""
+    ndims_shape(::Type{I})::StaticInt
+
+Returns the number of dimensions that `I` maps to in the returned array from an indexing
+operation. For example, `Int` would map to 0 dimensions but `Vector{Int}` would map to one
+dimension.
+"""
+ndims_shape(i) = ndims_shape(typeof(i))
+ndims_shape(::Type{I}) where {I} = static(1)
+ndims_shape(::Type{<:Integer}) = static(0)
+ndims_shape(@nospecialize(x::Type{<:StaticInt})) = static(0)
+ndims_shape(::Type{<:AbstractCartesianIndex}) = static(0)
+ndims_shape(::Type{<:AbstractArray{T,N}}) where {T,N} = static(N)
+ndims_shape(::Type{<:AbstractArray{Bool}}) = static(1)
+ndims_shape(::Type{<:CartesianIndices{N}}) where {N} = static(N)
+_ndims_shape(::Type{I}, i::StaticInt) where {I} = ndims_shape(_get_tuple(I, i))
+ndims_shape(::Type{I}) where {N,I<:Tuple{Vararg{Any,N}}} = eachop(_ndims_shape, nstatic(Val(N)), I)
 
 """
     from_parent_dims(::Type{T}) -> Tuple{Vararg{Union{Int,StaticInt}}}
