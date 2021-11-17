@@ -26,14 +26,6 @@ end
     @test @inferred(ArrayInterface.to_index(axis, CartesianIndices(()))) === CartesianIndices(())
 
     x = LinearIndices((static(0):static(3),static(3):static(5),static(-2):static(0)));
-
-    # @test @inferred(ArrayInterface.to_index(x, NDIndex((0, 3, -2)))) === 1
-    # @test @inferred(ArrayInterface.to_index(x, NDIndex(static(0), static(3), static(-2)))) === static(1)
-
-    @test_throws BoundsError ArrayInterface.to_index(axis, 4)
-    @test_throws BoundsError ArrayInterface.to_index(axis, 1:4)
-    @test_throws BoundsError ArrayInterface.to_index(axis, [1, 2, 5])
-    @test_throws BoundsError ArrayInterface.to_index(axis, [true, false, false, true])
     @test_throws ArgumentError ArrayInterface.to_index(axis, error)
 end
 
