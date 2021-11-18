@@ -222,11 +222,11 @@ to_index(::IndexStyle, x, i::AbstractVector{Bool}) = LogicalIndex{Int}(i)
 to_index(::IndexStyle, x, i::StaticInt) = i
 to_index(::IndexStyle, x, i::Integer) = Int(i)
 @inline function to_index(::IndexStyle, x, i::Bool)
-    start = static_first(x)
+    start = first(x)
     if i
         return start
     else # subtract static value for type stability
-        return start - static(1)
+        return start - 1
     end
 end
 @inline function to_index(::IndexStyle, x, i::AbstractCartesianIndex{1})

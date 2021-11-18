@@ -46,9 +46,13 @@ end
         end
     end
 
-    inds3 = (fill(true, 4, 4), 2, fill(true, 4, 4), 2, 1, fill(true, 4, 4), 1);
+    @test @inferred(ArrayInterface.to_indices(a, (CartesianIndices(()),))) == (CartesianIndices(()),)
+    inds = @inferred(ArrayInterface.to_indices(a, (:,)))
+    @test @inferred(ArrayInterface.to_indices(a, inds)) == inds == (ArrayInterface.indices(a),)
     @test @inferred(ArrayInterface.to_indices(ones(2,2,2), ([true,true], CartesianIndex(1,1)))) == ([1, 2], 1, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, 1))) == (1, 1)
+    @test @inferred(ArrayInterface.to_indices(a, (1, true))) == (1, 1)
+    @test @inferred(ArrayInterface.to_indices(a, (1, false))) == (1, 0)
     @test @inferred(ArrayInterface.to_indices(a, (1, 1:2))) == (1, 1:2)
     @test @inferred(ArrayInterface.to_indices(a, (1:2, 1))) == (1:2, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, :))) == (1, Base.Slice(1:2))
