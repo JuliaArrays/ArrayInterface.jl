@@ -51,23 +51,32 @@ function _axis_expr(nd::Int, dim::Int)
     ifelse(nd < dim, static(1):static(1), :(@inbounds(getfield(axs, $dim))))
 end
 
-# `is_splat_index(::Type{T})::Bool`: returns `true` if `T` is a type that splats across
-# multiple dimensions 
-is_splat_index(::Type) = false
+"""
+    is_splat_index(::Type{T}) -> StaticBool
+    
+Returns `static(true)` if `T` is a type that splats across multiple dimensions. 
+"""
+is_splat_index(x) = is_splat_index(typeof(x))
+is_splat_index(::Type) = static(false)
+_is_splat_index(::Type{I}, i::StaticInt) where {I} = is_splat_index(_get_tuple(I, i))
+function is_splat_index(::Type{I}) where {I<:Tuple}
+    eachop(_is_splat_index, nstatic(Val(known_length(I))), I)
+end
 
 # TODO manage CartesianIndex{0}
 # This method just flattens out CartesianIndex, CartesianIndices, and Ellipsis. Although no
 # values are ever changed and nothing new is actually created, we still get hit with some
 # run time costs if we recurse using lispy approach.
-@generated function _splat_indices(::StaticInt{N}, inds::I) where {N,I}
+@generated function _splat_indices(::StaticInt{N}, inds::I, ::IsSplat) where {N,I,IsSplat}
     t = Expr(:tuple)
     out = Expr(:block, Expr(:meta, :inline))
     any_splats = false
-    ellipsis_position = 0
+    splat_position = 0
     NP = length(I.parameters)
+    splat_sym = gensym()
     for i in 1:NP
         Ti = I.parameters[i] 
-        if Ti <: Base.AbstractCartesianIndex && !(Ti <: CartesianIndex{0})
+        if Ti <: Base.AbstractCartesianIndex
             argi = gensym()
             push!(out.args, Expr(:(=), argi, :(Tuple(@inbounds(getfield(inds, $i))))))
             for j in 1:ArrayInterface.known_length(Ti)
@@ -81,26 +90,25 @@ is_splat_index(::Type) = false
                 push!(t.args, :(@inbounds(getfield($argi, $j))))
             end
             any_splats = true
-        elseif is_splat_index(Ti)
-            if ellipsis_position == 0
-                ellipsis_position = i
-            else
-                push!(t.args, :(:))
-            end
+        elseif splat_position === 0 && known(IsSplat.parameters[i])
+            splat_position = i
+            push!(out.args, Expr(:(=), splat_sym, :(@inbounds(getfield(inds, $i)))))
+ 
+            any_splats = true
         else
             push!(t.args, :(@inbounds(getfield(inds, $i))))
         end
     end
-    if ellipsis_position != 0
+    if splat_position !== 0
         # TODO fix this to be generalized to splats
         nremaining = N
         for i in 1:NP
-            if i != ellipsis_position
-                nremaining -= ndims_index(I.parameters[i])
+            if i !== splat_position
+                nremaining = nremaining - ndims_index(I.parameters[i])
             end
         end
         for _ in 1:nremaining
-            insert!(t.args, ellipsis_position, :(:))
+            insert!(t.args, splat_position, splat_sym)
         end
     end
     if any_splats
@@ -196,10 +204,16 @@ to_indices(A, i::Tuple{CartesianIndices}) = to_indices(A, axes(getfield(i,1)))
 to_indices(A, i::Tuple{AbstractArray{<:AbstractCartesianIndex{N}}}) where {N} = i
 to_indices(A, i::Tuple{AbstractArray{Bool,N}}) where {N} = (LogicalIndex(getfield(i, 1)),)
 # As an optimization, we allow trailing Array{Bool} and BitArray to be linear over trailing dimensions
-to_indices(A::LinearIndices, i::Tuple{Union{Array{Bool}, BitArray}}) = (LogicalIndex{Int}(getfield(i, 1)),)
+@inline function to_indices(A::LinearIndices, i::Tuple{Union{Array{Bool}, BitArray}})
+    (LogicalIndex{Int}(getfield(i, 1)),)
+end
 _to_indices(A, i::Tuple{Vararg{CanonicalInt}}) = i
-@inline to_indices(a::A, i::Tuple{Any,Vararg{Any}}) where {A} = _to_indices(a, _splat_indices(static(ndims(A)), i))
-@inline _to_indices(a::A, i::I) where {A,I} = __to_indices(a, i, IndexStyle(A), ndims_index(I), ndims_shape(I))
+@inline function to_indices(a::A, i::Tuple{Any,Vararg{Any}}) where {A}
+    _to_indices(a, _splat_indices(static(ndims(A)), i, is_splat_index(i)))
+end
+@inline function _to_indices(a::A, i::I) where {A,I}
+    __to_indices(a, i, IndexStyle(A), ndims_index(I), ndims_shape(I))
+end
 
 """
     to_index([::IndexStyle, ]axis, arg) -> index

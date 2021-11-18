@@ -63,6 +63,17 @@ end
     # FIXME @test_throws ErrorException ArrayInterface.to_indices(ones(2,2,2), (1, 1))
 end
 
+@testset "splat indexing" begin
+    struct SplatFirst end
+
+    ArrayInterface.to_index(x, ::SplatFirst) = first(x)
+    ArrayInterface.is_splat_index(::Type{SplatFirst}) = static(true)
+    x = rand(4,4,4,4,4,4,4,4,4,4)
+    i = (1, SplatFirst(), 2, SplatFirst(), CartesianIndex(1, 1))
+
+    @test @inferred(ArrayInterface.to_indices(x, i)) == (1, 1, 1, 1, 1, 1, 2, 1, 1, 1)
+end
+
 @testset "to_axes" begin
     A = ones(3, 3)
     axis = StaticInt(1):StaticInt(3)

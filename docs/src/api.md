@@ -22,6 +22,7 @@ ArrayInterface.is_lazy_conjugate
 ArrayInterface.ismutable
 ArrayInterface.issingular
 ArrayInterface.isstructured
+ArrayInterface.is_splat_index
 ArrayInterface.known_first
 ArrayInterface.known_last
 ArrayInterface.known_length
@@ -30,6 +31,8 @@ ArrayInterface.known_offsets
 ArrayInterface.known_size
 ArrayInterface.known_step
 ArrayInterface.known_strides
+ArrayInterface.ndims_index
+ArrayInterface.ndims_shape
 ```
 
 ## Functions
