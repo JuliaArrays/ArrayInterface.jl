@@ -13,7 +13,6 @@ end
     @test @inferred(ArrayInterface.to_index(axis, 1:2)) === 1:2
     @test @inferred(ArrayInterface.to_index(axis, [1, 2])) == [1, 2]
     @test @inferred(ArrayInterface.to_index(axis, [true, false, false])) == [1]
-    @test @inferred(ArrayInterface.to_index(axis, CartesianIndices(()))) === CartesianIndices(())
 
     x = LinearIndices((static(0):static(3),static(3):static(5),static(-2):static(0)));
     @test_throws ArgumentError ArrayInterface.to_index(axis, error)

@@ -18,7 +18,11 @@ end
     for i in 1:length(ndindex)
         nidx = ndindex[i]
         nout = ndshape[i]
-        if nidx === 1
+        if nidx === 0
+            # TODO double check this
+            # CartesianIndices{0} consumes dimensions
+            push!(t.args, :(@inbounds(getfield(inds, $i))))
+        elseif nidx === 1
             dim += 1
             axexpr = _axis_expr(nd, dim)
             if nd < dim && nout === 0
@@ -47,8 +51,9 @@ function _axis_expr(nd::Int, dim::Int)
     ifelse(nd < dim, static(1):static(1), :(@inbounds(getfield(axs, $dim))))
 end
 
-# `is_ellipsis(::Type{T})::Bool`: returns `true` if `T` is an ellipsis
-is_ellipsis(::Type) = false
+# `is_splat_index(::Type{T})::Bool`: returns `true` if `T` is a type that splats across
+# multiple dimensions 
+is_splat_index(::Type) = false
 
 # TODO manage CartesianIndex{0}
 # This method just flattens out CartesianIndex, CartesianIndices, and Ellipsis. Although no
@@ -76,7 +81,7 @@ is_ellipsis(::Type) = false
                 push!(t.args, :(@inbounds(getfield($argi, $j))))
             end
             any_splats = true
-        elseif is_ellipsis(Ti)
+        elseif is_splat_index(Ti)
             if ellipsis_position == 0
                 ellipsis_position = i
             else
@@ -87,6 +92,7 @@ is_ellipsis(::Type) = false
         end
     end
     if ellipsis_position != 0
+        # TODO fix this to be generalized to splats
         nremaining = N
         for i in 1:NP
             if i != ellipsis_position
@@ -110,6 +116,8 @@ end
 
 Convert the tuple I to a tuple that only contains `Int`, `StaticInt`, `AbstractArray{Integer}`,
 or `AbstractArray{<:AbstractCartesianIndex}`.
+
+# Extended help
 
 Each value of `I` is processed along the corresponding axis of `A` via `to_index`, or the
 corresponding axes of `A` via `to_indices`. `ndims_length` is used to determine how many
@@ -135,6 +143,44 @@ New indexing types should appropriately define `ndims_index` and `to_indices` or
 For example, `ndims_index(Bool) == 1` and has a specific method for conversion to `Int` via
 `to_index(axis, ::Bool)`. Similarly, the fifth example above would dispatch to a method
 that converts the array to `LogicalIndex`.
+
+This implementation differs from that of `Base.to_indices` in the following ways:
+
+*  `to_indices(A, I)` never results in recursive processing of `I` through
+  `to_indices(A, axes(A), I)`. This is avoided through the use of an internal `@generated`
+  method that aligns calls of `to_indices` and `to_index` based on the return values of
+  `ndims_index`. This is beneficial because the compiler currently does not optimize away
+  the increased time spent recursing through
+    each additional argument that needs converting. For example:
+    ```julia
+    julia> x = rand(4,4,4,4,4,4,4,4,4,4);
+
+    julia> inds1 = (1, 2, 1, 2, 1, 2, 1, 2, 1, 2);
+
+    julia> inds2 = (1, CartesianIndex(1, 2), 1, CartesianIndex(1, 2), 1, CartesianIndex(1, 2), 1);
+
+    julia> @btime Base.to_indices(\$x, \$inds2)
+    1.105 μs (12 allocations: 672 bytes)
+    (1, 1, 2, 1, 1, 2, 1, 1, 2, 1)
+
+    julia> @btime ArrayInterface.to_indices(\$x, \$inds2)
+    0.041 ns (0 allocations: 0 bytes)
+    (1, 1, 2, 1, 1, 2, 1, 1, 2, 1)
+
+    ```
+* Recursing through `to_indices(A, axes, I::Tuple{I1,Vararg{Any}})` is intended to provide
+  context for processing `I1`. However, this doesn't tell use how many dimensions are
+  consumed by what is in `Vararg{Any}`. Using `ndims_index` to directly align the axes of
+  `A` with each value in `I` ensures that a `CartesiaIndex{3}` at the tail of `I` isn't
+  incorrectly assumed to only consume one dimension.
+* Specializing by dispatch through method definitions like this:
+  `to_indices(::ArrayType, ::Tuple{AxisType,Vararg{Any}}, ::Tuple{::IndexType,Vararg{Any}})`
+  require an excessive number of hand written methods to avoid ambiguities. Furthermore, if
+  `AxisType` is wrapping another axis that should have unique behavior, then unique parametric 
+  types need to also be explicitly defined.
+* `to_index(axes(A, dim), index)` is called, as opposed to `Base.to_index(A, index)`. The
+  `IndexStyle` of the resulting axis is used to allow indirect dispatch on nested axis types
+  within `to_index`.
 """
 to_indices(A, ::Tuple{}) = (@boundscheck ndims(A) === 0 || throw(BoundsError(A, ())); ())
 # preserve CartesianIndices{0} as they consume a dimension.
@@ -169,18 +215,26 @@ to_index(::MyIndexStyle, axis, arg) = ...
 """
 to_index(x, i::Slice) = i
 to_index(x, i::Colon) = indices(x)
-# TODO If these consume dimensions then do we need to check that that dimension is collapsable?
-to_index(x, i::CartesianIndex{0}) = i
-to_index(x, i::AbstractCartesianIndex{1}) = @inbounds(i[1])
-to_index(x, i::CartesianIndices{1}) = getfield(axes(i), 1)
-to_index(x, i::CartesianIndices{0}) = i
-to_index(x, i::AbstractArray{<:Integer}) = i
-to_index(x, i::AbstractArray{Bool}) = LogicalIndex(i)
-to_index(x, i::StaticInt) = i
-to_index(x, i::Integer) = Int(i)
-to_index(x, i::Bool) = static_first(x)
-to_index(axis, arg) = to_index(IndexStyle(axis), axis, arg)
-function to_index(s, axis, arg)
+@inline to_index(axis, arg) = to_index(IndexStyle(axis), axis, arg)
+to_index(::IndexStyle, x, i::AbstractArray{<:Integer}) = i
+to_index(::IndexStyle, x, i::AbstractVector{Bool}) = LogicalIndex{Int}(i)
+to_index(::IndexStyle, x, i::StaticInt) = i
+to_index(::IndexStyle, x, i::Integer) = Int(i)
+@inline function to_index(::IndexStyle, x, i::Bool)
+    start = static_first(x)
+    if i
+        return start
+    else # subtract static value for type stability
+        return start - static(1)
+    end
+end
+@inline function to_index(::IndexStyle, x, i::AbstractCartesianIndex{1})
+    to_index(x, @inbounds(i[1]))
+end
+@inline function to_index(::IndexStyle, x, i::CartesianIndices{1})
+    to_index(x, getfield(axes(i), 1))
+end
+function to_index(s::IndexStyle, axis, arg)
     throw(ArgumentError("invalid index: IndexStyle $s does not support indices of " *
                         "type $(typeof(arg)) for instances of type $(typeof(axis))."))
 end
@@ -441,4 +495,3 @@ unsafe_setindex!(a, v, i::Vararg{Any}) = unsafe_set_collection!(a, v, i)
 Sets `inds` of `A` to `val`. `inds` is assumed to have been bounds-checked.
 =#
 unsafe_set_collection!(A, v, i) = Base._unsafe_setindex!(IndexStyle(A), A, v, i...)
-
