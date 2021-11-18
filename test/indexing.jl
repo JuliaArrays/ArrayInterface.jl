@@ -10,9 +10,14 @@ end
 @testset "to_index" begin
     axis = 1:3
     @test @inferred(ArrayInterface.to_index(axis, 1)) === 1
+    @test @inferred(ArrayInterface.to_index(axis, static(1))) === static(1)
+    @test @inferred(ArrayInterface.to_index(axis, CartesianIndex(1))) === 1
     @test @inferred(ArrayInterface.to_index(axis, 1:2)) === 1:2
+    @test @inferred(ArrayInterface.to_index(axis, CartesianIndices((1:2,)))) == 1:2
     @test @inferred(ArrayInterface.to_index(axis, [1, 2])) == [1, 2]
     @test @inferred(ArrayInterface.to_index(axis, [true, false, false])) == [1]
+    index = @inferred(ArrayInterface.to_index(axis, :))
+    @test @inferred(ArrayInterface.to_index(axis, index)) == index == ArrayInterface.indices(axis)
 
     x = LinearIndices((static(0):static(3),static(3):static(5),static(-2):static(0)));
     @test_throws ArgumentError ArrayInterface.to_index(axis, error)
@@ -51,6 +56,7 @@ end
     @test @inferred(ArrayInterface.to_indices(a, inds)) == inds == (ArrayInterface.indices(a),)
     @test @inferred(ArrayInterface.to_indices(ones(2,2,2), ([true,true], CartesianIndex(1,1)))) == ([1, 2], 1, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, 1))) == (1, 1)
+    @test @inferred(ArrayInterface.to_indices(a, (1, CartesianIndex(1)))) == (1, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, true))) == (1, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, false))) == (1, 0)
     @test @inferred(ArrayInterface.to_indices(a, (1, 1:2))) == (1, 1:2)
