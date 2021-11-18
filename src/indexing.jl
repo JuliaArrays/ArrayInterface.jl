@@ -37,8 +37,11 @@ end
                 dim += 1
                 push!(axexpr.args, _axis_expr(nd, dim))
             end
-            ICall = ifelse(S <: IndexLinear, :LinearIndices, :CartesianIndices)
-            push!(t.args, :(getfield(to_indices($ICall($axexpr), (@inbounds(getfield(inds, $i)),)), 1)))
+            if S <: IndexLinear && i === length(ndindex)
+                push!(t.args, :(getfield(to_indices(LinearIndices($axexpr), (@inbounds(getfield(inds, $i)),)), 1)))
+            else
+                push!(t.args, :(getfield(to_indices(CartesianIndices($axexpr), (@inbounds(getfield(inds, $i)),)), 1)))
+            end
         end
     end
     quote
@@ -93,7 +96,6 @@ end
         elseif splat_position === 0 && known(IsSplat.parameters[i])
             splat_position = i
             push!(out.args, Expr(:(=), splat_sym, :(@inbounds(getfield(inds, $i)))))
- 
             any_splats = true
         else
             push!(t.args, :(@inbounds(getfield(inds, $i))))
@@ -127,31 +129,6 @@ or `AbstractArray{<:AbstractCartesianIndex}`.
 
 # Extended help
 
-Each value of `I` is processed along the corresponding axis of `A` via `to_index`, or the
-corresponding axes of `A` via `to_indices`. `ndims_length` is used to determine how many
-axes each argument corresponds to.
-
-Some examples of `I`'s contents are:
-
-1. A mapping to the index of a single point along a single dimension so that
-  `ndims_index(I[i]) == 1`. These are ultimately converted to an `Int` or `StaticInt` via
-  `to_index`.
-2. A subtype of `Base.AbstractCartesianIndex{N}` (e.g., `CartesianIndex`) whose contents map
-  to a single point along `N` dimensions. This will be converted to a tuple, splatted, and
-  each element will be passed to `ArrayInterface.to_index` with a corresponding axis from `A`.
-3. `CartesianIndices`, whose axes are then passed to `ArrayInterface.to_index`.
-4. An array whose elements map to a single point along a single dimension, converted via
-  `to_index`.
-5. An array whose elements map to multiple dimensions which is converted by passing back into
-  `to_indices` as a single element tuple with an instance of `CartesianIndices` composed of
-  the corresponding. For example, `to_indices(A, I::Tuple{AbstractArray{Bool,2},Vararg{Any}}})`
-  would pass the first element of `I` to `to_indices(CartesianIndices((axes(A, 1), axes(A, 2))), (I[1],))`.
-
-New indexing types should appropriately define `ndims_index` and `to_indices` or `to_index`.
-For example, `ndims_index(Bool) == 1` and has a specific method for conversion to `Int` via
-`to_index(axis, ::Bool)`. Similarly, the fifth example above would dispatch to a method
-that converts the array to `LogicalIndex`.
-
 This implementation differs from that of `Base.to_indices` in the following ways:
 
 *  `to_indices(A, I)` never results in recursive processing of `I` through
@@ -167,6 +144,8 @@ This implementation differs from that of `Base.to_indices` in the following ways
 
     julia> inds2 = (1, CartesianIndex(1, 2), 1, CartesianIndex(1, 2), 1, CartesianIndex(1, 2), 1);
 
+    julia> inds3 = (fill(true, 4, 4), 2, fill(true, 4, 4), 2, 1, fill(true, 4, 4), 1);
+
     julia> @btime Base.to_indices(\$x, \$inds2)
     1.105 μs (12 allocations: 672 bytes)
     (1, 1, 2, 1, 1, 2, 1, 1, 2, 1)
@@ -174,6 +153,12 @@ This implementation differs from that of `Base.to_indices` in the following ways
     julia> @btime ArrayInterface.to_indices(\$x, \$inds2)
     0.041 ns (0 allocations: 0 bytes)
     (1, 1, 2, 1, 1, 2, 1, 1, 2, 1)
+
+    julia> @btime Base.to_indices(\$x, \$inds3);
+    340.629 ns (14 allocations: 768 bytes)
+
+    julia> @btime ArrayInterface.to_indices(\$x, \$inds3);
+    11.614 ns (0 allocations: 0 bytes)
 
     ```
 * Recursing through `to_indices(A, axes, I::Tuple{I1,Vararg{Any}})` is intended to provide
@@ -200,7 +185,9 @@ to_indices(A, i::Tuple{AbstractArray{<:Integer}}) = i
 to_indices(A, i::Tuple{LogicalIndex}) = i
 to_indices(A, i::Tuple{LinearIndices}) = to_indices(A, axes(getfield(i,1)))
 to_indices(A, i::Tuple{CartesianIndices}) = to_indices(A, axes(getfield(i,1)))
-@inline to_indices(A, i::Tuple{AbstractCartesianIndex}) = to_indices(A, Tuple(getfield(i, 1)))
+@inline function to_indices(A, i::Tuple{AbstractCartesianIndex})
+    to_indices(A, Tuple(getfield(i, 1)))
+end
 to_indices(A, i::Tuple{AbstractArray{<:AbstractCartesianIndex{N}}}) where {N} = i
 to_indices(A, i::Tuple{AbstractArray{Bool,N}}) where {N} = (LogicalIndex(getfield(i, 1)),)
 # As an optimization, we allow trailing Array{Bool} and BitArray to be linear over trailing dimensions

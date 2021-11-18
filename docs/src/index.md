@@ -29,6 +29,7 @@ end
 ```
 
 Most traits in `ArrayInterface` are a variant on this pattern.
+If the trait in question may be altered by a wrapper array, this pattern should be altered or may be inappropriate.
 
 ## Static Traits
 
@@ -174,3 +175,67 @@ Defining these two methods ensures that other array types that wrap `OffsetArray
 It is entirely optional to define `ArrayInterface.size` for `OffsetArray` because the size can be derived from the axes.
 However, in this particularly case we should also define
  `ArrayInterface.size(A::OffsetArray)  = ArrayInterface.size(parent(A))` because the relative offsets attached to `OffsetArray` do not change the size but may hide static sizes if using a relative offset that is defined with an `Int`.
+
+
+## Indexing Protocol
+
+### Defining New Indexers
+
+* An index type that maps to a single dimension, such as `Bool`.
+
+We don't need to define `ndims_index` because the default value for any type is one.
+We need to convert `Bool` to an integer if `true` but throw an error if it is `false`.
+`ndims_shape` needs to be defined so as to indicate that indexing by `Bool` doesn't produce a collection of accessed values.
+```julia
+function ArrayInterface.to_index(::IndexStyle, x, i::Bool)
+    start = first(x)
+    if i
+        return start
+    else  # return out of bounds index
+        return start - 1
+    end
+end
+ArrayInterface.ndims_shape(::Type{Bool}) = static(0)
+```
+
+* An index that maps to a single point along multiple dimensions,
+
+If we want to map multiple boolean values to multiple dimensions with a single type we need to subtype `AbstractCartesianIndex`.
+`ndims_index` is already defined for the super type, so we just need to provide a method for converting it to a tuple.
+following.
+```julia
+struct CartesianBool{N} <: Base.AbstractCartesianIndex{N}
+    I::NTuple{N,Bool}
+end
+Base.Tuple(x::CartesianBool) = x.I
+
+```
+
+Note that we don't need to define a `to_index` method because the each value of the tuple will be a `Bool` and already has this method defined.
+
+* Splat first index of each axis to fill in all dimensions.
+
+```julia
+struct SplatFirst end
+
+ArrayInterface.to_index(x, ::SplatFirst) = first(x)
+
+ArrayInterface.is_splat_index(::Type{SplatFirst}) = static(true)
+
+x = rand(4,4,4,4,4,4,4,4,4,4);
+
+i = (2, SplatFirst(), 2, SplatFirst(), CartesianIndex(2, 2))
+
+ArrayInterface.to_indices(x, i) == (2, 1, 1, 1, 1, 1, 2, 1, 2, 2)
+```
+
+* An array whose elements map to multiple dimensions, such as `AbstractArray{Bool,2}`
+
+```julia
+ArrayInterface.ndims_index(::Type{<:AbstractArray{Bool,N}}) where {N} = static(N)
+function ArrayInterface.to_indices(A, i::Tuple{AbstractArray{Bool,N}}) where {N}
+    (Base.LogicalIndex(getfield(i, 1)),)
+end
+
+```
+This works by passing the first element of `I` in `to_indices(A, I::Tuple{AbstractArray{Bool,2},Vararg{Any}}})` to `to_indices(CartesianIndices((axes(A, 1), axes(A, 2))), (I[1],))`.

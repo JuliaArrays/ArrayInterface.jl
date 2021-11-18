@@ -46,6 +46,7 @@ end
         end
     end
 
+    inds3 = (fill(true, 4, 4), 2, fill(true, 4, 4), 2, 1, fill(true, 4, 4), 1);
     @test @inferred(ArrayInterface.to_indices(ones(2,2,2), ([true,true], CartesianIndex(1,1)))) == ([1, 2], 1, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, 1))) == (1, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, 1:2))) == (1, 1:2)
@@ -55,6 +56,9 @@ end
     @test @inferred(ArrayInterface.to_indices(a, ([true, true], :))) == (Base.LogicalIndex(Bool[1, 1]), Base.Slice(1:2))
     @test @inferred(ArrayInterface.to_indices(a, (CartesianIndices((1,)), 1))) == (1:1, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, 1, 1))) == (1,1, 1)
+    @test @inferred(ArrayInterface.to_indices(a, (1, fill(true, 2, 1)))) == Base.to_indices(a, (1, fill(true, 2, 1)))
+    @test @inferred(ArrayInterface.to_indices(a, (fill(true, 2, 1), 1))) == Base.to_indices(a, (fill(true, 2, 1), 1))
+    @test @inferred(ArrayInterface.to_indices(a, (fill(true, 2), 1, 1))) == Base.to_indices(a, (fill(true, 2), 1, 1))
     @test @inferred(ArrayInterface.to_indices(a, ([CartesianIndex(1,1,1), CartesianIndex(1,2,1)],))) == (CartesianIndex{3}[CartesianIndex(1, 1, 1), CartesianIndex(1, 2, 1)],)
     @test @inferred(ArrayInterface.to_indices(a, ([CartesianIndex(1,1), CartesianIndex(1,2)],1:1))) == (CartesianIndex{2}[CartesianIndex(1, 1), CartesianIndex(1, 2)], 1:1)
     @test @inferred(first(ArrayInterface.to_indices(a, (fill(true, 2, 2, 1),)))) isa Base.LogicalIndex
