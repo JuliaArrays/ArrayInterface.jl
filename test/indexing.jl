@@ -1,14 +1,4 @@
 
-@testset "canonical" begin
-    @test @inferred(ArrayInterface.is_canonical(Int)) === static(true)
-    @test @inferred(ArrayInterface.is_canonical(Base.OneTo{Int})) === static(true)
-    @test @inferred(ArrayInterface.is_canonical(ArrayInterface.OptionallyStaticUnitRange{Int,Int})) === static(true)
-    @test @inferred(ArrayInterface.is_canonical(Base.Slice{ArrayInterface.OptionallyStaticUnitRange{Int,Int}})) === static(true)
-
-    @test @inferred(ArrayInterface.canonicalize(Int32(2):Int32(3))) isa ArrayInterface.OptionallyStaticUnitRange{Int,Int}
-    @test @inferred(ArrayInterface.canonicalize(Int32(2):Int32(1):Int32(3))) isa ArrayInterface.OptionallyStaticStepRange{Int,Int,Int}
-end
-
 @testset "ndims_index" begin
     @test @inferred(ArrayInterface.ndims_index((1, CartesianIndex(1,2)))) === static((1, 2))
     @test @inferred(ArrayInterface.ndims_index((1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === static((1, 2))

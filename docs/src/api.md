@@ -17,7 +17,6 @@ ArrayInterface.fast_scalar_indexing
 ArrayInterface.has_dimnames
 ArrayInterface.has_parent
 ArrayInterface.has_sparsestruct
-ArrayInterface.is_canonical
 ArrayInterface.is_column_major
 ArrayInterface.is_lazy_conjugate
 ArrayInterface.ismutable
@@ -43,7 +42,6 @@ ArrayInterface.axes
 ArrayInterface.axes_types
 ArrayInterface.broadcast_axis
 ArrayInterface.buffer
-ArrayInterface.canonicalize
 ArrayInterface.deleteat
 ArrayInterface.dense_dims
 ArrayInterface.findstructralnz

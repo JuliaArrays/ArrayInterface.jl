@@ -2,6 +2,9 @@
 _cartesian_index(i::Tuple{Vararg{Int}}) = CartesianIndex(i)
 _cartesian_index(::Any) = nothing
 
+_opsint(x::Integer) = Int(x)
+_opsint(x::StaticInt) = x
+
 """
     known_first(::Type{T}) -> Union{Int,Nothing}
 
@@ -81,6 +84,8 @@ function known_step(::Type{T}) where {T}
 end
 known_step(::Type{<:AbstractUnitRange}) = 1
 
+
+
 """
     OptionallyStaticUnitRange(start, stop) <: AbstractUnitRange{Int}
 
@@ -96,10 +101,9 @@ struct OptionallyStaticUnitRange{F<:CanonicalInt,L<:CanonicalInt} <: AbstractUni
     function OptionallyStaticUnitRange(start::CanonicalInt, stop::CanonicalInt)
         new{typeof(start),typeof(stop)}(start, stop)
     end
-    function OptionallyStaticUnitRange(start::Integer, stop::Integer)
-        OptionallyStaticUnitRange(canonicalize(start), canonicalize(stop))
+   function OptionallyStaticUnitRange(start::Integer, stop::Integer)
+        OptionallyStaticUnitRange(_opsint(start), _opsint(stop))
     end
-
     function OptionallyStaticUnitRange(x::AbstractRange)
         step(x) == 1 && return OptionallyStaticUnitRange(static_first(x), static_last(x))
 
@@ -144,7 +148,7 @@ struct OptionallyStaticStepRange{F<:CanonicalInt,S<:CanonicalInt,L<:CanonicalInt
         new{typeof(start),typeof(step),typeof(lst)}(start, step, lst)
     end
     function OptionallyStaticStepRange(start::Integer, step::Integer, stop::Integer)
-        OptionallyStaticStepRange(canonicalize(start), canonicalize(step), canonicalize(stop))
+        OptionallyStaticStepRange(_opsint(start), _opsint(step), _opsint(stop))
     end
     function OptionallyStaticStepRange(x::AbstractRange)
         return OptionallyStaticStepRange(static_first(x), static_step(x), static_last(x))

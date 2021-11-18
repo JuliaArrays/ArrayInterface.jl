@@ -211,7 +211,8 @@ end
 This returns the dimension(s) of `x` corresponding to `d`.
 """
 to_dims(x, dim) = to_dims(typeof(x), dim)
-to_dims(::Type{T}, dim::Integer) where {T} = canonicalize(dim)
+to_dims(::Type{T}, dim::StaticInt) where {T} = dim
+to_dims(::Type{T}, dim::Integer) where {T} = Int(dim)
 to_dims(::Type{T}, dim::Colon) where {T} = dim
 function to_dims(::Type{T}, dim::StaticSymbol) where {T}
     i = find_first_eq(dim, dimnames(T))

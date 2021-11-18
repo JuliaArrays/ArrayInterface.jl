@@ -1,4 +1,5 @@
 
+
 @inline function _to_cartesian(a, i::CanonicalInt)
     @inbounds(CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))[i])
 end
@@ -46,6 +47,9 @@ function _axis_expr(nd::Int, dim::Int)
     ifelse(nd < dim, static(1):static(1), :(@inbounds(getfield(axs, $dim))))
 end
 
+# `is_ellipsis(::Type{T})::Bool`: returns `true` if `T` is an ellipsis
+is_ellipsis(::Type) = false
+
 # TODO manage CartesianIndex{0}
 # This method just flattens out CartesianIndex, CartesianIndices, and Ellipsis. Although no
 # values are ever changed and nothing new is actually created, we still get hit with some
@@ -72,14 +76,12 @@ end
                 push!(t.args, :(@inbounds(getfield($argi, $j))))
             end
             any_splats = true
-        #=
-        elseif Ti <: Ellipsis
+        elseif is_ellipsis(Ti)
             if ellipsis_position == 0
                 ellipsis_position = i
             else
                 push!(t.args, :(:))
             end
-        =#
         else
             push!(t.args, :(@inbounds(getfield(inds, $i))))
         end
@@ -103,54 +105,36 @@ end
     end
 end
 
-
 """
-    is_canonical(::Type{I}) -> StaticBool
+    to_indices(A, I::Tuple) -> Tuple
 
-Returns `True` if instances of `I` can be used for indexing without any further change
-(e.g., `Int`, `StaticInt`, `UnitRange{Int}`)
-"""
-is_canonical(x) = is_canonical(typeof(x))
-is_canonical(::Type{T}) where {T} = static(false)
-is_canonical(::Type{<:CanonicalInt}) = static(true)
-is_canonical(::Type{StepRange{Int,Int}}) = static(true)
-is_canonical(::Type{UnitRange{Int}}) = static(true)
-is_canonical(::Type{OneTo{Int}}) = static(true)
-is_canonical(::Type{<:OptionallyStaticRange}) = static(true)
-is_canonical(::Type{Vector{Int}}) = static(true)
-is_canonical(::Type{<:Slice}) = static(true)
-@inline is_canonical(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}} = _is_canon(T, static(N))
-_is_canon(::Type{T}, ::StaticInt{0}) where {T} = static(true)
-@inline function _is_canon(::Type{T}, n::StaticInt{N}) where {T,N}
-    return is_canonical(_get_tuple(T, n)) & _is_canon(T, n - static(1))
-end
+Convert the tuple I to a tuple that only contains `Int`, `StaticInt`, `AbstractArray{Integer}`,
+or `AbstractArray{<:AbstractCartesianIndex}`.
 
-"""
-    canonicalize(x)
+Each value of `I` is processed along the corresponding axis of `A` via `to_index`, or the
+corresponding axes of `A` via `to_indices`. `ndims_length` is used to determine how many
+axes each argument corresponds to.
 
-Checks if `x` is in a canonical form for indexing. If `x` is already in a canonical form
-then it is returned unchanged. If `x` is not in a canonical form then it is passed to
-`canonical_convert`.
-"""
-canonicalize(x) = _canonicalize(is_canonical(x), x)
-_canonicalize(::True, x) = x
-_canonicalize(::False, x) = canonical_convert(x)
+Some examples of `I`'s contents are:
 
-canonical_convert(x::Integer) = convert(Int, x)
-function canonical_convert(x::AbstractRange)
-    return OptionallyStaticStepRange(static_first(x), static_step(x), static_last(x))
-end
-function canonical_convert(x::AbstractUnitRange)
-    return OptionallyStaticUnitRange(static_first(x), static_last(x))
-end
+1. A mapping to the index of a single point along a single dimension so that
+  `ndims_index(I[i]) == 1`. These are ultimately converted to an `Int` or `StaticInt` via
+  `to_index`.
+2. A subtype of `Base.AbstractCartesianIndex{N}` (e.g., `CartesianIndex`) whose contents map
+  to a single point along `N` dimensions. This will be converted to a tuple, splatted, and
+  each element will be passed to `ArrayInterface.to_index` with a corresponding axis from `A`.
+3. `CartesianIndices`, whose axes are then passed to `ArrayInterface.to_index`.
+4. An array whose elements map to a single point along a single dimension, converted via
+  `to_index`.
+5. An array whose elements map to multiple dimensions which is converted by passing back into
+  `to_indices` as a single element tuple with an instance of `CartesianIndices` composed of
+  the corresponding. For example, `to_indices(A, I::Tuple{AbstractArray{Bool,2},Vararg{Any}}})`
+  would pass the first element of `I` to `to_indices(CartesianIndices((axes(A, 1), axes(A, 2))), (I[1],))`.
 
-"""
-    to_indices(A, inds::Tuple) -> Tuple
-
-Maps indexing arguments `inds` to the axes of `A`, ensures they are converted to a native
-indexing form, and that they are inbounds. Unless all indices in `inds` return `static(true)`
-on a call to [`is_canonical`](@ref), then they each are checked at the axis level with
-[`to_index`](@ref).
+New indexing types should appropriately define `ndims_index` and `to_indices` or `to_index`.
+For example, `ndims_index(Bool) == 1` and has a specific method for conversion to `Int` via
+`to_index(axis, ::Bool)`. Similarly, the fifth example above would dispatch to a method
+that converts the array to `LogicalIndex`.
 """
 to_indices(A, ::Tuple{}) = (@boundscheck ndims(A) === 0 || throw(BoundsError(A, ())); ())
 # preserve CartesianIndices{0} as they consume a dimension.
@@ -162,7 +146,7 @@ to_indices(A, i::Tuple{AbstractArray{<:Integer}}) = i
 to_indices(A, i::Tuple{LogicalIndex}) = i
 to_indices(A, i::Tuple{LinearIndices}) = to_indices(A, axes(getfield(i,1)))
 to_indices(A, i::Tuple{CartesianIndices}) = to_indices(A, axes(getfield(i,1)))
-to_indices(A, i::Tuple{AbstractCartesianIndex}) = to_indices(A, Tuple(getfield(i, 1)))
+@inline to_indices(A, i::Tuple{AbstractCartesianIndex}) = to_indices(A, Tuple(getfield(i, 1)))
 to_indices(A, i::Tuple{AbstractArray{<:AbstractCartesianIndex{N}}}) where {N} = i
 to_indices(A, i::Tuple{AbstractArray{Bool,N}}) where {N} = (LogicalIndex(getfield(i, 1)),)
 # As an optimization, we allow trailing Array{Bool} and BitArray to be linear over trailing dimensions
@@ -187,7 +171,7 @@ to_index(x, i::Slice) = i
 to_index(x, i::Colon) = indices(x)
 # TODO If these consume dimensions then do we need to check that that dimension is collapsable?
 to_index(x, i::CartesianIndex{0}) = i
-to_index(x, i::AbstractCartesianIndex{1}) = @inounds(i[1])
+to_index(x, i::AbstractCartesianIndex{1}) = @inbounds(i[1])
 to_index(x, i::CartesianIndices{1}) = getfield(axes(i), 1)
 to_index(x, i::CartesianIndices{0}) = i
 to_index(x, i::AbstractArray{<:Integer}) = i
@@ -305,13 +289,14 @@ Changing indexing based on a given argument from `args` should be done through,
 [`to_index`](@ref), or [`to_axis`](@ref).
 """
 @propagate_inbounds function getindex(A, args...)
-    @boundscheck checkbounds(A, args...)
-    unsafe_getindex(A, to_indices(A, args)...)
+    inds = to_indices(A, args)
+    @boundscheck checkbounds(A, inds...)
+    unsafe_getindex(A, inds...)
 end
 @propagate_inbounds function getindex(A; kwargs...)
-    args = order_named_inds(dimnames(A), values(kwargs))
-    @boundscheck checkbounds(A, args...)
-    return unsafe_getindex(A, to_indices(A, args)...)
+    inds = to_indices(A, order_named_inds(dimnames(A), values(kwargs)))
+    @boundscheck checkbounds(A, inds...)
+    unsafe_getindex(A, inds...)
 end
 @propagate_inbounds getindex(x::Tuple, i::Int) = getfield(x, i)
 @propagate_inbounds getindex(x::Tuple, ::StaticInt{i}) where {i} = getfield(x, i)
@@ -319,7 +304,7 @@ end
 ## unsafe_getindex ##
 function unsafe_getindex(a::A) where {A}
     parent_type(A) <: A && throw(MethodError(unsafe_getindex, (A,)))
-    return unsafe_getindex(parent(a))
+    unsafe_getindex(parent(a))
 end
 
 # TODO Need to manage index transformations between nested layers of arrays
@@ -405,14 +390,15 @@ Store the given values at the given key or index within a collection.
 """
 @propagate_inbounds function setindex!(A, val, args...)
     can_setindex(A) || error("Instance of type $(typeof(A)) are not mutable and cannot change elements after construction.")
-    @boundscheck checkbounds(A, args...)
-    unsafe_setindex!(A, val, to_indices(A, args)...)
+    inds = to_indices(A, args)
+    @boundscheck checkbounds(A, inds...)
+    unsafe_setindex!(A, val, inds...)
 end
 @propagate_inbounds function setindex!(A, val; kwargs...)
     can_setindex(A) || error("Instance of type $(typeof(A)) are not mutable and cannot change elements after construction.")
-    args = order_named_inds(dimnames(A), values(kwargs))
-    @boundscheck checkbounds(A, args...)
-    unsafe_setindex!(A, val, to_indices(A, args)...)
+    inds = to_indices(A, order_named_inds(dimnames(A), values(kwargs)))
+    @boundscheck checkbounds(A, inds...)
+    unsafe_setindex!(A, val, inds...)
 end
 
 ## unsafe_setindex! ##
