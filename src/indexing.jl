@@ -1,59 +1,4 @@
 
-
-@inline function _to_cartesian(a, i::CanonicalInt)
-    @inbounds(CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))[i])
-end
-@inline function _to_linear(a, i::Tuple{CanonicalInt,Vararg{CanonicalInt}})
-    _strides2int(offsets(a), size_to_strides(size(a), static(1)), i) + static(1)
-end
-
-# code gen
-@generated function __to_indices(a::A, inds, ::S, ::NDIndex, ::NDShape) where {A,S,NDIndex,NDShape}
-    nd = ndims(A)
-    blk = Expr(:block, Expr(:(=), :axs, :(lazy_axes(a))))
-    t = Expr(:tuple)
-    dim = 0
-    ndindex = known(NDIndex)
-    ndshape = known(NDShape)
-    for i in 1:length(ndindex)
-        nidx = ndindex[i]
-        nout = ndshape[i]
-        if nidx === 0
-            # TODO double check this
-            # CartesianIndices{0} consumes dimensions
-            push!(t.args, :(@inbounds(getfield(inds, $i))))
-        elseif nidx === 1
-            dim += 1
-            axexpr = _axis_expr(nd, dim)
-            if nd < dim && nout === 0
-                # drop integers after bounds checking trailing dims
-                push!(blk.args, :(to_index($axexpr, @inbounds(getfield(inds, $i)))))
-            else
-                push!(t.args, :(to_index($axexpr, @inbounds(getfield(inds, $i)))))
-            end
-        else
-            axexpr = Expr(:tuple)
-            for j in 1:nidx
-                dim += 1
-                push!(axexpr.args, _axis_expr(nd, dim))
-            end
-            if S <: IndexLinear && i === length(ndindex)
-                push!(t.args, :(getfield(to_indices(LinearIndices($axexpr), (@inbounds(getfield(inds, $i)),)), 1)))
-            else
-                push!(t.args, :(getfield(to_indices(CartesianIndices($axexpr), (@inbounds(getfield(inds, $i)),)), 1)))
-            end
-        end
-    end
-    quote
-        Compat.@inline
-        $blk
-        $t
-    end
-end
-function _axis_expr(nd::Int, dim::Int)
-    ifelse(nd < dim, static(1):static(1), :(@inbounds(getfield(axs, $dim))))
-end
-
 """
     is_splat_index(::Type{T}) -> StaticBool
     
@@ -66,59 +11,11 @@ function is_splat_index(::Type{I}) where {I<:Tuple}
     eachop(_is_splat_index, nstatic(Val(known_length(I))), I)
 end
 
-# TODO manage CartesianIndex{0}
-# This method just flattens out CartesianIndex, CartesianIndices, and Ellipsis. Although no
-# values are ever changed and nothing new is actually created, we still get hit with some
-# run time costs if we recurse using lispy approach.
-@generated function _splat_indices(::StaticInt{N}, inds::I, ::IsSplat) where {N,I,IsSplat}
-    t = Expr(:tuple)
-    out = Expr(:block, Expr(:meta, :inline))
-    any_splats = false
-    splat_position = 0
-    NP = length(I.parameters)
-    splat_sym = gensym()
-    for i in 1:NP
-        Ti = I.parameters[i] 
-        if Ti <: Base.AbstractCartesianIndex
-            argi = gensym()
-            push!(out.args, Expr(:(=), argi, :(Tuple(@inbounds(getfield(inds, $i))))))
-            for j in 1:ArrayInterface.known_length(Ti)
-                push!(t.args, :(@inbounds(getfield($argi, $j))))
-            end
-            any_splats = true
-        elseif Ti <: CartesianIndices && !(Ti <: CartesianIndices{0})
-            argi = gensym()
-            push!(out.args, Expr(:(=), argi, :(axes(@inbounds(getfield(inds, $i))))))
-            for j in 1:ndims(Ti)
-                push!(t.args, :(@inbounds(getfield($argi, $j))))
-            end
-            any_splats = true
-        elseif splat_position === 0 && known(IsSplat.parameters[i])
-            splat_position = i
-            push!(out.args, Expr(:(=), splat_sym, :(@inbounds(getfield(inds, $i)))))
-            any_splats = true
-        else
-            push!(t.args, :(@inbounds(getfield(inds, $i))))
-        end
-    end
-    if splat_position !== 0
-        # TODO fix this to be generalized to splats
-        nremaining = N
-        for i in 1:NP
-            if i !== splat_position
-                nremaining = nremaining - ndims_index(I.parameters[i])
-            end
-        end
-        for _ in 1:nremaining
-            insert!(t.args, splat_position, splat_sym)
-        end
-    end
-    if any_splats
-        push!(out.args, t)
-        return out
-    else
-        return :inds
-    end
+@inline function _to_cartesian(a, i::CanonicalInt)
+    @inbounds(CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))[i])
+end
+@inline function _to_linear(a, i::Tuple{CanonicalInt,Vararg{CanonicalInt}})
+    _strides2int(offsets(a), size_to_strides(size(a), static(1)), i) + static(1)
 end
 
 """
@@ -200,6 +97,107 @@ _to_indices(A, i::Tuple{Vararg{CanonicalInt}}) = i
 end
 @inline function _to_indices(a::A, i::I) where {A,I}
     __to_indices(a, i, IndexStyle(A), ndims_index(I), ndims_shape(I))
+end
+# code gen
+@generated function __to_indices(a::A, inds, ::S, ::NDIndex, ::NDShape) where {A,S,NDIndex,NDShape}
+    nd = ndims(A)
+    blk = Expr(:block, Expr(:(=), :axs, :(lazy_axes(a))))
+    t = Expr(:tuple)
+    dim = 0
+    ndindex = known(NDIndex)
+    ndshape = known(NDShape)
+    for i in 1:length(ndindex)
+        nidx = ndindex[i]
+        nout = ndshape[i]
+        if nidx === 0
+            # TODO double check this
+            # CartesianIndices{0} consumes dimensions
+            push!(t.args, :(@inbounds(getfield(inds, $i))))
+        elseif nidx === 1
+            dim += 1
+            axexpr = _axis_expr(nd, dim)
+            if nd < dim && nout === 0
+                # drop integers after bounds checking trailing dims
+                push!(blk.args, :(to_index($axexpr, @inbounds(getfield(inds, $i)))))
+            else
+                push!(t.args, :(to_index($axexpr, @inbounds(getfield(inds, $i)))))
+            end
+        else
+            axexpr = Expr(:tuple)
+            for j in 1:nidx
+                dim += 1
+                push!(axexpr.args, _axis_expr(nd, dim))
+            end
+            if S <: IndexLinear && i === length(ndindex)
+                push!(t.args, :(getfield(to_indices(LinearIndices($axexpr), (@inbounds(getfield(inds, $i)),)), 1)))
+            else
+                push!(t.args, :(getfield(to_indices(CartesianIndices($axexpr), (@inbounds(getfield(inds, $i)),)), 1)))
+            end
+        end
+    end
+    quote
+        Compat.@inline
+        $blk
+        $t
+    end
+end
+function _axis_expr(nd::Int, dim::Int)
+    ifelse(nd < dim, static(1):static(1), :(@inbounds(getfield(axs, $dim))))
+end
+
+# TODO manage CartesianIndex{0}
+# This method just flattens out CartesianIndex, CartesianIndices, and Ellipsis. Although no
+# values are ever changed and nothing new is actually created, we still get hit with some
+# run time costs if we recurse using lispy approach.
+@generated function _splat_indices(::StaticInt{N}, inds::I, ::IsSplat) where {N,I,IsSplat}
+    t = Expr(:tuple)
+    out = Expr(:block, Expr(:meta, :inline))
+    any_splats = false
+    splat_position = 0
+    NP = length(I.parameters)
+    splat_sym = gensym()
+    for i in 1:NP
+        Ti = I.parameters[i] 
+        if Ti <: Base.AbstractCartesianIndex
+            argi = gensym()
+            push!(out.args, Expr(:(=), argi, :(Tuple(@inbounds(getfield(inds, $i))))))
+            for j in 1:ArrayInterface.known_length(Ti)
+                push!(t.args, :(@inbounds(getfield($argi, $j))))
+            end
+            any_splats = true
+        elseif Ti <: CartesianIndices && !(Ti <: CartesianIndices{0})
+            argi = gensym()
+            push!(out.args, Expr(:(=), argi, :(axes(@inbounds(getfield(inds, $i))))))
+            for j in 1:ndims(Ti)
+                push!(t.args, :(@inbounds(getfield($argi, $j))))
+            end
+            any_splats = true
+        elseif splat_position === 0 && known(IsSplat.parameters[i])
+            splat_position = i
+            push!(out.args, Expr(:(=), splat_sym, :(@inbounds(getfield(inds, $i)))))
+            any_splats = true
+        else
+            push!(t.args, :(@inbounds(getfield(inds, $i))))
+        end
+    end
+    if splat_position !== 0
+        # TODO fix this to be generalized to splats
+        nremaining = N
+        for i in 1:NP
+            if i !== splat_position
+                nremaining = nremaining - ndims_index(I.parameters[i])
+            end
+        end
+        for _ in 1:nremaining
+            insert!(t.args, splat_position, splat_sym)
+        end
+    end
+    if any_splats
+        push!(out.args, t)
+        return out
+    else
+        return :inds
+    end
 end
 
 """
