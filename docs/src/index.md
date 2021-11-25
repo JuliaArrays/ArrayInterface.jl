@@ -176,11 +176,18 @@ It is entirely optional to define `ArrayInterface.size` for `OffsetArray` becaus
 However, in this particularly case we should also define
  `ArrayInterface.size(A::OffsetArray)  = ArrayInterface.size(parent(A))` because the relative offsets attached to `OffsetArray` do not change the size but may hide static sizes if using a relative offset that is defined with an `Int`.
 
+## Processing Indices
 
-## Indexing Protocol
+The following traits are provided for indexing arguments:
 
-### Defining New Indexers
+* `ndims_index`: the number of dimensions an index maps to
+* `ndims_shape`: the number of dimensions in the returned array produced by an index
+* `is_splat_index`: if an index splats across multiple dimensions to fill in unspecified dimensions
 
+These traits provide context for ArrayInterface's versions of `to_indices` and `to_index`, which are unique from those defined in Julia's `Base` module.
+More specific benefits to the approach used here are described in [`to_indices`](@ref) doc string.
+
+### Supporting New Indexing Types Examples
 * An index type that maps to a single dimension, such as `Bool`.
 
 We don't need to define `ndims_index` because the default value for any type is one.
@@ -239,3 +246,4 @@ end
 
 ```
 This works by passing the first element of `I` in `to_indices(A, I::Tuple{AbstractArray{Bool,2},Vararg{Any}}})` to `to_indices(CartesianIndices((axes(A, 1), axes(A, 2))), (I[1],))`.
+

@@ -1,4 +1,11 @@
 
+@inline function _to_cartesian(a, i::CanonicalInt)
+    @inbounds(CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))[i])
+end
+@inline function _to_linear(a, i::Tuple{CanonicalInt,Vararg{CanonicalInt}})
+    _strides2int(offsets(a), size_to_strides(size(a), static(1)), i) + static(1)
+end
+
 """
     is_splat_index(::Type{T}) -> StaticBool
     
@@ -6,16 +13,45 @@ Returns `static(true)` if `T` is a type that splats across multiple dimensions.
 """
 is_splat_index(x) = is_splat_index(typeof(x))
 is_splat_index(::Type) = static(false)
-_is_splat_index(::Type{I}, i::StaticInt) where {I} = is_splat_index(_get_tuple(I, i))
-function is_splat_index(::Type{I}) where {I<:Tuple}
-    eachop(_is_splat_index, nstatic(Val(known_length(I))), I)
+_issplat(::Type{I}, i::StaticInt) where {I} = is_splat_index(_get_tuple(I, i))
+@inline function is_splat_index(::Type{I}) where {I<:Tuple}
+    eachop(_issplat, nstatic(Val(known_length(I))), I)
 end
 
-@inline function _to_cartesian(a, i::CanonicalInt)
-    @inbounds(CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))[i])
+"""
+    ndims_index(::Type{I})::StaticInt
+
+Returns the number of dimension that an instance of `I` maps to when indexing. For example,
+`CartesianIndex{3}` maps to 3 dimensions. If this method is not explicitly defined, then `1`
+is returned.
+"""
+ndims_index(@nospecialize(i)) = ndims_index(typeof(i))
+ndims_index(::Type{I}) where {I} = static(1)
+ndims_index(::Type{<:AbstractCartesianIndex{N}}) where {N} = static(N)
+ndims_index(::Type{<:AbstractArray{T}}) where {T} = ndims_index(T)
+ndims_index(::Type{<:AbstractArray{Bool,N}}) where {N} = static(N)
+ndims_index(::Type{<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}}) where {N} = static(N)
+_ndindex(::Type{I}, i::StaticInt) where {I} = ndims_index(_get_tuple(I, i))
+@inline function ndims_index(::Type{I}) where {I<:Tuple}
+    eachop(_ndindex, nstatic(Val(known_length(I))), I)
 end
-@inline function _to_linear(a, i::Tuple{CanonicalInt,Vararg{CanonicalInt}})
-    _strides2int(offsets(a), size_to_strides(size(a), static(1)), i) + static(1)
+
+"""
+    ndims_shape(::Type{I}) -> StaticInt
+
+Returns the number of dimensions that `I` maps to in the returned array from an indexing
+operation. For example, `Int` would map to 0 dimensions but `Vector{Int}` would map to one
+dimension.
+"""
+ndims_shape(@nospecialize(i)) = ndims_shape(typeof(i))
+ndims_shape(::Type{I}) where {I} = static(1)
+ndims_shape(::Type{<:Integer}) = static(0)
+ndims_shape(@nospecialize(x::Type{<:StaticInt})) = static(0)
+ndims_shape(::Type{<:AbstractCartesianIndex}) = static(0)
+ndims_shape(::Type{<:AbstractArray{T,N}}) where {T,N} = static(N)
+_ndshape(::Type{I}, i::StaticInt) where {I} = ndims_shape(_get_tuple(I, i))
+@inline function ndims_shape(::Type{I}) where {I<:Tuple}
+    eachop(_ndshape, nstatic(Val(known_length(I))), I)
 end
 
 """
@@ -63,6 +99,8 @@ This implementation differs from that of `Base.to_indices` in the following ways
   consumed by what is in `Vararg{Any}`. Using `ndims_index` to directly align the axes of
   `A` with each value in `I` ensures that a `CartesiaIndex{3}` at the tail of `I` isn't
   incorrectly assumed to only consume one dimension.
+* `Base.to_indices` may fail to infer the returned type. This is the case for `inds2` and
+  `inds3` in the first bullet on Julia 1.6.4.
 * Specializing by dispatch through method definitions like this:
   `to_indices(::ArrayType, ::Tuple{AxisType,Vararg{Any}}, ::Tuple{::IndexType,Vararg{Any}})`
   require an excessive number of hand written methods to avoid ambiguities. Furthermore, if
@@ -91,20 +129,16 @@ to_indices(A, i::Tuple{AbstractArray{Bool,N}}) where {N} = (LogicalIndex(getfiel
 @inline function to_indices(A::LinearIndices, i::Tuple{Union{Array{Bool}, BitArray}})
     (LogicalIndex{Int}(getfield(i, 1)),)
 end
-_to_indices(A, i::Tuple{Vararg{CanonicalInt}}) = i
-@inline function to_indices(a::A, i::Tuple{Any,Vararg{Any}}) where {A}
-    _to_indices(a, _splat_indices(static(ndims(A)), i, is_splat_index(i)))
+@inline function to_indices(A, i::Tuple{Any,Vararg{Any}})
+    inds = _splat_indices(static(ndims(A)), i, ndims_index(i), is_splat_index(i))
+    _to_indices(A, inds, IndexStyle(A), ndims_index(inds), ndims_shape(inds))
 end
-@inline function _to_indices(a::A, i::I) where {A,I}
-    __to_indices(a, i, IndexStyle(A), ndims_index(I), ndims_shape(I))
-end
-# code gen
-@generated function __to_indices(a::A, inds, ::S, ::NDIndex, ::NDShape) where {A,S,NDIndex,NDShape}
+@generated function _to_indices(a::A, inds, ::S, ::NDI, ::NDShape) where {A,S,NDI,NDShape}
     nd = ndims(A)
     blk = Expr(:block, Expr(:(=), :axs, :(lazy_axes(a))))
     t = Expr(:tuple)
     dim = 0
-    ndindex = known(NDIndex)
+    ndindex = known(NDI)
     ndshape = known(NDShape)
     for i in 1:length(ndindex)
         nidx = ndindex[i]
@@ -149,45 +183,42 @@ end
 # This method just flattens out CartesianIndex, CartesianIndices, and Ellipsis. Although no
 # values are ever changed and nothing new is actually created, we still get hit with some
 # run time costs if we recurse using lispy approach.
-@generated function _splat_indices(::StaticInt{N}, inds::I, ::IsSplat) where {N,I,IsSplat}
+@generated function _splat_indices(::StaticInt{N}, inds::I, ::NDI, ::IS) where {N,I,NDI,IS}
     t = Expr(:tuple)
     out = Expr(:block, Expr(:meta, :inline))
     any_splats = false
     splat_position = 0
-    NP = length(I.parameters)
     splat_sym = gensym()
-    for i in 1:NP
+    nremaining = N
+    for i in 1:length(I.parameters)
+        ndindex = known(NDI.parameters[i])
         Ti = I.parameters[i] 
         if Ti <: Base.AbstractCartesianIndex
             argi = gensym()
             push!(out.args, Expr(:(=), argi, :(Tuple(@inbounds(getfield(inds, $i))))))
-            for j in 1:ArrayInterface.known_length(Ti)
+            for j in 1:ndindex
                 push!(t.args, :(@inbounds(getfield($argi, $j))))
             end
             any_splats = true
+            nremaining -= ndindex
         elseif Ti <: CartesianIndices && !(Ti <: CartesianIndices{0})
             argi = gensym()
             push!(out.args, Expr(:(=), argi, :(axes(@inbounds(getfield(inds, $i))))))
-            for j in 1:ndims(Ti)
+            for j in 1:ndindex
                 push!(t.args, :(@inbounds(getfield($argi, $j))))
             end
             any_splats = true
-        elseif splat_position === 0 && known(IsSplat.parameters[i])
+            nremaining -= ndindex
+        elseif splat_position === 0 && known(IS.parameters[i])
             splat_position = i
             push!(out.args, Expr(:(=), splat_sym, :(@inbounds(getfield(inds, $i)))))
             any_splats = true
         else
             push!(t.args, :(@inbounds(getfield(inds, $i))))
+            nremaining -= ndindex
         end
     end
     if splat_position !== 0
-        # TODO fix this to be generalized to splats
-        nremaining = N
-        for i in 1:NP
-            if i !== splat_position
-                nremaining = nremaining - ndims_index(I.parameters[i])
-            end
-        end
         for _ in 1:nremaining
             insert!(t.args, splat_position, splat_sym)
         end
@@ -223,7 +254,7 @@ to_index(::IndexStyle, x, i::Integer) = Int(i)
     start = first(x)
     if i
         return start
-    else # subtract static value for type stability
+    else  # subtract static value for type stability
         return start - 1
     end
 end
