@@ -303,13 +303,14 @@ Changing indexing based on a given argument from `args` should be done through,
 [`to_index`](@ref), or [`to_axis`](@ref).
 """
 function getindex(A, args...)
-    @boundscheck checkbounds(A, args...)
-    unsafe_getindex(A, to_indices(A, args)...)
+    inds = to_indices(A, args)
+    @boundscheck checkbounds(A, inds...)
+    unsafe_getindex(A, inds...)
 end
 function getindex(A; kwargs...)
-    args = order_named_inds(dimnames(A), values(kwargs))
-    @boundscheck checkbounds(A, args...)
-    unsafe_getindex(A, to_indices(A, args)...)
+    inds = to_indices(A, order_named_inds(dimnames(A), values(kwargs)))
+    @boundscheck checkbounds(A, inds...)
+    unsafe_getindex(A, inds...)
 end
 @propagate_inbounds getindex(x::Tuple, i::Int) = getfield(x, i)
 @propagate_inbounds getindex(x::Tuple, ::StaticInt{i}) where {i} = getfield(x, i)
