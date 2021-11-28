@@ -22,20 +22,6 @@ function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y}}) where {X, Y}
 end
 is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
 
-#=
-    ndims_index(::Type{I})::StaticInt
-
-The number of dimensions an instance of `I` maps to when indexing an instance of `A`.
-=#
-ndims_index(i) = ndims_index(typeof(i))
-ndims_index(::Type{I}) where {I} = static(1)
-ndims_index(::Type{I}) where {N,I<:AbstractCartesianIndex{N}} = static(N)
-ndims_index(::Type{I}) where {I<:AbstractArray} = ndims_index(eltype(I))
-ndims_index(::Type{I}) where {I<:AbstractArray{Bool}} = static(ndims(I))
-ndims_index(::Type{I}) where {N,I<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}} = static(N)
-_ndims_index(::Type{I}, i::StaticInt) where {I} = ndims_index(_get_tuple(I, i))
-ndims_index(::Type{I}) where {N,I<:Tuple{Vararg{Any,N}}} = eachop(_ndims_index, nstatic(Val(N)), I)
-
 """
     from_parent_dims(::Type{T}) -> Tuple{Vararg{Union{Int,StaticInt}}}
     from_parent_dims(::Type{T}, dim) -> Union{Int,StaticInt}
@@ -191,7 +177,8 @@ end
 This returns the dimension(s) of `x` corresponding to `d`.
 """
 to_dims(x, dim) = to_dims(typeof(x), dim)
-to_dims(::Type{T}, dim::Integer) where {T} = canonicalize(dim)
+to_dims(::Type{T}, dim::StaticInt) where {T} = dim
+to_dims(::Type{T}, dim::Integer) where {T} = Int(dim)
 to_dims(::Type{T}, dim::Colon) where {T} = dim
 function to_dims(::Type{T}, dim::StaticSymbol) where {T}
     i = find_first_eq(dim, dimnames(T))

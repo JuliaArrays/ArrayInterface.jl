@@ -1,39 +1,17 @@
 
-@testset "canonical" begin
-    @test @inferred(ArrayInterface.is_canonical(Int)) === static(true)
-    @test @inferred(ArrayInterface.is_canonical(Base.OneTo{Int})) === static(true)
-    @test @inferred(ArrayInterface.is_canonical(ArrayInterface.OptionallyStaticUnitRange{Int,Int})) === static(true)
-    @test @inferred(ArrayInterface.is_canonical(Base.Slice{ArrayInterface.OptionallyStaticUnitRange{Int,Int}})) === static(true)
-
-    @test @inferred(ArrayInterface.canonicalize(Int32(2):Int32(3))) isa ArrayInterface.OptionallyStaticUnitRange{Int,Int}
-    @test @inferred(ArrayInterface.canonicalize(Int32(2):Int32(1):Int32(3))) isa ArrayInterface.OptionallyStaticStepRange{Int,Int,Int}
-end
-
-@testset "ndims_index" begin
-    @test @inferred(ArrayInterface.ndims_index((1, CartesianIndex(1,2)))) === static((1, 2))
-    @test @inferred(ArrayInterface.ndims_index((1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === static((1, 2))
-    @test @inferred(ArrayInterface.ndims_index((1, CartesianIndex((2,2))))) === static((1, 2))
-    @test @inferred(ArrayInterface.ndims_index((CartesianIndex((2,2)), :, :))) === static((2, 1, 1))
-    @test @inferred(ArrayInterface.ndims_index(Vector{Int})) === static(1)
-end
-
 @testset "to_index" begin
     axis = 1:3
     @test @inferred(ArrayInterface.to_index(axis, 1)) === 1
+    @test @inferred(ArrayInterface.to_index(axis, static(1))) === static(1)
+    @test @inferred(ArrayInterface.to_index(axis, CartesianIndex(1))) === (1,)
     @test @inferred(ArrayInterface.to_index(axis, 1:2)) === 1:2
+    @test @inferred(ArrayInterface.to_index(axis, CartesianIndices((1:2,)))) == (1:2,)
     @test @inferred(ArrayInterface.to_index(axis, [1, 2])) == [1, 2]
     @test @inferred(ArrayInterface.to_index(axis, [true, false, false])) == [1]
-    @test @inferred(ArrayInterface.to_index(axis, CartesianIndices(()))) === CartesianIndices(())
+    index = @inferred(ArrayInterface.to_index(axis, :))
+    @test @inferred(ArrayInterface.to_index(axis, index)) == index == ArrayInterface.indices(axis)
 
     x = LinearIndices((static(0):static(3),static(3):static(5),static(-2):static(0)));
-
-    # @test @inferred(ArrayInterface.to_index(x, NDIndex((0, 3, -2)))) === 1
-    # @test @inferred(ArrayInterface.to_index(x, NDIndex(static(0), static(3), static(-2)))) === static(1)
-
-    @test_throws BoundsError ArrayInterface.to_index(axis, 4)
-    @test_throws BoundsError ArrayInterface.to_index(axis, 1:4)
-    @test_throws BoundsError ArrayInterface.to_index(axis, [1, 2, 5])
-    @test_throws BoundsError ArrayInterface.to_index(axis, [true, false, false, true])
     @test_throws ArgumentError ArrayInterface.to_index(axis, error)
 end
 
@@ -65,8 +43,13 @@ end
         end
     end
 
+    @test @inferred(ArrayInterface.to_indices(a, (CartesianIndices(()),))) == (CartesianIndices(()),)
+    inds = @inferred(ArrayInterface.to_indices(a, (:,)))
+    @test @inferred(ArrayInterface.to_indices(a, inds)) == inds == (ArrayInterface.indices(a),)
     @test @inferred(ArrayInterface.to_indices(ones(2,2,2), ([true,true], CartesianIndex(1,1)))) == ([1, 2], 1, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, 1))) == (1, 1)
+    @test @inferred(ArrayInterface.to_indices(a, (1, CartesianIndex(1)))) == (1, 1)
+    @test @inferred(ArrayInterface.to_indices(a, (1, false))) == (1, 0)
     @test @inferred(ArrayInterface.to_indices(a, (1, 1:2))) == (1, 1:2)
     @test @inferred(ArrayInterface.to_indices(a, (1:2, 1))) == (1:2, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, :))) == (1, Base.Slice(1:2))
@@ -74,12 +57,26 @@ end
     @test @inferred(ArrayInterface.to_indices(a, ([true, true], :))) == (Base.LogicalIndex(Bool[1, 1]), Base.Slice(1:2))
     @test @inferred(ArrayInterface.to_indices(a, (CartesianIndices((1,)), 1))) == (1:1, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, 1, 1))) == (1,1, 1)
+    @test @inferred(ArrayInterface.to_indices(a, (1, fill(true, 2, 2)))) == Base.to_indices(a, (1, fill(true, 2, 2)))
+    inds = @inferred(ArrayInterface.to_indices(a, (fill(true, 2, 2, 1),)))
+    # Conversion to LogicalIndex doesn't change
+    @test @inferred(ArrayInterface.to_indices(a, inds)) == inds
+    @test @inferred(ArrayInterface.to_indices(a, (fill(true, 2, 1), 1))) == Base.to_indices(a, (fill(true, 2, 1), 1))
+    @test @inferred(ArrayInterface.to_indices(a, (fill(true, 2), 1, 1))) == Base.to_indices(a, (fill(true, 2), 1, 1))
     @test @inferred(ArrayInterface.to_indices(a, ([CartesianIndex(1,1,1), CartesianIndex(1,2,1)],))) == (CartesianIndex{3}[CartesianIndex(1, 1, 1), CartesianIndex(1, 2, 1)],)
     @test @inferred(ArrayInterface.to_indices(a, ([CartesianIndex(1,1), CartesianIndex(1,2)],1:1))) == (CartesianIndex{2}[CartesianIndex(1, 1), CartesianIndex(1, 2)], 1:1)
     @test @inferred(first(ArrayInterface.to_indices(a, (fill(true, 2, 2, 1),)))) isa Base.LogicalIndex
+end
 
-    # FIXME @test_throws BoundsError ArrayInterface.to_indices(a, (fill(true, 2, 2, 2),))
-    # FIXME @test_throws ErrorException ArrayInterface.to_indices(ones(2,2,2), (1, 1))
+@testset "splat indexing" begin
+    struct SplatFirst end
+
+    ArrayInterface.to_index(x, ::SplatFirst) = map(first, axes(x))
+    ArrayInterface.is_splat_index(::Type{SplatFirst}) = static(true)
+    x = rand(4,4,4,4,4,4,4,4,4,4)
+    i = (1, SplatFirst(), 2, SplatFirst(), CartesianIndex(1, 1))
+
+    @test @inferred(ArrayInterface.to_indices(x, i)) == (1, 1, 1, 1, 1, 1, 2, 1, 1, 1)
 end
 
 @testset "to_axes" begin

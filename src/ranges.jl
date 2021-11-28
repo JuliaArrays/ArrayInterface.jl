@@ -96,10 +96,9 @@ struct OptionallyStaticUnitRange{F<:CanonicalInt,L<:CanonicalInt} <: AbstractUni
     function OptionallyStaticUnitRange(start::CanonicalInt, stop::CanonicalInt)
         new{typeof(start),typeof(stop)}(start, stop)
     end
-    function OptionallyStaticUnitRange(start::Integer, stop::Integer)
+   function OptionallyStaticUnitRange(start::Integer, stop::Integer)
         OptionallyStaticUnitRange(canonicalize(start), canonicalize(stop))
     end
-
     function OptionallyStaticUnitRange(x::AbstractRange)
         step(x) == 1 && return OptionallyStaticUnitRange(static_first(x), static_last(x))
 

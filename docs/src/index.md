@@ -29,6 +29,7 @@ end
 ```
 
 Most traits in `ArrayInterface` are a variant on this pattern.
+If the trait in question may be altered by a wrapper array, this pattern should be altered or may be inappropriate.
 
 ## Static Traits
 
@@ -174,3 +175,19 @@ Defining these two methods ensures that other array types that wrap `OffsetArray
 It is entirely optional to define `ArrayInterface.size` for `OffsetArray` because the size can be derived from the axes.
 However, in this particularly case we should also define
  `ArrayInterface.size(A::OffsetArray)  = ArrayInterface.size(parent(A))` because the relative offsets attached to `OffsetArray` do not change the size but may hide static sizes if using a relative offset that is defined with an `Int`.
+
+## Processing Indices (`to_indices`)
+
+For most users, the only reason you should use `ArrayInterface.to_indices` over `Base.to_indices` is that it's faster and perhaps some of the more detailed benefits described in the [`to_indices`](@ref) doc string.
+For those interested in how this is accomplished, the following steps (beginning with the `to_indices(A::AbstractArray, I::Tuple)`) are used to accomplish this:
+
+1. The number of dimensions that each indexing argument in `I` corresponds to is determined using using the [`ndims_index`](@ref) and [`is_splat_index`](@ref) traits.
+2. A non-allocating reference to each axis of `A` is created (`lazy_axes(A) -> axs`). These are aligned to each the index arguments using information from the first step. For example, if an index argument maps to a single dimension then it is paired with `axs[dim]`. In the case of multiple dimensions it is paired with `CartesianIndices(axs[dim_1], ... axs[dim_n])`. These pairs are further processed using `to_index(axis, I[n])`.
+3. Tuples returned from `to_index` are flattened out so that there are no nested tuples returned from `to_indices`.
+
+Entry points:
+
+* `to_indices(::ArrayType, indices)` : dispatch on unique array type `ArrayType`
+* `to_index(axis, ::IndexType)` : dispatch on a unique indexing type, `IndexType`. `ArrayInterface.ndims_index(::Type{IndexType})` should also be defined in this case.
+* `to_index(S::IndexStyle, axis, index)` : The index style `S` that corresponds to `axis`. This is 
+

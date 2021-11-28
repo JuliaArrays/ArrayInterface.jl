@@ -17,12 +17,12 @@ ArrayInterface.fast_scalar_indexing
 ArrayInterface.has_dimnames
 ArrayInterface.has_parent
 ArrayInterface.has_sparsestruct
-ArrayInterface.is_canonical
 ArrayInterface.is_column_major
 ArrayInterface.is_lazy_conjugate
 ArrayInterface.ismutable
 ArrayInterface.issingular
 ArrayInterface.isstructured
+ArrayInterface.is_splat_index
 ArrayInterface.known_first
 ArrayInterface.known_last
 ArrayInterface.known_length
@@ -31,6 +31,7 @@ ArrayInterface.known_offsets
 ArrayInterface.known_size
 ArrayInterface.known_step
 ArrayInterface.known_strides
+ArrayInterface.ndims_index
 ```
 
 ## Functions
@@ -43,7 +44,6 @@ ArrayInterface.axes
 ArrayInterface.axes_types
 ArrayInterface.broadcast_axis
 ArrayInterface.buffer
-ArrayInterface.canonicalize
 ArrayInterface.deleteat
 ArrayInterface.dense_dims
 ArrayInterface.findstructralnz
