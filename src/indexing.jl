@@ -11,19 +11,17 @@ end
     
 Returns `static(true)` if `T` is a type that splats across multiple dimensions. 
 """
-is_splat_index(x) = is_splat_index(typeof(x))
-is_splat_index(::Type) = static(false)
-_issplat(::Type{I}, i::StaticInt) where {I} = is_splat_index(_get_tuple(I, i))
-@inline function is_splat_index(::Type{I}) where {I<:Tuple}
-    eachop(_issplat, nstatic(Val(known_length(I))), I)
-end
+is_splat_index(@nospecialize(x)) = is_splat_index(typeof(x))
+is_splat_index(::Type{T}) where {T} = static(false)
+_is_splat(::Type{I}, i::StaticInt) where {I} = is_splat_index(_get_tuple(I, i))
 
 """
-    ndims_index(::Type{I})::StaticInt
+    ndims_index(::Type{I}) -> StaticInt
 
 Returns the number of dimension that an instance of `I` maps to when indexing. For example,
 `CartesianIndex{3}` maps to 3 dimensions. If this method is not explicitly defined, then `1`
 is returned.
+
 """
 ndims_index(@nospecialize(i)) = ndims_index(typeof(i))
 ndims_index(::Type{I}) where {I} = static(1)
@@ -31,34 +29,14 @@ ndims_index(::Type{<:AbstractCartesianIndex{N}}) where {N} = static(N)
 ndims_index(::Type{<:AbstractArray{T}}) where {T} = ndims_index(T)
 ndims_index(::Type{<:AbstractArray{Bool,N}}) where {N} = static(N)
 ndims_index(::Type{<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}}) where {N} = static(N)
-_ndindex(::Type{I}, i::StaticInt) where {I} = ndims_index(_get_tuple(I, i))
-@inline function ndims_index(::Type{I}) where {I<:Tuple}
-    eachop(_ndindex, nstatic(Val(known_length(I))), I)
-end
-
-"""
-    ndims_shape(::Type{I}) -> StaticInt
-
-Returns the number of dimensions that `I` maps to in the returned array from an indexing
-operation. For example, `Int` would map to 0 dimensions but `Vector{Int}` would map to one
-dimension.
-"""
-ndims_shape(@nospecialize(i)) = ndims_shape(typeof(i))
-ndims_shape(::Type{I}) where {I} = static(1)
-ndims_shape(::Type{<:Integer}) = static(0)
-ndims_shape(@nospecialize(x::Type{<:StaticInt})) = static(0)
-ndims_shape(::Type{<:AbstractCartesianIndex}) = static(0)
-ndims_shape(::Type{<:AbstractArray{T,N}}) where {T,N} = static(N)
-_ndshape(::Type{I}, i::StaticInt) where {I} = ndims_shape(_get_tuple(I, i))
-@inline function ndims_shape(::Type{I}) where {I<:Tuple}
-    eachop(_ndshape, nstatic(Val(known_length(I))), I)
-end
+_ndims_index(::Type{I}, i::StaticInt) where {I} = ndims_index(_get_tuple(I, i))
 
 """
     to_indices(A, I::Tuple) -> Tuple
 
-Convert the tuple I to a tuple that only contains `Int`, `StaticInt`, `AbstractArray{Integer}`,
-or `AbstractArray{<:AbstractCartesianIndex}`.
+Converts the tuple of indexing arguments, `I`, into an appropriate form for indexing into `A`.
+Typically, each index should be an `Int`, `StaticInt`, a collection with values of `Int`, or a collection with values of `CartesianIndex`
+This is accomplished in three steps after the initial call to `to_indices`:
 
 # Extended help
 
@@ -110,125 +88,84 @@ This implementation differs from that of `Base.to_indices` in the following ways
   `IndexStyle` of the resulting axis is used to allow indirect dispatch on nested axis types
   within `to_index`.
 """
-to_indices(A, ::Tuple{}) = (@boundscheck ndims(A) === 0 || throw(BoundsError(A, ())); ())
-# preserve CartesianIndices{0} as they consume a dimension.
-to_indices(A, i::Tuple{CartesianIndices{0}}) = i
-to_indices(A, ::Tuple{Colon}) = (indices(A),)
-to_indices(A, i::Tuple{Slice}) = i
-to_indices(A, i::Tuple{Vararg{CanonicalInt}}) = i
-to_indices(A, i::Tuple{AbstractArray{<:Integer}}) = i
-to_indices(A, i::Tuple{LogicalIndex}) = i
-to_indices(A, i::Tuple{LinearIndices}) = to_indices(A, axes(getfield(i,1)))
-to_indices(A, i::Tuple{CartesianIndices}) = to_indices(A, axes(getfield(i,1)))
-@inline function to_indices(A, i::Tuple{AbstractCartesianIndex})
-    to_indices(A, Tuple(getfield(i, 1)))
+to_indices(A, ::Tuple{}) = ()
+@inline function to_indices(a::A, inds::I) where {A,I}
+    _to_indices(
+        a,
+        inds,
+        IndexStyle(A),
+        static(ndims(A)),
+        eachop(_ndims_index, nstatic(Val(known_length(I))), I),
+        eachop(_is_splat, nstatic(Val(known_length(I))), I)
+    )
 end
-to_indices(A, i::Tuple{AbstractArray{<:AbstractCartesianIndex{N}}}) where {N} = i
-to_indices(A, i::Tuple{AbstractArray{Bool,N}}) where {N} = (LogicalIndex(getfield(i, 1)),)
-# As an optimization, we allow trailing Array{Bool} and BitArray to be linear over trailing dimensions
-@inline function to_indices(A::LinearIndices, i::Tuple{Union{Array{Bool}, BitArray}})
-    (LogicalIndex{Int}(getfield(i, 1)),)
-end
-@inline function to_indices(A, i::Tuple{Any,Vararg{Any}})
-    inds = _splat_indices(static(ndims(A)), i, ndims_index(i), is_splat_index(i))
-    _to_indices(A, inds, IndexStyle(A), ndims_index(inds), ndims_shape(inds))
-end
-@generated function _to_indices(a::A, inds, ::S, ::NDI, ::NDShape) where {A,S,NDI,NDShape}
-    nd = ndims(A)
-    blk = Expr(:block, Expr(:(=), :axs, :(lazy_axes(a))))
-    t = Expr(:tuple)
-    dim = 0
-    ndindex = known(NDI)
-    ndshape = known(NDShape)
-    for i in 1:length(ndindex)
-        nidx = ndindex[i]
-        nout = ndshape[i]
-        if nidx === 0
-            # TODO double check this
-            # CartesianIndices{0} consumes dimensions
-            push!(t.args, :(@inbounds(getfield(inds, $i))))
-        elseif nidx === 1
-            dim += 1
-            axexpr = _axis_expr(nd, dim)
-            if nd < dim && nout === 0
-                # drop integers after bounds checking trailing dims
-                push!(blk.args, :(to_index($axexpr, @inbounds(getfield(inds, $i)))))
-            else
-                push!(t.args, :(to_index($axexpr, @inbounds(getfield(inds, $i)))))
-            end
-        else
-            axexpr = Expr(:tuple)
-            for j in 1:nidx
-                dim += 1
-                push!(axexpr.args, _axis_expr(nd, dim))
-            end
-            if S <: IndexLinear && i === length(ndindex)
-                push!(t.args, :(getfield(to_indices(LinearIndices($axexpr), (@inbounds(getfield(inds, $i)),)), 1)))
-            else
-                push!(t.args, :(getfield(to_indices(CartesianIndices($axexpr), (@inbounds(getfield(inds, $i)),)), 1)))
-            end
-        end
-    end
-    quote
-        Compat.@inline
-        $blk
-        $t
-    end
-end
-function _axis_expr(nd::Int, dim::Int)
-    ifelse(nd < dim, static(1):static(1), :(@inbounds(getfield(axs, $dim))))
-end
-
-# TODO manage CartesianIndex{0}
-# This method just flattens out CartesianIndex, CartesianIndices, and Ellipsis. Although no
-# values are ever changed and nothing new is actually created, we still get hit with some
-# run time costs if we recurse using lispy approach.
-@generated function _splat_indices(::StaticInt{N}, inds::I, ::NDI, ::IS) where {N,I,NDI,IS}
-    t = Expr(:tuple)
-    out = Expr(:block, Expr(:meta, :inline))
-    any_splats = false
+@generated function _to_indices(A, inds::I, ::S, ::StaticInt{N}, ::NDI, ::IS) where {I,S,N,NDI,IS}
+    cnt = zeros(Int, known_length(NDI))
     splat_position = 0
-    splat_sym = gensym()
-    nremaining = N
-    for i in 1:length(I.parameters)
-        ndindex = known(NDI.parameters[i])
-        Ti = I.parameters[i] 
-        if Ti <: Base.AbstractCartesianIndex
-            argi = gensym()
-            push!(out.args, Expr(:(=), argi, :(Tuple(@inbounds(getfield(inds, $i))))))
-            for j in 1:ndindex
-                push!(t.args, :(@inbounds(getfield($argi, $j))))
-            end
-            any_splats = true
-            nremaining -= ndindex
-        elseif Ti <: CartesianIndices && !(Ti <: CartesianIndices{0})
-            argi = gensym()
-            push!(out.args, Expr(:(=), argi, :(axes(@inbounds(getfield(inds, $i))))))
-            for j in 1:ndindex
-                push!(t.args, :(@inbounds(getfield($argi, $j))))
-            end
-            any_splats = true
-            nremaining -= ndindex
-        elseif splat_position === 0 && known(IS.parameters[i])
+    remaining = N
+    for i in 1:known_length(NDI)
+        ndi = known(NDI.parameters[i])
+        splat = known(IS.parameters[i])
+        if splat && splat_position === 0
             splat_position = i
-            push!(out.args, Expr(:(=), splat_sym, :(@inbounds(getfield(inds, $i)))))
-            any_splats = true
         else
-            push!(t.args, :(@inbounds(getfield(inds, $i))))
-            nremaining -= ndindex
+            remaining -= ndi
+            cnt[i] = ndi
         end
     end
     if splat_position !== 0
-        for _ in 1:nremaining
-            insert!(t.args, splat_position, splat_sym)
+        cnt[splat_position] = max(0, remaining)
+    else
+        # if there are additional trailing dimensions not consumed by the index then we have
+        # to assume it's linear indexing or that these are trailing dimensions.
+        cnt[end] += max(0, remaining)
+    end
+
+    t = Expr(:tuple)
+    dim = 0
+    for i in 1:known_length(NDI)
+        if i === known_length(NDI) && S <: IndexLinear
+            ICall = :LinearIndices
+        else
+            ICall = :CartesianIndices
+        end
+        c = cnt[i]
+        iexpr = :(@inbounds(getfield(inds, $i))::$(I.parameters[i]))
+        if dim === N
+            push!(t.args, :(to_index($(ICall)(()), $iexpr)))
+        elseif c === 1
+            dim += 1
+            push!(t.args, :(to_index(@inbounds(getfield(axs, $dim)), $iexpr)))
+        else
+            subaxs = Expr(:tuple)
+            for _ in 1:c
+                if dim < N
+                    dim += 1
+                    push!(subaxs.args, :(@inbounds(getfield(axs, $dim))))
+                end
+            end
+            push!(t.args, :(to_index($(ICall)($subaxs), $iexpr)))
         end
     end
-    if any_splats
-        push!(out.args, t)
-        return out
-    else
-        return :inds
+    Expr(:block,
+        Expr(:meta, :inline),
+        Expr(:(=), :axs, :(lazy_axes(A))),
+        :(_flatten_tuples($t))
+    )
+end
+@generated function _flatten_tuples(inds::I) where {I}
+    t = Expr(:tuple)
+    for i in 1:known_length(I)
+        p = I.parameters[i]
+        if p <: Tuple
+            for j in 1:known_length(p)
+                push!(t.args, :(@inbounds(getfield(getfield(inds, $i), $j))))
+            end
+        else
+            push!(t.args, :(@inbounds(getfield(inds, $i))))
+        end
     end
+    t
 end
 
 """
@@ -244,29 +181,25 @@ to_index(::MyIndexStyle, axis, arg) = ...
 ```
 """
 to_index(x, i::Slice) = i
-to_index(x, i::Colon) = indices(x)
-@inline to_index(axis, arg) = to_index(IndexStyle(axis), axis, arg)
-to_index(::IndexStyle, x, i::AbstractArray{<:Integer}) = i
-to_index(::IndexStyle, x, i::AbstractVector{Bool}) = LogicalIndex{Int}(i)
-to_index(::IndexStyle, x, i::StaticInt) = i
-to_index(::IndexStyle, x, i::Integer) = Int(i)
-@inline function to_index(::IndexStyle, x, i::Bool)
-    start = first(x)
-    if i
-        return start
-    else  # subtract static value for type stability
-        return start - 1
-    end
-end
-@inline function to_index(::IndexStyle, x, i::AbstractCartesianIndex{1})
-    to_index(x, @inbounds(i[1]))
-end
-@inline function to_index(::IndexStyle, x, i::CartesianIndices{1})
-    to_index(x, getfield(axes(i), 1))
-end
-function to_index(s::IndexStyle, axis, arg)
-    throw(ArgumentError("invalid index: IndexStyle $s does not support indices of " *
-                        "type $(typeof(arg)) for instances of type $(typeof(axis))."))
+to_index(x, ::Colon) = indices(x)
+# logical indexing
+to_index(x, i::AbstractArray{Bool}) = LogicalIndex(i)
+to_index(x::LinearIndices, i::AbstractArray{Bool}) = LogicalIndex{Int}(i)
+# cartesian indexing
+@inline to_index(x, i::CartesianIndices{0}) = i
+@inline to_index(x, i::CartesianIndices) = axes(i)
+@inline to_index(x, i::CartesianIndex) = Tuple(i)
+@inline to_index(x, i::NDIndex) = Tuple(i)
+@inline to_index(x, i::AbstractArray{<:AbstractCartesianIndex}) = i
+# integer indexing
+to_index(x, i::AbstractArray{<:Integer}) = i
+to_index(x, @nospecialize(i::StaticInt)) = i
+to_index(x, i::Integer) = Int(i)
+@inline to_index(x, i) = to_index(IndexStyle(x), x, i)
+function to_index(S::IndexStyle, x, i)
+    throw(ArgumentError(
+        "invalid index: $S does not support indices of type $(typeof(i)) for instances of type $(typeof(x))."
+    ))
 end
 
 """
@@ -310,7 +243,7 @@ indices calling [`to_axis`](@ref).
 @inline function to_axes(A, inds::Tuple)
     if ndims(A) === 1
         return (to_axis(axes(A, 1), first(inds)),)
-    elseif isone(sum(ndims_index(inds)))
+    elseif length(inds) === 1
         return (to_axis(eachindex(IndexLinear(), A), first(inds)),)
     else
         return to_axes(A, axes(A), inds)
@@ -361,9 +294,6 @@ end
 end
 to_axis(S::IndexLinear, axis, inds) = StaticInt(1):static_length(inds)
 
-################
-### getindex ###
-################
 """
     ArrayInterface.getindex(A, args...)
 
@@ -372,15 +302,14 @@ another instance of `ArrayInterface.getindex` should only be done by overloading
 Changing indexing based on a given argument from `args` should be done through,
 [`to_index`](@ref), or [`to_axis`](@ref).
 """
-@propagate_inbounds function getindex(A, args...)
-    inds = to_indices(A, args)
-    @boundscheck checkbounds(A, inds...)
-    unsafe_getindex(A, inds...)
+function getindex(A, args...)
+    @boundscheck checkbounds(A, args...)
+    unsafe_getindex(A, to_indices(A, args)...)
 end
-@propagate_inbounds function getindex(A; kwargs...)
-    inds = to_indices(A, order_named_inds(dimnames(A), values(kwargs)))
-    @boundscheck checkbounds(A, inds...)
-    unsafe_getindex(A, inds...)
+function getindex(A; kwargs...)
+    args = order_named_inds(dimnames(A), values(kwargs))
+    @boundscheck checkbounds(A, args...)
+    unsafe_getindex(A, to_indices(A, args)...)
 end
 @propagate_inbounds getindex(x::Tuple, i::Int) = getfield(x, i)
 @propagate_inbounds getindex(x::Tuple, ::StaticInt{i}) where {i} = getfield(x, i)
@@ -455,7 +384,7 @@ _ints2range(x::AbstractRange) = x
     end
 end
 @inline function unsafe_get_collection(A::LinearIndices{N}, inds) where {N}
-    if isone(sum(ndims_index(inds)))
+    if length(inds) === 1 && isone(_ndims_index(typeof(inds), static(1)))
         return @inbounds(eachindex(A)[first(inds)])
     elseif stride_preserving_index(typeof(inds)) === True()
         return LinearIndices(to_axes(A, _ints2range.(inds)))
@@ -464,9 +393,6 @@ end
     end
 end
 
-#################
-### setindex! ###
-#################
 """
     ArrayInterface.setindex!(A, args...)
 
@@ -503,7 +429,7 @@ function unsafe_setindex!(a::A, v, i::CanonicalInt, ii::Vararg{CanonicalInt}) wh
     if IndexStyle(A) === IndexLinear()
         return unsafe_setindex!(a, v, _to_linear(a, (i, ii...)))
     else
-        parent_type(A) <: A && throw(MethodError(unsafe_getindex!, (A, v, i, ii...)))
+        parent_type(A) <: A && throw(MethodError(unsafe_setindex!, (A, v, i, ii...)))
         return unsafe_setindex!(parent(a), v, i, ii...)
     end
 end

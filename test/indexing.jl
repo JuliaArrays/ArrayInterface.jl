@@ -1,19 +1,11 @@
 
-@testset "ndims_index" begin
-    @test @inferred(ArrayInterface.ndims_index((1, CartesianIndex(1,2)))) === static((1, 2))
-    @test @inferred(ArrayInterface.ndims_index((1, [CartesianIndex(1,2), CartesianIndex(1,3)]))) === static((1, 2))
-    @test @inferred(ArrayInterface.ndims_index((1, CartesianIndex((2,2))))) === static((1, 2))
-    @test @inferred(ArrayInterface.ndims_index((CartesianIndex((2,2)), :, :))) === static((2, 1, 1))
-    @test @inferred(ArrayInterface.ndims_index(Vector{Int})) === static(1)
-end
-
 @testset "to_index" begin
     axis = 1:3
     @test @inferred(ArrayInterface.to_index(axis, 1)) === 1
     @test @inferred(ArrayInterface.to_index(axis, static(1))) === static(1)
-    @test @inferred(ArrayInterface.to_index(axis, CartesianIndex(1))) === 1
+    @test @inferred(ArrayInterface.to_index(axis, CartesianIndex(1))) === (1,)
     @test @inferred(ArrayInterface.to_index(axis, 1:2)) === 1:2
-    @test @inferred(ArrayInterface.to_index(axis, CartesianIndices((1:2,)))) == 1:2
+    @test @inferred(ArrayInterface.to_index(axis, CartesianIndices((1:2,)))) == (1:2,)
     @test @inferred(ArrayInterface.to_index(axis, [1, 2])) == [1, 2]
     @test @inferred(ArrayInterface.to_index(axis, [true, false, false])) == [1]
     index = @inferred(ArrayInterface.to_index(axis, :))
@@ -57,7 +49,6 @@ end
     @test @inferred(ArrayInterface.to_indices(ones(2,2,2), ([true,true], CartesianIndex(1,1)))) == ([1, 2], 1, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, 1))) == (1, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, CartesianIndex(1)))) == (1, 1)
-    @test @inferred(ArrayInterface.to_indices(a, (1, true))) == (1, 1)
     @test @inferred(ArrayInterface.to_indices(a, (1, false))) == (1, 0)
     @test @inferred(ArrayInterface.to_indices(a, (1, 1:2))) == (1, 1:2)
     @test @inferred(ArrayInterface.to_indices(a, (1:2, 1))) == (1:2, 1)
@@ -80,7 +71,7 @@ end
 @testset "splat indexing" begin
     struct SplatFirst end
 
-    ArrayInterface.to_index(x, ::SplatFirst) = first(x)
+    ArrayInterface.to_index(x, ::SplatFirst) = map(first, axes(x))
     ArrayInterface.is_splat_index(::Type{SplatFirst}) = static(true)
     x = rand(4,4,4,4,4,4,4,4,4,4)
     i = (1, SplatFirst(), 2, SplatFirst(), CartesianIndex(1, 1))

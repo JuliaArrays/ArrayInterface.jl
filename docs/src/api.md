@@ -32,7 +32,6 @@ ArrayInterface.known_size
 ArrayInterface.known_step
 ArrayInterface.known_strides
 ArrayInterface.ndims_index
-ArrayInterface.ndims_shape
 ```
 
 ## Functions

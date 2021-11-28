@@ -176,74 +176,18 @@ It is entirely optional to define `ArrayInterface.size` for `OffsetArray` becaus
 However, in this particularly case we should also define
  `ArrayInterface.size(A::OffsetArray)  = ArrayInterface.size(parent(A))` because the relative offsets attached to `OffsetArray` do not change the size but may hide static sizes if using a relative offset that is defined with an `Int`.
 
-## Processing Indices
+## Processing Indices (`to_indices`)
 
-The following traits are provided for indexing arguments:
+For most users, the only reason you should use `ArrayInterface.to_indices` over `Base.to_indices` is that it's faster and perhaps some of the more detailed benefits described in the [`to_indices`](@ref) doc string.
+For those interested in how this is accomplished, the following steps (beginning with the `to_indices(A::AbstractArray, I::Tuple)`) are used to accomplish this:
 
-* `ndims_index`: the number of dimensions an index maps to
-* `ndims_shape`: the number of dimensions in the returned array produced by an index
-* `is_splat_index`: if an index splats across multiple dimensions to fill in unspecified dimensions
+1. The number of dimensions that each indexing argument in `I` corresponds to is determined using using the [`ndims_index`](@ref) and [`is_splat_index`](@ref) traits.
+2. A non-allocating reference to each axis of `A` is created (`lazy_axes(A) -> axs`). These are aligned to each the index arguments using information from the first step. For example, if an index argument maps to a single dimension then it is paired with `axs[dim]`. In the case of multiple dimensions it is paired with `CartesianIndices(axs[dim_1], ... axs[dim_n])`. These pairs are further processed using `to_index(axis, I[n])`.
+3. Tuples returned from `to_index` are flattened out so that there are no nested tuples returned from `to_indices`.
 
-These traits provide context for ArrayInterface's versions of `to_indices` and `to_index`, which are unique from those defined in Julia's `Base` module.
-More specific benefits to the approach used here are described in [`to_indices`](@ref) doc string.
+Entry points:
 
-### Supporting New Indexing Types Examples
-* An index type that maps to a single dimension, such as `Bool`.
-
-We don't need to define `ndims_index` because the default value for any type is one.
-We need to convert `Bool` to an integer if `true` but throw an error if it is `false`.
-`ndims_shape` needs to be defined so as to indicate that indexing by `Bool` doesn't produce a collection of accessed values.
-```julia
-function ArrayInterface.to_index(::IndexStyle, x, i::Bool)
-    start = first(x)
-    if i
-        return start
-    else  # return out of bounds index
-        return start - 1
-    end
-end
-ArrayInterface.ndims_shape(::Type{Bool}) = static(0)
-```
-
-* An index that maps to a single point along multiple dimensions,
-
-If we want to map multiple boolean values to multiple dimensions with a single type we need to subtype `AbstractCartesianIndex`.
-`ndims_index` is already defined for the super type, so we just need to provide a method for converting it to a tuple.
-following.
-```julia
-struct CartesianBool{N} <: Base.AbstractCartesianIndex{N}
-    I::NTuple{N,Bool}
-end
-Base.Tuple(x::CartesianBool) = x.I
-
-```
-
-Note that we don't need to define a `to_index` method because the each value of the tuple will be a `Bool` and already has this method defined.
-
-* Splat first index of each axis to fill in all dimensions.
-
-```julia
-struct SplatFirst end
-
-ArrayInterface.to_index(x, ::SplatFirst) = first(x)
-
-ArrayInterface.is_splat_index(::Type{SplatFirst}) = static(true)
-
-x = rand(4,4,4,4,4,4,4,4,4,4);
-
-i = (2, SplatFirst(), 2, SplatFirst(), CartesianIndex(2, 2))
-
-ArrayInterface.to_indices(x, i) == (2, 1, 1, 1, 1, 1, 2, 1, 2, 2)
-```
-
-* An array whose elements map to multiple dimensions, such as `AbstractArray{Bool,2}`
-
-```julia
-ArrayInterface.ndims_index(::Type{<:AbstractArray{Bool,N}}) where {N} = static(N)
-function ArrayInterface.to_indices(A, i::Tuple{AbstractArray{Bool,N}}) where {N}
-    (Base.LogicalIndex(getfield(i, 1)),)
-end
-
-```
-This works by passing the first element of `I` in `to_indices(A, I::Tuple{AbstractArray{Bool,2},Vararg{Any}}})` to `to_indices(CartesianIndices((axes(A, 1), axes(A, 2))), (I[1],))`.
+* `to_indices(::ArrayType, indices)` : dispatch on unique array type `ArrayType`
+* `to_index(axis, ::IndexType)` : dispatch on a unique indexing type, `IndexType`. `ArrayInterface.ndims_index(::Type{IndexType})` should also be defined in this case.
+* `to_index(S::IndexStyle, axis, index)` : The index style `S` that corresponds to `axis`. This is 
 

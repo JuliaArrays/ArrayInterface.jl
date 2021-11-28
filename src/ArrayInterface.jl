@@ -14,6 +14,8 @@ using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretAr
     ReshapedArray, AbstractCartesianIndex
 
 const CanonicalInt = Union{Int,StaticInt}
+canonicalize(x::Integer) = Int(x)
+canonicalize(@nospecialize(x::StaticInt)) = x
 
 @static if isdefined(Base, :ReshapedReinterpretArray)
     _is_reshaped(::Type{<:Base.ReshapedReinterpretArray}) = true
@@ -29,8 +31,6 @@ parameterless_type(x::Type) = __parameterless_type(x)
 
 const VecAdjTrans{T,V<:AbstractVector{T}} = Union{Transpose{T,V},Adjoint{T,V}}
 const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
-const UpTri{T,M} = Union{UpperTriangular{T,M},UnitUpperTriangular{T,M}}
-const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
 
 @inline static_length(a::UnitRange{T}) where {T} = last(a) - first(a) + oneunit(T)
 @inline static_length(x) = Static.maybe_static(known_length, length, x)
@@ -55,15 +55,13 @@ parent_type(::Type{<:LinearAlgebra.AbstractTriangular{T,S}}) where {T,S} = S
 parent_type(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A} = A
 parent_type(::Type{Slice{T}}) where {T} = T
 parent_type(::Type{T}) where {T} = T
-parent_type(::Type{R}) where {S,T,A,N,R<:Base.ReinterpretArray{T,N,S,A}} = A
-parent_type(::Type{LoTri{T,M}}) where {T,M} = M
-parent_type(::Type{UpTri{T,M}}) where {T,M} = M
+parent_type(::Type{R}) where {S,T,A,N,R<:ReinterpretArray{T,N,S,A}} = A
 parent_type(::Type{Diagonal{T,V}}) where {T,V} = V
 
 """
     has_parent(::Type{T}) -> StaticBool
 
-Returns `True` if `parent_type(T)` a type unique to `T`.
+Returns `static(true)` if `parent_type(T)` a type unique to `T`.
 """
 has_parent(x) = has_parent(typeof(x))
 has_parent(::Type{T}) where {T} = _has_parent(parent_type(T), T)
