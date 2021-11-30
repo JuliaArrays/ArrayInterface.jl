@@ -15,6 +15,7 @@ const MatrixIndex = ArrayIndex{2}
 
 const VectorIndex = ArrayIndex{1}
 
+Base.ndims(::ArrayIndex{N}) where {N} = N
 Base.ndims(::Type{<:ArrayIndex{N}}) where {N} = N
 
 struct BidiagonalIndex <: MatrixIndex

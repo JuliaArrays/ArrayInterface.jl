@@ -33,6 +33,7 @@ const VecAdjTrans{T,V<:AbstractVector{T}} = Union{Transpose{T,V},Adjoint{T,V}}
 const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
 const UpTri{T,M} = Union{UpperTriangular{T,M},UnitUpperTriangular{T,M}}
 const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
+const HermOrSym{T,M} = Union{Symmetric{T,M},Hermitian{T,M}}
 
 @inline static_length(a::UnitRange{T}) where {T} = last(a) - first(a) + oneunit(T)
 @inline static_length(x) = Static.maybe_static(known_length, length, x)
@@ -52,7 +53,7 @@ parent_type(::Type{<:SubArray{T,N,P}}) where {T,N,P} = P
 parent_type(::Type{<:Base.ReshapedArray{T,N,P}}) where {T,N,P} = P
 parent_type(::Type{Adjoint{T,S}}) where {T,S} = S
 parent_type(::Type{Transpose{T,S}}) where {T,S} = S
-parent_type(::Type{Symmetric{T,S}}) where {T,S} = S
+parent_type(::Type{<:HermOrSym{T,S}}) where {T,S} = S
 parent_type(::Type{<:LinearAlgebra.AbstractTriangular{T,S}}) where {T,S} = S
 parent_type(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A} = A
 parent_type(::Type{Slice{T}}) where {T} = T
@@ -580,8 +581,8 @@ end
 
 abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
 
-Base.size(A::AbstractArray2) = map(Int, ArrayInterface.size(A))
-Base.size(A::AbstractArray2, dim) = Int(ArrayInterface.size(A, dim))
+Base.size(A::AbstractArray2) = size(Size(A))
+Base.size(A::AbstractArray2, dim) = Int(getfield(Size(A, dim).size, 1))
 
 function Base.axes(A::AbstractArray2)
     !(parent_type(A) <: typeof(A)) && return ArrayInterface.axes(parent(A))

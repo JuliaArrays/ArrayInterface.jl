@@ -253,6 +253,8 @@ struct Wrapper{T,N,P<:AbstractArray{T,N}} <: ArrayInterface.AbstractArray2{T,N}
 end
 ArrayInterface.parent_type(::Type{<:Wrapper{T,N,P}}) where {T,N,P} = P
 Base.parent(x::Wrapper) = x.parent
+ArrayInterface.Size(x::Wrapper) = ArrayInterface.Size(parent(x))
+ArrayInterface.Size(x::Wrapper, dim) = ArrayInterface.Size(parent(x), ArrayInterface.to_dims(x, dim))
 ArrayInterface.device(::Type{T}) where {T<:Wrapper} = ArrayInterface.device(parent_type(T))
 
 struct DenseWrapper{T,N,P<:AbstractArray{T,N}} <: DenseArray{T,N} end

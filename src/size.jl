@@ -1,70 +1,5 @@
 
 """
-    size(A) -> Tuple
-    size(A, dim) -> Union{Int,StaticInt}
-
-Returns the size of each dimension of `A` or along dimension `dim` of `A`. If the size of
-any axes are known at compile time, these should be returned as `Static` numbers. Otherwise,
-`ArrayInterface.size(A)` is identical to `Base.size(A)`
-
-```julia
-julia> using StaticArrays, ArrayInterface
-
-julia> A = @SMatrix rand(3,4);
-
-julia> ArrayInterface.size(A)
-(static(3), static(4))
-```
-"""
-@inline size(A) = map(static_length, axes(A))
-size(x::SubArray) = eachop(_sub_size, to_parent_dims(x), x.indices)
-_sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = static_length(getfield(x, dim))
-@inline size(B::VecAdjTrans) = (One(), length(parent(B)))
-@inline size(B::MatAdjTrans) = permute(size(parent(B)), to_parent_dims(B))
-@inline function size(B::PermutedDimsArray{T,N,I1}) where {T,N,I1}
-    permute(size(parent(B)), static(I1))
-end
-function size(a::ReinterpretArray{T,N,S,A}) where {T,N,S,A}
-    psize = size(parent(a))
-    if _is_reshaped(typeof(a))
-        if sizeof(S) === sizeof(T)
-            return psize
-        elseif sizeof(S) > sizeof(T)
-            return (static(div(sizeof(S), sizeof(T))), psize...)
-        else
-            return tail(psize)
-        end
-    else
-        return (div(first(psize) * static(sizeof(S)), static(sizeof(T))), tail(psize)...,)
-    end
-end
-size(A::ReshapedArray) = Base.size(A)
-size(A::AbstractRange) = (static_length(A),)
-
-size(a, dim) = size(a, to_dims(a, dim))
-size(a::Array, dim::Integer) = Base.arraysize(a, convert(Int, dim))
-function size(a::A, dim::Integer) where {A}
-    if parent_type(A) <: A
-        len = known_size(A, dim)
-        if len === nothing
-            return Int(length(axes(a, dim)))
-        else
-            return StaticInt(len)
-        end
-    else
-        return size(a)[dim]
-    end
-end
-function size(A::SubArray, dim::Integer)
-    pdim = to_parent_dims(A, dim)
-    if pdim > ndims(parent_type(A))
-        return size(parent(A), pdim)
-    else
-        return static_length(A.indices[pdim])
-    end
-end
-
-"""
     known_size(::Type{T}) -> Tuple
     known_size(::Type{T}, dim) -> Union{Int,Nothing}
 
@@ -81,6 +16,157 @@ _known_size(::Type{T}, dim::StaticInt) where {T} = known_length(_get_tuple(T, di
     if ndims(T) < dim
         return 1
     else
-        return known_size(T)[dim]
+        return getfield(known_size(T), Int(dim))
     end
 end
+
+function known_size(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I}
+    eachop(_known_size, _to_sub_dims(I), I)
+end
+@inline known_size(::Type{T}) where {T<:VecAdjTrans} = (1, known_length(parent_type(T)))
+@inline function known_size(::Type{T}) where {T<:MatAdjTrans}
+    s1, s2 = known_size(parent_type(T))
+    return (s2, s1)
+end
+@inline function known_size(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
+    if _is_reshaped(R)
+        if sizeof(S) === sizeof(T)
+            return known_size(A)
+        elseif sizeof(S) > sizeof(T)
+            return (div(sizeof(S), sizeof(T)), known_size(A)...)
+        else
+            return tail(known_size(A))
+        end
+    else
+        psize = known_size(A)
+        pfirst = first(psize)
+        if pfirst === nothing
+            return psize
+        else
+            return (div(pfirst * sizeof(S), sizeof(T)), tail(psize)...)
+        end
+    end
+end
+function known_size(::Type{Diagonal{T,V}}) where {T,V}
+    s = known_length(V)
+    return (s, s)
+end
+known_size(::Type{Slice{P}}) where {P} = (known_length(P),)
+
+_sym_size(x::Tuple{Int,Int}) = x
+_sym_size(x::Tuple{Int,Nothing}) = (getfield(x, 1), getfield(x, 1))
+_sym_size(x::Tuple{Nothing,Int}) = (getfield(x, 2), getfield(x, 2))
+_sym_size(::Tuple{Nothing,Nothing}) = (nothing, nothing)
+known_size(::Type{T}) where {T<:HermOrSym} = _sym_size(known_size(parent_type(T)))
+function known_size(::Type{T}) where {T<:LinearAlgebra.AbstractTriangular}
+    _sym_size(known_size(parent_type(T)))
+end
+@inline function known_size(::Type{T}) where {T<:PermutedDimsArray}
+    permute(known_size(parent_type(T)), to_parent_dims(T))
+end
+
+"""
+    Size(s::Tuple{Vararg{Union{Int,StaticInt}})
+    Size(A) -> Size(size(A))
+
+Type that represents statically sized dimensions as `StaticInt`s.
+"""
+struct Size{N,S<:Tuple{Vararg{CanonicalInt,N}}} <: ArrayIndex{N}
+    size::S
+
+    Size{N}(s::Tuple{Vararg{CanonicalInt,N}}) where {N} = new{N,typeof(s)}(s)
+    Size(s::Tuple{Vararg{CanonicalInt,N}}) where {N} = Size{N}(s)
+end
+
+@inline Size(A) = Size(_size(A, Val(known_size(A))))
+@generated function _size(A, ::Val{S}) where {S}
+    t = Expr(:tuple)
+    for i in 1:length(S)
+        si = S[i]
+        if si === nothing
+            push!(t.args, :(Base.size(A, $i)))
+        else
+            push!(t.args, :($(static(si))))
+        end
+    end
+    Expr(:block, Expr(:meta, :inline), t)
+end
+Size(x, dim) = _Length(x, to_dims(x, dim))
+@inline function _Length(x, dim::Union{Int,StaticInt})
+    sz = known_size(x, dim)
+    if sz === nothing
+        return Length(Base.size(x, dim))
+    else
+        return Length(static(sz))
+    end
+end
+
+"""
+    Length(x::Union{Int,StaticInt})
+    Length(A) = Length(length(A))
+
+Type that represents statically sized dimensions as `StaticInt`s.
+"""
+const Length{L} = Size{1,Tuple{L}}
+Length(x::CanonicalInt) = Size((x,))
+@inline function Length(x)
+    len = known_length(x)
+    if len === nothing
+        return Length(length(x))
+    else
+        return Length(static(len))
+    end
+end
+
+Base.isequal(x::Size, y::Size) = getfield(x, :size) == getfield(y, :size)
+
+Base.:(==)(x::Size, y::Size) = getfield(x, :size) == getfield(y, :size)
+
+@inline Base.length(s::Size) = prod(s.size)
+Base.size(s::Size{N,NTuple{N,Int}}) where {N} = getfield(s, :size)
+Base.size(s::Size) = map(Int, getfield(s, :size))
+function Base.size(s::Size{N}, dim) where {N}
+    if dim > N
+        return 1
+    else
+        return Int(getfield(s.size, Int(dim)))
+    end
+end
+
+function Base.getindex(s::Size, i::AbstractCartesianIndex)
+    @boundscheck checkbounds(s, i)
+    i
+end
+function Base.getindex(s::Size, i::CanonicalInt)
+    ci = _lin2sub(offsets(s), s.size, static(1))
+    @boundscheck checkbounds(s, ci)
+end
+
+@generated function _lin2sub(o::O, s::S, i::I) where {O,S,I}
+    out = Expr(:block, Expr(:meta, :inline))
+    t = Expr(:tuple)
+    iprev = :(i - 1)
+    N = length(S.parameters)
+    for i in 1:N
+        if i === N
+            push!(t.args, :($iprev + getfield(o, $i)))
+        else
+            len = gensym()
+            inext = gensym()
+            push!(out.args, :($len = getfield(s, $i)))
+            push!(out.args, :($inext = div($iprev, $len)))
+            push!(t.args, :($iprev - $len * $inext + getfield(o, $i)))
+            iprev = inext
+        end
+    end
+    push!(out.args, :(NDIndex($(t))))
+    out
+end
+
+function Base.show(io::IO, ::MIME"text/plain", @nospecialize(s::Size))
+    print(io, "Size($(join(s.size, ",")))")
+end
+
+size(x) = Size(x).size
+size(x, dim) = getfield(Size(x, dim).size, 1)
+

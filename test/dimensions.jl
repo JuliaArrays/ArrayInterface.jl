@@ -12,6 +12,8 @@ end
 ArrayInterface.parent_type(::Type{T}) where {P,T<:NamedDimsWrapper{<:Any,<:Any,<:Any,P}} = P
 ArrayInterface.dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L}} = static(L)
 Base.parent(x::NamedDimsWrapper) = x.parent
+ArrayInterface.Size(x::NamedDimsWrapper) = ArrayInterface.Size(parent(x))
+ArrayInterface.Size(x::NamedDimsWrapper, dim) = ArrayInterface.Size(parent(x), ArrayInterface.to_dims(x, dim))
 
 @testset "dimension permutations" begin
     a = ones(2, 2, 2)
