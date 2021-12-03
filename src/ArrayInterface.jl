@@ -11,7 +11,7 @@ using Base.Cartesian
 import Compat
 
 using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray,
-    ReshapedArray, AbstractCartesianIndex
+    ReshapedArray, AbstractCartesianIndex, Generator
 
 const CanonicalInt = Union{Int,StaticInt}
 canonicalize(x::Integer) = Int(x)
@@ -91,7 +91,7 @@ known_length(x) = known_length(typeof(x))
 known_length(::Type{<:NamedTuple{L}}) where {L} = length(L)
 known_length(::Type{T}) where {T<:Slice} = known_length(parent_type(T))
 known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N
-known_length(::Type{T}) where {Itr,T<:Base.Generator{Itr}} = known_length(Itr)
+known_length(::Type{T}) where {Itr,T<:Generator{Itr}} = known_length(Itr)
 known_length(::Type{<:Number}) = 1
 known_length(::Type{<:AbstractCartesianIndex{N}}) where {N} = N
 function known_length(::Type{T}) where {T}

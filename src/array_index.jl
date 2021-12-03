@@ -18,6 +18,8 @@ const VectorIndex = ArrayIndex{1}
 Base.ndims(::ArrayIndex{N}) where {N} = N
 Base.ndims(::Type{<:ArrayIndex{N}}) where {N} = N
 
+@inline Base.length(s::ArrayIndex) = prod(size(s))
+
 struct BidiagonalIndex <: MatrixIndex
     count::Int
     isup::Bool

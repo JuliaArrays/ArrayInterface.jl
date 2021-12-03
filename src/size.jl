@@ -20,6 +20,9 @@ _known_size(::Type{T}, dim::StaticInt) where {T} = known_length(_get_tuple(T, di
     end
 end
 
+function known_size(::Type{<:Iterators.ProductIterator{T}}) where {T} 
+    eachop(_known_size, nstatic(Val(known_length(T))), T)
+end
 function known_size(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I}
     eachop(_known_size, _to_sub_dims(I), I)
 end
@@ -122,9 +125,12 @@ Base.isequal(x::Size, y::Size) = getfield(x, :size) == getfield(y, :size)
 
 Base.:(==)(x::Size, y::Size) = getfield(x, :size) == getfield(y, :size)
 
-@inline Base.length(s::Size) = prod(s.size)
-Base.size(s::Size{N,NTuple{N,Int}}) where {N} = getfield(s, :size)
-Base.size(s::Size) = map(Int, getfield(s, :size))
+@inline Base.axes(s::Size{N}) where {N} = ntuple(i -> static(1):getfield(s.size, i), Val(N))
+
+Base.IteratorSize(::Type{<:Size{N}}) where {N} = Base.HasShape{N}()
+
+Base.size(s::Size{N,NTuple{N,Int}}) where {N} = s.size
+Base.size(s::Size) = map(Int, s.size)
 function Base.size(s::Size{N}, dim) where {N}
     if dim > N
         return 1
@@ -169,4 +175,65 @@ end
 
 size(x) = Size(x).size
 size(x, dim) = getfield(Size(x, dim).size, 1)
+
+
+Base.firstindex(x::Size{N}) where {N} = ntuple(Compat.Returns(1), Val(N))
+Base.firstindex(x::Size{1}) = 1
+
+Base.lastindex(x::Size{N}) where {N} = size(x)
+Base.lastindex(x::Size{1}) = length(x)
+
+function Base.iterate(::Size{0}, done=false)
+    if done
+        return nothing
+    else
+        return (), true
+    end
+end
+Base.iterate(x::Size{1}) = (1, 1)
+@inline function Base.iterate(x::Size{1}, state::Int)
+    if length(x) === state
+        return nothing
+    else
+        new_state = state + 1
+        return new_state, new_state
+    end
+end
+@inline function Base.iterate(x::Size{N}) where {N}
+    state = firstindex(x)
+    return state, state
+end
+@inline Base.iterate(x::Size, state) = _iterate_size(size(x), state)
+@generated function _iterate_size(s::NTuple{N,Int}, state::NTuple{N,Int}) where {N}
+    out = Expr(:block, Expr(:meta, :inline))
+    for i in 1:N
+        push!(out.args, Expr(:(=), Symbol(:state_, i), :(@inbounds(getfield(state, $i)))))
+        push!(out.args, Expr(:(=), Symbol(:size_, i), :(@inbounds(getfield(s, $i)))))
+    end
+    ifexpr = Expr(:return, :nothing)
+    for dim in N:-1:1
+        t = Expr(:tuple)
+        for i in 1:N
+            if i === dim
+                push!(t.args, Expr(:call, :+, Symbol(:state_, i), 1))
+            elseif i < dim
+                push!(t.args, 1)
+            else
+                push!(t.args, Symbol(:state_, i))
+            end
+        end
+        ifexpr = Expr(:if,
+            Expr(:call, :(===), Symbol(:state_, dim), Symbol(:size_, dim)),
+            ifexpr,
+            Expr(:block, Expr(:(=), :newstate, t), Expr(:return, Expr(:tuple, :newstate, :newstate)))
+        )
+    end
+    push!(out.args, ifexpr)
+    out
+end
+
+Base.simd_outer_range(s::Size{N}) where {N} = Size(tail(s.size))
+Base.simd_inner_length(s::Size{0}, ::Tuple) = 1
+Base.simd_inner_length(s::Size, ::Tuple) = Int(getfield(s.size, 1))
+Base.simd_index(::Size, Ilast::Tuple, I1::Int) = (I1 + 1, Ilast...)
 
