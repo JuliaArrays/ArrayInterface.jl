@@ -551,6 +551,15 @@ end
     @test @inferred(ArrayInterface.known_size(Mp)) === (3, 4)
     @test @inferred(ArrayInterface.known_size(Mp2)) === (2, nothing)
 
+    itr = SOneTo(10)
+    @test @inferred(ArrayInterface.known_size(Iterators.accumulate(+, itr,init=0))) === (10,)
+    @test @inferred(ArrayInterface.known_size(Iterators.flatten((itr, itr)))) === (20,)
+    @test @inferred(ArrayInterface.known_size(Iterators.flatten((1:10, 1:10)))) === (nothing,)
+    @test @inferred(ArrayInterface.known_size(((x,y) for x in 1:10 for y in 1:10))) === (nothing,)
+    @test @inferred(ArrayInterface.known_size(i for i in CartesianIndices((itr, itr)))) === (10, 10)
+    @test @inferred(ArrayInterface.known_length(Tuple((i for i in itr)))) === 10
+    @test @inferred(ArrayInterface.known_length(Tuple((i for i in ArrayInterface.Size((static(10), static(10))))))) === 100
+
     @test @inferred(ArrayInterface.strides(A)) === (StaticInt(1), 3, 12)
     @test @inferred(ArrayInterface.strides(Ap)) === (StaticInt(1), 12)
     @test @inferred(ArrayInterface.strides(A)) == strides(A)

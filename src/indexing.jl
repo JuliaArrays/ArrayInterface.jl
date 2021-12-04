@@ -452,3 +452,4 @@ unsafe_setindex!(a, v, i::Vararg{Any}) = unsafe_set_collection!(a, v, i)
 Sets `inds` of `A` to `val`. `inds` is assumed to have been bounds-checked.
 =#
 unsafe_set_collection!(A, v, i) = Base._unsafe_setindex!(IndexStyle(A), A, v, i...)
+

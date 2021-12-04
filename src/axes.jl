@@ -41,12 +41,12 @@ end
 function axes_types(::Type{T}) where {T<:PermutedDimsArray}
     eachop_tuple(_get_tuple, to_parent_dims(T), axes_types(parent_type(T)))
 end
-function axes_types(::Type{T}) where {T<:AbstractRange}
-    if known_length(T) === nothing
-        return Tuple{OneTo{Int}}
-    else
-        return Tuple{SOneTo{known_length(T)}}
-    end
+axes_types(::Type{T}) where {T<:AbstractRange} = Tuple{OneTo{Int}}
+axes_types(::Type{T}) where {T<:IdentityUnitRange} = Tuple{T}
+axes_types(::Type{Slice{P}}) where {P} = Tuple{P}
+axes_types(::Type{SUnitRange{F,L}}) where {F,L} = Tuple{SOneTo{L - F + 1}}
+function axes_types(::Type{OptionallyStaticStepRange{StaticInt{F},StaticInt{S},StaticInt{L}}}) where {F,S,L}
+    Tuple{SOneTo{_range_length(F,S,L)}}
 end
 axes_types(::Type{T}) where {T<:ReshapedArray} = NTuple{ndims(T),OneTo{Int}}
 function _sub_axis_type(::Type{I}, dim::StaticInt{D}) where {I<:Tuple,D}
@@ -288,3 +288,4 @@ lazy_axes(x::CartesianIndices) = axes(x)
 @inline lazy_axes(x::MatAdjTrans) = reverse(lazy_axes(parent(x)))
 @inline lazy_axes(x::VecAdjTrans) = (SOneTo{1}(), first(lazy_axes(parent(x))))
 @inline lazy_axes(x::PermutedDimsArray) = permute(lazy_axes(parent(x)), to_parent_dims(x))
+

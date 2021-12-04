@@ -327,14 +327,6 @@ end
 end
 
 ## length
-@inline function known_length(::Type{T}) where {T<:OptionallyStaticUnitRange}
-    return _range_length(known_first(T), known_last(T))
-end
-
-@inline function known_length(::Type{T}) where {T<:OptionallyStaticStepRange}
-    _range_length(known_first(T), known_step(T), known_last(T))
-end
-
 Base.lastindex(x::OptionallyStaticRange) = length(x)
 Base.length(r::OptionallyStaticUnitRange) = _range_length(static_first(r), static_last(r))
 @inline function Base.length(r::OptionallyStaticStepRange)
@@ -397,6 +389,9 @@ function Base.iterate(::SOneTo{n}, s::Int) where {n}
     end
 end
 
+function Base.similar(::Type{T}, shape::Tuple{OptionallyStaticUnitRange,Vararg{OptionallyStaticUnitRange}}) where {T<:AbstractArray}
+    similar(T, Base.to_shape(shape))
+end
 Base.to_shape(x::OptionallyStaticRange) = length(x)
 Base.to_shape(x::Slice{T}) where {T<:OptionallyStaticRange} = length(x)
 Base.axes(S::Slice{<:OptionallyStaticUnitRange{One}}) = (S.indices,)
@@ -431,6 +426,11 @@ end
     else
         error("$x has no property $s")
     end
+end
+
+function Base.Tuple(g::Base.Generator{SUnitRange{F,L}}) where {F,L}
+    offset = F - 1
+    ntuple(i ->g.f(offset + i), Val((L - F) + 1))
 end
 
 """

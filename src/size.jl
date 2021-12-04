@@ -8,8 +8,21 @@ compile time. If a dimension does not have a known size along a dimension then `
 returned in its position.
 """
 known_size(x) = known_size(typeof(x))
-known_size(::Type{T}) where {T} = eachop(_known_size, nstatic(Val(ndims(T))), axes_types(T))
+known_size(::Type{T}) where {T<:Tuple} = (known_length(T),)
+@inline known_size(::Type{T}) where {T} = _maybe_known_size(Base.IteratorSize(T), T)
+_maybe_known_size(::Any, ::Type) = (nothing,)
+@inline function _maybe_known_size(::Base.HasShape{N}, ::Type{T}) where {N,T}
+    eachop(_known_size, nstatic(Val(N)), axes_types(T))
+end
 _known_size(::Type{T}, dim::StaticInt) where {T} = known_length(_get_tuple(T, dim))
+
+@inline function known_size(::Type{T}) where {T<:OptionallyStaticUnitRange}
+    (_range_length(known_first(T), known_last(T)),)
+end
+@inline function known_size(::Type{T}) where {T<:OptionallyStaticStepRange}
+    (_range_length(known_first(T), known_step(T), known_last(T)),)
+end
+known_size(::Type{<:Base.OneTo}) = (nothing,)
 @inline known_size(x, dim) = known_size(typeof(x), dim)
 @inline known_size(::Type{T}, dim) where {T} = known_size(T, to_dims(T, dim))
 @inline function known_size(::Type{T}, dim::CanonicalInt) where {T}
@@ -18,10 +31,6 @@ _known_size(::Type{T}, dim::StaticInt) where {T} = known_length(_get_tuple(T, di
     else
         return getfield(known_size(T), Int(dim))
     end
-end
-
-function known_size(::Type{<:Iterators.ProductIterator{T}}) where {T} 
-    eachop(_known_size, nstatic(Val(known_length(T))), T)
 end
 function known_size(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I}
     eachop(_known_size, _to_sub_dims(I), I)
@@ -54,7 +63,7 @@ function known_size(::Type{Diagonal{T,V}}) where {T,V}
     s = known_length(V)
     return (s, s)
 end
-known_size(::Type{Slice{P}}) where {P} = (known_length(P),)
+known_size(::Type{T}) where {T<:IdentityUnitRange} = (known_length(parent_type(T)),)
 
 _sym_size(x::Tuple{Int,Int}) = x
 _sym_size(x::Tuple{Int,Nothing}) = (getfield(x, 1), getfield(x, 1))
@@ -67,6 +76,22 @@ end
 @inline function known_size(::Type{T}) where {T<:PermutedDimsArray}
     permute(known_size(parent_type(T)), to_parent_dims(T))
 end
+
+## iterators
+known_size(::Type{<:Iterators.Accumulate{F,I,T}}) where {F,I,T} = known_size(I)
+function known_size(::Type{<:Iterators.ProductIterator{T}}) where {T} 
+    eachop(_known_size, nstatic(Val(known_length(T))), T)
+end
+known_size(::Type{<:Base.Generator{I,F}}) where {I,F} = known_size(I)
+function known_size(::Type{<:Iterators.Flatten{I}}) where {I}
+    if I <: Tuple
+        return (_flatten_lengths(eachop(_known_size, nstatic(Val(known_length(I))), I)),)
+    else
+        return (_known_length((known_length(eltype(I)), known_length(I))),)
+    end
+end
+_flatten_lengths(x::Tuple{Vararg{Int}}) = sum(x)
+_flatten_lengths(x::Tuple{Vararg{Union{Nothing,Int}}}) = nothing
 
 """
     Size(s::Tuple{Vararg{Union{Int,StaticInt}})
@@ -129,9 +154,16 @@ Base.:(==)(x::Size, y::Size) = getfield(x, :size) == getfield(y, :size)
 
 Base.IteratorSize(::Type{<:Size{N}}) where {N} = Base.HasShape{N}()
 
+Base.firstindex(x::Size{N}) where {N} = ntuple(Compat.Returns(1), Val(N))
+Base.firstindex(x::Size{1}) = 1
+
+Base.lastindex(x::Size{N}) where {N} = size(x)
+Base.lastindex(x::Size{1}) = length(x)
+
+known_size(::Type{<:Size{N,S}}) where {N,S} = known(S)
 Base.size(s::Size{N,NTuple{N,Int}}) where {N} = s.size
 Base.size(s::Size) = map(Int, s.size)
-function Base.size(s::Size{N}, dim) where {N}
+function Base.size(s::Size{N}, dim::CanonicalInt) where {N}
     if dim > N
         return 1
     else
@@ -165,23 +197,9 @@ end
             iprev = inext
         end
     end
-    push!(out.args, :(NDIndex($(t))))
+    push!(out.args, :(CartesianIndex($(t))))
     out
 end
-
-function Base.show(io::IO, ::MIME"text/plain", @nospecialize(s::Size))
-    print(io, "Size($(join(s.size, ",")))")
-end
-
-size(x) = Size(x).size
-size(x, dim) = getfield(Size(x, dim).size, 1)
-
-
-Base.firstindex(x::Size{N}) where {N} = ntuple(Compat.Returns(1), Val(N))
-Base.firstindex(x::Size{1}) = 1
-
-Base.lastindex(x::Size{N}) where {N} = size(x)
-Base.lastindex(x::Size{1}) = length(x)
 
 function Base.iterate(::Size{0}, done=false)
     if done
@@ -203,12 +221,11 @@ end
     state = firstindex(x)
     return state, state
 end
-@inline Base.iterate(x::Size, state) = _iterate_size(size(x), state)
-@generated function _iterate_size(s::NTuple{N,Int}, state::NTuple{N,Int}) where {N}
+@inline Base.iterate(x::Size, state) = _iterate_size(x.size, state)
+@generated function _iterate_size(s::S, state::NTuple{N,Int}) where {S,N}
     out = Expr(:block, Expr(:meta, :inline))
     for i in 1:N
         push!(out.args, Expr(:(=), Symbol(:state_, i), :(@inbounds(getfield(state, $i)))))
-        push!(out.args, Expr(:(=), Symbol(:size_, i), :(@inbounds(getfield(s, $i)))))
     end
     ifexpr = Expr(:return, :nothing)
     for dim in N:-1:1
@@ -222,8 +239,13 @@ end
                 push!(t.args, Symbol(:state_, i))
             end
         end
+        if known(S.parameters[dim]) === nothing
+            dim_length = :(@inbounds(getfield(s, $dim)))
+        else
+            dim_length = known(S.parameters[dim])
+        end
         ifexpr = Expr(:if,
-            Expr(:call, :(===), Symbol(:state_, dim), Symbol(:size_, dim)),
+            Expr(:call, :(===), Symbol(:state_, dim), dim_length),
             ifexpr,
             Expr(:block, Expr(:(=), :newstate, t), Expr(:return, Expr(:tuple, :newstate, :newstate)))
         )
@@ -236,4 +258,28 @@ Base.simd_outer_range(s::Size{N}) where {N} = Size(tail(s.size))
 Base.simd_inner_length(s::Size{0}, ::Tuple) = 1
 Base.simd_inner_length(s::Size, ::Tuple) = Int(getfield(s.size, 1))
 Base.simd_index(::Size, Ilast::Tuple, I1::Int) = (I1 + 1, Ilast...)
+
+Base.Tuple(s::Size) = Tuple((i for i in s))
+function Base.Tuple(g::Base.Generator{I,F}) where {I<:Size,F}
+    L = known_length(I)
+    if L === nothing
+        return Tuple(collect(g)...)
+    else
+        return _to_tuple(g.f, g.iter)
+    end
+end
+@generated function _to_tuple(f, ::Size{N,S}) where {N,S}
+    t = Expr(:tuple)
+    for i in Size(ntuple(i -> known(S.parameters[i]), N))
+        push!(t.args, :(f($i)))
+    end
+    Expr(:block, Expr(:meta, :inline), t)
+end
+
+function Base.show(io::IO, ::MIME"text/plain", @nospecialize(s::Size))
+    print(io, "Size($(join(s.size, ",")))")
+end
+
+size(x) = Size(x).size
+size(x, dim) = getfield(Size(x, dim).size, 1)
 
