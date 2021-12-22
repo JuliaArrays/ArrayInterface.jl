@@ -214,7 +214,6 @@ known_step(::Type{<:OptionallyStaticStepRange{<:Any,StaticInt{S}}}) where {S} = 
 known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = L::Int
 known_last(::Type{<:OptionallyStaticStepRange{<:Any,<:Any,StaticInt{L}}}) where {L} = L::Int
 
-Base.firstindex(x::OptionallyStaticRange) = first(x)
 @inline function Base.first(r::OptionallyStaticRange)::Int
     if known_first(r) === nothing
         return getfield(r, :start)

@@ -113,5 +113,7 @@
 
     @test @inferred(eachindex(static(-7):static(7))) === static(1):static(15)
     @test @inferred((static(-7):static(7))[first(eachindex(static(-7):static(7)))]) == -7
+
+    @test @inferred(firstindex(128:static(-1):1)) == 1
 end
 
