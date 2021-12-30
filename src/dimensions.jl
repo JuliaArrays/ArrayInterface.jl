@@ -182,14 +182,14 @@ to_dims(::Type{T}, dim::Integer) where {T} = Int(dim)
 to_dims(::Type{T}, dim::Colon) where {T} = dim
 function to_dims(::Type{T}, dim::StaticSymbol) where {T}
     i = find_first_eq(dim, dimnames(T))
-    if i === nothing
+    if i === missing
         throw_dim_error(T, dim)
     end
     return i
 end
 Compat.@constprop :aggressive function to_dims(::Type{T}, dim::Symbol) where {T}
     i = find_first_eq(dim, map(Symbol, dimnames(T)))
-    if i === nothing
+    if i === missing
         throw_dim_error(T, dim)
     end
     return i
@@ -207,7 +207,7 @@ An error is thrown if any keywords are used which do not occur in `nda`'s names.
 
 1. parse into static dimnension names and key words.
 2. find each dimnames in key words
-3. if nothing is found use Colon()
+3. if missing is found use Colon()
 4. if (ndims - ncolon) === nkwargs then all were found, else error
 =#
 order_named_inds(x::Tuple, ::NamedTuple{(),Tuple{}}) = ()
@@ -226,7 +226,7 @@ Compat.@constprop :aggressive function order_named_inds(
 end
 function order_named_inds(x::Tuple, nd::Tuple, inds::Tuple, ::StaticInt{dim}) where {dim}
     index = find_first_eq(getfield(x, dim), nd)
-    if index === nothing
+    if index === missing
         return Colon()
     else
         return @inbounds(inds[index])
@@ -241,6 +241,6 @@ function _order_named_inds_check(inds::Tuple{Vararg{Any,N}}, nkwargs::Int) where
     if (N - ncolon(inds, 0)) !== nkwargs
         error("Not all keywords matched dimension names.")
     end
-    return nothing
+    return missing
 end
 

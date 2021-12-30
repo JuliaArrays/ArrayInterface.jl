@@ -81,10 +81,10 @@ buffer(x::SparseMatrixCSC) = getfield(x, :nzval)
 buffer(x::SparseVector) = getfield(x, :nzval)
 
 """
-    known_length(::Type{T}) -> Union{Int,Nothing}
+    known_length(::Type{T}) -> Union{Int,Missing}
 
 If `length` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `nothing`.
+Otherwise, return `missing`.
 """
 known_length(x) = known_length(typeof(x))
 known_length(::Type{<:NamedTuple{L}}) where {L} = length(L)
@@ -95,13 +95,11 @@ known_length(::Type{<:Number}) = 1
 known_length(::Type{<:AbstractCartesianIndex{N}}) where {N} = N
 function known_length(::Type{T}) where {T}
     if parent_type(T) <: T
-        return nothing
+        return missing
     else
-        return _known_length(known_size(T))
+        return prod(known_size(T))
     end
 end
-_known_length(x::Tuple{Vararg{Union{Nothing,Int}}}) = nothing
-_known_length(x::Tuple{Vararg{Int}}) = prod(x)
 
 """
     can_change_size(::Type{T}) -> Bool
@@ -419,10 +417,10 @@ Indicates the most efficient way to access elements from the collection in low-l
 For `GPUArrays`, will return `ArrayInterface.GPU()`.
 For `AbstractArray` supporting a `pointer` method, returns `ArrayInterface.CPUPointer()`.
 For other `AbstractArray`s and `Tuple`s, returns `ArrayInterface.CPUIndex()`.
-Otherwise, returns `nothing`.
+Otherwise, returns `missing`.
 """
 device(A) = device(typeof(A))
-device(::Type) = nothing
+device(::Type) = missing
 device(::Type{<:Tuple}) = CPUTuple()
 device(::Type{T}) where {T<:Array} = CPUPointer()
 device(::Type{T}) where {T<:AbstractArray} = _device(has_parent(T), T)
@@ -605,7 +603,7 @@ end
 
 function Base.length(A::AbstractArray2)
     len = known_length(A)
-    if len === nothing
+    if len === missing
         return Int(prod(size(A)))
     else
         return Int(len)
@@ -940,7 +938,7 @@ function __init__()
             Static.eachop_tuple(_offset_axis_type, Static.nstatic(Val(ndims(T))), ArrayInterface.parent_type(T))
         end
         function ArrayInterface.known_offsets(::Type{A}) where {A<:OffsetArrays.OffsetArray}
-            ntuple(identity -> nothing, Val(ndims(A)))
+            ntuple(identity -> missing, Val(ndims(A)))
         end
         function ArrayInterface.offsets(A::OffsetArrays.OffsetArray)
             map(+, ArrayInterface.offsets(parent(A)), relative_offsets(A))

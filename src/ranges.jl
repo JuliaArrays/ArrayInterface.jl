@@ -1,16 +1,16 @@
 
 _cartesian_index(i::Tuple{Vararg{Int}}) = CartesianIndex(i)
-_cartesian_index(::Any) = nothing
+_cartesian_index(::Any) = missing
 
 """
-    known_first(::Type{T}) -> Union{Int,Nothing}
+    known_first(::Type{T}) -> Union{Int,Missing}
 
 If `first` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `nothing`.
+Otherwise, return `missing`.
 
 ```julia
 julia> ArrayInterface.known_first(typeof(1:4))
-nothing
+missing
 
 julia> ArrayInterface.known_first(typeof(Base.OneTo(4)))
 1
@@ -19,7 +19,7 @@ julia> ArrayInterface.known_first(typeof(Base.OneTo(4)))
 known_first(x) = known_first(typeof(x))
 function known_first(::Type{T}) where {T}
     if parent_type(T) <: T
-        return nothing
+        return missing
     else
         return known_first(parent_type(T))
     end
@@ -30,14 +30,14 @@ function known_first(::Type{T}) where {N,R,T<:CartesianIndices{N,R}}
 end
 
 """
-    known_last(::Type{T}) -> Union{Int,Nothing}
+    known_last(::Type{T}) -> Union{Int,Missing}
 
 If `last` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `nothing`.
+Otherwise, return `missing`.
 
 ```julia
 julia> ArrayInterface.known_last(typeof(1:4))
-nothing
+missing
 
 julia> ArrayInterface.known_first(typeof(static(1):static(4)))
 4
@@ -47,7 +47,7 @@ julia> ArrayInterface.known_first(typeof(static(1):static(4)))
 known_last(x) = known_last(typeof(x))
 function known_last(::Type{T}) where {T}
     if parent_type(T) <: T
-        return nothing
+        return missing
     else
         return known_last(parent_type(T))
     end
@@ -57,14 +57,14 @@ function known_last(::Type{T}) where {N,R,T<:CartesianIndices{N,R}}
 end
 
 """
-    known_step(::Type{T}) -> Union{Int,Nothing}
+    known_step(::Type{T}) -> Union{Int,Missing}
 
 If `step` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `nothing`.
+Otherwise, return `missing`.
 
 ```julia
 julia> ArrayInterface.known_step(typeof(1:2:8))
-nothing
+missing
 
 julia> ArrayInterface.known_step(typeof(1:4))
 1
@@ -74,7 +74,7 @@ julia> ArrayInterface.known_step(typeof(1:4))
 known_step(x) = known_step(typeof(x))
 function known_step(::Type{T}) where {T}
     if parent_type(T) <: T
-        return nothing
+        return missing
     else
         return known_step(parent_type(T))
     end
@@ -215,21 +215,21 @@ known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = 
 known_last(::Type{<:OptionallyStaticStepRange{<:Any,<:Any,StaticInt{L}}}) where {L} = L::Int
 
 @inline function Base.first(r::OptionallyStaticRange)::Int
-    if known_first(r) === nothing
+    if known_first(r) === missing
         return getfield(r, :start)
     else
         return known_first(r)
     end
 end
 function Base.step(r::OptionallyStaticStepRange)::Int
-    if known_step(r) === nothing
+    if known_step(r) === missing
         return getfield(r, :step)
     else
         return known_step(r)
     end
 end
 @inline function Base.last(r::OptionallyStaticRange)::Int
-    if known_last(r) === nothing
+    if known_last(r) === missing
         return getfield(r, :stop)
     else
         return known_last(r)
@@ -343,7 +343,7 @@ Base.length(r::OptionallyStaticUnitRange) = _range_length(static_first(r), stati
         return _range_length(static_first(r), static_step(r), static_last(r))
     end
 end
-_range_length(start, stop) = nothing
+_range_length(start, stop) = missing
 function _range_length(start::CanonicalInt, stop::CanonicalInt)
     if start > stop
         return 0
@@ -363,7 +363,7 @@ _range_length(start::CanonicalInt, ::One, stop::CanonicalInt) = _range_length(st
         return Base.checked_add(Int(div(Base.checked_sub(start, stop), -step)), 1)
     end
 end
-_range_length(start, step, stop) = nothing
+_range_length(start, step, stop) = missing
 
 Base.AbstractUnitRange{Int}(r::OptionallyStaticUnitRange) = r
 function Base.AbstractUnitRange{T}(r::OptionallyStaticUnitRange) where {T}
@@ -376,13 +376,13 @@ end
 
 Base.eachindex(r::OptionallyStaticRange) = One():static_length(r)
 @inline function Base.iterate(r::OptionallyStaticRange)
-    isempty(r) && return nothing
+    isempty(r) && return missing
     fi = Int(first(r));
     fi, fi
 end
 function Base.iterate(::SUnitRange{F,L}) where {F,L}
     if L::Int < F::Int
-        return nothing
+        return missing
     else
         return (F::Int, F::Int)
     end
@@ -392,7 +392,7 @@ function Base.iterate(::SOneTo{n}, s::Int) where {n}
         s2 = s + 1
         return (s2, s2)
     else
-        return nothing
+        return missing
     end
 end
 

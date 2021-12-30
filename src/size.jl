@@ -46,7 +46,7 @@ size(a::Array, dim::Integer) = Base.arraysize(a, convert(Int, dim))
 function size(a::A, dim::Integer) where {A}
     if parent_type(A) <: A
         len = known_size(A, dim)
-        if len === nothing
+        if len === missing
             return Int(length(axes(a, dim)))
         else
             return StaticInt(len)
@@ -66,10 +66,10 @@ end
 
 """
     known_size(::Type{T}) -> Tuple
-    known_size(::Type{T}, dim) -> Union{Int,Nothing}
+    known_size(::Type{T}, dim) -> Union{Int,Missing}
 
 Returns the size of each dimension of `A` or along dimension `dim` of `A` that is known at
-compile time. If a dimension does not have a known size along a dimension then `nothing` is
+compile time. If a dimension does not have a known size along a dimension then `missing` is
 returned in its position.
 """
 known_size(x) = known_size(typeof(x))
