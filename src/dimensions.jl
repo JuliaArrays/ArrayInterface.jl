@@ -182,14 +182,14 @@ to_dims(::Type{T}, dim::Integer) where {T} = Int(dim)
 to_dims(::Type{T}, dim::Colon) where {T} = dim
 function to_dims(::Type{T}, dim::StaticSymbol) where {T}
     i = find_first_eq(dim, dimnames(T))
-    if i === missing
+    if i === nothing
         throw_dim_error(T, dim)
     end
     return i
 end
 Compat.@constprop :aggressive function to_dims(::Type{T}, dim::Symbol) where {T}
     i = find_first_eq(dim, map(Symbol, dimnames(T)))
-    if i === missing
+    if i === nothing
         throw_dim_error(T, dim)
     end
     return i
@@ -226,7 +226,7 @@ Compat.@constprop :aggressive function order_named_inds(
 end
 function order_named_inds(x::Tuple, nd::Tuple, inds::Tuple, ::StaticInt{dim}) where {dim}
     index = find_first_eq(getfield(x, dim), nd)
-    if index === missing
+    if index === nothing
         return Colon()
     else
         return @inbounds(inds[index])

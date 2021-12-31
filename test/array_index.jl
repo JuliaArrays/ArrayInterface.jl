@@ -15,7 +15,7 @@ end
 @test @inferred(ArrayInterface.offsets(ap_index, static(1))) === ArrayInterface.offset1(Ap)
 @test @inferred(ArrayInterface.known_strides(ap_index)) === ArrayInterface.known_strides(Ap)
 @test @inferred(ArrayInterface.contiguous_axis(ap_index)) == 1
-@test @inferred(ArrayInterface.contiguous_axis(ArrayInterface.StrideIndex{2,(1,2),missing,NTuple{2,Int},NTuple{2,Int}})) == missing
+@test @inferred(ArrayInterface.contiguous_axis(ArrayInterface.StrideIndex{2,(1,2),missing,NTuple{2,Int},NTuple{2,Int}})) === missing
 @test @inferred(ArrayInterface.stride_rank(ap_index)) == (1, 3)
 
 let v = Float64.(1:10)', v2 = transpose(parent(v))

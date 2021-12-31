@@ -63,7 +63,7 @@
     # CartesianIndices
     CI = CartesianIndices((2, 2))
     @test @inferred(ArrayInterface.known_first(typeof(CI))) == CartesianIndex(1, 1)
-    @test @inferred(ArrayInterface.known_last(typeof(CI))) == missing
+    @test @inferred(ArrayInterface.known_last(typeof(CI))) === missing
 
     CI = CartesianIndices((static(1):static(2), static(1):static(2)))
     @test @inferred(ArrayInterface.known_first(typeof(CI))) == CartesianIndex(1, 1)
