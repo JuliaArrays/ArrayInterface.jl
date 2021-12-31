@@ -443,13 +443,9 @@ Is strides(::T) defined? It is assumed that types returning `true` also return a
 pointer on `pointer(::T)`.
 """
 defines_strides(x) = defines_strides(typeof(x))
-function defines_strides(::Type{T}) where {T}
-    if parent_type(T) <: T
-        return false
-    else
-        return defines_strides(parent_type(T))
-    end
-end
+_defines_strides(::Type{T}, ::Type{T}) where {T} = false
+_defines_strides(::Type{P}, ::Type{T}) where {P,T} = defines_strides(P)
+defines_strides(::Type{T}) where {T} = _defines_strides(parent_type(T), T)
 defines_strides(::Type{<:StridedArray}) = true
 function defines_strides(::Type{<:SubArray{T,N,P,I}}) where {T,N,P,I}
     return stride_preserving_index(I) === True()
