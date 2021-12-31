@@ -233,7 +233,7 @@ known_length(::Type{LazyAxis{N,P}}) where {N,P} = known_size(P, static(N))
 known_length(::Type{LazyAxis{:,P}}) where {P} = known_length(P)
 @inline function Base.length(x::LazyAxis{N})::Int where {N}
     if known_length(x) === nothing
-        return size(parent(x), static(N))
+        return size(getfield(x, :parent), static(N))
     else
         return known_length(x)
     end
