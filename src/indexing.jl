@@ -13,7 +13,7 @@ Returns `static(true)` if `T` is a type that splats across multiple dimensions.
 """
 is_splat_index(@nospecialize(x)) = is_splat_index(typeof(x))
 is_splat_index(::Type{T}) where {T} = static(false)
-_is_splat(::Type{I}, i::StaticInt) where {I} = is_splat_index(_get_tuple(I, i))
+_is_splat(::Type{I}, i::StaticInt) where {I} = is_splat_index(field_type(I, i))
 
 """
     ndims_index(::Type{I}) -> StaticInt
@@ -29,7 +29,7 @@ ndims_index(::Type{<:AbstractCartesianIndex{N}}) where {N} = static(N)
 ndims_index(::Type{<:AbstractArray{T}}) where {T} = ndims_index(T)
 ndims_index(::Type{<:AbstractArray{Bool,N}}) where {N} = static(N)
 ndims_index(::Type{<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}}) where {N} = static(N)
-_ndims_index(::Type{I}, i::StaticInt) where {I} = ndims_index(_get_tuple(I, i))
+_ndims_index(::Type{I}, i::StaticInt) where {I} = ndims_index(field_type(I, i))
 
 """
     to_indices(A, I::Tuple) -> Tuple
@@ -368,7 +368,7 @@ Returns a collection of `A` given `inds`. `inds` is assumed to have been bounds-
 function unsafe_get_collection(A, inds)
     axs = to_axes(A, inds)
     dest = similar(A, axs)
-    if map(Base.unsafe_length, axes(dest)) == map(Base.unsafe_length, axs)
+    if map(length, axes(dest)) == map(length, axs)
         Base._unsafe_getindex!(dest, A, inds...)
     else
         Base.throw_checksize_error(dest, axs)

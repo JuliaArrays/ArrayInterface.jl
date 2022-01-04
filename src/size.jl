@@ -74,7 +74,7 @@ returned in its position.
 """
 known_size(x) = known_size(typeof(x))
 known_size(::Type{T}) where {T} = eachop(_known_size, nstatic(Val(ndims(T))), axes_types(T))
-_known_size(::Type{T}, dim::StaticInt) where {T} = known_length(_get_tuple(T, dim))
+_known_size(::Type{T}, dim::StaticInt) where {T} = known_length(field_type(T, dim))
 @inline known_size(x, dim) = known_size(typeof(x), dim)
 @inline known_size(::Type{T}, dim) where {T} = known_size(T, to_dims(T, dim))
 @inline function known_size(::Type{T}, dim::CanonicalInt) where {T}

@@ -16,7 +16,7 @@ function stride_preserving_index(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
     end
 end
 function _stride_preserving_index(::Type{T}, i::StaticInt) where {T}
-    return stride_preserving_index(_get_tuple(T, i))
+    return stride_preserving_index(field_type(T, i))
 end
 
 """
@@ -40,7 +40,7 @@ known_offsets(x) = known_offsets(typeof(x))
 function known_offsets(::Type{T}) where {T}
     return eachop(_known_offsets, nstatic(Val(ndims(T))), axes_types(T))
 end
-_known_offsets(::Type{T}, dim::StaticInt) where {T} = known_first(_get_tuple(T, dim))
+_known_offsets(::Type{T}, dim::StaticInt) where {T} = known_first(field_type(T, dim))
 
 known_offsets(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(O)
 
@@ -167,11 +167,11 @@ end
 _contiguous_axis(::Type{A}, ::Missing) where {T,N,P,I,A<:SubArray{T,N,P,I}} = missing
 _contiguous_axis(::Type{A}, c::StaticInt{-1}) where {T,N,P,I,A<:SubArray{T,N,P,I}} = c
 function _contiguous_axis(::Type{A}, c::StaticInt{C}) where {T,N,P,I,A<:SubArray{T,N,P,I},C}
-    if _get_tuple(I, c) <: AbstractUnitRange
+    if field_type(I, c) <: AbstractUnitRange
         return from_parent_dims(A)[C]
-    elseif _get_tuple(I, c) <: AbstractArray
+    elseif field_type(I, c) <: AbstractArray
         return -One()
-    elseif _get_tuple(I, c) <: Integer
+    elseif field_type(I, c) <: Integer
         return -One()
     else
         return missing

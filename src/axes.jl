@@ -11,7 +11,7 @@ axes_types(x, dim) = axes_types(typeof(x), dim)
     if D > ndims(T)
         return SOneTo{1}
     else
-        return _get_tuple(axes_types(T), dim)
+        return field_type(axes_types(T), dim)
     end
 end
 @inline function axes_types(::Type{T}, dim::Int) where {T}
@@ -39,7 +39,7 @@ function axes_types(::Type{T}) where {T<:MatAdjTrans}
     Tuple{axes_types(parent_type(T), static(2)),axes_types(parent_type(T), static(1))}
 end
 function axes_types(::Type{T}) where {T<:PermutedDimsArray}
-    eachop_tuple(_get_tuple, to_parent_dims(T), axes_types(parent_type(T)))
+    eachop_tuple(field_type, to_parent_dims(T), axes_types(parent_type(T)))
 end
 function axes_types(::Type{T}) where {T<:AbstractRange}
     if known_length(T) === missing
@@ -50,7 +50,7 @@ function axes_types(::Type{T}) where {T<:AbstractRange}
 end
 axes_types(::Type{T}) where {T<:ReshapedArray} = NTuple{ndims(T),OneTo{Int}}
 function _sub_axis_type(::Type{I}, dim::StaticInt{D}) where {I<:Tuple,D}
-    axes_types(_get_tuple(I, dim), static(1))
+    axes_types(field_type(I, dim), static(1))
 end
 @inline function axes_types(::Type{T}) where {N,P,I,T<:SubArray{<:Any,N,P,I}}
     return eachop_tuple(_sub_axis_type, to_parent_dims(T), I)
@@ -134,7 +134,7 @@ if isdefined(Base, :ReshapedReinterpretArray)
             return merge_tuple_type(Tuple{SOneTo{div(sizeof(S), sizeof(T))}}, axes_types(parent_type(A)))
         elseif sizeof(S) < sizeof(T)
             P = parent_type(A)
-            return eachop_tuple(_get_tuple, tail(nstatic(Val(ndims(P)))), axes_types(P))
+            return eachop_tuple(field_type, tail(nstatic(Val(ndims(P)))), axes_types(P))
         else
             return axes_types(parent_type(A))
         end
