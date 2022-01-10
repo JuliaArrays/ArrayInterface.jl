@@ -207,7 +207,7 @@ An error is thrown if any keywords are used which do not occur in `nda`'s names.
 
 1. parse into static dimnension names and key words.
 2. find each dimnames in key words
-3. if nothing is found use Colon()
+3. if missing is found use Colon()
 4. if (ndims - ncolon) === nkwargs then all were found, else error
 =#
 order_named_inds(x::Tuple, ::NamedTuple{(),Tuple{}}) = ()
@@ -241,6 +241,6 @@ function _order_named_inds_check(inds::Tuple{Vararg{Any,N}}, nkwargs::Int) where
     if (N - ncolon(inds, 0)) !== nkwargs
         error("Not all keywords matched dimension names.")
     end
-    return nothing
+    return missing
 end
 

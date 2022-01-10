@@ -57,7 +57,6 @@ ArrayInterface.matrix_colors
 ArrayInterface.offset1
 ArrayInterface.offsets
 ArrayInterface.parent_type
-ArrayInterface.reduce_tup
 ArrayInterface.restructure
 ArrayInterface.safevec
 ArrayInterface.setindex!

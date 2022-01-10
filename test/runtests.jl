@@ -66,7 +66,7 @@ else
     @test !fast_scalar_indexing(qr(rand(10, 10), Val(true)).Q)
 end
 @test !fast_scalar_indexing(lq(rand(10, 10)).Q)
-@test fast_scalar_indexing(Nothing)  # test default
+@test fast_scalar_indexing(Missing)  # test default
 
 @testset "can_setindex" begin
     @test !@inferred(ArrayInterface.can_setindex(1:2))
@@ -286,7 +286,7 @@ ArrayInterface.parent_type(::Type{DenseWrapper{T,N,P}}) where {T,N,P} = P
     @test @inferred(device(OffsetArray(@SArray(zeros(2,2,2)),-123,29,3231))) === ArrayInterface.CPUTuple()
     @test @inferred(device(OffsetArray(@view(@SArray(zeros(2,2,2))[1,1:2,:]),-3,4))) === ArrayInterface.CPUTuple()
     @test @inferred(device(OffsetArray(@MArray(zeros(2,2,2)),8,-2,-5))) === ArrayInterface.CPUPointer()
-    @test isnothing(device("Hello, world!"))
+    @test ismissing(device("Hello, world!"))
     @test @inferred(device(DenseWrapper{Int,2,Matrix{Int}})) === ArrayInterface.CPUPointer()
     #=
     @btime ArrayInterface.contiguous_axis($(reshape(view(zeros(100), 1:60), (3,4,5))))
@@ -309,10 +309,10 @@ ArrayInterface.parent_type(::Type{DenseWrapper{T,N,P}}) where {T,N,P} = P
     @test @inferred(contiguous_axis((3,4))) === StaticInt(1)
     @test @inferred(contiguous_axis(rand(4)')) === StaticInt(2)
     @test @inferred(contiguous_axis(view(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])', :, 1)')) === StaticInt(-1)
-    @test @inferred(contiguous_axis(DummyZeros(3,4))) === nothing
-    @test @inferred(contiguous_axis(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === nothing
-    @test @inferred(contiguous_axis(view(DummyZeros(3,4), 1, :))) === nothing
-    @test @inferred(contiguous_axis(view(DummyZeros(3,4), 1, :)')) === nothing
+    @test @inferred(contiguous_axis(DummyZeros(3,4))) === missing
+    @test @inferred(contiguous_axis(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === missing
+    @test @inferred(contiguous_axis(view(DummyZeros(3,4), 1, :))) === missing
+    @test @inferred(contiguous_axis(view(DummyZeros(3,4), 1, :)')) === missing
 
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@SArray(zeros(2,2,2)))) == (true,false,false)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(A)) == (true,false,false)
@@ -326,7 +326,7 @@ ArrayInterface.parent_type(::Type{DenseWrapper{T,N,P}}) where {T,N,P} = P
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])')) == (false,false)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) == (true,false)
     @test @inferred(ArrayInterface.contiguous_axis_indicator(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,[1,3,4]]))) == (false,true,false)
-    @test @inferred(ArrayInterface.contiguous_axis_indicator(DummyZeros(3,4))) === nothing
+    @test @inferred(ArrayInterface.contiguous_axis_indicator(DummyZeros(3,4))) === missing
 
     @test @inferred(contiguous_batch_size(@SArray(zeros(2,2,2)))) === ArrayInterface.StaticInt(0)
     @test @inferred(contiguous_batch_size(A)) === ArrayInterface.StaticInt(0)
@@ -361,9 +361,9 @@ ArrayInterface.parent_type(::Type{DenseWrapper{T,N,P}}) where {T,N,P} = P
     @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) == (1, 3)
     @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,2,1])')) == (2, 1)
     @test @inferred(stride_rank(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,[1,3,4]]))) == (3, 1, 2)
-    @test @inferred(stride_rank(DummyZeros(3,4)')) === nothing
-    @test @inferred(stride_rank(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === nothing
-    @test @inferred(stride_rank(view(DummyZeros(3,4), 1, :))) === nothing
+    @test @inferred(stride_rank(DummyZeros(3,4)')) === missing
+    @test @inferred(stride_rank(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === missing
+    @test @inferred(stride_rank(view(DummyZeros(3,4), 1, :))) === missing
     uA = reinterpret(reshape, UInt64, A)
     @test @inferred(stride_rank(uA)) === stride_rank(A)
     rA = reinterpret(reshape, SVector{3,Float64}, A)
@@ -417,11 +417,11 @@ ArrayInterface.parent_type(::Type{DenseWrapper{T,N,P}}) where {T,N,P} = P
     # first need to develop a standard method for reconstructing arrays
     @test @inferred(dense_dims(vec(parent(A)))) == (true,)
     @test @inferred(dense_dims(vec(parent(A))')) == (true,true)
-    @test @inferred(dense_dims(DummyZeros(3,4))) === nothing
-    @test @inferred(dense_dims(DummyZeros(3,4)')) === nothing
-    @test @inferred(dense_dims(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === nothing
-    @test @inferred(dense_dims(view(DummyZeros(3,4), :, 1))) === nothing
-    @test @inferred(dense_dims(view(DummyZeros(3,4), :, 1)')) === nothing
+    @test @inferred(dense_dims(DummyZeros(3,4))) === missing
+    @test @inferred(dense_dims(DummyZeros(3,4)')) === missing
+    @test @inferred(dense_dims(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === missing
+    @test @inferred(dense_dims(view(DummyZeros(3,4), :, 1))) === missing
+    @test @inferred(dense_dims(view(DummyZeros(3,4), :, 1)')) === missing
     @test @inferred(ArrayInterface.is_dense(A)) === @inferred(ArrayInterface.is_dense(A)) === @inferred(ArrayInterface.is_dense(PermutedDimsArray(A,(3,1,2)))) === @inferred(ArrayInterface.is_dense(Array{Float64,0}(undef))) === True()
     @test @inferred(ArrayInterface.is_dense(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:]))) === @inferred(ArrayInterface.is_dense(@view(PermutedDimsArray(A,(3,1,2))[2:3,:,[1,2]]))) === @inferred(ArrayInterface.is_dense(@view(PermutedDimsArray(A,(3,1,2))[2:3,[1,2,3],:]))) === False()
 
@@ -523,31 +523,31 @@ end
     @test @inferred(ArrayInterface.size(Mp2)) == size(Mp2)
     @test @inferred(ArrayInterface.size(D)) == size(D)
 
-    @test @inferred(ArrayInterface.known_size(A)) === (nothing, nothing, nothing)
-    @test @inferred(ArrayInterface.known_size(Ap)) === (nothing,nothing)
-    @test @inferred(ArrayInterface.known_size(Wrapper(Ap))) === (nothing,nothing)
+    @test @inferred(ArrayInterface.known_size(A)) === (missing, missing, missing)
+    @test @inferred(ArrayInterface.known_size(Ap)) === (missing,missing)
+    @test @inferred(ArrayInterface.known_size(Wrapper(Ap))) === (missing,missing)
     @test @inferred(ArrayInterface.known_size(R)) === (2,)
     @test @inferred(ArrayInterface.known_size(Wrapper(R))) === (2,)
     @test @inferred(ArrayInterface.known_size(Rnr)) === (4,)
     @test @inferred(ArrayInterface.known_size(Rnr, static(1))) === 4
-    @test @inferred(ArrayInterface.known_size(Ar)) === (nothing,nothing, nothing,)
-    @test @inferred(ArrayInterface.known_size(Ar, static(1))) === nothing
+    @test @inferred(ArrayInterface.known_size(Ar)) === (missing,missing, missing,)
+    @test @inferred(ArrayInterface.known_size(Ar, static(1))) === missing
     @test @inferred(ArrayInterface.known_size(Ar, static(4))) === 1
-    @test @inferred(ArrayInterface.known_size(A2)) === (nothing, nothing, nothing)
-    @test @inferred(ArrayInterface.known_size(A2r)) === (nothing, nothing, nothing)
+    @test @inferred(ArrayInterface.known_size(A2)) === (missing, missing, missing)
+    @test @inferred(ArrayInterface.known_size(A2r)) === (missing, missing, missing)
 
     @test @inferred(ArrayInterface.known_size(S)) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(Wrapper(S))) === (2, 3, 4)
-    @test @inferred(ArrayInterface.known_size(Sp)) === (nothing, nothing, 3)
-    @test @inferred(ArrayInterface.known_size(Wrapper(Sp))) === (nothing, nothing, 3)
-    @test @inferred(ArrayInterface.known_size(Sp2)) === (nothing, 3, 2)
-    @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(1))) === nothing
+    @test @inferred(ArrayInterface.known_size(Sp)) === (missing, missing, 3)
+    @test @inferred(ArrayInterface.known_size(Wrapper(Sp))) === (missing, missing, 3)
+    @test @inferred(ArrayInterface.known_size(Sp2)) === (missing, 3, 2)
+    @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(1))) === missing
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(2))) === 3
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(3))) === 2
 
     @test @inferred(ArrayInterface.known_size(M)) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(Mp)) === (3, 4)
-    @test @inferred(ArrayInterface.known_size(Mp2)) === (2, nothing)
+    @test @inferred(ArrayInterface.known_size(Mp2)) === (2, missing)
 
     @test @inferred(ArrayInterface.strides(A)) === (StaticInt(1), 3, 12)
     @test @inferred(ArrayInterface.strides(Ap)) === (StaticInt(1), 12)
@@ -574,12 +574,12 @@ end
     @test @inferred(ArrayInterface.strides(Mp2)) == strides(Mp2)
     @test_throws MethodError ArrayInterface.strides(DummyZeros(3,4))
 
-    @test @inferred(ArrayInterface.known_strides(A)) === (1, nothing, nothing)
-    @test @inferred(ArrayInterface.known_strides(Ap)) === (1, nothing)
-    @test @inferred(ArrayInterface.known_strides(Ar)) === (1, nothing, nothing)
-    @test @inferred(ArrayInterface.known_strides(reshape(view(zeros(100), 1:60), (3,4,5)))) === (1, nothing, nothing)
-    @test @inferred(ArrayInterface.known_strides(A2)) === (1, nothing, nothing)
-    @test @inferred(ArrayInterface.known_strides(A2r)) === (1, nothing, nothing)
+    @test @inferred(ArrayInterface.known_strides(A)) === (1, missing, missing)
+    @test @inferred(ArrayInterface.known_strides(Ap)) === (1, missing)
+    @test @inferred(ArrayInterface.known_strides(Ar)) === (1, missing, missing)
+    @test @inferred(ArrayInterface.known_strides(reshape(view(zeros(100), 1:60), (3,4,5)))) === (1, missing, missing)
+    @test @inferred(ArrayInterface.known_strides(A2)) === (1, missing, missing)
+    @test @inferred(ArrayInterface.known_strides(A2r)) === (1, missing, missing)
 
     @test @inferred(ArrayInterface.known_strides(S)) === (1, 2, 6)
     @test @inferred(ArrayInterface.known_strides(Sp)) === (6, 1, 2)
@@ -735,10 +735,10 @@ end
 
 @testset "known_length" begin
     @test ArrayInterface.known_length(@inferred(ArrayInterface.indices(SOneTo(7)))) == 7
-    @test ArrayInterface.known_length(1:2) === nothing
+    @test ArrayInterface.known_length(1:2) === missing
     @test ArrayInterface.known_length((1,)) == 1
     @test ArrayInterface.known_length((a=1,b=2)) == 2
-    @test ArrayInterface.known_length([]) === nothing
+    @test ArrayInterface.known_length([]) === missing
     @test ArrayInterface.known_length(CartesianIndex((1,2,3))) === 3
 
     x = view(SArray{Tuple{3,3,3}}(ones(3,3,3)), :, SOneTo(2), 2)
@@ -812,13 +812,6 @@ end
     @test @inferred(ArrayInterface.deleteat((2, 3, 4), 2)) == (2, 4)
     @test @inferred(ArrayInterface.deleteat((2, 3, 4), 3)) == (2, 3)
     @test ArrayInterface.deleteat((1, 2, 3), [1, 2]) == (3,)
-end
-
-@testset "reduce_tup" begin
-    for n ∈ 2:16
-        x = ntuple(_ -> rand(Bool) ? rand() : (rand(Bool) ? rand(0x00:0x1f) : rand(0:31)), n)
-        @test @inferred(ArrayInterface.reduce_tup(+, x)) ≈ reduce(+, x)
-    end
 end
 
 @testset "axes" begin

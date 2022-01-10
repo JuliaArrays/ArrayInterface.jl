@@ -1,6 +1,6 @@
 name = "ArrayInterface"
 uuid = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
-version = "3.2.2"
+version = "4"
 
 [deps]
 Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
@@ -14,20 +14,5 @@ Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
 Compat = "3.37"
 IfElse = "0.1"
 Requires = "0.5, 1.0"
-Static = "0.4"
+Static = "0.5"
 julia = "1.2"
-
-[extras]
-Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
-BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
-BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
-IfElse = "615f187c-cbe4-4ef1-ba3b-2fcf58d6d173"
-LabelledArrays = "2ee39098-c373-598a-b85f-a56591580800"
-OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
-Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
-SuiteSparse = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-
-[targets]
-test = ["Test", "LabelledArrays", "StaticArrays", "BandedMatrices", "BlockBandedMatrices", "SuiteSparse", "Random", "OffsetArrays", "Aqua", "IfElse"]

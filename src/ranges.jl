@@ -1,16 +1,16 @@
 
 _cartesian_index(i::Tuple{Vararg{Int}}) = CartesianIndex(i)
-_cartesian_index(::Any) = nothing
+_cartesian_index(::Any) = missing
 
 """
-    known_first(::Type{T}) -> Union{Int,Nothing}
+    known_first(::Type{T}) -> Union{Int,Missing}
 
 If `first` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `nothing`.
+Otherwise, return `missing`.
 
 ```julia
 julia> ArrayInterface.known_first(typeof(1:4))
-nothing
+missing
 
 julia> ArrayInterface.known_first(typeof(Base.OneTo(4)))
 1
@@ -19,7 +19,7 @@ julia> ArrayInterface.known_first(typeof(Base.OneTo(4)))
 known_first(x) = known_first(typeof(x))
 function known_first(::Type{T}) where {T}
     if parent_type(T) <: T
-        return nothing
+        return missing
     else
         return known_first(parent_type(T))
     end
@@ -30,14 +30,14 @@ function known_first(::Type{T}) where {N,R,T<:CartesianIndices{N,R}}
 end
 
 """
-    known_last(::Type{T}) -> Union{Int,Nothing}
+    known_last(::Type{T}) -> Union{Int,Missing}
 
 If `last` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `nothing`.
+Otherwise, return `missing`.
 
 ```julia
 julia> ArrayInterface.known_last(typeof(1:4))
-nothing
+missing
 
 julia> ArrayInterface.known_first(typeof(static(1):static(4)))
 4
@@ -47,7 +47,7 @@ julia> ArrayInterface.known_first(typeof(static(1):static(4)))
 known_last(x) = known_last(typeof(x))
 function known_last(::Type{T}) where {T}
     if parent_type(T) <: T
-        return nothing
+        return missing
     else
         return known_last(parent_type(T))
     end
@@ -57,14 +57,14 @@ function known_last(::Type{T}) where {N,R,T<:CartesianIndices{N,R}}
 end
 
 """
-    known_step(::Type{T}) -> Union{Int,Nothing}
+    known_step(::Type{T}) -> Union{Int,Missing}
 
 If `step` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `nothing`.
+Otherwise, return `missing`.
 
 ```julia
 julia> ArrayInterface.known_step(typeof(1:2:8))
-nothing
+missing
 
 julia> ArrayInterface.known_step(typeof(1:4))
 1
@@ -74,7 +74,7 @@ julia> ArrayInterface.known_step(typeof(1:4))
 known_step(x) = known_step(typeof(x))
 function known_step(::Type{T}) where {T}
     if parent_type(T) <: T
-        return nothing
+        return missing
     else
         return known_step(parent_type(T))
     end
@@ -215,21 +215,21 @@ known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = 
 known_last(::Type{<:OptionallyStaticStepRange{<:Any,<:Any,StaticInt{L}}}) where {L} = L::Int
 
 @inline function Base.first(r::OptionallyStaticRange)::Int
-    if known_first(r) === nothing
+    if known_first(r) === missing
         return getfield(r, :start)
     else
         return known_first(r)
     end
 end
 function Base.step(r::OptionallyStaticStepRange)::Int
-    if known_step(r) === nothing
+    if known_step(r) === missing
         return getfield(r, :step)
     else
         return known_step(r)
     end
 end
 @inline function Base.last(r::OptionallyStaticRange)::Int
-    if known_last(r) === nothing
+    if known_last(r) === missing
         return getfield(r, :stop)
     else
         return known_last(r)
@@ -343,7 +343,7 @@ Base.length(r::OptionallyStaticUnitRange) = _range_length(static_first(r), stati
         return _range_length(static_first(r), static_step(r), static_last(r))
     end
 end
-_range_length(start, stop) = nothing
+_range_length(start, stop) = missing
 function _range_length(start::CanonicalInt, stop::CanonicalInt)
     if start > stop
         return 0
@@ -363,7 +363,7 @@ _range_length(start::CanonicalInt, ::One, stop::CanonicalInt) = _range_length(st
         return Base.checked_add(Int(div(Base.checked_sub(start, stop), -step)), 1)
     end
 end
-_range_length(start, step, stop) = nothing
+_range_length(start, step, stop) = missing
 
 Base.AbstractUnitRange{Int}(r::OptionallyStaticUnitRange) = r
 function Base.AbstractUnitRange{T}(r::OptionallyStaticUnitRange) where {T}
@@ -376,13 +376,13 @@ end
 
 Base.eachindex(r::OptionallyStaticRange) = One():static_length(r)
 @inline function Base.iterate(r::OptionallyStaticRange)
-    isempty(r) && return nothing
+    isempty(r) && return missing
     fi = Int(first(r));
     fi, fi
 end
 function Base.iterate(::SUnitRange{F,L}) where {F,L}
     if L::Int < F::Int
-        return nothing
+        return missing
     else
         return (F::Int, F::Int)
     end
@@ -392,7 +392,7 @@ function Base.iterate(::SOneTo{n}, s::Int) where {n}
         s2 = s + 1
         return (s2, s2)
     else
-        return nothing
+        return missing
     end
 end
 
@@ -430,137 +430,6 @@ end
     else
         error("$x has no property $s")
     end
-end
-
-"""
-  reduce_tup(f::F, inds::Tuple{Vararg{Any,N}}) where {F,N}
-
-An optimized `reduce` for tuples. `Base.reduce`'s `afoldl` will often not inline.
-Additionally, `reduce_tup` attempts to order the reduction in an optimal manner.
-
-```julia
-julia> using StaticArrays, ArrayInterface, BenchmarkTools
-
-julia> rsum(v::SVector) = ArrayInterface.reduce_tup(+, v.data)
-rsum (generic function with 2 methods)
-
-julia> for n ∈ 2:16
-           @show n
-           v = @SVector rand(n)
-           s1 = @btime  sum(\$(Ref(v))[])
-           s2 = @btime rsum(\$(Ref(v))[])
-       end
-n = 2
-  0.863 ns (0 allocations: 0 bytes)
-  0.863 ns (0 allocations: 0 bytes)
-n = 3
-  0.862 ns (0 allocations: 0 bytes)
-  0.863 ns (0 allocations: 0 bytes)
-n = 4
-  0.862 ns (0 allocations: 0 bytes)
-  0.862 ns (0 allocations: 0 bytes)
-n = 5
-  1.074 ns (0 allocations: 0 bytes)
-  0.864 ns (0 allocations: 0 bytes)
-n = 6
-  0.864 ns (0 allocations: 0 bytes)
-  0.862 ns (0 allocations: 0 bytes)
-n = 7
-  1.075 ns (0 allocations: 0 bytes)
-  0.864 ns (0 allocations: 0 bytes)
-n = 8
-  1.077 ns (0 allocations: 0 bytes)
-  0.865 ns (0 allocations: 0 bytes)
-n = 9
-  1.081 ns (0 allocations: 0 bytes)
-  0.865 ns (0 allocations: 0 bytes)
-n = 10
-  1.195 ns (0 allocations: 0 bytes)
-  0.867 ns (0 allocations: 0 bytes)
-n = 11
-  1.357 ns (0 allocations: 0 bytes)
-  1.400 ns (0 allocations: 0 bytes)
-n = 12
-  1.543 ns (0 allocations: 0 bytes)
-  1.074 ns (0 allocations: 0 bytes)
-n = 13
-  1.702 ns (0 allocations: 0 bytes)
-  1.077 ns (0 allocations: 0 bytes)
-n = 14
-  1.913 ns (0 allocations: 0 bytes)
-  0.867 ns (0 allocations: 0 bytes)
-n = 15
-  2.076 ns (0 allocations: 0 bytes)
-  1.077 ns (0 allocations: 0 bytes)
-n = 16
-  2.273 ns (0 allocations: 0 bytes)
-  1.078 ns (0 allocations: 0 bytes)
-```
-
-More importantly, `reduce_tup(_pick_range, inds)` often performs better than `reduce(_pick_range, inds)`.
-```julia
-julia> using ArrayInterface, BenchmarkTools, Static
-
-julia> inds = (Base.OneTo(100), 1:100, 1:static(100))
-(Base.OneTo(100), 1:100, 1:static(100))
-
-julia> @btime reduce(ArrayInterface._pick_range, \$(Ref(inds))[])
-  6.405 ns (0 allocations: 0 bytes)
-Base.Slice(static(1):static(100))
-
-julia> @btime ArrayInterface.reduce_tup(ArrayInterface._pick_range, \$(Ref(inds))[])
-  2.570 ns (0 allocations: 0 bytes)
-Base.Slice(static(1):static(100))
-
-julia> inds = (Base.OneTo(100), 1:100, 1:UInt(100))
-(Base.OneTo(100), 1:100, 0x0000000000000001:0x0000000000000064)
-
-julia> @btime reduce(ArrayInterface._pick_range, \$(Ref(inds))[])
-  6.411 ns (0 allocations: 0 bytes)
-Base.Slice(static(1):100)
-
-julia> @btime ArrayInterface.reduce_tup(ArrayInterface._pick_range, \$(Ref(inds))[])
-  2.592 ns (0 allocations: 0 bytes)
-Base.Slice(static(1):100)
-
-julia> inds = (Base.OneTo(100), 1:100, 1:UInt(100), Int32(1):Int32(100))
-(Base.OneTo(100), 1:100, 0x0000000000000001:0x0000000000000064, 1:100)
-
-julia> @btime reduce(ArrayInterface._pick_range, \$(Ref(inds))[])
-  9.048 ns (0 allocations: 0 bytes)
-Base.Slice(static(1):100)
-
-julia> @btime ArrayInterface.reduce_tup(ArrayInterface._pick_range, \$(Ref(inds))[])
-  2.569 ns (0 allocations: 0 bytes)
-Base.Slice(static(1):100)
-```
-"""
-@generated function reduce_tup(f::F, inds::Tuple{Vararg{Any,N}}) where {F,N}
-    q = Expr(:block, Expr(:meta, :inline, :propagate_inbounds))
-    if N == 1
-        push!(q.args, :(inds[1]))
-        return q
-    end
-    syms = Vector{Symbol}(undef, N)
-    i = 0
-    for n ∈ 1:N
-        syms[n] = iₙ = Symbol(:i_, (i += 1))
-        push!(q.args, Expr(:(=), iₙ, Expr(:ref, :inds, n)))
-    end
-    W =  1 << (8sizeof(N) - 2 - leading_zeros(N))
-    while W > 0
-        _N = length(syms)
-        for _ ∈ 2W:W:_N
-            for w ∈ 1:W
-                new_sym = Symbol(:i_, (i += 1))
-                push!(q.args, Expr(:(=), new_sym, Expr(:call, :f, syms[w], syms[w+W])))
-                syms[w] = new_sym
-            end
-            deleteat!(syms, 1+W:2W)
-        end
-        W >>>= 1
-    end
-    q
 end
 
 @propagate_inbounds function _pick_range(x, y)

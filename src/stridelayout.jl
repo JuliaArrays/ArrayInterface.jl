@@ -16,15 +16,15 @@ function stride_preserving_index(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
     end
 end
 function _stride_preserving_index(::Type{T}, i::StaticInt) where {T}
-    return stride_preserving_index(_get_tuple(T, i))
+    return stride_preserving_index(field_type(T, i))
 end
 
 """
     known_offsets(::Type{T}) -> Tuple
-    known_offsets(::Type{T}, dim) -> Union{Int,Nothing}
+    known_offsets(::Type{T}, dim) -> Union{Int,Missing}
 
 Returns a tuple of offset values known at compile time. If the offset of a given axis is
-not known at compile time `nothing` is returned its position.
+not known at compile time `missing` is returned its position.
 """
 known_offsets(x, dim) = known_offsets(typeof(x), dim)
 known_offsets(::Type{T}, dim) where {T} = known_offsets(T, to_dims(T, dim))
@@ -40,7 +40,7 @@ known_offsets(x) = known_offsets(typeof(x))
 function known_offsets(::Type{T}) where {T}
     return eachop(_known_offsets, nstatic(Val(ndims(T))), axes_types(T))
 end
-_known_offsets(::Type{T}, dim::StaticInt) where {T} = known_first(_get_tuple(T, dim))
+_known_offsets(::Type{T}, dim::StaticInt) where {T} = known_first(field_type(T, dim))
 
 known_offsets(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(O)
 
@@ -58,7 +58,7 @@ offsets(x::StrideIndex) = getfield(x, :offsets)
 offsets(x) = eachop(_offsets, nstatic(Val(ndims(x))), x)
 function _offsets(x::X, dim::StaticInt{D}) where {X,D}
     start = known_first(axes_types(X, dim))
-    if start === nothing
+    if start === missing
         return first(axes(x, dim))
     else
         return static(start)
@@ -69,7 +69,7 @@ end
 @inline offsets(x::StrideIndex, ::StaticInt{dim}) where {dim} = getfield(offsets(x), dim)
 
 """
-    known_offset1(::Type{T}) -> Union{Int,Nothing}
+    known_offset1(::Type{T}) -> Union{Int,Missing}
 
 Returns the linear offset of array `x` if known at compile time.
 """
@@ -89,7 +89,7 @@ Returns the offset of the linear indices for `x`.
 """
 @inline function offset1(x::X) where {X}
     o1 = known_offset1(X)
-    if o1 === nothing
+    if o1 === missing
         if ndims(X) === 0
             return 1
         else
@@ -105,14 +105,14 @@ end
 
 Returns the axis of an array of type `T` containing contiguous data.
 If no axis is contiguous, it returns a `StaticInt{-1}`.
-If unknown, it returns `nothing`.
+If unknown, it returns `missing`.
 """
 contiguous_axis(x) = contiguous_axis(typeof(x))
 contiguous_axis(::Type{<:StrideIndex{N,R,C}}) where {N,R,C} = static(C)
-contiguous_axis(::Type{<:StrideIndex{N,R,nothing}}) where {N,R} = nothing
+contiguous_axis(::Type{<:StrideIndex{N,R,missing}}) where {N,R} = missing
 function contiguous_axis(::Type{T}) where {T}
     if parent_type(T) <: T
-        return nothing
+        return missing
     else
         return contiguous_axis(parent_type(T))
     end
@@ -123,8 +123,8 @@ contiguous_axis(::Type{<:AbstractRange}) = One()
 contiguous_axis(::Type{<:Tuple}) = One()
 function contiguous_axis(::Type{T}) where {T<:VecAdjTrans}
     c = contiguous_axis(parent_type(T))
-    if c === nothing
-        return nothing
+    if c === missing
+        return missing
     elseif c === One()
         return StaticInt{2}()
     else
@@ -133,8 +133,8 @@ function contiguous_axis(::Type{T}) where {T<:VecAdjTrans}
 end
 function contiguous_axis(::Type{T}) where {T<:MatAdjTrans}
     c = contiguous_axis(parent_type(T))
-    if c === nothing
-        return nothing
+    if c === missing
+        return missing
     elseif isone(-c)
         return c
     else
@@ -143,8 +143,8 @@ function contiguous_axis(::Type{T}) where {T<:MatAdjTrans}
 end
 function contiguous_axis(::Type{T}) where {T<:PermutedDimsArray}
     c = contiguous_axis(parent_type(T))
-    if c === nothing
-        return nothing
+    if c === missing
+        return missing
     elseif isone(-c)
         return c
     else
@@ -152,29 +152,29 @@ function contiguous_axis(::Type{T}) where {T<:PermutedDimsArray}
     end
 end
 function contiguous_axis(::Type{Base.ReshapedArray{T, 1, A, Tuple{}}}) where {T, A}
-  IfElse.ifelse(is_column_major(A) & is_dense(A), static(1), nothing)
+  IfElse.ifelse(is_column_major(A) & is_dense(A), static(1), missing)
 end
 function contiguous_axis(::Type{Base.ReshapedArray{T, 1, LinearAlgebra.Adjoint{T, A}, Tuple{}}}) where {T, A <: AbstractVector{T}}
-  IfElse.ifelse(is_column_major(A) & is_dense(A), static(1), nothing)
+  IfElse.ifelse(is_column_major(A) & is_dense(A), static(1), missing)
 end
 function contiguous_axis(::Type{Base.ReshapedArray{T, 1, LinearAlgebra.Transpose{T, A}, Tuple{}}}) where {T, A <: AbstractVector{T}}
-  IfElse.ifelse(is_column_major(A) & is_dense(A), static(1), nothing)
+  IfElse.ifelse(is_column_major(A) & is_dense(A), static(1), missing)
 end
 function contiguous_axis(::Type{T}) where {T<:SubArray}
     return _contiguous_axis(T, contiguous_axis(parent_type(T)))
 end
 
-_contiguous_axis(::Type{A}, ::Nothing) where {T,N,P,I,A<:SubArray{T,N,P,I}} = nothing
+_contiguous_axis(::Type{A}, ::Missing) where {T,N,P,I,A<:SubArray{T,N,P,I}} = missing
 _contiguous_axis(::Type{A}, c::StaticInt{-1}) where {T,N,P,I,A<:SubArray{T,N,P,I}} = c
 function _contiguous_axis(::Type{A}, c::StaticInt{C}) where {T,N,P,I,A<:SubArray{T,N,P,I},C}
-    if _get_tuple(I, c) <: AbstractUnitRange
+    if field_type(I, c) <: AbstractUnitRange
         return from_parent_dims(A)[C]
-    elseif _get_tuple(I, c) <: AbstractArray
+    elseif field_type(I, c) <: AbstractArray
         return -One()
-    elseif _get_tuple(I, c) <: Integer
+    elseif field_type(I, c) <: Integer
         return -One()
     else
-        return nothing
+        return missing
     end
 end
 
@@ -184,7 +184,7 @@ function contiguous_axis(::Type{R}) where {T,N,S,A<:Array{S},R<:ReinterpretArray
     if isbitstype(S)
         return One()
     else
-        return nothing
+        return missing
     end
 end
 
@@ -197,7 +197,7 @@ function contiguous_axis_indicator(::Type{A}) where {D,A<:AbstractArray{<:Any,D}
     return contiguous_axis_indicator(contiguous_axis(A), Val(D))
 end
 contiguous_axis_indicator(::A) where {A<:AbstractArray} = contiguous_axis_indicator(A)
-contiguous_axis_indicator(::Nothing, ::Val) = nothing
+contiguous_axis_indicator(::Missing, ::Val) = missing
 function contiguous_axis_indicator(c::StaticInt{N}, dim::Val{D}) where {N,D}
     return map(i -> eq(c, i), nstatic(dim))
 end
@@ -215,7 +215,7 @@ stride_rank(::Type{<:StrideIndex{N,R}}) where {N,R} = static(R)
 stride_rank(x) = stride_rank(typeof(x))
 function stride_rank(::Type{T}) where {T}
     if parent_type(T) <: T
-        return nothing
+        return missing
     else
         return stride_rank(parent_type(T))
     end
@@ -227,7 +227,7 @@ stride_rank(::Type{<:Tuple}) = (One(),)
 
 stride_rank(::Type{T}) where {T<:VecAdjTrans} = (StaticInt(2), StaticInt(1))
 stride_rank(::Type{T}) where {T<:MatAdjTrans} = _stride_rank(T, stride_rank(parent_type(T)))
-_stride_rank(::Type{T}, ::Nothing) where {T<:MatAdjTrans} = nothing
+_stride_rank(::Type{T}, ::Missing) where {T<:MatAdjTrans} = missing
 function _stride_rank(::Type{T}, rank) where {T<:MatAdjTrans}
     return (getfield(rank, 2), getfield(rank, 1))
 end
@@ -235,11 +235,11 @@ end
 function stride_rank(::Type{T},) where {T<:PermutedDimsArray}
     return _stride_rank(T, stride_rank(parent_type(T)))
 end
-_stride_rank(::Type{T}, ::Nothing) where {T<:PermutedDimsArray} = nothing
+_stride_rank(::Type{T}, ::Missing) where {T<:PermutedDimsArray} = missing
 _stride_rank(::Type{T}, r) where {T<:PermutedDimsArray} = permute(r, to_parent_dims(T))
 
 stride_rank(::Type{T}) where {T<:SubArray} = _stride_rank(T, stride_rank(parent_type(T)))
-_stride_rank(::Any, ::Any) = nothing
+_stride_rank(::Any, ::Any) = missing
 _stride_rank(::Type{T}, r::Tuple) where {T<:SubArray} = permute(r, to_parent_dims(T))
 
 stride_rank(x, i) = stride_rank(x)[i]
@@ -277,17 +277,17 @@ function stride_rank(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.Signed
     _reshaped_striderank(is_column_major(P), Val{N}(), Val{M}())
 end
 function stride_rank(::Type{Base.ReshapedArray{T, 1, A, Tuple{}}}) where {T, A}
-    IfElse.ifelse(is_column_major(A) & is_dense(A), (static(1),), nothing)
+    IfElse.ifelse(is_column_major(A) & is_dense(A), (static(1),), missing)
 end
 function stride_rank(::Type{Base.ReshapedArray{T, 1, LinearAlgebra.Adjoint{T, A}, Tuple{}}}) where {T, A <: AbstractVector{T}}
-    IfElse.ifelse(is_dense(A), (static(1),), nothing)
+    IfElse.ifelse(is_dense(A), (static(1),), missing)
 end
 function stride_rank(::Type{Base.ReshapedArray{T, 1, LinearAlgebra.Transpose{T, A}, Tuple{}}}) where {T, A <: AbstractVector{T}}
-    IfElse.ifelse(is_dense(A), (static(1),), nothing)
+    IfElse.ifelse(is_dense(A), (static(1),), missing)
 end
 
 _reshaped_striderank(::True, ::Val{N}, ::Val{0}) where {N} = nstatic(Val(N))
-_reshaped_striderank(_, __, ___) = nothing
+_reshaped_striderank(_, __, ___) = missing
 
 """
     contiguous_batch_size(::Type{T}) -> StaticInt{N}
@@ -295,16 +295,16 @@ _reshaped_striderank(_, __, ___) = nothing
 Returns the Base.size of contiguous batches if `!isone(stride_rank(T, contiguous_axis(T)))`.
 If `isone(stride_rank(T, contiguous_axis(T)))`, then it will return `StaticInt{0}()`.
 If `contiguous_axis(T) == -1`, it will return `StaticInt{-1}()`.
-If unknown, it will return `nothing`.
+If unknown, it will return `missing`.
 """
 contiguous_batch_size(x) = contiguous_batch_size(typeof(x))
 contiguous_batch_size(::Type{T}) where {T} = _contiguous_batch_size(contiguous_axis(T), stride_rank(T))
-_contiguous_batch_size(_, __) = nothing
+_contiguous_batch_size(_, __) = missing
 function _contiguous_batch_size(::StaticInt{D}, ::R) where {D,R<:Tuple}
     if R.parameters[D].parameters[1] === 1
         return Zero()
     else
-        return nothing
+        return missing
     end
 end
 _contiguous_batch_size(::StaticInt{-1}, ::R) where {R<:Tuple} = -One()
@@ -322,7 +322,7 @@ end
 function contiguous_batch_size(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
     return _contiguous_batch_size(S, contiguous_batch_size(A), contiguous_axis(A))
 end
-_contiguous_batch_size(::Any, ::Any, ::Any) = nothing
+_contiguous_batch_size(::Any, ::Any, ::Any) = missing
 function _contiguous_batch_size(::Type{<:SubArray{T,N,A,I}}, b::StaticInt{B}, c::StaticInt{C}) where {T,N,A,I,B,C}
     if I.parameters[C] <: AbstractUnitRange
         return b
@@ -338,7 +338,7 @@ contiguous_batch_size(::Type{<:Base.ReinterpretArray{T,N,S,A}}) where {T,N,S,A} 
 Returns `True()` if elements of `A` are stored in column major order. Otherwise returns `False()`.
 """
 is_column_major(A) = is_column_major(stride_rank(A), contiguous_batch_size(A))
-is_column_major(sr::Nothing, cbs) = False()
+is_column_major(sr::Missing, cbs) = False()
 is_column_major(sr::R, cbs) where {R} = _is_column_major(sr, cbs)
 is_column_major(::AbstractRange) = False()
 
@@ -357,7 +357,7 @@ where `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
 dense_dims(x) = dense_dims(typeof(x))
 function dense_dims(::Type{T}) where {T}
     if parent_type(T) <: T
-        return nothing
+        return missing
     else
         return dense_dims(parent_type(T))
     end
@@ -370,24 +370,24 @@ dense_dims(::Type{<:AbstractRange}) = (True(),)
 dense_dims(::Type{<:Tuple}) = (True(),)
 function dense_dims(::Type{T}) where {T<:VecAdjTrans}
     dense = dense_dims(parent_type(T))
-    if dense === nothing
-        return nothing
+    if dense === missing
+        return missing
     else
         return (True(), first(dense))
     end
 end
 function dense_dims(::Type{T}) where {T<:MatAdjTrans}
     dense = dense_dims(parent_type(T))
-    if dense === nothing
-        return nothing
+    if dense === missing
+        return missing
     else
         return (last(dense), first(dense))
     end
 end
 function dense_dims(::Type{T}) where {T<:PermutedDimsArray}
     dense = dense_dims(parent_type(T))
-    if dense === nothing
-        return nothing
+    if dense === missing
+        return missing
     else
         return permute(dense, to_parent_dims(T))
     end
@@ -402,7 +402,7 @@ if VERSION ≥ v"1.6.0-DEV.1581"
     end
 end
 
-_dense_dims(::Type{S}, ::Nothing, ::Val{R}) where {R,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}} = nothing
+_dense_dims(::Type{S}, ::Missing, ::Val{R}) where {R,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}} = missing
 @generated function _dense_dims(
     ::Type{S},
     ::D,
@@ -433,11 +433,11 @@ _dense_dims(::Type{S}, ::Nothing, ::Val{R}) where {R,N,NP,T,A<:AbstractArray{T,N
             push!(dense_tup.args, :(False()))
         end
     end
-    # If n != N, then an axis was indexed by something other than an integer or `AbstractUnitRange`, so we return `nothing`.
+    # If n != N, then an axis was indexed by something other than an integer or `AbstractUnitRange`, so we return `missing`.
     if length(dense_tup.args) === N
         return dense_tup
     else
-        return nothing
+        return missing
     end
 end
 
@@ -452,12 +452,12 @@ _is_dense(t::Tuple{True}) = True()
 _is_dense(t::Tuple{}) = True()
 
 
-_reshaped_dense_dims(_, __, ___, ____) = nothing
+_reshaped_dense_dims(_, __, ___, ____) = missing
 function _reshaped_dense_dims(dense::D, ::True, ::Val{N}, ::Val{0}) where {D,N}
     if all(dense)
         return _all_dense(Val{N}())
     else
-        return nothing
+        return missing
     end
 end
 function _reshaped_dense_dims(dense::Tuple{Static.False}, ::True, ::Val{N}, ::Val{0}) where {N}
@@ -466,10 +466,10 @@ end
 
 """
     known_strides(::Type{T}) -> Tuple
-    known_strides(::Type{T}, dim) -> Union{Int,Nothing}
+    known_strides(::Type{T}, dim) -> Union{Int,Missing}
 
 Returns the strides of array `A` known at compile time. Any strides that are not known at
-compile time are represented by `nothing`.
+compile time are represented by `missing`.
 """
 known_strides(x, dim) = known_strides(typeof(x), dim)
 known_strides(::Type{T}, dim) where {T} = known_strides(T, to_dims(T, dim))
@@ -624,7 +624,7 @@ function strides(A::SubArray)
 end
 
 maybe_static_step(x::AbstractRange) = static_step(x)
-maybe_static_step(_) = nothing
+maybe_static_step(_) = missing
 
 @generated function size_to_strides(sz::S, init) where {N,S<:Tuple{Vararg{Any,N}}}
     out = Expr(:block, Expr(:meta, :inline))
@@ -632,8 +632,8 @@ maybe_static_step(_) = nothing
     prev = :init
     i = 1
     while i <= (N - 1)
-        if S.parameters[i] <: Nothing || (i > 1 &&  t.args[i - 1] === :nothing)
-            push!(t.args, :nothing)
+        if S.parameters[i] <: Missing || (i > 1 &&  t.args[i - 1] === :missing)
+            push!(t.args, :missing)
         else
             next = Symbol(:val_, i)
             push!(out.args, :($next = $prev * getfield(sz, $i)))
