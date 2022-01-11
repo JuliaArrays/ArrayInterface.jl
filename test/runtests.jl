@@ -496,6 +496,8 @@ end
     irev = Iterators.reverse(S)
     igen = Iterators.map(identity, S)
     iacc = Iterators.accumulate(+, S)
+    iprod = Iterators.product(axes(S)...)
+    iflat = Iterators.flatten(iprod)
     ienum = enumerate(S)
     ipairs = pairs(S)
     izip = zip(S,S)
@@ -514,7 +516,11 @@ end
     @test @inferred(ArrayInterface.size(A2)) === (4,3,5)
     @test @inferred(ArrayInterface.size(A2r)) === (2,3,5)
 
+
+    @test_throws MethodError ArrayInterface.size(Iterators.flatten(((x,y) for x in 0:1 for y in 'a':'c')))
     @test @inferred(ArrayInterface.size(irev)) === (StaticInt(2), StaticInt(3), StaticInt(4))
+    @test @inferred(ArrayInterface.size(iprod)) === (StaticInt(2), StaticInt(3), StaticInt(4))
+    @test @inferred(ArrayInterface.size(iflat)) === (static(72),)
     @test @inferred(ArrayInterface.size(igen)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(iacc)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(ienum)) === (StaticInt(2), StaticInt(3), StaticInt(4))
@@ -557,6 +563,8 @@ end
 
     @test @inferred(ArrayInterface.known_size(irev)) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(igen)) === (2, 3, 4)
+    @test @inferred(ArrayInterface.known_size(iprod)) === (2, 3, 4)
+    @test @inferred(ArrayInterface.known_size(iflat)) === (72,)
     @test @inferred(ArrayInterface.known_size(iacc)) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(ienum)) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(izip)) === (2, 3, 4)

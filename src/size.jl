@@ -93,8 +93,8 @@ known_size(::Type{<:Iterators.Reverse{I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Enumerate{I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Accumulate{<:Any,I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Pairs{<:Any,<:Any,I}}) where {I} = known_size(I)
-function known_size(::Type{<:Iterators.ProductIterator{I}}) where {I}
-    eachop(_known_size, nstatic(Val(ndims(T))), I)
+function known_size(::Type{<:Iterators.ProductIterator{T}}) where {T}
+    eachop(_known_size, nstatic(Val(known_length(T))), T)
 end
 
 
