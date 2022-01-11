@@ -304,66 +304,48 @@ end
     val::Int
 end
 
+@noinline unequal_error(x,y) = @assert false "Unequal Indices: x == $x != $y == y"
+@inline check_equal(x, y) = x == y || unequal_error(x,y)
+_try_static(::Missing, ::Missing) = missing
+_try_static(x::Int, ::Missing) = x
+_try_static(::Missing, y::Int) = y
 @inline _try_static(::StaticInt{N}, ::StaticInt{N}) where {N} = StaticInt{N}()
 @inline function _try_static(::StaticInt{M}, ::StaticInt{N}) where {M,N}
     @assert false "Unequal Indices: StaticInt{$M}() != StaticInt{$N}()"
 end
-@noinline unequal_error(x,y) = @assert false "Unequal Indices: x == $x != $y == y"
-@inline function check_equal(x, y)
-    x == y || unequal_error(x,y)
-end
-@propagate_inbounds function _try_static(::StaticInt{N}, x) where {N}
-    @boundscheck check_equal(StaticInt{N}(), x)
-    return StaticInt{N}()
-end
-@propagate_inbounds function _try_static(x, ::StaticInt{N}) where {N}
-    @boundscheck check_equal(x, StaticInt{N}())
-    return StaticInt{N}()
-end
+@propagate_inbounds _try_static(::StaticInt{N}, x) where {N} = static(_try_static(N, x))
+@propagate_inbounds _try_static(x, ::StaticInt{N}) where {N} = static(_try_static(N, x))
 @propagate_inbounds function _try_static(x, y)
     @boundscheck check_equal(x, y)
     return x
 end
 
 ## length
-@inline function known_length(::Type{T}) where {T<:OptionallyStaticUnitRange}
-    return _range_length(known_first(T), known_last(T))
-end
-
-@inline function known_length(::Type{T}) where {T<:OptionallyStaticStepRange}
-    _range_length(known_first(T), known_step(T), known_last(T))
-end
-
 Base.lastindex(x::OptionallyStaticRange) = length(x)
-Base.length(r::OptionallyStaticUnitRange) = _range_length(static_first(r), static_last(r))
-@inline function Base.length(r::OptionallyStaticStepRange)
+@inline function Base.length(r::OptionallyStaticUnitRange)
     if isempty(r)
         return 0
     else
-        return _range_length(static_first(r), static_step(r), static_last(r))
+        return last(r) - first(r) + 1
     end
 end
-_range_length(start, stop) = missing
-function _range_length(start::CanonicalInt, stop::CanonicalInt)
-    if start > stop
-        return 0
+Base.length(r::OptionallyStaticStepRange) = _range_length(first(r), step(r), last(r))
+_range_length(start, s, stop) = missing
+@inline function _range_length(start::Int, s::Int, stop::Int)
+   if s > 0
+        if stop < start  # isempty
+            return 0
+        else
+            return Int(div(stop - start, s)) + 1
+        end
     else
-        return Int((stop - start) + 1)
+        if stop > start  # isempty
+            return 0
+        else
+            return Int(div(start - stop, -s)) + 1
+        end
     end
 end
-_range_length(start::CanonicalInt, ::One, stop::CanonicalInt) = _range_length(start, stop)
-@inline function _range_length(start::CanonicalInt, step::CanonicalInt, stop::CanonicalInt)
-    if step > 1
-        return Base.checked_add(Int(div(unsigned(stop - start), step)), 1)
-    elseif step < -1
-        return Base.checked_add(Int(div(unsigned(start - stop), -step)), 1)
-    elseif step > 0
-        return Base.checked_add(Int(div(Base.checked_sub(stop, start), step)), 1)
-    else
-        return Base.checked_add(Int(div(Base.checked_sub(start, stop), -step)), 1)
-    end
-end
-_range_length(start, step, stop) = missing
 
 Base.AbstractUnitRange{Int}(r::OptionallyStaticUnitRange) = r
 function Base.AbstractUnitRange{T}(r::OptionallyStaticUnitRange) where {T}

@@ -3,6 +3,20 @@ function throw_dim_error(@nospecialize(x), @nospecialize(dim))
     throw(DimensionMismatch("$x does not have dimension corresponding to $dim"))
 end
 
+@propagate_inbounds function _promote_shape(a::Tuple{A,Vararg{Any}}, b::Tuple{B,Vararg{Any}}) where {A,B}
+    (_try_static(getfield(a, 1), getfield(b, 1)), _promote_shape(tail(a), tail(b))...)
+end
+_promote_shape(::Tuple{}, ::Tuple{}) = ()
+@propagate_inbounds function _promote_shape(::Tuple{}, b::Tuple{B}) where {B}
+    (_try_static(static(1), getfield(b, 1)),)
+end
+@propagate_inbounds function _promote_shape(a::Tuple{A}, ::Tuple{}) where {A}
+    (_try_static(static(1), getfield(a, 1)),)
+end
+@propagate_inbounds function Base.promote_shape(a::Tuple{Vararg{CanonicalInt}}, b::Tuple{Vararg{CanonicalInt}})
+    _promote_shape(a, b)
+end
+
 #julia> @btime ArrayInterface.is_increasing(ArrayInterface.nstatic(Val(10)))
 #  0.045 ns (0 allocations: 0 bytes)
 #ArrayInterface.True()
