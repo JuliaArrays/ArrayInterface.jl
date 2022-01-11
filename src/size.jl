@@ -47,7 +47,7 @@ size(x::Base.Generator) = size(getfield(x, :iter))
 size(x::Iterators.Reverse) = size(getfield(x, :itr))
 size(x::Iterators.Enumerate) = size(getfield(x, :itr))
 size(x::Iterators.Accumulate) = size(getfield(x, :itr))
-size(x::Base.Pairs) = size(getfield(x, :itr))
+size(x::Iterators.Pairs) = size(getfield(x, :itr))
 @inline function size(x::Iterators.ProductIterator)
     eachop(_sub_size, nstatic(Val(ndims(x))), getfield(x, :iterators))
 end
@@ -92,7 +92,7 @@ known_size(::Type{<:Base.Generator{I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Reverse{I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Enumerate{I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Accumulate{<:Any,I}}) where {I} = known_size(I)
-known_size(::Type{<:Base.Pairs{<:Any,<:Any,I}}) where {I} = known_size(I)
+known_size(::Type{<:Iterators.Pairs{<:Any,<:Any,I}}) where {I} = known_size(I)
 function known_size(::Type{<:Iterators.ProductIterator{I}}) where {I}
     eachop(_known_size, nstatic(Val(ndims(T))), I)
 end
