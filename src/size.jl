@@ -19,7 +19,6 @@ julia> ArrayInterface.size(A)
 size(a::A) where {A} = _maybe_size(Base.IteratorSize(A), a)
 _maybe_size(::Base.HasShape{N}, a::A) where {N,A} = map(static_length, axes(a))
 _maybe_size(::Base.HasLength, a::A) where {A} = (static_length(a),)
-_maybe_size(::Base.IteratorSize, a) = throw(MethodError(size, (a,)))
 size(x::SubArray) = eachop(_sub_size, to_parent_dims(x), x.indices)
 _sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = static_length(getfield(x, dim))
 @inline size(B::VecAdjTrans) = (One(), length(parent(B)))
@@ -93,10 +92,9 @@ known_size(::Type{<:Iterators.Reverse{I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Enumerate{I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Accumulate{<:Any,I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Pairs{<:Any,<:Any,I}}) where {I} = known_size(I)
-function known_size(::Type{<:Iterators.ProductIterator{T}}) where {T}
+@inline function known_size(::Type{<:Iterators.ProductIterator{T}}) where {T}
     eachop(_known_size, nstatic(Val(known_length(T))), T)
 end
-
 
 # 1. `Zip` doesn't check that its collections are compatible (same size) at construction,
 #   but we assume as much b/c otherwise it will error while iterating. So we promote to the
@@ -113,8 +111,7 @@ known_size(::Type{T}) where {T} = _maybe_known_size(Base.IteratorSize(T), T)
 function _maybe_known_size(::Base.HasShape{N}, ::Type{T}) where {N,T}
     eachop(_known_size, nstatic(Val(N)), axes_types(T))
 end
-_maybe_known_size(::Base.HasLength, ::Type{T}) where {T} = (known_length(T),)
-_maybe_known_size(::Base.IteratorSize, ::Type) = missing
+_maybe_known_size(::Base.IteratorSize, ::Type{T}) where {T} = (known_length(T),)
 _known_size(::Type{T}, dim::StaticInt) where {T} = known_length(field_type(T, dim))
 @inline known_size(x, dim) = known_size(typeof(x), dim)
 @inline known_size(::Type{T}, dim) where {T} = known_size(T, to_dims(T, dim))
