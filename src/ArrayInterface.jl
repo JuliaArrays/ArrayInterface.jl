@@ -90,15 +90,13 @@ known_length(x) = known_length(typeof(x))
 known_length(::Type{<:NamedTuple{L}}) where {L} = length(L)
 known_length(::Type{T}) where {T<:Slice} = known_length(parent_type(T))
 known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N
-known_length(::Type{T}) where {Itr,T<:Base.Generator{Itr}} = known_length(Itr)
 known_length(::Type{<:Number}) = 1
 known_length(::Type{<:AbstractCartesianIndex{N}}) where {N} = N
-function known_length(::Type{T}) where {T}
-    if parent_type(T) <: T
-        return missing
-    else
-        return prod(known_size(T))
-    end
+known_length(::Type{T}) where {T} = _maybe_known_length(Base.IteratorSize(T), T)
+_maybe_known_length(::Base.HasShape, ::Type{T}) where {T} = prod(known_size(T))
+_maybe_known_length(::Base.IteratorSize, ::Type) = missing
+function known_length(::Type{<:Iterators.Flatten{I}}) where {I}
+    known_length(I) * known_length(eltype(I))
 end
 
 """

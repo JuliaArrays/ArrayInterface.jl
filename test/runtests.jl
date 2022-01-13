@@ -479,8 +479,11 @@ end
     A = zeros(3, 4, 5);
     A[:] = 1:60
     Ap = @view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])';
-    S = @SArray zeros(2,3,4); Sp = @view(PermutedDimsArray(S,(3,1,2))[2:3,1:2,:]);
-    M = @MArray zeros(2,3,4); Mp = @view(PermutedDimsArray(M,(3,1,2))[:,2,:])';
+    S = @SArray zeros(2,3,4)
+    A_trailingdim = zeros(2,3,4,1)
+    Sp = @view(PermutedDimsArray(S,(3,1,2))[2:3,1:2,:]);
+    M = @MArray zeros(2,3,4)
+    Mp = @view(PermutedDimsArray(M,(3,1,2))[:,2,:])';
     Sp2 = @view(PermutedDimsArray(S,(3,2,1))[2:3,:,:]);
     Mp2 = @view(PermutedDimsArray(M,(3,1,2))[2:3,:,2])';
     D = @view(A[:,2:2:4,:]);
@@ -489,6 +492,16 @@ end
     Ar = reinterpret(Float32, A);
     A2 = zeros(4, 3, 5)
     A2r = reinterpret(ComplexF64, A2)
+
+    irev = Iterators.reverse(S)
+    igen = Iterators.map(identity, S)
+    iacc = Iterators.accumulate(+, S)
+    iprod = Iterators.product(axes(S)...)
+    iflat = Iterators.flatten(iprod)
+    ienum = enumerate(S)
+    ipairs = pairs(S)
+    izip = zip(S,S)
+
 
     sv5 = @SVector(zeros(5)); v5 = Vector{Float64}(undef, 5);
     @test @inferred(ArrayInterface.size(sv5)) === (StaticInt(5),)
@@ -503,6 +516,16 @@ end
     @test @inferred(ArrayInterface.size(A2)) === (4,3,5)
     @test @inferred(ArrayInterface.size(A2r)) === (2,3,5)
 
+    @test @inferred(ArrayInterface.size(irev)) === (StaticInt(2), StaticInt(3), StaticInt(4))
+    @test @inferred(ArrayInterface.size(iprod)) === (StaticInt(2), StaticInt(3), StaticInt(4))
+    @test @inferred(ArrayInterface.size(iflat)) === (static(72),)
+    @test @inferred(ArrayInterface.size(igen)) === (StaticInt(2), StaticInt(3), StaticInt(4))
+    @test @inferred(ArrayInterface.size(iacc)) === (StaticInt(2), StaticInt(3), StaticInt(4))
+    @test @inferred(ArrayInterface.size(ienum)) === (StaticInt(2), StaticInt(3), StaticInt(4))
+    @test @inferred(ArrayInterface.size(ipairs)) === (StaticInt(2), StaticInt(3), StaticInt(4))
+    @test @inferred(ArrayInterface.size(izip)) === (StaticInt(2), StaticInt(3), StaticInt(4))
+    @test @inferred(ArrayInterface.size(zip(S, A_trailingdim))) === (StaticInt(2), StaticInt(3), StaticInt(4), static(1))
+    @test @inferred(ArrayInterface.size(zip(A_trailingdim, S))) === (StaticInt(2), StaticInt(3), StaticInt(4), static(1))
     @test @inferred(ArrayInterface.size(S)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(Sp)) === (2, 2, StaticInt(3))
     @test @inferred(ArrayInterface.size(Sp2)) === (2, StaticInt(3), StaticInt(2))
@@ -536,6 +559,18 @@ end
     @test @inferred(ArrayInterface.known_size(A2)) === (missing, missing, missing)
     @test @inferred(ArrayInterface.known_size(A2r)) === (missing, missing, missing)
 
+    @test @inferred(ArrayInterface.known_size(irev)) === (2, 3, 4)
+    @test @inferred(ArrayInterface.known_size(igen)) === (2, 3, 4)
+    @test @inferred(ArrayInterface.known_size(iprod)) === (2, 3, 4)
+    @test @inferred(ArrayInterface.known_size(iflat)) === (72,)
+    @test @inferred(ArrayInterface.known_size(iacc)) === (2, 3, 4)
+    @test @inferred(ArrayInterface.known_size(ienum)) === (2, 3, 4)
+    @test @inferred(ArrayInterface.known_size(izip)) === (2, 3, 4)
+    @test @inferred(ArrayInterface.known_size(ipairs)) === (2, 3, 4)
+    @test @inferred(ArrayInterface.known_size(zip(S, A_trailingdim))) === (2, 3, 4, 1)
+    @test @inferred(ArrayInterface.known_size(zip(A_trailingdim, S))) === (2, 3, 4, 1)
+    @test @inferred(ArrayInterface.known_length(Iterators.flatten(((x,y) for x in 0:1 for y in 'a':'c')))) === missing
+
     @test @inferred(ArrayInterface.known_size(S)) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(Wrapper(S))) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(Sp)) === (missing, missing, 3)
@@ -544,7 +579,6 @@ end
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(1))) === missing
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(2))) === 3
     @test @inferred(ArrayInterface.known_size(Sp2, StaticInt(3))) === 2
-
     @test @inferred(ArrayInterface.known_size(M)) === (2, 3, 4)
     @test @inferred(ArrayInterface.known_size(Mp)) === (3, 4)
     @test @inferred(ArrayInterface.known_size(Mp2)) === (2, missing)
