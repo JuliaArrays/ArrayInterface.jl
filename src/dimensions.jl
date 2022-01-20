@@ -148,7 +148,7 @@ function to_parent_dims(::Type{T}, ::StaticInt{dim}) where {T,dim}
 end
 
 """
-    has_dimnames(::Type{T}) -> Bool
+    has_dimnames(::Type{T}) -> StaticBool
 
 Returns `static(true)` if `x` has on or more named dimensions. If all dimensions correspond
 to `static(:_)`, then `static(false)` is returned.
@@ -162,53 +162,54 @@ _has_dimnames(::Tuple) = static(true)
 const SUnderscore = StaticSymbol(:_)
 
 """
-    dimnames(::Type{T}) -> Tuple{Vararg{StaticSymbol}}
-    dimnames(::Type{T}, dim) -> StaticSymbol
+    dimnames(x) -> Tuple{Vararg{Union{Symbol,StaticSymbol}}}
+    dimnames(x, dim::Union{Int,StaticInt}) -> Union{Symbol,StaticSymbol}
 
-Return the names of the dimensions for `x`. `static(:_)` is used to indicate a dimension
-does not have a name.
+Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
+have a name.
 """
-@inline dimnames(x) = dimnames(typeof(x))
-@inline dimnames(::Type{T}) where {T} = _dimnames(has_parent(T), T)
-_dimnames(::False, ::Type{T}) where {T} = ntuple(_->static(:_), Val(ndims(T)))
-@inline function _dimnames(::True, ::Type{T}) where {T}
-    eachop(_perm_dimnames, to_parent_dims(T), dimnames(parent_type(T)))
+@inline dimnames(x, dim::CanonicalInt) = _dimname(dimnames(x), dim)
+@inline dimnames(x, dim::Integer) = dimnames(x, Int(dim))
+@inline dimnames(x) = _dimnames(has_parent(x), x)
+@inline function _dimnames(::True, x)
+    eachop(_inbounds_dimname, to_parent_dims(x), dimnames(_parent(x)))
 end
-
-@inline dimnames(x, dim) = dimnames(typeof(x), dim)
-@inline dimnames(::Type{T}, dim::Integer) where {T} = _perm_dimnames(dimnames(T), dim)
-function _perm_dimnames(dnames::Tuple{Vararg{StaticSymbol,N}}, dim) where {N}
-    if dim > N
-        return static(:_)
-    else
-        return @inbounds(dnames[dim])
-    end
+_dimnames(::False, x) = ntuple(_->static(:_), Val(ndims(x)))
+@inline function _dimname(x::Tuple{Vararg{Any,N}}, dim::Int) where {N}
+    @boundscheck (dim > N || dim < 1) && return :_
+    return @inbounds(getfield(x, dim))
 end
+@inline function _dimname(x::Tuple{Vararg{Any,N}}, ::StaticInt{dim}) where {N,dim}
+    @boundscheck (dim > N || dim < 1) && return static(:_)
+    return @inbounds(getfield(x, dim))
+end
+@inline _inbounds_dimname(x, dim) = @inbounds(_dimname(x, dim))
+_parent(x) = parent(x)
+_parent(::Type{X}) where {X} = parent_type(X)
 
 """
-    to_dims(::Type{T}, dim) -> Union{Int,StaticInt}
+    to_dims(x, dim) -> Union{Int,StaticInt}
 
-This returns the dimension(s) of `x` corresponding to `d`.
+This returns the dimension(s) of `x` corresponding to `dim`.
 """
-to_dims(x, dim) = to_dims(typeof(x), dim)
-to_dims(::Type{T}, dim::StaticInt) where {T} = dim
-to_dims(::Type{T}, dim::Integer) where {T} = Int(dim)
-to_dims(::Type{T}, dim::Colon) where {T} = dim
-function to_dims(::Type{T}, dim::StaticSymbol) where {T}
-    i = find_first_eq(dim, dimnames(T))
+to_dims(x, dim::Colon) = dim
+to_dims(x, dim::CanonicalInt) = dim
+to_dims(x, dim::Integer) = Int(dim)
+@inline function to_dims(x, dim::StaticSymbol)
+    i = find_first_eq(dim, dimnames(x))
     if i === nothing
-        throw_dim_error(T, dim)
+        throw_dim_error(x, dim)
     end
     return i
 end
-Compat.@constprop :aggressive function to_dims(::Type{T}, dim::Symbol) where {T}
-    i = find_first_eq(dim, map(Symbol, dimnames(T)))
+Compat.@constprop :aggressive function to_dims(x, dim::Symbol)
+    i = find_first_eq(dim, map(Symbol, dimnames(x)))
     if i === nothing
-        throw_dim_error(T, dim)
+        throw_dim_error(x, dim)
     end
     return i
 end
-to_dims(::Type{T}, dims::Tuple) where {T} = map(i -> to_dims(T, i), dims)
+to_dims(x, dims::Tuple) = map(i -> to_dims(x, i), dims)
 
 #=
     order_named_inds(names, namedtuple)
