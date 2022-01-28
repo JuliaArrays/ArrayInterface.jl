@@ -164,8 +164,7 @@ _is_named(::Any) = true
 Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
 have a name.
 """
-@inline known_dimnames(x, dim::CanonicalInt) = _known_dimname(dimnames(x), dim)
-@inline known_dimnames(x, dim::Integer) = known_dimnames(x, Int(dim))
+@inline known_dimnames(x, dim::Integer) = _known_dimname(dimnames(x), canonicalize(dim))
 known_dimnames(x) = known_dimnames(typeof(x))
 known_dimnames(::Type{T}) where {T} = _known_dimnames(T, parent_type(T))
 _known_dimnames(::Type{T}, ::Type{T}) where {T} = _unknown_dimnames(Base.IteratorSize(T))
@@ -174,13 +173,9 @@ _unknown_dimnames(::Any) = (:_,)
 function _known_dimnames(::Type{C}, ::Type{P}) where {C,P}
     eachop(_inbounds_known_dimname, to_parent_dims(C), known_dimnames(P))
 end
-@inline function _known_dimname(x::Tuple{Vararg{Any,N}}, dim::Int) where {N}
+@inline function _known_dimname(x::Tuple{Vararg{Any,N}}, dim::CanonicalInt) where {N}
     @boundscheck (dim > N || dim < 1) && return :_
-    return @inbounds(getfield(x, dim))
-end
-@inline function _known_dimname(x::Tuple{Vararg{Any,N}}, ::StaticInt{dim}) where {N,dim}
-    @boundscheck (dim > N || dim < 1) && return :_
-    return @inbounds(getfield(x, dim))
+    return @inbounds(x[dim])
 end
 @inline _inbounds_known_dimname(x, dim) = @inbounds(_known_dimname(x, dim))
 
@@ -191,20 +186,15 @@ end
 Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
 have a name.
 """
-@inline dimnames(x, dim::CanonicalInt) = _dimname(dimnames(x), dim)
-@inline dimnames(x, dim::Integer) = dimnames(x, Int(dim))
+@inline dimnames(x, dim::Integer) = _dimname(dimnames(x), canonicalize(dim))
 @inline dimnames(x) = _dimnames(has_parent(x), x)
 @inline function _dimnames(::True, x)
     eachop(_inbounds_dimname, to_parent_dims(x), dimnames(parent(x)))
 end
 _dimnames(::False, x) = ntuple(_->static(:_), Val(ndims(x)))
-@inline function _dimname(x::Tuple{Vararg{Any,N}}, dim::Int) where {N}
-    @boundscheck (dim > N || dim < 1) && return :_
-    return @inbounds(getfield(x, dim))
-end
-@inline function _dimname(x::Tuple{Vararg{Any,N}}, ::StaticInt{dim}) where {N,dim}
+@inline function _dimname(x::Tuple{Vararg{Any,N}}, dim::CanonicalInt) where {N}
     @boundscheck (dim > N || dim < 1) && return static(:_)
-    return @inbounds(getfield(x, dim))
+    return @inbounds(x[dim])
 end
 @inline _inbounds_dimname(x, dim) = @inbounds(_dimname(x, dim))
 
@@ -214,8 +204,7 @@ end
 This returns the dimension(s) of `x` corresponding to `dim`.
 """
 to_dims(x, dim::Colon) = dim
-to_dims(x, dim::CanonicalInt) = dim
-to_dims(x, dim::Integer) = Int(dim)
+to_dims(x, dim::Integer) = canonicalize(dim)
 @inline function to_dims(x, dim::StaticSymbol)
     i = find_first_eq(dim, dimnames(x))
     if i === nothing
