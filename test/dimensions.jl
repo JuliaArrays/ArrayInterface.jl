@@ -5,13 +5,17 @@
 ### define wrapper with dimnames
 ###
 
-struct NamedDimsWrapper{L,T,N,P<:AbstractArray{T,N}} <: ArrayInterface.AbstractArray2{T,N}
+struct NamedDimsWrapper{D,T,N,P<:AbstractArray{T,N}} <: ArrayInterface.AbstractArray2{T,N}
+    dimnames::D
     parent::P
-    NamedDimsWrapper{L}(p) where {L} = new{L,eltype(p),ndims(p),typeof(p)}(p)
+    NamedDimsWrapper(d::D, p::P) where {D,P} = new{D,eltype(P),ndims(p),P}(d, p)
 end
 ArrayInterface.parent_type(::Type{T}) where {P,T<:NamedDimsWrapper{<:Any,<:Any,<:Any,P}} = P
-ArrayInterface.dimnames(::NamedDimsWrapper{L}) where {L} = static(L)
-ArrayInterface.dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L}} = static(L)
+ArrayInterface.dimnames(x::NamedDimsWrapper) = getfield(x, :dimnames)
+function ArrayInterface.known_dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L}}
+    ArrayInterface.Static.known(L)
+end
+
 Base.parent(x::NamedDimsWrapper) = x.parent
 
 @testset "dimension permutations" begin
@@ -82,11 +86,10 @@ end
     @test_throws ErrorException ArrayInterface.order_named_inds(n2, (x=30, y=20, z=40))
 end
 
-
 @testset "dimnames" begin
     d = (static(:x), static(:y))
-    x = NamedDimsWrapper{d}(ones(2,2));
-    y = NamedDimsWrapper{(:x,)}(ones(2));
+    x = NamedDimsWrapper(d, ones(2,2));
+    y = NamedDimsWrapper((static(:x),), ones(2));
     dnums = ntuple(+, length(d))
     @test @inferred(ArrayInterface.has_dimnames(x)) == true
     @test @inferred(ArrayInterface.has_dimnames(ones(2,2))) == false
@@ -107,8 +110,8 @@ end
 end
 
 @testset "to_dims" begin
-    x = NamedDimsWrapper{(:x, :y)}(ones(2,2));
-    y = NamedDimsWrapper{(:x, :y, :a, :b, :c, :d)}(ones(6));
+    x = NamedDimsWrapper(static((:x, :y)), ones(2,2));
+    y = NamedDimsWrapper(static((:x, :y, :a, :b, :c, :d)), ones(6));
 
     @test @inferred(ArrayInterface.to_dims(x, :)) == Colon()
     @test @inferred(ArrayInterface.to_dims(x, 1)) == 1
@@ -131,8 +134,8 @@ end
 
 @testset "methods accepting dimnames" begin
     d = (static(:x), static(:y))
-    x = NamedDimsWrapper{d}(ones(2,2));
-    y = NamedDimsWrapper{(:x,)}(ones(2));
+    x = NamedDimsWrapper(d, ones(2,2));
+    y = NamedDimsWrapper((static(:x),), ones(2));
     @test @inferred(size(x, first(d))) == size(parent(x), 1)
     @test @inferred(ArrayInterface.size(y')) == (1, size(parent(x), 1))
     @test @inferred(axes(x, first(d))) == axes(parent(x), 1)

@@ -153,13 +153,36 @@ end
 Returns `static(true)` if `x` has on or more named dimensions. If all dimensions correspond
 to `static(:_)`, then `static(false)` is returned.
 """
-has_dimnames(x) = has_dimnames(typeof(x))
-@inline has_dimnames(::Type{T}) where {T} = _has_dimnames(dimnames(T))
-_has_dimnames(::Tuple{Vararg{StaticSymbol{:_}}}) = static(false)
-_has_dimnames(::Tuple) = static(true)
+Compat.@constprop :aggressive has_dimnames(x) = static(_is_named(known_dimnames(x)))
+_is_named(x::NTuple{N,Symbol}) where {N} = x !== ntuple(Returns(:_), Val(N))
+_is_named(::Any) = true
 
-# this takes the place of dimension names that aren't defined
-const SUnderscore = StaticSymbol(:_)
+"""
+    known_dimnames(::Type{T}) -> Tuple{Vararg{Union{Symbol,Missing}}}
+    known_dimnames(::Type{T}, dim::Union{Int,StaticInt}) -> Union{Symbol,Missing}
+
+Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
+have a name.
+"""
+@inline known_dimnames(x, dim::CanonicalInt) = _known_dimname(dimnames(x), dim)
+@inline known_dimnames(x, dim::Integer) = known_dimnames(x, Int(dim))
+known_dimnames(x) = known_dimnames(typeof(x))
+known_dimnames(::Type{T}) where {T} = _known_dimnames(T, parent_type(T))
+_known_dimnames(::Type{T}, ::Type{T}) where {T} = _unknown_dimnames(Base.IteratorSize(T))
+_unknown_dimnames(::Base.HasShape{N}) where {N} = ntuple(Compat.Returns(:_), Val(N))
+_unknown_dimnames(::Any) = (:_,)
+function _known_dimnames(::Type{C}, ::Type{P}) where {C,P}
+    eachop(_inbounds_known_dimname, to_parent_dims(C), known_dimnames(P))
+end
+@inline function _known_dimname(x::Tuple{Vararg{Any,N}}, dim::Int) where {N}
+    @boundscheck (dim > N || dim < 1) && return :_
+    return @inbounds(getfield(x, dim))
+end
+@inline function _known_dimname(x::Tuple{Vararg{Any,N}}, ::StaticInt{dim}) where {N,dim}
+    @boundscheck (dim > N || dim < 1) && return :_
+    return @inbounds(getfield(x, dim))
+end
+@inline _inbounds_known_dimname(x, dim) = @inbounds(_known_dimname(x, dim))
 
 """
     dimnames(x) -> Tuple{Vararg{Union{Symbol,StaticSymbol}}}
@@ -172,7 +195,7 @@ have a name.
 @inline dimnames(x, dim::Integer) = dimnames(x, Int(dim))
 @inline dimnames(x) = _dimnames(has_parent(x), x)
 @inline function _dimnames(::True, x)
-    eachop(_inbounds_dimname, to_parent_dims(x), dimnames(_parent(x)))
+    eachop(_inbounds_dimname, to_parent_dims(x), dimnames(parent(x)))
 end
 _dimnames(::False, x) = ntuple(_->static(:_), Val(ndims(x)))
 @inline function _dimname(x::Tuple{Vararg{Any,N}}, dim::Int) where {N}
@@ -184,8 +207,6 @@ end
     return @inbounds(getfield(x, dim))
 end
 @inline _inbounds_dimname(x, dim) = @inbounds(_dimname(x, dim))
-_parent(x) = parent(x)
-_parent(::Type{X}) where {X} = parent_type(X)
 
 """
     to_dims(x, dim) -> Union{Int,StaticInt}
