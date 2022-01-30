@@ -164,7 +164,7 @@ _is_named(::Any) = true
 Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
 have a name.
 """
-@inline known_dimnames(x, dim::Integer) = _known_dimname(dimnames(x), canonicalize(dim))
+@inline known_dimnames(x, dim::Integer) = _known_dimname(known_dimnames(x), canonicalize(dim))
 known_dimnames(x) = known_dimnames(typeof(x))
 known_dimnames(::Type{T}) where {T} = _known_dimnames(T, parent_type(T))
 _known_dimnames(::Type{T}, ::Type{T}) where {T} = _unknown_dimnames(Base.IteratorSize(T))

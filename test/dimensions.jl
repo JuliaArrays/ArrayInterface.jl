@@ -107,6 +107,8 @@ end
     @test @inferred(dimnames(view(x, :, 1, :))) === (static(:x), static(:_))
     @test @inferred(dimnames(x, ArrayInterface.One())) === static(:x)
     @test @inferred(dimnames(parent(x), ArrayInterface.One())) === static(:_)
+    @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10))) === (:_,)
+    @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10), static(1))) === :_
 end
 
 @testset "to_dims" begin
