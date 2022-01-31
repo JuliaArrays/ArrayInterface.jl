@@ -358,13 +358,13 @@ end
 
 Base.eachindex(r::OptionallyStaticRange) = One():static_length(r)
 @inline function Base.iterate(r::OptionallyStaticRange)
-    isempty(r) && return missing
+    isempty(r) && return nothing
     fi = Int(first(r));
     fi, fi
 end
 function Base.iterate(::SUnitRange{F,L}) where {F,L}
     if L::Int < F::Int
-        return missing
+        return nothing
     else
         return (F::Int, F::Int)
     end
@@ -374,7 +374,7 @@ function Base.iterate(::SOneTo{n}, s::Int) where {n}
         s2 = s + 1
         return (s2, s2)
     else
-        return missing
+        return nothing
     end
 end
 
