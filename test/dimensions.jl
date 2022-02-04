@@ -10,6 +10,7 @@ struct NamedDimsWrapper{D,T,N,P<:AbstractArray{T,N}} <: ArrayInterface.AbstractA
     parent::P
     NamedDimsWrapper(d::D, p::P) where {D,P} = new{D,eltype(P),ndims(p),P}(d, p)
 end
+Base.parent(x::NamedDimsWrapper) = getfield(x, :parent)
 ArrayInterface.parent_type(::Type{T}) where {P,T<:NamedDimsWrapper{<:Any,<:Any,<:Any,P}} = P
 ArrayInterface.dimnames(x::NamedDimsWrapper) = getfield(x, :dimnames)
 function ArrayInterface.known_dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L}}
@@ -75,28 +76,31 @@ end
     n1 = (static(:x),)
     n2 = (n1..., static(:y))
     n3 = (n2..., static(:z))
-    @test @inferred(ArrayInterface.order_named_inds(n1, NamedTuple{(),Tuple{}}(()) )) == ()
-    @test @inferred(ArrayInterface.order_named_inds(n1, (x=2,))) == (2,)
-    @test @inferred(ArrayInterface.order_named_inds(n2, (x=2,))) == (2, :)
-    @test @inferred(ArrayInterface.order_named_inds(n2, (y=2,))) == (:, 2)
-    @test @inferred(ArrayInterface.order_named_inds(n2, (y=20, x=30))) == (30, 20)
-    @test @inferred(ArrayInterface.order_named_inds(n2, (x=30, y=20))) == (30, 20)
-    @test @inferred(ArrayInterface.order_named_inds(n3, (x=30, y=20))) == (30, 20, :)
+    @test @inferred(ArrayInterface.find_all_dimnames(n1, (), (), :)) == ()
+    @test @inferred(ArrayInterface.find_all_dimnames(n1, (static(:x),), (2,), :)) == (2,)
+    @test @inferred(ArrayInterface.find_all_dimnames(n2, (static(:x),), (2,), :)) == (2,:)
+    @test @inferred(ArrayInterface.find_all_dimnames(n2, (static(:y),), (2,), :)) == (:, 2)
+    @test @inferred(ArrayInterface.find_all_dimnames(n2, (static(:y), static(:x)), (20, 30), :)) == (30, 20)
+    @test @inferred(ArrayInterface.find_all_dimnames(n2, (static(:x), static(:y)), (30, 20), :)) == (30, 20)
+    @test @inferred(ArrayInterface.find_all_dimnames(n3, (static(:x), static(:y)), (30, 20), :)) == (30, 20, :)
 
-    @test_throws ErrorException ArrayInterface.order_named_inds(n2, (x=30, y=20, z=40))
+    @test_throws ErrorException ArrayInterface.find_all_dimnames(n2, (static(:x), static(:y), static(:z)), (30, 20, 40), :)
 end
 
 @testset "dimnames" begin
     d = (static(:x), static(:y))
     x = NamedDimsWrapper(d, ones(2,2));
     y = NamedDimsWrapper((static(:x),), ones(2));
+    z = NamedDimsWrapper((:x, static(:y)), ones(2));
     dnums = ntuple(+, length(d))
     @test @inferred(ArrayInterface.has_dimnames(x)) == true
+    @test @inferred(ArrayInterface.has_dimnames(z)) == true
     @test @inferred(ArrayInterface.has_dimnames(ones(2,2))) == false
     @test @inferred(ArrayInterface.has_dimnames(Array{Int,2})) == false
     @test @inferred(ArrayInterface.has_dimnames(typeof(x))) == true
     @test @inferred(ArrayInterface.has_dimnames(typeof(view(x, :, 1, :)))) == true
     @test @inferred(dimnames(x)) === d
+    @test @inferred(ArrayInterface.dimnames(z)) === (:x, static(:y))
     @test @inferred(dimnames(parent(x))) === (static(:_), static(:_))
     @test @inferred(dimnames(x')) === reverse(d)
     @test @inferred(dimnames(y')) === (static(:_), static(:x))
@@ -109,6 +113,7 @@ end
     @test @inferred(dimnames(parent(x), ArrayInterface.One())) === static(:_)
     @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10))) === (:_,)
     @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10), static(1))) === :_
+    @test @inferred(ArrayInterface.known_dimnames(z)) === (missing, :y)
 end
 
 @testset "to_dims" begin
@@ -150,6 +155,9 @@ end
 
     x[x = 1] = [2, 3]
     @test @inferred(getindex(x, x = 1)) == [2, 3]
+    y = NamedDimsWrapper((:x, static(:y)), ones(2, 2));
+    # FIXME this doesn't correctly infer the output because it can't infer 
+    @test getindex(y, x = 1) == [1, 1]
 end
 
 end

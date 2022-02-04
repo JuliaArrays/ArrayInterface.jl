@@ -205,21 +205,16 @@ This returns the dimension(s) of `x` corresponding to `dim`.
 """
 to_dims(x, dim::Colon) = dim
 to_dims(x, dim::Integer) = canonicalize(dim)
-@inline function to_dims(x, dim::StaticSymbol)
-    i = find_first_eq(dim, dimnames(x))
-    if i === nothing
-        throw_dim_error(x, dim)
-    end
+to_dims(x, dim::Union{StaticSymbol,Symbol}) = _to_dim(dimnames(x), dim)
+function to_dims(x, dims::Tuple{Vararg{Any,N}}) where {N}
+    eachop(_to_dims, nstatic(Val(N)), dimnames(x), dims)
+end
+@inline _to_dims(x::Tuple, d::Tuple, n::StaticInt{N}) where {N} = _to_dim(x, getfield(d, N))
+@inline function _to_dim(x::Tuple, d::Union{Symbol,StaticSymbol})
+    i = find_first_eq(d, x)
+    i === nothing && throw(DimensionMismatch("dimension name $(d) not found"))
     return i
 end
-Compat.@constprop :aggressive function to_dims(x, dim::Symbol)
-    i = find_first_eq(dim, map(Symbol, dimnames(x)))
-    if i === nothing
-        throw_dim_error(x, dim)
-    end
-    return i
-end
-to_dims(x, dims::Tuple) = map(i -> to_dims(x, i), dims)
 
 #=
     order_named_inds(names, namedtuple)
@@ -235,37 +230,31 @@ An error is thrown if any keywords are used which do not occur in `nda`'s names.
 3. if missing is found use Colon()
 4. if (ndims - ncolon) === nkwargs then all were found, else error
 =#
-order_named_inds(x::Tuple, ::NamedTuple{(),Tuple{}}) = ()
-function order_named_inds(x::Tuple, nd::NamedTuple{L}) where {L}
-    return order_named_inds(x, static(Val(L)), Tuple(nd))
-end
-Compat.@constprop :aggressive function order_named_inds(
-    x::Tuple{Vararg{Any,N}},
-    nd::Tuple,
-    inds::Tuple
-) where {N}
-
-    out = eachop(order_named_inds, nstatic(Val(N)), x, nd, inds)
-    _order_named_inds_check(out, length(nd))
-    return out
-end
-function order_named_inds(x::Tuple, nd::Tuple, inds::Tuple, ::StaticInt{dim}) where {dim}
-    index = find_first_eq(getfield(x, dim), nd)
-    if index === nothing
-        return Colon()
+@generated function find_all_dimnames(x::Tuple{Vararg{Any,ND}}, nd::Tuple{Vararg{Any,NI}}, inds::Tuple, default) where {ND,NI}
+    if NI === 0
+        return :(())
     else
-        return @inbounds(inds[index])
+        out = Expr(:block, Expr(:(=), :names_found, 0))
+        t = Expr(:tuple)
+        for i in 1:ND
+            index_i = Symbol(:index_, i)
+            val_i = Symbol(:val_, i)
+            push!(t.args, val_i)
+            push!(out.args, quote
+                $index_i = find_first_eq(getfield(x, $i), nd)
+                if $index_i === nothing
+                    $val_i = default
+                else
+                    $val_i = @inbounds(inds[$index_i])
+                    names_found += 1
+                end
+            end)
+        end
+        return quote
+            $out
+            @boundscheck names_found === $NI || error("Not all keywords matched dimension names.")
+            return $t
+        end
     end
-end
-
-ncolon(x::Tuple{Colon,Vararg}, n::Int) = ncolon(tail(x), n + 1)
-ncolon(x::Tuple{Any,Vararg}, n::Int) = ncolon(tail(x), n)
-ncolon(x::Tuple{Colon}, n::Int) = n + 1
-ncolon(x::Tuple{Any}, n::Int) = n
-function _order_named_inds_check(inds::Tuple{Vararg{Any,N}}, nkwargs::Int) where {N}
-    if (N - ncolon(inds, 0)) !== nkwargs
-        error("Not all keywords matched dimension names.")
-    end
-    return missing
 end
 
