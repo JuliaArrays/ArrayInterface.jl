@@ -51,6 +51,10 @@
         @test reverse(static(1):static(2):static(9)) === static(9):static(-2):static(1)
     end
 
+    # iteration
+    @test iterate(static(1):static(5), 5) === nothing
+    @test iterate(static(2):static(5), 5) === nothing
+
     @test ismissing(@inferred(ArrayInterface.known_first(typeof(1:4))))
     @test isone(@inferred(ArrayInterface.known_first(Base.OneTo(4))))
     @test isone(@inferred(ArrayInterface.known_first(typeof(Base.OneTo(4)))))
