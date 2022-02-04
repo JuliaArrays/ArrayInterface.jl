@@ -147,6 +147,8 @@ function to_parent_dims(::Type{T}, ::StaticInt{dim}) where {T,dim}
     end
 end
 
+_nunderscore(::Val{N}) where {N} = ntuple(Compat.Returns(:_), Val(N))
+
 """
     has_dimnames(::Type{T}) -> StaticBool
 
@@ -154,7 +156,7 @@ Returns `static(true)` if `x` has on or more named dimensions. If all dimensions
 to `static(:_)`, then `static(false)` is returned.
 """
 Compat.@constprop :aggressive has_dimnames(x) = static(_is_named(known_dimnames(x)))
-_is_named(x::NTuple{N,Symbol}) where {N} = x !== ntuple(Returns(:_), Val(N))
+_is_named(x::NTuple{N,Symbol}) where {N} = x !== _nunderscore(Val(N))
 _is_named(::Any) = true
 
 """
@@ -168,7 +170,7 @@ have a name.
 known_dimnames(x) = known_dimnames(typeof(x))
 known_dimnames(::Type{T}) where {T} = _known_dimnames(T, parent_type(T))
 _known_dimnames(::Type{T}, ::Type{T}) where {T} = _unknown_dimnames(Base.IteratorSize(T))
-_unknown_dimnames(::Base.HasShape{N}) where {N} = ntuple(Compat.Returns(:_), Val(N))
+_unknown_dimnames(::Base.HasShape{N}) where {N} = _nunderscore(Val(N))
 _unknown_dimnames(::Any) = (:_,)
 function _known_dimnames(::Type{C}, ::Type{P}) where {C,P}
     eachop(_inbounds_known_dimname, to_parent_dims(C), known_dimnames(P))
