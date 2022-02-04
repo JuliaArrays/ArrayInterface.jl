@@ -26,6 +26,8 @@ jobs:
           - {user: SciML, repo: OrdinaryDiffEq.jl, group: Core}
           - {user: SciML, repo: OrdinaryDiffEq.jl, group: Interface}
           - {user: SciML, repo: DelayDiffEq.jl, group: Interface}
+          - {user: JuliaSIMD, repo: VectorizationBase.jl, group: Interface}
+          - {user: JuliaSIMD, repo: LoopVectorization.jl, group: Downstream3}
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
