@@ -100,10 +100,21 @@ New types defining dimension names can do something similar to:
 using Static
 using ArrayInterface
 
-struct NewType{dnames} end  # where dnames::Tuple{Vararg{Symbol}}
+struct StaticDimnames{dnames} end  # where dnames::Tuple{Vararg{Symbol}}
 
-ArrayInterface.dimnames(::Type{NewType{dnames}}) = static(dnames)
+ArrayInterface.known_dimnames(::Type{StaticDimnames{dnames}}) where {dnames} = dnames
+ArrayInterface.dimnames(::StaticDimnames{dnames}) where {dnames} = static(dnames)
+
+struct DynamicDimnames{N}
+    dimnames::NTuple{N,Symbol}
+end
+ArrayInterface.known_dimnames(::Type{DynamicDimnames{N}}) where {N} = ntuple(_-> missing, Val(N))
+ArrayInterface.dimnames(x::DynamicDimnames) = getfield(x, :dimnames)
+
 ```
+
+Notice that `DynamicDimnames` returns `missing` instead of a symbol for each dimension.
+This indicates dimension names are present for `DynamicDimnames` but that information is missing at compile time.
 
 Dimension names should be appropriately propagated between nested arrays using `ArrayInterface.to_parent_dims`. 
 This allows types such as `SubArray` and `PermutedDimsArray` to work with named dimensions.

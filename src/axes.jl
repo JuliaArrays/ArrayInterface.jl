@@ -5,20 +5,19 @@
 
 Returns the type of each axis for the `T`, or the type of of the axis along dimension `dim`.
 """
-axes_types(x, dim) = axes_types(typeof(x), dim)
-@inline axes_types(::Type{T}, dim) where {T} = axes_types(T, to_dims(T, dim))
-@inline function axes_types(::Type{T}, dim::StaticInt{D}) where {T,D}
-    if D > ndims(T)
+@inline axes_types(x, dim) = axes_types(x, to_dims(x, dim))
+@inline function axes_types(x, dim::StaticInt{D}) where {D}
+    if D > ndims(x)
         return SOneTo{1}
     else
-        return field_type(axes_types(T), dim)
+        return field_type(axes_types(x), dim)
     end
 end
-@inline function axes_types(::Type{T}, dim::Int) where {T}
-    if dim > ndims(T)
+@inline function axes_types(x, dim::Int)
+    if dim > ndims(x)
         return SOneTo{1}
     else
-        return axes_types(T).parameters[dim]
+        return axes_types(x).parameters[dim]
     end
 end
 axes_types(x) = axes_types(typeof(x))
@@ -288,3 +287,4 @@ lazy_axes(x::CartesianIndices) = axes(x)
 @inline lazy_axes(x::MatAdjTrans) = reverse(lazy_axes(parent(x)))
 @inline lazy_axes(x::VecAdjTrans) = (SOneTo{1}(), first(lazy_axes(parent(x))))
 @inline lazy_axes(x::PermutedDimsArray) = permute(lazy_axes(parent(x)), to_parent_dims(x))
+

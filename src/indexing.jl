@@ -307,8 +307,8 @@ function getindex(A, args...)
     @boundscheck checkbounds(A, inds...)
     unsafe_getindex(A, inds...)
 end
-function getindex(A; kwargs...)
-    inds = to_indices(A, order_named_inds(dimnames(A), values(kwargs)))
+@propagate_inbounds function getindex(A; kwargs...)
+    inds = to_indices(A, find_all_dimnames(dimnames(A), static(keys(kwargs)), Tuple(values(kwargs)), :))
     @boundscheck checkbounds(A, inds...)
     unsafe_getindex(A, inds...)
 end
@@ -407,7 +407,7 @@ Store the given values at the given key or index within a collection.
 end
 @propagate_inbounds function setindex!(A, val; kwargs...)
     can_setindex(A) || error("Instance of type $(typeof(A)) are not mutable and cannot change elements after construction.")
-    inds = to_indices(A, order_named_inds(dimnames(A), values(kwargs)))
+    inds = to_indices(A, find_all_dimnames(dimnames(A), static(keys(kwargs)), Tuple(values(kwargs)), :))
     @boundscheck checkbounds(A, inds...)
     unsafe_setindex!(A, val, inds...)
 end

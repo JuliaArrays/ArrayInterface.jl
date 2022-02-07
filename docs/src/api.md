@@ -23,6 +23,7 @@ ArrayInterface.ismutable
 ArrayInterface.issingular
 ArrayInterface.isstructured
 ArrayInterface.is_splat_index
+ArrayInterface.known_dimnames
 ArrayInterface.known_first
 ArrayInterface.known_last
 ArrayInterface.known_length
