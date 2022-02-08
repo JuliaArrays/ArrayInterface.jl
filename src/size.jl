@@ -1,79 +1,115 @@
 
 """
-    size(A) -> Tuple
-    size(A, dim) -> Union{Int,StaticInt}
+    Size(s::Tuple{Vararg{Union{Int,StaticInt}})
+    Size(A) -> Size(size(A))
 
-Returns the size of each dimension of `A` or along dimension `dim` of `A`. If the size of
-any axes are known at compile time, these should be returned as `Static` numbers. Otherwise,
-`ArrayInterface.size(A)` is identical to `Base.size(A)`
-
-```julia
-julia> using StaticArrays, ArrayInterface
-
-julia> A = @SMatrix rand(3,4);
-
-julia> ArrayInterface.size(A)
-(static(3), static(4))
-```
+Type that represents statically sized dimensions as `StaticInt`s.
 """
-size(a::A) where {A} = _maybe_size(Base.IteratorSize(A), a)
+struct Size{S<:Tuple}
+    size::S
+
+    Size{S}(s::Tuple{Vararg{<:CanonicalInt}}) where {S} = new{S}(s::S)
+    Size(s::Tuple{Vararg{<:CanonicalInt}}) = Size{typeof(s)}(s)
+end
+
+"""
+    Length(x::Union{Int,StaticInt})
+    Length(A) = Length(length(A))
+
+Type that represents statically sized dimensions as `StaticInt`s.
+"""
+const Length{L} = Size{Tuple{L}}
+Length(x::CanonicalInt) = Size((x,))
+@inline function Length(x)
+    len = known_length(x)
+    if len === missing
+        return Length(length(x))
+    else
+        return Length(static(len))
+    end
+end
+
+Base.ndims(@nospecialize(s::Size)) = ndims(typeof(s))
+Base.ndims(::Type{<:Size{S}}) where {S} = known_length(S)
+Base.size(s::Size{Tuple{Vararg{Int}}}) = getfield(s, :size)
+Base.size(s::Size) = map(Int, s.size)
+function Base.size(s::Size{S}, dim::CanonicalInt) where {S}
+    if dim > known_length(S)
+        return 1
+    else
+        return Int(getfield(s.size, Int(dim)))
+    end
+end
+
+Base.:(==)(x::Size, y::Size) = getfield(x, :size) == getfield(y, :size)
+
+static_length(x::Length) = getfield(getfield(x, :size), 1)
+static_length(x::Size) = prod(getfield(x, :size))
+Base.length(x::Size) = Int(static_length(x))
+
+Base.show(io::IO, ::MIME"text/plain", @nospecialize(x::Size)) = print(io, "Size($(x.size))")
+
+# default constructors
+Size(s::Size) = s
+Size(a::A) where {A} = Size(_maybe_size(Base.IteratorSize(A), a))
 _maybe_size(::Base.HasShape{N}, a::A) where {N,A} = map(static_length, axes(a))
 _maybe_size(::Base.HasLength, a::A) where {A} = (static_length(a),)
-size(x::SubArray) = eachop(_sub_size, to_parent_dims(x), x.indices)
+
+# type specific constructors
+Size(x::SubArray) = Size(eachop(_sub_size, to_parent_dims(x), x.indices))
 _sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = static_length(getfield(x, dim))
-@inline size(B::VecAdjTrans) = (One(), length(parent(B)))
-@inline size(B::MatAdjTrans) = permute(size(parent(B)), to_parent_dims(B))
-@inline function size(B::PermutedDimsArray{T,N,I1}) where {T,N,I1}
-    permute(size(parent(B)), static(I1))
+@inline Size(A::VecAdjTrans) = Size((One(), static_length(parent(A))))
+@inline function Size(A::MatAdjTrans)
+    Size(permute(getfield(Size(parent(A)), :size), (static(2), static(1))))
 end
-function size(a::ReinterpretArray{T,N,S,A}) where {T,N,S,A}
-    psize = size(parent(a))
+Size(A::Union{Array,ReshapedArray}) = Size(Base.size(A))
+@inline function Size(A::PermutedDimsArray{T,N,I1}) where {T,N,I1}
+    Size(permute(getfield(Size(parent(A)), :size), static(I1)))
+end
+Size(A::AbstractRange) = Size((static_length(A),))
+Size(x::Base.Generator) = Size(getfield(x, :iter))
+Size(x::Iterators.Reverse) = Size(getfield(x, :itr))
+Size(x::Iterators.Enumerate) = Size(getfield(x, :itr))
+Size(x::Iterators.Accumulate) = Size(getfield(x, :itr))
+Size(x::Iterators.Pairs) = Size(getfield(x, :itr))
+@inline function Size(x::Iterators.ProductIterator)
+    Size(eachop(_sub_size, nstatic(Val(ndims(x))), getfield(x, :iterators)))
+end
+Size(x::Iterators.Zip) = Size(Static.reduce_tup(promote_shape, map(size, getfield(x, :is))))
+
+function Size(a::ReinterpretArray{T,N,S,A}) where {T,N,S,A}
     if _is_reshaped(typeof(a))
         if sizeof(S) === sizeof(T)
-            return psize
+            return Size(parent(a))
         elseif sizeof(S) > sizeof(T)
-            return (static(div(sizeof(S), sizeof(T))), psize...)
+            return Size((static(div(sizeof(S), sizeof(T))), getfield(Size(parent(a)), :size)...))
         else
-            return tail(psize)
+            return Size(tail(getfield(Size(parent(a)), :size)))
         end
     else
-        return (div(first(psize) * static(sizeof(S)), static(sizeof(T))), tail(psize)...,)
+        psize = getfield(Size(parent(a)), :size)
+        return Size((div(first(psize) * static(sizeof(S)), static(sizeof(T))), tail(psize)...,))
     end
-end
-size(A::ReshapedArray) = Base.size(A)
-size(A::AbstractRange) = (static_length(A),)
-size(x::Base.Generator) = size(getfield(x, :iter))
-size(x::Iterators.Reverse) = size(getfield(x, :itr))
-size(x::Iterators.Enumerate) = size(getfield(x, :itr))
-size(x::Iterators.Accumulate) = size(getfield(x, :itr))
-size(x::Iterators.Pairs) = size(getfield(x, :itr))
-@inline function size(x::Iterators.ProductIterator)
-    eachop(_sub_size, nstatic(Val(ndims(x))), getfield(x, :iterators))
 end
 
-size(a, dim) = size(a, to_dims(a, dim))
-size(a::Array, dim::Integer) = Base.arraysize(a, convert(Int, dim))
-function size(a::A, dim::Integer) where {A}
-    if parent_type(A) <: A
-        len = known_size(A, dim)
-        if len === missing
-            return Int(length(axes(a, dim)))
-        else
-            return StaticInt(len)
-        end
+## size of individual dimensions
+Size(x, dim) = Size(x, to_dims(x, dim))
+function Size(x, dim::Int)
+    sz = known_size(x, dim)
+    if sz === missing
+        return Length(Int(getfield(getfield(Size(x), :size), dim)))
     else
-        return size(a)[dim]
+        return Length(Int(sz))
     end
 end
-function size(A::SubArray, dim::Integer)
-    pdim = to_parent_dims(A, dim)
-    if pdim > ndims(parent_type(A))
-        return size(parent(A), pdim)
+@inline function Size(x, ::StaticInt{dim}) where {dim}
+    sz = known_size(x, dim)
+    if sz === missing
+        return Length(getfield(getfield(Size(x), :size), dim))
     else
-        return static_length(A.indices[pdim])
+        return Length(static(sz))
     end
 end
-size(x::Iterators.Zip) = Static.reduce_tup(promote_shape, map(size, getfield(x, :is)))
 
 """
     known_size(::Type{T}) -> Tuple
@@ -87,6 +123,7 @@ known_size(x) = known_size(typeof(x))
 function known_size(::Type{T}) where {T<:AbstractRange}
     (_range_length(known_first(T), known_step(T), known_last(T)),)
 end
+known_size(::Type{<:Size{S}}) where {S} = known(S)
 known_size(::Type{<:Base.Generator{I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Reverse{I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Enumerate{I}}) where {I} = known_size(I)
@@ -122,4 +159,7 @@ _known_size(::Type{T}, dim::StaticInt) where {T} = known_length(field_type(T, di
         return known_size(T)[dim]
     end
 end
+
+size(x) = getfield(Size(x), :size)
+size(x, dim) = static_length(Size(x, dim))
 

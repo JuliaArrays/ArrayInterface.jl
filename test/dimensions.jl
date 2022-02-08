@@ -16,6 +16,7 @@ ArrayInterface.dimnames(x::NamedDimsWrapper) = getfield(x, :dimnames)
 function ArrayInterface.known_dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L}}
     ArrayInterface.Static.known(L)
 end
+ArrayInterface.Size(x::NamedDimsWrapper) = ArrayInterface.Size(parent(x))
 
 Base.parent(x::NamedDimsWrapper) = x.parent
 

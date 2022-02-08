@@ -572,8 +572,8 @@ end
 
 abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
 
-Base.size(A::AbstractArray2) = map(Int, ArrayInterface.size(A))
-Base.size(A::AbstractArray2, dim) = Int(ArrayInterface.size(A, dim))
+Base.size(A::AbstractArray2) = Base.size(Size(A))
+Base.size(A::AbstractArray2, dim) = length(Size(A, dim))
 
 function Base.axes(A::AbstractArray2)
     !(parent_type(A) <: typeof(A)) && return ArrayInterface.axes(parent(A))
@@ -731,13 +731,13 @@ function __init__()
         @generated function axes_types(::Type{<:StaticArrays.StaticArray{S}}) where {S}
             return Tuple{[StaticArrays.SOneTo{s} for s in S.parameters]...}
         end
-        @generated function size(A::StaticArrays.StaticArray{S}) where {S}
+        @generated function ArrayInterface.Size(A::StaticArrays.StaticArray{S}) where {S}
             t = Expr(:tuple)
             Sp = S.parameters
             for n = 1:length(Sp)
                 push!(t.args, Expr(:call, Expr(:curly, :StaticInt, Sp[n])))
             end
-            return t
+            return :(ArrayInterface.Size($t))
         end
         @generated function strides(A::StaticArrays.StaticArray{S}) where {S}
             t = Expr(:tuple, Expr(:call, Expr(:curly, :StaticInt, 1)))
