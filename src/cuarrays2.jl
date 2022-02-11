@@ -13,4 +13,4 @@ function restructure(x::CUDA.CuArray, y)
 end
 
 device(::Type{<:CUDA.CuArray}) = GPU()
-
+issparsematrix(A::CUDA.CUSPARSE.CuSparseMatrixCSC) = true

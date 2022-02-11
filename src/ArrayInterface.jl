@@ -400,6 +400,15 @@ function restructure(x::Array, y)
     reshape(convert(Array, y), Base.size(x)...)
 end
 
+"""
+    issparsematrix(A)
+
+Returns whether A is a structurally sparse matrix.
+"""
+issparsematrix(A::AbstractMatrix) = false
+issparsematrix(A::SparseMatrixCSC) = true
+
+
 abstract type AbstractDevice end
 abstract type AbstractCPU <: AbstractDevice end
 struct CPUPointer <: AbstractCPU end

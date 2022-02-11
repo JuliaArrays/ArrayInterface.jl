@@ -22,6 +22,7 @@ ArrayInterface.is_lazy_conjugate
 ArrayInterface.ismutable
 ArrayInterface.issingular
 ArrayInterface.isstructured
+ArrayInterface.issparsematrix
 ArrayInterface.is_splat_index
 ArrayInterface.known_dimnames
 ArrayInterface.known_first
@@ -85,4 +86,3 @@ ArrayInteraface.SOneTo
 ArrayInteraface.SUnitRange
 ArrayInterface.StrideIndex
 ```
-
