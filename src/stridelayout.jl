@@ -117,7 +117,7 @@ function contiguous_axis(::Type{T}) where {T}
         return contiguous_axis(parent_type(T))
     end
 end
-contiguous_axis(::Type{<:Array}) = One()
+contiguous_axis(::Type{<:DenseArray}) = One()
 contiguous_axis(::Type{<:BitArray}) = One()
 contiguous_axis(::Type{<:AbstractRange}) = One()
 contiguous_axis(::Type{<:Tuple}) = One()
@@ -220,7 +220,7 @@ function stride_rank(::Type{T}) where {T}
         return stride_rank(parent_type(T))
     end
 end
-stride_rank(::Type{Array{T,N}}) where {T,N} = nstatic(Val(N))
+stride_rank(::Type{DenseArray{T,N}}) where {T,N} = nstatic(Val(N))
 stride_rank(::Type{BitArray{N}}) where {N} = nstatic(Val(N))
 stride_rank(::Type{<:AbstractRange}) = (One(),)
 stride_rank(::Type{<:Tuple}) = (One(),)
