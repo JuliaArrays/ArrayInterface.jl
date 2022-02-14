@@ -220,7 +220,7 @@ function stride_rank(::Type{T}) where {T}
         return stride_rank(parent_type(T))
     end
 end
-stride_rank(::Type{DenseArray{T,N}}) where {T,N} = nstatic(Val(N))
+stride_rank(::Type{<:DenseArray{T,N}}) where {T,N} = nstatic(Val(N))
 stride_rank(::Type{BitArray{N}}) where {N} = nstatic(Val(N))
 stride_rank(::Type{<:AbstractRange}) = (One(),)
 stride_rank(::Type{<:Tuple}) = (One(),)
