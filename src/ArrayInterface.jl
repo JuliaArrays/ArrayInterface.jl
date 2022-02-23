@@ -859,7 +859,7 @@ function __init__()
         end
 
         has_sparsestruct(::Type{<:BandedMatrices.BandedMatrix}) = true
-        is_structured(::Type{<:BandedMatrices.BandedMatrix}) = true
+        isstructured(::Type{<:BandedMatrices.BandedMatrix}) = true
         fast_matrix_colors(::Type{<:BandedMatrices.BandedMatrix}) = true
 
         function matrix_colors(A::BandedMatrices.BandedMatrix)
@@ -1066,8 +1066,8 @@ function __init__()
 
             has_sparsestruct(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
             has_sparsestruct(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
-            is_structured(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
-            is_structured(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
+            isstructured(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
+            isstructured(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
             fast_matrix_colors(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
             fast_matrix_colors(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
 
