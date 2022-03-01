@@ -146,26 +146,24 @@ function to_parent_dims(::Type{T}, ::StaticInt{dim}) where {T,dim}
         throw_dim_error(T, dim)
     end
 end
-struct Returns{T}; x::T; end; @inline (r::Returns)(_::Vararg{Any,K}) where {K} = r.x
-_nunderscore(::Val{N}) where {N} = ntuple(Returns(nothing), Val(N))
+
+_nunderscore(::Val{N}) where {N} = ntuple(Compat.Returns(:_), Val(N))
 
 """
     has_dimnames(::Type{T}) -> StaticBool
 
 Returns `static(true)` if `x` has on or more named dimensions. If all dimensions correspond
-to `nothing`, then `static(false)` is returned.
+to `static(:_)`, then `static(false)` is returned.
 """
 Compat.@constprop :aggressive has_dimnames(x) = static(_is_named(known_dimnames(x)))
-_is_named(x::Tuple{Nothing,Vararg}) = _is_named(Base.tail(x))
-_is_named(x::Tuple{Nothing}) = false
-_is_named(x::Tuple{Symbol,Vararg}) = true
-_is_named(x::Tuple{}) = true
+_is_named(x::NTuple{N,Symbol}) where {N} = x !== _nunderscore(Val(N))
+_is_named(::Any) = true
 
 """
     known_dimnames(::Type{T}) -> Tuple{Vararg{Union{Symbol,Nothing}}}
     known_dimnames(::Type{T}, dim::Union{Int,StaticInt}) -> Union{Symbol,Nothing}
 
-Return the names of the dimensions for `x`. `nothing` is used to indicate a dimension does not
+Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
 have a name.
 """
 @inline known_dimnames(x, dim::Integer) = _known_dimname(known_dimnames(x), canonicalize(dim))
@@ -173,12 +171,12 @@ known_dimnames(x) = known_dimnames(typeof(x))
 known_dimnames(::Type{T}) where {T} = _known_dimnames(T, parent_type(T))
 _known_dimnames(::Type{T}, ::Type{T}) where {T} = _unknown_dimnames(Base.IteratorSize(T))
 _unknown_dimnames(::Base.HasShape{N}) where {N} = _nunderscore(Val(N))
-_unknown_dimnames(::Any) = (nothing,)
+_unknown_dimnames(::Any) = (:_,)
 function _known_dimnames(::Type{C}, ::Type{P}) where {C,P}
     eachop(_inbounds_known_dimname, to_parent_dims(C), known_dimnames(P))
 end
 @inline function _known_dimname(x::Tuple{Vararg{Any,N}}, dim::CanonicalInt) where {N}
-    (dim > N || dim < 1) && return nothing
+    @boundscheck (dim > N || dim < 1) && return :_
     return @inbounds(x[dim])
 end
 @inline _inbounds_known_dimname(x, dim) = @inbounds(_known_dimname(x, dim))
@@ -187,7 +185,7 @@ end
     dimnames(x) -> Tuple{Vararg{Union{Symbol,StaticSymbol}}}
     dimnames(x, dim::Union{Int,StaticInt}) -> Union{Symbol,StaticSymbol}
 
-Return the names of the dimensions for `x`. `nothing` is used to indicate a dimension does not
+Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
 have a name.
 """
 @inline dimnames(x, dim::Integer) = _dimname(dimnames(x), canonicalize(dim))
@@ -195,9 +193,9 @@ have a name.
 @inline function _dimnames(::True, x)
     eachop(_inbounds_dimname, to_parent_dims(x), dimnames(parent(x)))
 end
-_dimnames(::False, x) = ntuple(_->nothing, Val(ndims(x)))
+_dimnames(::False, x) = ntuple(_->static(:_), Val(ndims(x)))
 @inline function _dimname(x::Tuple{Vararg{Any,N}}, dim::CanonicalInt) where {N}
-    @boundscheck (dim > N || dim < 1) && return nothing
+    @boundscheck (dim > N || dim < 1) && return static(:_)
     return @inbounds(x[dim])
 end
 @inline _inbounds_dimname(x, dim) = @inbounds(_dimname(x, dim))
