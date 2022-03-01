@@ -518,11 +518,7 @@ end
 
     @test @inferred(ArrayInterface.size(irev)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(iprod)) === (StaticInt(2), StaticInt(3), StaticInt(4))
-    if VERSION >= v"1.7"
-      @test @inferred(ArrayInterface.size(iflat)) === (static(72),)
-    else
-      @test_skip @inferred(ArrayInterface.size(iflat)) === (static(72),)
-    end
+    @test @inferred(ArrayInterface.size(iflat)) === (static(72),)
     @test @inferred(ArrayInterface.size(igen)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(iacc)) === (StaticInt(2), StaticInt(3), StaticInt(4))
     @test @inferred(ArrayInterface.size(ienum)) === (StaticInt(2), StaticInt(3), StaticInt(4))
