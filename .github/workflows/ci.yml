@@ -52,6 +52,10 @@ jobs:
       - uses: julia-actions/setup-julia@latest
         with:
           version: '1.2'
+      - run: julia --color=yes -e 'using Pkg; VERSION >= v"1.5-" && !isdir(joinpath(DEPOT_PATH[1], "registries", "General")) && Pkg.Registry.add("General")'
+        shell: bash
+        env:
+          JULIA_PKG_SERVER: ""
       - run: julia --project=docs -e '
           using Pkg;
           Pkg.develop(PackageSpec(; path=pwd()));

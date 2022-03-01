@@ -101,18 +101,18 @@ end
     @test @inferred(ArrayInterface.has_dimnames(typeof(view(x, :, 1, :)))) == true
     @test @inferred(dimnames(x)) === d
     @test @inferred(ArrayInterface.dimnames(z)) === (:x, static(:y))
-    @test @inferred(dimnames(parent(x))) === (static(:_), static(:_))
+    @test @inferred(dimnames(parent(x))) === (nothing, nothing)
     @test @inferred(dimnames(x')) === reverse(d)
-    @test @inferred(dimnames(y')) === (static(:_), static(:x))
+    @test @inferred(dimnames(y')) === (nothing, static(:x))
     @test @inferred(dimnames(PermutedDimsArray(x, (2, 1)))) === reverse(d)
     @test @inferred(dimnames(PermutedDimsArray(x', (2, 1)))) === d
     @test @inferred(dimnames(view(x, :, 1))) === (static(:x),)
-    @test @inferred(dimnames(view(x, :, :, :))) === (static(:x),static(:y), static(:_))
-    @test @inferred(dimnames(view(x, :, 1, :))) === (static(:x), static(:_))
+    @test @inferred(dimnames(view(x, :, :, :))) === (static(:x),static(:y), nothing)
+    @test @inferred(dimnames(view(x, :, 1, :))) === (static(:x), nothing)
     @test @inferred(dimnames(x, ArrayInterface.One())) === static(:x)
-    @test @inferred(dimnames(parent(x), ArrayInterface.One())) === static(:_)
-    @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10))) === (:_,)
-    @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10), static(1))) === :_
+    @test @inferred(dimnames(parent(x), ArrayInterface.One())) === nothing
+    @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10))) === (nothing,)
+    @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10), static(1))) === nothing
     @test @inferred(ArrayInterface.known_dimnames(z)) === (nothing, :y)
 end
 
