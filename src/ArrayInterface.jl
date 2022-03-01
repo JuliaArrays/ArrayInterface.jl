@@ -93,7 +93,7 @@ known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N
 known_length(::Type{<:Number}) = 1
 known_length(::Type{<:AbstractCartesianIndex{N}}) where {N} = N
 known_length(::Type{T}) where {T} = _maybe_known_length(Base.IteratorSize(T), T)
-_maybe_known_length(::Base.HasShape, ::Type{T}) where {T} = prod(known_size(T))
+_maybe_known_length(::Base.HasShape, ::Type{T}) where {T} = prod(Static.maybe_static(known_size, size, T))
 _maybe_known_length(::Base.IteratorSize, ::Type) = nothing
 function known_length(::Type{<:Iterators.Flatten{I}}) where {I}
     known_length(I) * known_length(eltype(I))
