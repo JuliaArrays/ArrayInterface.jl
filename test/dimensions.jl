@@ -113,7 +113,7 @@ end
     @test @inferred(dimnames(parent(x), ArrayInterface.One())) === static(:_)
     @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10))) === (:_,)
     @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10), static(1))) === :_
-    @test @inferred(ArrayInterface.known_dimnames(z)) === (missing, :y)
+    @test @inferred(ArrayInterface.known_dimnames(z)) === (nothing, :y)
 end
 
 @testset "to_dims" begin
