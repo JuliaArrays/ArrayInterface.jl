@@ -176,7 +176,8 @@ function _known_dimnames(::Type{C}, ::Type{P}) where {C,P}
     eachop(_inbounds_known_dimname, to_parent_dims(C), known_dimnames(P))
 end
 @inline function _known_dimname(x::Tuple{Vararg{Any,N}}, dim::CanonicalInt) where {N}
-    @boundscheck (dim > N || dim < 1) && return :_
+    # we cannot have `@boundscheck`, else this will depend on bounds checking being enabled
+    (dim > N || dim < 1) && return :_
     return @inbounds(x[dim])
 end
 @inline _inbounds_known_dimname(x, dim) = @inbounds(_known_dimname(x, dim))
@@ -195,7 +196,9 @@ have a name.
 end
 _dimnames(::False, x) = ntuple(_->static(:_), Val(ndims(x)))
 @inline function _dimname(x::Tuple{Vararg{Any,N}}, dim::CanonicalInt) where {N}
-    @boundscheck (dim > N || dim < 1) && return static(:_)
+    # we cannot have `@boundscheck`, else this will depend on bounds checking being enabled
+    # for calls such as `dimnames(view(x, :, 1, :))`
+    (dim > N || dim < 1) && return static(:_)
     return @inbounds(x[dim])
 end
 @inline _inbounds_dimname(x, dim) = @inbounds(_dimname(x, dim))
