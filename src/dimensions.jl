@@ -160,8 +160,8 @@ _is_named(x::NTuple{N,Symbol}) where {N} = x !== _nunderscore(Val(N))
 _is_named(::Any) = true
 
 """
-    known_dimnames(::Type{T}) -> Tuple{Vararg{Union{Symbol,Missing}}}
-    known_dimnames(::Type{T}, dim::Union{Int,StaticInt}) -> Union{Symbol,Missing}
+    known_dimnames(::Type{T}) -> Tuple{Vararg{Union{Symbol,Nothing}}}
+    known_dimnames(::Type{T}, dim::Union{Int,StaticInt}) -> Union{Symbol,Nothing}
 
 Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
 have a name.
@@ -229,7 +229,7 @@ An error is thrown if any keywords are used which do not occur in `nda`'s names.
 
 1. parse into static dimnension names and key words.
 2. find each dimnames in key words
-3. if missing is found use Colon()
+3. if nothing is found use Colon()
 4. if (ndims - ncolon) === nkwargs then all were found, else error
 =#
 @generated function find_all_dimnames(x::Tuple{Vararg{Any,ND}}, nd::Tuple{Vararg{Any,NI}}, inds::Tuple, default) where {ND,NI}
