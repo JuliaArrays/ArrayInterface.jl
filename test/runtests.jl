@@ -260,6 +260,7 @@ ArrayInterface.parent_type(::Type{DenseWrapper{T,N,P}}) where {T,N,P} = P
 
 @testset "Memory Layout" begin
     x = zeros(100);
+    @test ArrayInterface.size(Base.Broadcast.Broadcasted(+, (x, x'))) === (100,100)
     # R = reshape(view(x, 1:100), (10,10));
     # A = zeros(3,4,5);
     A = Wrapper(reshape(view(x, 1:60), (3,4,5)));

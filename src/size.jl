@@ -17,6 +17,8 @@ julia> ArrayInterface.size(A)
 ```
 """
 size(a::A) where {A} = _maybe_size(Base.IteratorSize(A), a)
+size(a::Base.Broadcast.Broadcasted) = map(static_length, axes(a))
+
 _maybe_size(::Base.HasShape{N}, a::A) where {N,A} = map(static_length, axes(a))
 _maybe_size(::Base.HasLength, a::A) where {A} = (static_length(a),)
 size(x::SubArray) = eachop(_sub_size, to_parent_dims(x), x.indices)
