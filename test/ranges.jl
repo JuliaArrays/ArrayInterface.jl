@@ -120,6 +120,9 @@
 
   @test @inferred(firstindex(128:static(-1):1)) == 1
 
-  @test similar(Matrix{Int}(undef, 2, 3), (static(1):4, Base.OneTo(5))) isa Matrix{Int}
+  @test identity.(static(1):5) isa Vector{Int}
+  @test (static(1):5) .+ (1:3)' isa Matrix{Int}
+  @test similar(Array{Int}, (static(1):(4), Base.OneTo(4))) isa Matrix{Int}
+  @test similar(Array{Int}, (static(1):(4),)) isa Vector{Int}
 end
 
