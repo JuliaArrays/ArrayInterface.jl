@@ -122,7 +122,8 @@
 
   @test identity.(static(1):5) isa Vector{Int}
   @test (static(1):5) .+ (1:3)' isa Matrix{Int}
-  @test similar(Array{Int}, (static(1):(4), Base.OneTo(4))) isa Matrix{Int}
   @test similar(Array{Int}, (static(1):(4),)) isa Vector{Int}
+  @test similar(Array{Int}, (static(1):(4), Base.OneTo(4))) isa Matrix{Int}
+  @test similar(Array{Int}, (Base.OneTo(4), static(1):(4))) isa Matrix{Int}
 end
 

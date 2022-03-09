@@ -494,3 +494,7 @@ end
 function Base.similar(::Type{<:Array{T}}, axes::Tuple{OptionallyStaticUnitRange{StaticInt{1}},Vararg{Union{Base.OneTo,OptionallyStaticUnitRange{StaticInt{1}}}}}) where {T}
   Array{T}(undef, map(last, axes))
 end
+function Base.similar(::Type{<:Array{T}}, axes::Tuple{Base.OneTo,OptionallyStaticUnitRange{StaticInt{1}},Vararg{Union{Base.OneTo,OptionallyStaticUnitRange{StaticInt{1}}}}}) where {T}
+  Array{T}(undef, map(last, axes))
+end
+
