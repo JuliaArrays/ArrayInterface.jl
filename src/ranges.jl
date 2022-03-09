@@ -187,6 +187,8 @@ end
     end
 end
 
+Base.Broadcast.axistype(r::OptionallyStaticUnitRange{StaticInt{1}}) = Base.OneTo(last(r))
+
 """
     SUnitRange(start::Int, stop::Int)
 
