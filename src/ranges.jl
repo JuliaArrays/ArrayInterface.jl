@@ -1,16 +1,16 @@
 
 _cartesian_index(i::Tuple{Vararg{Int}}) = CartesianIndex(i)
-_cartesian_index(::Any) = missing
+_cartesian_index(::Any) = nothing
 
 """
-    known_first(::Type{T}) -> Union{Int,Missing}
+    known_first(::Type{T}) -> Union{Int,Nothing}
 
 If `first` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `missing`.
+Otherwise, return `nothing`.
 
 ```julia
 julia> ArrayInterface.known_first(typeof(1:4))
-missing
+nothing
 
 julia> ArrayInterface.known_first(typeof(Base.OneTo(4)))
 1
@@ -19,7 +19,7 @@ julia> ArrayInterface.known_first(typeof(Base.OneTo(4)))
 known_first(x) = known_first(typeof(x))
 function known_first(::Type{T}) where {T}
     if parent_type(T) <: T
-        return missing
+        return nothing
     else
         return known_first(parent_type(T))
     end
@@ -30,14 +30,14 @@ function known_first(::Type{T}) where {N,R,T<:CartesianIndices{N,R}}
 end
 
 """
-    known_last(::Type{T}) -> Union{Int,Missing}
+    known_last(::Type{T}) -> Union{Int,Nothing}
 
 If `last` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `missing`.
+Otherwise, return `nothing`.
 
 ```julia
 julia> ArrayInterface.known_last(typeof(1:4))
-missing
+nothing
 
 julia> ArrayInterface.known_first(typeof(static(1):static(4)))
 4
@@ -47,7 +47,7 @@ julia> ArrayInterface.known_first(typeof(static(1):static(4)))
 known_last(x) = known_last(typeof(x))
 function known_last(::Type{T}) where {T}
     if parent_type(T) <: T
-        return missing
+        return nothing
     else
         return known_last(parent_type(T))
     end
@@ -57,14 +57,14 @@ function known_last(::Type{T}) where {N,R,T<:CartesianIndices{N,R}}
 end
 
 """
-    known_step(::Type{T}) -> Union{Int,Missing}
+    known_step(::Type{T}) -> Union{Int,Nothing}
 
 If `step` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `missing`.
+Otherwise, return `nothing`.
 
 ```julia
 julia> ArrayInterface.known_step(typeof(1:2:8))
-missing
+nothing
 
 julia> ArrayInterface.known_step(typeof(1:4))
 1
@@ -74,7 +74,7 @@ julia> ArrayInterface.known_step(typeof(1:4))
 known_step(x) = known_step(typeof(x))
 function known_step(::Type{T}) where {T}
     if parent_type(T) <: T
-        return missing
+        return nothing
     else
         return known_step(parent_type(T))
     end
@@ -215,21 +215,21 @@ known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = 
 known_last(::Type{<:OptionallyStaticStepRange{<:Any,<:Any,StaticInt{L}}}) where {L} = L::Int
 
 @inline function Base.first(r::OptionallyStaticRange)::Int
-    if known_first(r) === missing
+    if known_first(r) === nothing
         return getfield(r, :start)
     else
         return known_first(r)
     end
 end
 function Base.step(r::OptionallyStaticStepRange)::Int
-    if known_step(r) === missing
+    if known_step(r) === nothing
         return getfield(r, :step)
     else
         return known_step(r)
     end
 end
 @inline function Base.last(r::OptionallyStaticRange)::Int
-    if known_last(r) === missing
+    if known_last(r) === nothing
         return getfield(r, :stop)
     else
         return known_last(r)
@@ -306,9 +306,9 @@ end
 
 @noinline unequal_error(x,y) = @assert false "Unequal Indices: x == $x != $y == y"
 @inline check_equal(x, y) = x == y || unequal_error(x,y)
-_try_static(::Missing, ::Missing) = missing
-_try_static(x::Int, ::Missing) = x
-_try_static(::Missing, y::Int) = y
+_try_static(::Nothing, ::Nothing) = nothing
+_try_static(x::Int, ::Nothing) = x
+_try_static(::Nothing, y::Int) = y
 @inline _try_static(::StaticInt{N}, ::StaticInt{N}) where {N} = StaticInt{N}()
 @inline function _try_static(::StaticInt{M}, ::StaticInt{N}) where {M,N}
     @assert false "Unequal Indices: StaticInt{$M}() != StaticInt{$N}()"
@@ -330,7 +330,7 @@ Base.lastindex(x::OptionallyStaticRange) = length(x)
     end
 end
 Base.length(r::OptionallyStaticStepRange) = _range_length(first(r), step(r), last(r))
-_range_length(start, s, stop) = missing
+_range_length(start, s, stop) = nothing
 @inline function _range_length(start::Int, s::Int, stop::Int)
    if s > 0
         if stop < start  # isempty
@@ -481,4 +481,20 @@ Returns valid indices for array `x` along each dimension specified in `dim`.
 @inline indices(x, dims::Tuple) = _indices(x, dims)
 _indices(x, dims::Tuple) = (indices(x, first(dims)), _indices(x, tail(dims))...)
 _indices(x, ::Tuple{}) = ()
+
+function Base.Broadcast.axistype(r::OptionallyStaticUnitRange{StaticInt{1}}, _)
+  Base.OneTo(last(r))
+end
+function Base.Broadcast.axistype(_, r::OptionallyStaticUnitRange{StaticInt{1}})
+  Base.OneTo(last(r))
+end
+function Base.Broadcast.axistype(r::OptionallyStaticUnitRange{StaticInt{1}}, ::OptionallyStaticUnitRange{StaticInt{1}})
+  Base.OneTo(last(r))
+end
+function Base.similar(::Type{<:Array{T}}, axes::Tuple{OptionallyStaticUnitRange{StaticInt{1}},Vararg{Union{Base.OneTo,OptionallyStaticUnitRange{StaticInt{1}}}}}) where {T}
+  Array{T}(undef, map(last, axes))
+end
+function Base.similar(::Type{<:Array{T}}, axes::Tuple{Base.OneTo,OptionallyStaticUnitRange{StaticInt{1}},Vararg{Union{Base.OneTo,OptionallyStaticUnitRange{StaticInt{1}}}}}) where {T}
+  Array{T}(undef, map(last, axes))
+end
 

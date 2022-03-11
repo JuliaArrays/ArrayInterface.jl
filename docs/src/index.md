@@ -44,7 +44,7 @@ julia> ArrayInterface.size(a)
 (static(1), 3)
 
 julia> ArrayInterface.known_size(typeof(a))
-(1, missing)
+(1, nothing)
 
 ```
 
@@ -62,8 +62,8 @@ Methods should avoid forcing conversion to static sizes when dynamic sizes could
 Fore example, `fxn(x) = _fxn(Static.static(ArrayInterface.size(x)), x)` would result in dynamic dispatch if `x` is an instance of `Matrix`.
 Additionally, `ArrayInterface.size` should only be used outside of generated functions to avoid possible world age issues.
 
-Generally, `ArrayInterface.size` uses the return of `known_size` to form a static value for those dimensions with known length and only queries dimensions corresponding to `missing`.
-For example, the previous example had a known size of `(1, missing)`.
+Generally, `ArrayInterface.size` uses the return of `known_size` to form a static value for those dimensions with known length and only queries dimensions corresponding to `nothing`.
+For example, the previous example had a known size of `(1, nothing)`.
 Therefore, `ArrayInterface.size` would have compile time information about the first dimension returned as `static(1)` and would only look up the size of the second dimension at run time.
 This means the above example `ArrayInterface.size(a)` would lower to code similar to this at compile time: `Static.StaticInt(1), Base.arraysize(x, 1)`.
 Generic support for `ArrayInterface.known_size` relies on calling `known_length` for each type returned from `axes_types`.
@@ -108,13 +108,13 @@ ArrayInterface.dimnames(::StaticDimnames{dnames}) where {dnames} = static(dnames
 struct DynamicDimnames{N}
     dimnames::NTuple{N,Symbol}
 end
-ArrayInterface.known_dimnames(::Type{DynamicDimnames{N}}) where {N} = ntuple(_-> missing, Val(N))
+ArrayInterface.known_dimnames(::Type{DynamicDimnames{N}}) where {N} = ntuple(_-> nothing, Val(N))
 ArrayInterface.dimnames(x::DynamicDimnames) = getfield(x, :dimnames)
 
 ```
 
-Notice that `DynamicDimnames` returns `missing` instead of a symbol for each dimension.
-This indicates dimension names are present for `DynamicDimnames` but that information is missing at compile time.
+Notice that `DynamicDimnames` returns `nothing` instead of a symbol for each dimension.
+This indicates dimension names are present for `DynamicDimnames` but that information is nothing at compile time.
 
 Dimension names should be appropriately propagated between nested arrays using `ArrayInterface.to_parent_dims`. 
 This allows types such as `SubArray` and `PermutedDimsArray` to work with named dimensions.
@@ -166,7 +166,7 @@ using ArrayInterface: axes_types, parent_type, to_dims
     for dim in 1:ndims(A)
         # offset relative to parent array
         O = relative_known_offsets(A, dim)
-        if O === missing  # offset is not known at compile time and is an `Int`
+        if O === nothing  # offset is not known at compile time and is an `Int`
             push!(out.args, :(IdOffsetRange{Int, axes_types($P, $(static(dim)))}))
         else # offset is known, therefore it is a `StaticInt`
             push!(out.args, :(IdOffsetRange{StaticInt{$O}, axes_types($P, $(static(dim))}))

@@ -277,7 +277,7 @@ previously executed `to_index(old_axis, arg) -> index`. `to_axis` assumes that
 """
 @inline function to_axis(axis, inds)
     if !can_change_size(axis) &&
-       (known_length(inds) !== missing && known_length(axis) === known_length(inds))
+       (known_length(inds) !== nothing && known_length(axis) === known_length(inds))
         return axis
     else
         return to_axis(IndexStyle(axis), axis, inds)

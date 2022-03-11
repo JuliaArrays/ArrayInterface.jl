@@ -55,25 +55,25 @@
     @test iterate(static(1):static(5), 5) === nothing
     @test iterate(static(2):static(5), 5) === nothing
 
-    @test ismissing(@inferred(ArrayInterface.known_first(typeof(1:4))))
+    @test isnothing(@inferred(ArrayInterface.known_first(typeof(1:4))))
     @test isone(@inferred(ArrayInterface.known_first(Base.OneTo(4))))
     @test isone(@inferred(ArrayInterface.known_first(typeof(Base.OneTo(4)))))
     @test isone(@inferred(ArrayInterface.known_first(typeof(static(1):2:10))))
 
-    @test ismissing(@inferred(ArrayInterface.known_last(1:4)))
-    @test ismissing(@inferred(ArrayInterface.known_last(typeof(1:4))))
+    @test isnothing(@inferred(ArrayInterface.known_last(1:4)))
+    @test isnothing(@inferred(ArrayInterface.known_last(typeof(1:4))))
     @test isone(@inferred(ArrayInterface.known_last(typeof(static(-1):static(2):static(1)))))
 
     # CartesianIndices
     CI = CartesianIndices((2, 2))
     @test @inferred(ArrayInterface.known_first(typeof(CI))) == CartesianIndex(1, 1)
-    @test @inferred(ArrayInterface.known_last(typeof(CI))) === missing
+    @test @inferred(ArrayInterface.known_last(typeof(CI))) === nothing
 
     CI = CartesianIndices((static(1):static(2), static(1):static(2)))
     @test @inferred(ArrayInterface.known_first(typeof(CI))) == CartesianIndex(1, 1)
     @test @inferred(ArrayInterface.known_last(typeof(CI))) == CartesianIndex(2, 2)
 
-    @test ismissing(@inferred(ArrayInterface.known_step(typeof(1:0.2:4))))
+    @test isnothing(@inferred(ArrayInterface.known_step(typeof(1:0.2:4))))
     @test isone(@inferred(ArrayInterface.known_step(1:4)))
     @test isone(@inferred(ArrayInterface.known_step(typeof(1:4))))
     @test isone(@inferred(ArrayInterface.known_step(typeof(Base.Slice(1:4)))))
@@ -90,7 +90,7 @@
         @test @inferred(length(static(1):static(2):static(0))) == 0
         @test @inferred(length(static(0):static(-2):static(1))) == 0
 
-        @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(static(1), 2, 10)))) === missing
+        @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(static(1), 2, 10)))) === nothing
         @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.SOneTo{-10}()))) === 0
         @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(static(1), static(1), static(10))))) === 10
         @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(static(2), static(1), static(10))))) === 9
@@ -118,6 +118,12 @@
     @test @inferred(eachindex(static(-7):static(7))) === static(1):static(15)
     @test @inferred((static(-7):static(7))[first(eachindex(static(-7):static(7)))]) == -7
 
-    @test @inferred(firstindex(128:static(-1):1)) == 1
+  @test @inferred(firstindex(128:static(-1):1)) == 1
+
+  @test identity.(static(1):5) isa Vector{Int}
+  @test (static(1):5) .+ (1:3)' isa Matrix{Int}
+  @test similar(Array{Int}, (static(1):(4),)) isa Vector{Int}
+  @test similar(Array{Int}, (static(1):(4), Base.OneTo(4))) isa Matrix{Int}
+  @test similar(Array{Int}, (Base.OneTo(4), static(1):(4))) isa Matrix{Int}
 end
 

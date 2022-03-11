@@ -17,6 +17,8 @@ julia> ArrayInterface.size(A)
 ```
 """
 size(a::A) where {A} = _maybe_size(Base.IteratorSize(A), a)
+size(a::Base.Broadcast.Broadcasted) = map(static_length, axes(a))
+
 _maybe_size(::Base.HasShape{N}, a::A) where {N,A} = map(static_length, axes(a))
 _maybe_size(::Base.HasLength, a::A) where {A} = (static_length(a),)
 size(x::SubArray) = eachop(_sub_size, to_parent_dims(x), x.indices)
@@ -56,7 +58,7 @@ size(a::Array, dim::Integer) = Base.arraysize(a, convert(Int, dim))
 function size(a::A, dim::Integer) where {A}
     if parent_type(A) <: A
         len = known_size(A, dim)
-        if len === missing
+        if len === nothing
             return Int(length(axes(a, dim)))
         else
             return StaticInt(len)
@@ -77,10 +79,10 @@ size(x::Iterators.Zip) = Static.reduce_tup(promote_shape, map(size, getfield(x, 
 
 """
     known_size(::Type{T}) -> Tuple
-    known_size(::Type{T}, dim) -> Union{Int,Missing}
+    known_size(::Type{T}, dim) -> Union{Int,Nothing}
 
 Returns the size of each dimension of `A` or along dimension `dim` of `A` that is known at
-compile time. If a dimension does not have a known size along a dimension then `missing` is
+compile time. If a dimension does not have a known size along a dimension then `nothing` is
 returned in its position.
 """
 known_size(x) = known_size(typeof(x))
@@ -98,10 +100,10 @@ end
 
 # 1. `Zip` doesn't check that its collections are compatible (same size) at construction,
 #   but we assume as much b/c otherwise it will error while iterating. So we promote to the
-#   known size if matching a `Missing` and `Int` size.
+#   known size if matching a `Nothing` and `Int` size.
 # 2. `promote_shape(::Tuple{Vararg{CanonicalInt}}, ::Tuple{Vararg{CanonicalInt}})` promotes
 #   trailing dimensions (which must be of size 1), to `static(1)`. We want to stick to
-#   `Missing` and `Int` types, so we do one last pass to ensure everything is dynamic
+#   `Nothing` and `Int` types, so we do one last pass to ensure everything is dynamic
 @inline function known_size(::Type{<:Iterators.Zip{T}}) where {T}
     dynamic(reduce_tup(_promote_shape, eachop(_unzip_size, nstatic(Val(known_length(T))), T)))
 end

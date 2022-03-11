@@ -41,7 +41,7 @@ function axes_types(::Type{T}) where {T<:PermutedDimsArray}
     eachop_tuple(field_type, to_parent_dims(T), axes_types(parent_type(T)))
 end
 function axes_types(::Type{T}) where {T<:AbstractRange}
-    if known_length(T) === missing
+    if known_length(T) === nothing
         return Tuple{OneTo{Int}}
     else
         return Tuple{SOneTo{known_length(T)}}
@@ -62,7 +62,7 @@ end
 function _non_reshaped_axis_type(::Type{A}, d::StaticInt{D}) where {A,D}
     paxis = axes_types(parent_type(A), d)
     if D === 1
-        if known_length(paxis) === missing
+        if known_length(paxis) === nothing
             return paxis
         else
             return SOneTo{div(known_length(paxis) * sizeof(eltype(parent_type(A))), sizeof(eltype(A)))}
@@ -191,7 +191,7 @@ end
 # For now we just make sure the linear elements are accurate.
 parent_type(::Type{LazyAxis{:,P}}) where {P<:Array} = OneTo{Int}
 @inline function parent_type(::Type{LazyAxis{:,P}}) where {P}
-    if known_length(P) === missing
+    if known_length(P) === nothing
         return OptionallyStaticUnitRange{StaticInt{1},Int}
     else
         return SOneTo{known_length(P)}
@@ -208,14 +208,14 @@ known_first(::Type{LazyAxis{N,P}}) where {N,P} = known_offsets(P, static(N))
 known_first(::Type{LazyAxis{:,P}}) where {P} = 1
 Base.firstindex(x::LazyAxis) = first(x)
 @inline function Base.first(x::LazyAxis{N})::Int where {N}
-    if known_first(x) === missing
+    if known_first(x) === nothing
         return Int(offsets(parent(x), static(N)))
     else
         return Int(known_first(x))
     end
 end
 @inline function Base.first(x::LazyAxis{:})::Int
-    if known_first(x) === missing
+    if known_first(x) === nothing
         return first(parent(x))
     else
         return known_first(x)
@@ -225,20 +225,20 @@ known_last(::Type{LazyAxis{N,P}}) where {N,P} = known_last(axes_types(P, static(
 known_last(::Type{LazyAxis{:,P}}) where {P} = known_length(P)
 Base.lastindex(x::LazyAxis) = last(x)
 Base.last(x::LazyAxis) = _last(known_last(x), x)
-_last(::Missing, x) = last(parent(x))
+_last(::Nothing, x) = last(parent(x))
 _last(N::Int, x) = N
 
 known_length(::Type{LazyAxis{N,P}}) where {N,P} = known_size(P, static(N))
 known_length(::Type{LazyAxis{:,P}}) where {P} = known_length(P)
 @inline function Base.length(x::LazyAxis{N})::Int where {N}
-    if known_length(x) === missing
+    if known_length(x) === nothing
         return size(getfield(x, :parent), static(N))
     else
         return known_length(x)
     end
 end
 @inline function Base.length(x::LazyAxis{:})::Int
-    if known_length(x) === missing
+    if known_length(x) === nothing
         return length(parent(x))
     else
         return known_length(x)
@@ -254,7 +254,7 @@ Base.axes1(x::Slice{<:LazyAxis}) = indices(parent(x.indices))
 Base.to_shape(x::LazyAxis) = length(x)
 
 @inline function Base.checkindex(::Type{Bool}, x::LazyAxis, i::Integer)
-    if known_first(x) === missing || known_last(x) === missing
+    if known_first(x) === nothing || known_last(x) === nothing
         return checkindex(Bool, parent(x), i)
     else  # everything is static so we don't have to retrieve the axis
         return (!(known_first(x) > i) || !(known_last(x) < i))

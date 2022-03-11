@@ -81,10 +81,10 @@ buffer(x::SparseMatrixCSC) = getfield(x, :nzval)
 buffer(x::SparseVector) = getfield(x, :nzval)
 
 """
-    known_length(::Type{T}) -> Union{Int,Missing}
+    known_length(::Type{T}) -> Union{Int,Nothing}
 
 If `length` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `missing`.
+Otherwise, return `nothing`.
 """
 known_length(x) = known_length(typeof(x))
 known_length(::Type{<:NamedTuple{L}}) where {L} = length(L)
@@ -93,10 +93,28 @@ known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N
 known_length(::Type{<:Number}) = 1
 known_length(::Type{<:AbstractCartesianIndex{N}}) where {N} = N
 known_length(::Type{T}) where {T} = _maybe_known_length(Base.IteratorSize(T), T)
-_maybe_known_length(::Base.HasShape, ::Type{T}) where {T} = prod(known_size(T))
-_maybe_known_length(::Base.IteratorSize, ::Type) = missing
+
+@generated function _prod_or_nothing(x::Tuple)
+  p = 1
+  for i in eachindex(x.parameters)
+    x.parameters[i] === Nothing && return nothing
+    p *= x.parameters[i].parameters[1]
+  end
+  StaticInt(p)
+end
+
+function _maybe_known_length(::Base.HasShape, ::Type{T}) where {T}
+  t = map(_static_or_nothing, known_size(T))
+  _int_or_nothing(_prod_or_nothing(t))
+end
+
+_maybe_known_length(::Base.IteratorSize, ::Type) = nothing
+_static_or_nothing(::Nothing) = nothing
+@inline _static_or_nothing(x::Int) = StaticInt{x}()
+_int_or_nothing(::StaticInt{N}) where {N} = N
+_int_or_nothing(::Nothing) = nothing
 function known_length(::Type{<:Iterators.Flatten{I}}) where {I}
-    known_length(I) * known_length(eltype(I))
+  _int_or_nothing(_prod_or_nothing((_static_or_nothing(known_length(I)),_static_or_nothing(known_length(eltype(I))))))
 end
 
 """
@@ -415,10 +433,10 @@ Indicates the most efficient way to access elements from the collection in low-l
 For `GPUArrays`, will return `ArrayInterface.GPU()`.
 For `AbstractArray` supporting a `pointer` method, returns `ArrayInterface.CPUPointer()`.
 For other `AbstractArray`s and `Tuple`s, returns `ArrayInterface.CPUIndex()`.
-Otherwise, returns `missing`.
+Otherwise, returns `nothing`.
 """
 device(A) = device(typeof(A))
-device(::Type) = missing
+device(::Type) = nothing
 device(::Type{<:Tuple}) = CPUTuple()
 device(::Type{T}) where {T<:Array} = CPUPointer()
 device(::Type{T}) where {T<:AbstractArray} = _device(has_parent(T), T)
@@ -597,7 +615,7 @@ end
 
 function Base.length(A::AbstractArray2)
     len = known_length(A)
-    if len === missing
+    if len === nothing
         return Int(prod(size(A)))
     else
         return Int(len)
@@ -859,7 +877,7 @@ function __init__()
         end
 
         has_sparsestruct(::Type{<:BandedMatrices.BandedMatrix}) = true
-        is_structured(::Type{<:BandedMatrices.BandedMatrix}) = true
+        isstructured(::Type{<:BandedMatrices.BandedMatrix}) = true
         fast_matrix_colors(::Type{<:BandedMatrices.BandedMatrix}) = true
 
         function matrix_colors(A::BandedMatrices.BandedMatrix)
@@ -1066,8 +1084,8 @@ function __init__()
 
             has_sparsestruct(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
             has_sparsestruct(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
-            is_structured(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
-            is_structured(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
+            isstructured(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
+            isstructured(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
             fast_matrix_colors(::Type{<:BlockBandedMatrices.BlockBandedMatrix}) = true
             fast_matrix_colors(::Type{<:BlockBandedMatrices.BandedBlockBandedMatrix}) = true
 
@@ -1136,7 +1154,7 @@ function __init__()
             Static.eachop_tuple(_offset_axis_type, Static.nstatic(Val(ndims(T))), ArrayInterface.parent_type(T))
         end
         function ArrayInterface.known_offsets(::Type{A}) where {A<:OffsetArrays.OffsetArray}
-            ntuple(identity -> missing, Val(ndims(A)))
+            ntuple(identity -> nothing, Val(ndims(A)))
         end
         function ArrayInterface.offsets(A::OffsetArrays.OffsetArray)
             map(+, ArrayInterface.offsets(parent(A)), relative_offsets(A))
