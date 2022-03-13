@@ -72,6 +72,10 @@ end
     @test !@inferred(ArrayInterface.can_setindex(1:2))
     @test @inferred(ArrayInterface.can_setindex(Vector{Int}))
     @test !@inferred(ArrayInterface.can_setindex(UnitRange{Int}))
+    @test !@inferred(ArrayInterface.can_setindex(Base.ImmutableDict{Int,Int}))
+    @test !@inferred(ArrayInterface.can_setindex(Tuple{}))
+    @test !@inferred(ArrayInterface.can_setindex(NamedTuple{(),Tuple{}}))
+    @test @inferred(ArrayInterface.can_setindex(Dict{Int,Int}))
 end
 
 @testset "ArrayInterface.isstructured" begin
