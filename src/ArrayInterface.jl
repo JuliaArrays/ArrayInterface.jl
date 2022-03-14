@@ -13,6 +13,8 @@ import Compat
 using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray,
     ReshapedArray, AbstractCartesianIndex
 
+using Base.Iterators: Pairs
+
 const CanonicalInt = Union{Int,StaticInt}
 canonicalize(x::Integer) = Int(x)
 canonicalize(@nospecialize(x::StaticInt)) = x
@@ -191,7 +193,7 @@ can_setindex(::Type{<:AbstractDict}) = true
 can_setindex(::Type{<:Base.ImmutableDict}) = false
 can_setindex(@nospecialize T::Type{<:Tuple}) = false
 can_setindex(@nospecialize T::Type{<:NamedTuple}) = false
-can_setindex(::Type{<:Base.Pairs{<:Any,<:Any,P}}) where {P} = can_setindex(P)
+can_setindex(::Type{<:Pairs{<:Any,<:Any,P}}) where {P} = can_setindex(P)
 
 """
     aos_to_soa(x)
