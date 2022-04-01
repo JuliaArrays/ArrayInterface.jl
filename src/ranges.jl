@@ -356,7 +356,7 @@ function Base.AbstractUnitRange{T}(r::OptionallyStaticUnitRange) where {T}
     end
 end
 
-Base.eachindex(r::OptionallyStaticRange) = One():static_length(r)
+Base.eachindex(r::OptionallyStaticRange) = One():length(r)
 @inline function Base.iterate(r::OptionallyStaticRange)
     isempty(r) && return nothing
     fi = Int(first(r));

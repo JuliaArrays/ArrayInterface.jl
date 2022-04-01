@@ -17,12 +17,12 @@ julia> ArrayInterface.size(A)
 ```
 """
 size(a::A) where {A} = _maybe_size(Base.IteratorSize(A), a)
-size(a::Base.Broadcast.Broadcasted) = map(static_length, axes(a))
+size(a::Base.Broadcast.Broadcasted) = map(length, axes(a))
 
-_maybe_size(::Base.HasShape{N}, a::A) where {N,A} = map(static_length, axes(a))
-_maybe_size(::Base.HasLength, a::A) where {A} = (static_length(a),)
+_maybe_size(::Base.HasShape{N}, a::A) where {N,A} = map(length, axes(a))
+_maybe_size(::Base.HasLength, a::A) where {A} = (length(a),)
 size(x::SubArray) = eachop(_sub_size, to_parent_dims(x), x.indices)
-_sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = static_length(getfield(x, dim))
+_sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = length(getfield(x, dim))
 @inline size(B::VecAdjTrans) = (One(), length(parent(B)))
 @inline size(B::MatAdjTrans) = permute(size(parent(B)), to_parent_dims(B))
 @inline function size(B::PermutedDimsArray{T,N,I1}) where {T,N,I1}
@@ -43,7 +43,7 @@ function size(a::ReinterpretArray{T,N,S,A}) where {T,N,S,A}
     end
 end
 size(A::ReshapedArray) = Base.size(A)
-size(A::AbstractRange) = (static_length(A),)
+size(A::AbstractRange) = (length(A),)
 size(x::Base.Generator) = size(getfield(x, :iter))
 size(x::Iterators.Reverse) = size(getfield(x, :itr))
 size(x::Iterators.Enumerate) = size(getfield(x, :itr))
@@ -72,7 +72,7 @@ function size(A::SubArray, dim::Integer)
     if pdim > ndims(parent_type(A))
         return size(parent(A), pdim)
     else
-        return static_length(A.indices[pdim])
+        return length(A.indices[pdim])
     end
 end
 size(x::Iterators.Zip) = Static.reduce_tup(promote_shape, map(size, getfield(x, :is)))

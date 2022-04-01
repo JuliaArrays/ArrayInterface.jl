@@ -30,7 +30,7 @@ broadcast_axis(x, y) = broadcast_axis(BroadcastAxis(x), x, y)
 # stagger default broadcasting in case y has something other than default
 broadcast_axis(::BroadcastAxisDefault, x, y) = _broadcast_axis(BroadcastAxis(y), x, y)
 function _broadcast_axis(::BroadcastAxisDefault, x, y)
-    return One():_combine_length(static_length(x), static_length(y))
+    return One():_combine_length(length(x), length(y))
 end
 _broadcast_axis(s::BroadcastAxis, x, y) = broadcast_axis(s, x, y)
 

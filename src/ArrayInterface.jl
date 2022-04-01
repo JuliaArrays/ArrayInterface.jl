@@ -36,8 +36,26 @@ const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
 const UpTri{T,M} = Union{UpperTriangular{T,M},UnitUpperTriangular{T,M}}
 const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
 
-@inline static_length(a::UnitRange{T}) where {T} = last(a) - first(a) + oneunit(T)
-@inline static_length(x) = Static.maybe_static(known_length, length, x)
+"""
+    length(A) -> Union{Int,StaticInt}
+
+Returns the length of `A`.  If the length is known at compile time, it is
+returned as `Static` number.  Otherwise, `ArrayInterface.length(A)` is identical
+to `Base.length(A)`.
+
+```julia
+julia> using StaticArrays, ArrayInterface
+
+julia> A = @SMatrix rand(3,4);
+
+julia> ArrayInterface.length(A)
+static(12)
+```
+"""
+@inline length(a::UnitRange{T}) where {T} = last(a) - first(a) + oneunit(T)
+@inline length(x) = Static.maybe_static(known_length, Base.length, x)
+const static_length = length  # for backward compatibility
+
 @inline static_first(x) = Static.maybe_static(known_first, first, x)
 @inline static_last(x) = Static.maybe_static(known_last, last, x)
 @inline static_step(x) = Static.maybe_static(known_step, step, x)
