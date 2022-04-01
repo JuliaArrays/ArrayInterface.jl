@@ -118,6 +118,12 @@
     @test @inferred(eachindex(static(-7):static(7))) === static(1):static(15)
     @test @inferred((static(-7):static(7))[first(eachindex(static(-7):static(7)))]) == -7
 
-    @test @inferred(firstindex(128:static(-1):1)) == 1
+  @test @inferred(firstindex(128:static(-1):1)) == 1
+
+  @test identity.(static(1):5) isa Vector{Int}
+  @test (static(1):5) .+ (1:3)' isa Matrix{Int}
+  @test similar(Array{Int}, (static(1):(4),)) isa Vector{Int}
+  @test similar(Array{Int}, (static(1):(4), Base.OneTo(4))) isa Matrix{Int}
+  @test similar(Array{Int}, (Base.OneTo(4), static(1):(4))) isa Matrix{Int}
 end
 

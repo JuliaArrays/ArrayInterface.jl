@@ -482,3 +482,19 @@ Returns valid indices for array `x` along each dimension specified in `dim`.
 _indices(x, dims::Tuple) = (indices(x, first(dims)), _indices(x, tail(dims))...)
 _indices(x, ::Tuple{}) = ()
 
+function Base.Broadcast.axistype(r::OptionallyStaticUnitRange{StaticInt{1}}, _)
+  Base.OneTo(last(r))
+end
+function Base.Broadcast.axistype(_, r::OptionallyStaticUnitRange{StaticInt{1}})
+  Base.OneTo(last(r))
+end
+function Base.Broadcast.axistype(r::OptionallyStaticUnitRange{StaticInt{1}}, ::OptionallyStaticUnitRange{StaticInt{1}})
+  Base.OneTo(last(r))
+end
+function Base.similar(::Type{<:Array{T}}, axes::Tuple{OptionallyStaticUnitRange{StaticInt{1}},Vararg{Union{Base.OneTo,OptionallyStaticUnitRange{StaticInt{1}}}}}) where {T}
+  Array{T}(undef, map(last, axes))
+end
+function Base.similar(::Type{<:Array{T}}, axes::Tuple{Base.OneTo,OptionallyStaticUnitRange{StaticInt{1}},Vararg{Union{Base.OneTo,OptionallyStaticUnitRange{StaticInt{1}}}}}) where {T}
+  Array{T}(undef, map(last, axes))
+end
+
