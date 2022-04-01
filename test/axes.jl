@@ -67,7 +67,14 @@ end
     @test @inferred(ArrayInterface.axes(b, static(3))) == 1:1
 end
 
+@testset "SubArray Adjoint Axis" begin
+  N = 4; d = rand(N);
+
+  @test @inferred(ArrayInterface.axes_types(typeof(view(d',:,1:2)))) === Tuple{ArrayInterface.OptionallyStaticUnitRange{Static.StaticInt{1}, Static.StaticInt{1}}, Base.OneTo{Int64}}
+
+end
 if isdefined(Base, :ReshapedReinterpretArray)
+  @testset "ReshapedReinterpretArray" begin
     a = rand(3, 5)
     ua = reinterpret(reshape, UInt64, a)
     @test ArrayInterface.axes(ua) === ArrayInterface.axes(a)
@@ -79,4 +86,5 @@ if isdefined(Base, :ReshapedReinterpretArray)
     @test @inferred(ArrayInterface.axes(u8a, static(2))) isa ArrayInterface.axes_types(u8a, 2)
     fa = reinterpret(reshape, Float64, copy(u8a))
     @inferred(ArrayInterface.axes(fa)) isa ArrayInterface.axes_types(fa)
+  end
 end
