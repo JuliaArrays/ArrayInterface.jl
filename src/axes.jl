@@ -48,7 +48,7 @@ function axes_types(::Type{T}) where {T<:AbstractRange}
     end
 end
 axes_types(::Type{T}) where {T<:ReshapedArray} = NTuple{ndims(T),OneTo{Int}}
-function _sub_axis_type(::Type{I}, ::Type{PA}, dim::StaticInt{D}) where {I<:Tuple,PA,D}
+function _sub_axis_type(::Type{PA}, ::Type{I}, dim::StaticInt{D}) where {I<:Tuple,PA,D}
     IT = field_type(I, dim)
     if IT <: Base.Slice
         axes_types(field_type(PA, dim), static(1))
