@@ -54,7 +54,9 @@ static(12)
 """
 @inline length(a::UnitRange{T}) where {T} = last(a) - first(a) + oneunit(T)
 @inline length(x) = Static.maybe_static(known_length, Base.length, x)
-const static_length = length  # for backward compatibility
+
+# Alias to to-be-depreciated internal function
+const static_length = length
 
 @inline static_first(x) = Static.maybe_static(known_first, first, x)
 @inline static_last(x) = Static.maybe_static(known_last, last, x)
