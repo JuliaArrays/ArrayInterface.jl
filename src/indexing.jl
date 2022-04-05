@@ -243,7 +243,7 @@ indices calling [`to_axis`](@ref).
 @inline function to_axes(A, inds::Tuple)
     if ndims(A) === 1
         return (to_axis(axes(A, 1), first(inds)),)
-    elseif length(inds) === 1
+    elseif Base.length(inds) === 1
         return (to_axis(eachindex(IndexLinear(), A), first(inds)),)
     else
         return to_axes(A, axes(A), inds)
@@ -292,7 +292,7 @@ end
         return axis
     end
 end
-to_axis(S::IndexLinear, axis, inds) = StaticInt(1):static_length(inds)
+to_axis(S::IndexLinear, axis, inds) = StaticInt(1):length(inds)
 
 """
     ArrayInterface.getindex(A, args...)
@@ -378,14 +378,14 @@ end
 _ints2range(x::Integer) = x:x
 _ints2range(x::AbstractRange) = x
 @inline function unsafe_get_collection(A::CartesianIndices{N}, inds) where {N}
-    if (length(inds) === 1 && N > 1) || stride_preserving_index(typeof(inds)) === False()
+    if (Base.length(inds) === 1 && N > 1) || stride_preserving_index(typeof(inds)) === False()
         return Base._getindex(IndexStyle(A), A, inds...)
     else
         return CartesianIndices(to_axes(A, _ints2range.(inds)))
     end
 end
 @inline function unsafe_get_collection(A::LinearIndices{N}, inds) where {N}
-    if length(inds) === 1 && isone(_ndims_index(typeof(inds), static(1)))
+    if Base.length(inds) === 1 && isone(_ndims_index(typeof(inds), static(1)))
         return @inbounds(eachindex(A)[first(inds)])
     elseif stride_preserving_index(typeof(inds)) === True()
         return LinearIndices(to_axes(A, _ints2range.(inds)))

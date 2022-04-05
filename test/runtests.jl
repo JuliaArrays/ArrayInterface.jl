@@ -790,9 +790,9 @@ end
     v = @SVector rand(8);
     A = @MMatrix rand(7,6);
     T = SizedArray{Tuple{5,4,3}}(zeros(5,4,3));
-    @test @inferred(ArrayInterface.static_length(v)) === StaticInt(8)
-    @test @inferred(ArrayInterface.static_length(A)) === StaticInt(42)
-    @test @inferred(ArrayInterface.static_length(T)) === StaticInt(60)
+    @test @inferred(ArrayInterface.length(v)) === StaticInt(8)
+    @test @inferred(ArrayInterface.length(A)) === StaticInt(42)
+    @test @inferred(ArrayInterface.length(T)) === StaticInt(60)
 end
 
 @testset "indices" begin
