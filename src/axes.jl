@@ -307,7 +307,7 @@ axes_keys(A::MatAdjTrans) = permute(axes_keys(parent(A)), to_parent_dims(A))
 axes_keys(A::VecAdjTrans) = (SOneTo{1}(), axes(parent(A), 1))
 function axes_axes(A::SubArray{T,N}) where {T,N}
     pdims = to_parent_dims(A)
-    ntuple(dim -> axes_keys(parent(A), pdims[dim])[A.indices[dim], Val(N))
+    ntuple(dim -> axes_keys(parent(A), pdims[dim])[A.indices[dim]], Val(N))
 end
 
 axes_keys(A, dim)  = axes_keys(A, to_dims(A, dim))
