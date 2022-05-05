@@ -5,14 +5,14 @@
 
 Returns the size of each dimension of `A` or along dimension `dim` of `A`. If the size of
 any axes are known at compile time, these should be returned as `Static` numbers. Otherwise,
-`ArrayInterface.size(A)` is identical to `Base.size(A)`
+`ArrayInterfaceCore.size(A)` is identical to `Base.size(A)`
 
 ```julia
 julia> using StaticArrays, ArrayInterface
 
 julia> A = @SMatrix rand(3,4);
 
-julia> ArrayInterface.size(A)
+julia> ArrayInterfaceCore.size(A)
 (static(3), static(4))
 ```
 """
