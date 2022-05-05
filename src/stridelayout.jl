@@ -364,7 +364,7 @@ function dense_dims(::Type{T}) where {T}
 end
 _all_dense(::Val{N}) where {N} = ntuple(_ -> True(), Val{N}())
 
-dense_dims(::Type{Array{T,N}}) where {T,N} = _all_dense(Val{N}())
+dense_dims(::Type{<:DenseArray{T,N}}) where {T,N} = _all_dense(Val{N}())
 dense_dims(::Type{BitArray{N}}) where {N} = _all_dense(Val{N}())
 dense_dims(::Type{<:AbstractRange}) = (True(),)
 dense_dims(::Type{<:Tuple}) = (True(),)
