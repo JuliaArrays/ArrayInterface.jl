@@ -10,24 +10,9 @@ import ArrayInterface: axes, axes_types, can_setindex, contiguous_axis, contiguo
 using Requires
 using Static
 using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
-    find_first_eq, permute, invariant_permutation, field_type, reduce_tup
+    permute, invariant_permutation, field_type, reduce_tup
 
 function __init__()
-    @require SuiteSparse = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9" begin
-        function lu_instance(jac_prototype::SparseMatrixCSC)
-            return SuiteSparse.UMFPACK.UmfpackLU(
-                Ptr{Cvoid}(),
-                Ptr{Cvoid}(),
-                1,
-                1,
-                jac_prototype.colptr[1:1],
-                jac_prototype.rowval[1:1],
-                jac_prototype.nzval[1:1],
-                0,
-            )
-        end
-    end
-
     @require StaticArrays = "90137ffa-7385-5640-81b9-e52037218182" begin
         ismutable(::Type{<:StaticArrays.StaticArray}) = false
         can_setindex(::Type{<:StaticArrays.StaticArray}) = false
@@ -162,7 +147,7 @@ function __init__()
         end
         @require DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e" begin
             # actually do QR
-            function lu_instance(A::CUDA.CuMatrix{T}) where {T}
+            function uu_instance(A::CUDA.CuMatrix{T}) where {T}
                 return CUDA.CUSOLVER.CuQR(similar(A, 0, 0), similar(A, 0))
             end
         end

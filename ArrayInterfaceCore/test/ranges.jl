@@ -125,3 +125,45 @@ end
 @test similar(Array{Int}, (static(1):(4), Base.OneTo(4))) isa Matrix{Int}
 @test similar(Array{Int}, (Base.OneTo(4), static(1):(4))) isa Matrix{Int}
 
+@testset "indices" begin
+    A23 = ones(2,3);
+    SA23 = MArray(A23);
+    A32 = ones(3,2);
+    SA32 = MArray(A32)
+
+    @test @inferred(ArrayInterfaceCore.indices(A23, (static(1),static(2)))) === (Base.Slice(StaticInt(1):2), Base.Slice(StaticInt(1):3))
+    @test @inferred(ArrayInterfaceCore.indices((A23, A32))) == 1:6
+    @test @inferred(ArrayInterfaceCore.indices((SA23, A32))) == 1:6
+    @test @inferred(ArrayInterfaceCore.indices((A23, SA32))) == 1:6
+    @test @inferred(ArrayInterfaceCore.indices((SA23, SA32))) == 1:6
+    @test @inferred(ArrayInterfaceCore.indices(A23)) == 1:6
+    @test @inferred(ArrayInterfaceCore.indices(SA23)) == 1:6
+    @test @inferred(ArrayInterfaceCore.indices(A23, 1)) == 1:2
+    @test @inferred(ArrayInterfaceCore.indices(SA23, StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
+    @test @inferred(ArrayInterfaceCore.indices((A23, A32), (1, 2))) == 1:2
+    @test @inferred(ArrayInterfaceCore.indices((SA23, A32), (StaticInt(1), 2))) === Base.Slice(StaticInt(1):StaticInt(2))
+    @test @inferred(ArrayInterfaceCore.indices((A23, SA32), (1, StaticInt(2)))) === Base.Slice(StaticInt(1):StaticInt(2))
+    @test @inferred(ArrayInterfaceCore.indices((SA23, SA32), (StaticInt(1), StaticInt(2)))) === Base.Slice(StaticInt(1):StaticInt(2))
+    @test @inferred(ArrayInterfaceCore.indices((A23, A23), 1)) == 1:2
+    @test @inferred(ArrayInterfaceCore.indices((SA23, SA23), StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
+    @test @inferred(ArrayInterfaceCore.indices((SA23, A23), StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
+    @test @inferred(ArrayInterfaceCore.indices((A23, SA23), StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
+    @test @inferred(ArrayInterfaceCore.indices((SA23, SA23), StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
+
+    @test_throws AssertionError ArrayInterfaceCore.indices((A23, ones(3, 3)), 1)
+    @test_throws AssertionError ArrayInterfaceCore.indices((A23, ones(3, 3)), (1, 2))
+    @test_throws AssertionError ArrayInterfaceCore.indices((SA23, ones(3, 3)), StaticInt(1))
+    @test_throws AssertionError ArrayInterfaceCore.indices((SA23, ones(3, 3)), (StaticInt(1), 2))
+    @test_throws AssertionError ArrayInterfaceCore.indices((SA23, SA23), (StaticInt(1), StaticInt(2)))
+
+    @test size(similar(ones(2, 4), ArrayInterfaceCore.indices(ones(2, 4), 1), ArrayInterfaceCore.indices(ones(2, 4), 2))) == (2, 4)
+    @test axes(ArrayInterfaceCore.indices(ones(2,2))) === (StaticInt(1):4,)
+    @test axes(Base.Slice(StaticInt(2):4)) === (Base.IdentityUnitRange(StaticInt(2):4),)
+    @test Base.axes1(ArrayInterfaceCore.indices(ones(2,2))) === StaticInt(1):4
+    @test Base.axes1(Base.Slice(StaticInt(2):4)) === Base.IdentityUnitRange(StaticInt(2):4)
+
+    x = vec(A23); y = vec(A32);
+    @test ArrayInterfaceCore.indices((x',y'),StaticInt(1)) === Base.Slice(StaticInt(1):StaticInt(1))
+    @test ArrayInterfaceCore.indices((x,y), StaticInt(2)) === Base.Slice(StaticInt(1):StaticInt(1))
+end
+

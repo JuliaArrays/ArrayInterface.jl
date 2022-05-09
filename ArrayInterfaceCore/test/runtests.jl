@@ -10,6 +10,9 @@ using SparseArrays
 using Static
 using Test
 
+using Aqua
+Aqua.test_all(ArrayInterfaceCore)
+
 include("setup.jl")
 
 @test zeromatrix(rand(4,4,4)) == zeros(4*4*4,4*4*4)
@@ -35,6 +38,14 @@ end
 end
 
 @test ArrayInterfaceCore.can_avx(ArrayInterfaceCore.can_avx) == false
+
+@testset "lu_instance" begin
+    A = randn(5, 5)
+    @test lu_instance(A) isa typeof(lu(A))
+    A = sprand(50, 50, 0.5)
+    @test lu_instance(A) isa typeof(lu(A))
+    @test lu_instance(1) === 1
+end
 
 @testset "Reshaped views" begin
     u_base = randn(10, 10)

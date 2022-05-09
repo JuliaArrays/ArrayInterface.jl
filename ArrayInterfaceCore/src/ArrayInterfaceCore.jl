@@ -4,6 +4,7 @@ using IfElse
 using LinearAlgebra
 using LinearAlgebra: AbstractTriangular
 using SparseArrays
+using SuiteSparse
 using Static
 using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
     find_first_eq, permute, invariant_permutation, field_type, reduce_tup
@@ -374,6 +375,18 @@ function lu_instance(A::Matrix{T}) where {T}
     ipiv = Vector{LinearAlgebra.BlasInt}(undef, 0)
     info = zero(LinearAlgebra.BlasInt)
     return LU{luT}(similar(A, 0, 0), ipiv, info)
+end
+function lu_instance(jac_prototype::SparseMatrixCSC)
+    SuiteSparse.UMFPACK.UmfpackLU(
+        Ptr{Cvoid}(),
+        Ptr{Cvoid}(),
+        1,
+        1,
+        jac_prototype.colptr[1:1],
+        jac_prototype.rowval[1:1],
+        jac_prototype.nzval[1:1],
+        0,
+    )
 end
 
 """

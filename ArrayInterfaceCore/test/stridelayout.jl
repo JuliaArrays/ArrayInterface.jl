@@ -308,3 +308,20 @@ end
     end
 end
 
+@testset "Reinterpreted reshaped views" begin
+    u_base = randn(1, 4, 4, 5);
+    u_vectors = reshape(reinterpret(NTuple{1, eltype(u_base)}, u_base),
+                        Base.tail(size(u_base))...)
+    u_view = view(u_vectors, 2, :, 3)
+    u_view_reinterpreted = reinterpret(eltype(u_base), u_view)
+    u_view_reshaped = reshape(u_view_reinterpreted, 1, length(u_view))
+
+    # See https://github.com/JuliaArrays/ArrayInterface.jl/issues/163
+    @test @inferred(ArrayInterface.strides(u_base)) == (StaticInt(1), 1, 4, 16)
+    @test @inferred(ArrayInterface.strides(u_vectors)) == (StaticInt(1), 4, 16)
+    @test @inferred(ArrayInterface.strides(u_view)) == (4,)
+    @test @inferred(ArrayInterface.strides(u_view_reinterpreted)) == (4,)
+    @test @inferred(ArrayInterface.strides(u_view_reshaped)) == (4, 4)
+    @test @inferred(ArrayInterface.axes(u_vectors)) isa ArrayInterface.axes_types(u_vectors)
+end
+
