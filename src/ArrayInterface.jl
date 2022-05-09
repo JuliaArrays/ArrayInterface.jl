@@ -101,23 +101,7 @@ function __init__()
 
     @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
         @require Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
-            fast_scalar_indexing(::Type{<:CuArrays.CuArray}) = false
-            @inline allowed_getindex(x::CuArrays.CuArray, i...) = CuArrays.@allowscalar(x[i...])
-            @inline function allowed_setindex!(x::CuArrays.CuArray, v, i...)
-                (CuArrays.@allowscalar(x[i...] = v))
-            end
-
-            function Base.setindex(x::CuArrays.CuArray, v, i::Int)
-                _x = copy(x)
-                allowed_setindex!(_x, v, i)
-                return _x
-            end
-
-            function restructure(x::CuArrays.CuArray, y)
-                return reshape(Adapt.adapt(parameterless_type(x), y), Base.size(x)...)
-            end
-
-            device(::Type{<:CuArrays.CuArray}) = GPU()
+            include("cuarrays.jl")
         end
         @require DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e" begin
             # actually do QR
@@ -129,30 +113,15 @@ function __init__()
 
     @require CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba" begin
         @require Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e" begin
-            fast_scalar_indexing(::Type{<:CUDA.CuArray}) = false
-            @inline allowed_getindex(x::CUDA.CuArray, i...) = CUDA.@allowscalar(x[i...])
-            @inline allowed_setindex!(x::CUDA.CuArray, v, i...) = (CUDA.@allowscalar(x[i...] = v))
-
-            function Base.setindex(x::CUDA.CuArray, v, i::Int)
-                _x = copy(x)
-                allowed_setindex!(_x, v, i)
-                return _x
-            end
-
-            function restructure(x::CUDA.CuArray, y)
-                return reshape(Adapt.adapt(parameterless_type(x), y), Base.size(x)...)
-            end
-
-            device(::Type{<:CUDA.CuArray}) = GPU()
+            include("cuarrays2.jl")
         end
         @require DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e" begin
             # actually do QR
-            function uu_instance(A::CUDA.CuMatrix{T}) where {T}
+            function lu_instance(A::CUDA.CuMatrix{T}) where {T}
                 return CUDA.CUSOLVER.CuQR(similar(A, 0, 0), similar(A, 0))
             end
         end
     end
-
     @require BandedMatrices = "aae01518-5342-5314-be14-df237901396f" begin
         struct BandedMatrixIndex <: MatrixIndex
             count::Int
