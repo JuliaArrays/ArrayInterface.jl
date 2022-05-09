@@ -45,7 +45,7 @@ function __init__()
         contiguous_axis(::Type{<:StaticArrays.StaticArray}) = StaticInt{1}()
         contiguous_batch_size(::Type{<:StaticArrays.StaticArray}) = StaticInt{0}()
         function stride_rank(::Type{T}) where {N,T<:StaticArrays.StaticArray{<:Any,<:Any,N}}
-            n Static.nstatic(Val(N))
+            Static.nstatic(Val(N))
         end
         function dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N}
             return ArrayInterface._all_dense(Val(N))
