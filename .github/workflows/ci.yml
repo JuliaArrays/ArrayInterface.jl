@@ -38,9 +38,12 @@ jobs:
             ${{ runner.os }}-test-${{ env.cache-name }}-
             ${{ runner.os }}-test-
             ${{ runner.os }}-
+      - run: julia --project -e 'using Pkg; Pkg.develop([PackageSpec(path="ArrayInterfaceCore")])'
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
+        with:
+          directiories: src,ArrayInterfaceCore/src
       - uses: codecov/codecov-action@v1
         with:
           file: lcov.info

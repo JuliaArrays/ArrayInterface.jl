@@ -3,9 +3,12 @@ using ArrayInterfaceCore
 import ArrayInterfaceCore: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance,
     device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims,
     is_lazy_conjugate, parent_type, dimnames, zeromatrix
+using BandedMatrices
+using BlockBandedMatrices
 using Base: setindex
 using LinearAlgebra
 using Random
+using OffsetArrays
 using Static
 using StaticArrays
 using Test
@@ -23,7 +26,7 @@ using Test
     @test @inferred(ArrayInterface.known_length(x')) == 6
 
     v = @SVector rand(8);
-    A = @MMatrix rand(7,6);
+    A = @MMatrix rand(7, 6);
     T = SizedArray{Tuple{5,4,3}}(zeros(5,4,3));
     @test @inferred(ArrayInterface.length(v)) === StaticInt(8)
     @test @inferred(ArrayInterface.length(A)) === StaticInt(42)
@@ -42,9 +45,6 @@ using Test
     @test @inferred(stride_rank(@SArray(zeros(2,2,2)))) == (1, 2, 3)
     @test @inferred(ArrayInterface.is_column_major(@SArray(zeros(2,2,2)))) === True()
     @test @inferred(dense_dims(@SArray(zeros(2,2,2)))) == (true,true,true)
-    @test @inferred(device(OffsetArray(@SArray(zeros(2,2,2)),-123,29,3231))) === ArrayInterface.CPUTuple()
-    @test @inferred(device(OffsetArray(@view(@SArray(zeros(2,2,2))[1,1:2,:]),-3,4))) === ArrayInterface.CPUTuple()
-    @test @inferred(device(OffsetArray(@MArray(zeros(2,2,2)),8,-2,-5))) === ArrayInterface.CPUPointer()
 
     x = @SVector [1,2,3]
     @test ArrayInterfaceCore.ismutable(x) == false
@@ -54,10 +54,7 @@ using Test
     @test ArrayInterfaceCore.ismutable(view(x, 1:2)) == true
 end
 
-
 @testset "BandedMatrices" begin
-    using BandedMatrices
-
     B=BandedMatrix(Ones(5,5), (-1,2))
     B[band(1)].=[1,2,3,4]
     B[band(2)].=[5,6,7]
@@ -72,8 +69,6 @@ end
 end
 
 @testset "BlockBandedMatrices" begin
-    using BlockBandedMatrices
-
     BB=BlockBandedMatrix(Ones(10,10),[1,2,3,4],[4,3,2,1],(1,0))
     BB[Block(1,1)].=[1 2 3 4]
     BB[Block(2,1)].=[5 6 7 8;9 10 11 12]
@@ -96,8 +91,6 @@ end
 end
 
 @testset "OffsetArrays" begin
-    using OffsetArrays
-
     O = OffsetArray(A, 3, 7, 10);
     Op = PermutedDimsArray(O,(3,1,2));
     @test @inferred(ArrayInterface.offsets(O)) === (4, 8, 11)
@@ -113,5 +106,9 @@ end
 
     @test @inferred(ArrayInterface.indices(OffsetArray(view(PermutedDimsArray(A, (3,1,2)), 1, :, 2:4)', 3, -173),1)) === Base.Slice(ArrayInterface.OptionallyStaticUnitRange(4,6))
     @test @inferred(ArrayInterface.indices(OffsetArray(view(PermutedDimsArray(A, (3,1,2)), 1, :, 2:4)', 3, -173),2)) === Base.Slice(ArrayInterface.OptionallyStaticUnitRange(-172,-170))
+
+    @test @inferred(device(OffsetArray(@SArray(zeros(2,2,2)),-123,29,3231))) === ArrayInterface.CPUTuple()
+    @test @inferred(device(OffsetArray(@view(@SArray(zeros(2,2,2))[1,1:2,:]),-3,4))) === ArrayInterface.CPUTuple()
+    @test @inferred(device(OffsetArray(@MArray(zeros(2,2,2)),8,-2,-5))) === ArrayInterface.CPUPointer()
 end
 
