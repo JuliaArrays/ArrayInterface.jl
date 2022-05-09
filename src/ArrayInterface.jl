@@ -135,7 +135,7 @@ function __init__()
         Base.firstindex(i::BandedMatrixIndex) = 1
         Base.lastindex(i::BandedMatrixIndex) = i.count
         Base.length(i::BandedMatrixIndex) = lastindex(i)
-        @propagate_inbounds function Base.getindex(ind::BandedMatrixIndex, i::Int)
+        Base.@propagate_inbounds function Base.getindex(ind::BandedMatrixIndex, i::Int)
             @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
             _i = i
             p = 1
@@ -253,7 +253,7 @@ function __init__()
                 colindobj = BlockBandedMatrixIndex(currenti - 1, refinds, refcolcoords, false)
                 rowindobj, colindobj
             end
-            @propagate_inbounds function Base.getindex(ind::BlockBandedMatrixIndex, i::Int)
+            Base.@propagate_inbounds function Base.getindex(ind::BlockBandedMatrixIndex, i::Int)
                 @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
                 p = 1
                 while i - ind.refinds[p] >= 0
@@ -293,7 +293,7 @@ function __init__()
             Base.firstindex(i::BandedBlockBandedMatrixIndex) = 1
             Base.lastindex(i::BandedBlockBandedMatrixIndex) = i.count
             Base.length(i::BandedBlockBandedMatrixIndex) = lastindex(i)
-            @propagate_inbounds function Base.getindex(ind::BandedBlockBandedMatrixIndex, i::Int)
+            Base.@propagate_inbounds function Base.getindex(ind::BandedBlockBandedMatrixIndex, i::Int)
                 @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
                 p = 1
                 while i - ind.refinds[p] >= 0
