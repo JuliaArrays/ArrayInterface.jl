@@ -1,7 +1,7 @@
 module ArrayInterface
 
 using ArrayInterfaceCore
-import ArrayInterface: axes, axes_types, can_setindex, contiguous_axis, contiguous_batch_size,
+import ArrayInterfaceCore: axes, axes_types, can_setindex, contiguous_axis, contiguous_batch_size,
     defines_strides, dense_dims, device, dimnames, fast_scalar_indexing, findstructralnz,
     is_lazy_conjugate, length,
     has_sparsestruct, lu_instance, matrix_colors, ismutable, restructure, known_first,
@@ -104,7 +104,7 @@ function __init__()
             fast_scalar_indexing(::Type{<:CuArrays.CuArray}) = false
             @inline allowed_getindex(x::CuArrays.CuArray, i...) = CuArrays.@allowscalar(x[i...])
             @inline function allowed_setindex!(x::CuArrays.CuArray, v, i...)
-                return (CuArrays.@allowscalar(x[i...] = v))
+                (CuArrays.@allowscalar(x[i...] = v))
             end
 
             function Base.setindex(x::CuArrays.CuArray, v, i::Int)
