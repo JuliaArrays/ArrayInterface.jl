@@ -51,4 +51,3 @@ STri=SymTridiagonal([1,2,3,4],[5,6,7])
 rowind,colind=findstructralnz(STri)
 @test [STri[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,2,3,4,5,6,7,5,6,7]
 
-

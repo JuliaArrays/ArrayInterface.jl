@@ -1,12 +1,15 @@
 module ArrayInterface
 
 using ArrayInterfaceCore
-import ArrayInterfaceCore: axes, axes_types, can_setindex, contiguous_axis, contiguous_batch_size,
-    defines_strides, dense_dims, device, dimnames, fast_scalar_indexing, findstructralnz,
+import ArrayInterfaceCore: axes, axes_types, buffer, can_setindex, contiguous_axis, contiguous_batch_size,
+    defines_strides, dense_dims, dimnames, fast_matrix_colors, fast_scalar_indexing, findstructralnz,
     is_lazy_conjugate, length,
-    has_sparsestruct, lu_instance, matrix_colors, ismutable, restructure, known_first,
+    has_sparsestruct, isstructured, lu_instance, matrix_colors, ismutable, restructure, known_first,
     known_last, known_length, known_step, known_size, known_strides, known_offsets, offsets,
     parent_type, size, strides, stride_rank, to_dims, to_indices, to_index, zeromatrix
+import ArrayInterfaceCore: ArrayIndex, MatrixIndex, VectorIndex, BidiagonalIndex, TridiagonalIndex, StrideIndex
+import ArrayInterfaceCore: AbstractDevice, AbstractCPU, CPUTuple, CPUPointer, GPU, CPUIndex, CheckParent, device
+using LinearAlgebra
 using Requires
 using Static
 using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
@@ -15,10 +18,10 @@ using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
 function __init__()
     @require StaticArrays = "90137ffa-7385-5640-81b9-e52037218182" begin
         ismutable(::Type{<:StaticArrays.StaticArray}) = false
-        can_setindex(::Type{<:StaticArrays.StaticArray}) = false
         ismutable(::Type{<:StaticArrays.MArray}) = true
         ismutable(::Type{<:StaticArrays.SizedArray}) = true
 
+        can_setindex(::Type{<:StaticArrays.StaticArray}) = false
         buffer(A::Union{StaticArrays.SArray,StaticArrays.MArray}) = getfield(A, :data)
 
         function lu_instance(_A::StaticArrays.StaticMatrix{N,N}) where {N}
@@ -48,7 +51,7 @@ function __init__()
             Static.nstatic(Val(N))
         end
         function dense_dims(::Type{<:StaticArrays.StaticArray{S,T,N}}) where {S,T,N}
-            return ArrayInterface._all_dense(Val(N))
+            return ArrayInterfaceCore._all_dense(Val(N))
         end
         defines_strides(::Type{<:StaticArrays.SArray}) = true
         defines_strides(::Type{<:StaticArrays.MArray}) = true
@@ -448,29 +451,29 @@ function __init__()
                 return getfield(relative_offsets(A), dim)
             end
         end
-        ArrayInterface.parent_type(::Type{<:OffsetArrays.OffsetArray{T,N,A}}) where {T,N,A} = A
+        ArrayInterfaceCore.parent_type(::Type{<:OffsetArrays.OffsetArray{T,N,A}}) where {T,N,A} = A
         function _offset_axis_type(::Type{T}, dim::StaticInt{D}) where {T,D}
-            OffsetArrays.IdOffsetRange{Int,ArrayInterface.axes_types(T, dim)}
+            OffsetArrays.IdOffsetRange{Int,ArrayInterfaceCore.axes_types(T, dim)}
         end
-        function ArrayInterface.axes_types(::Type{T}) where {T<:OffsetArrays.OffsetArray}
-            Static.eachop_tuple(_offset_axis_type, Static.nstatic(Val(ndims(T))), ArrayInterface.parent_type(T))
+        function ArrayInterfaceCore.axes_types(::Type{T}) where {T<:OffsetArrays.OffsetArray}
+            Static.eachop_tuple(_offset_axis_type, Static.nstatic(Val(ndims(T))), ArrayInterfaceCore.parent_type(T))
         end
-        function ArrayInterface.known_offsets(::Type{A}) where {A<:OffsetArrays.OffsetArray}
+        function ArrayInterfaceCore.known_offsets(::Type{A}) where {A<:OffsetArrays.OffsetArray}
             ntuple(identity -> nothing, Val(ndims(A)))
         end
-        function ArrayInterface.offsets(A::OffsetArrays.OffsetArray)
-            map(+, ArrayInterface.offsets(parent(A)), relative_offsets(A))
+        function ArrayInterfaceCore.offsets(A::OffsetArrays.OffsetArray)
+            map(+, ArrayInterfaceCore.offsets(parent(A)), relative_offsets(A))
         end
-       @inline function ArrayInterface.offsets(A::OffsetArrays.OffsetArray, dim)
-            d = ArrayInterface.to_dims(A, dim)
-            ArrayInterface.offsets(parent(A), d) + relative_offsets(A, d)
+       @inline function ArrayInterfaceCore.offsets(A::OffsetArrays.OffsetArray, dim)
+            d = ArrayInterfaceCore.to_dims(A, dim)
+            ArrayInterfaceCore.offsets(parent(A), d) + relative_offsets(A, d)
         end
-        @inline function ArrayInterface.axes(A::OffsetArrays.OffsetArray)
-            map(OffsetArrays.IdOffsetRange, ArrayInterface.axes(parent(A)), relative_offsets(A))
+        @inline function ArrayInterfaceCore.axes(A::OffsetArrays.OffsetArray)
+            map(OffsetArrays.IdOffsetRange, ArrayInterfaceCore.axes(parent(A)), relative_offsets(A))
         end
-        @inline function ArrayInterface.axes(A::OffsetArrays.OffsetArray, dim)
+        @inline function ArrayInterfaceCore.axes(A::OffsetArrays.OffsetArray, dim)
             d = to_dims(A, dim)
-            OffsetArrays.IdOffsetRange(ArrayInterface.axes(parent(A), d), relative_offsets(A, d))
+            OffsetArrays.IdOffsetRange(ArrayInterfaceCore.axes(parent(A), d), relative_offsets(A, d))
         end
     end
 end

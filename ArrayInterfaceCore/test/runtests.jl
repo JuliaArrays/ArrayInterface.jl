@@ -17,6 +17,17 @@ include("setup.jl")
 
 @test zeromatrix(rand(4,4,4)) == zeros(4*4*4,4*4*4)
 
+@testset "matrix colors" begin
+    @test ArrayInterfaceCore.fast_matrix_colors(1) == false
+    @test ArrayInterfaceCore.fast_matrix_colors(Diagonal{Int,Vector{Int}})
+
+    @test ArrayInterfaceCore.matrix_colors(Diagonal([1,2,3,4])) == [1, 1, 1, 1]
+    @test ArrayInterfaceCore.matrix_colors(Bidiagonal([1,2,3,4], [7,8,9], :U)) == [1, 2, 1, 2]
+    @test ArrayInterfaceCore.matrix_colors(Tridiagonal([1,2,3],[1,2,3,4],[4,5,6])) == [1, 2, 3, 1]
+    @test ArrayInterfaceCore.matrix_colors(SymTridiagonal([1,2,3,4],[5,6,7])) == [1, 2, 3, 1]
+    @test ArrayInterfaceCore.matrix_colors(rand(4,4)) == Base.OneTo(4)
+end
+
 @testset "parent_type" begin
     x = ones(4, 4)
     @test parent_type(view(x, 1:2, 1:2)) <: typeof(x)

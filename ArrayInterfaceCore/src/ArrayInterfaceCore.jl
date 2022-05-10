@@ -346,22 +346,10 @@ The color vector for dense matrix and triangular matrix is simply
 function matrix_colors(A::Union{Array,UpperTriangular,LowerTriangular})
     eachindex(1:Base.size(A, 2)) # Vector Base.size matches number of rows
 end
-
-function _cycle(repetend, len)
-    repeat(repetend, div(len, length(repetend)) + 1)[1:len]
-end
-
-function matrix_colors(A::Diagonal)
-    fill(1, Base.size(A, 2))
-end
-
-function matrix_colors(A::Bidiagonal)
-    _cycle(1:2, Base.size(A, 2))
-end
-
-function matrix_colors(A::Union{Tridiagonal,SymTridiagonal})
-    _cycle(1:3, Base.size(A, 2))
-end
+matrix_colors(A::Diagonal) = fill(1, Base.size(A, 2))
+matrix_colors(A::Bidiagonal) = _cycle(1:2, Base.size(A, 2))
+matrix_colors(A::Union{Tridiagonal,SymTridiagonal}) = _cycle(1:3, Base.size(A, 2))
+_cycle(repetend, len) = repeat(repetend, div(len, length(repetend)) + 1)[1:len]
 
 """
   lu_instance(A) -> lu_factorization_instance
