@@ -1,4 +1,29 @@
 
+"""
+    fast_scalar_indexing(::Type{T}) -> Bool
+
+Query whether an array type has fast scalar indexing.
+"""
+fast_scalar_indexing(x) = fast_scalar_indexing(typeof(x))
+fast_scalar_indexing(::Type) = true
+fast_scalar_indexing(::Type{<:LinearAlgebra.AbstractQ}) = false
+fast_scalar_indexing(::Type{<:LinearAlgebra.LQPackedQ}) = false
+
+"""
+    allowed_getindex(x,i...)
+
+A scalar `getindex` which is always allowed.
+"""
+allowed_getindex(x, i...) = x[i...]
+
+"""
+    allowed_setindex!(x,v,i...)
+
+A scalar `setindex!` which is always allowed.
+"""
+allowed_setindex!(x, v, i...) = Base.setindex!(x, v, i...)
+
+
 @inline function _to_cartesian(a, i::CanonicalInt)
     @inbounds(CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))[i])
 end
