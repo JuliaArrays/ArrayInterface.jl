@@ -1,0 +1,12 @@
+name = "ArrayInterfaceBandedMatrices"
+uuid = "2e50d22c-5be1-4042-81b1-c572ed69783d"
+version = "0.1.0"
+
+[deps]
+ArrayInterfaceCore = "30b0a656-2188-435a-8636-2ec0e6a096e2"
+BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
+
+[compat]
+ArrayInterfaceCore = "0.1"
+BandedMatrices = "0.17"
+

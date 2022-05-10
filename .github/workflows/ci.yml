@@ -11,9 +11,20 @@ jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.group == 'Downstream' }}
     strategy:
       fail-fast: false
       matrix:
+        group:
+          - ArrayInterfaceCore
+          - ArrayInterfaceBandedMatrices
+          - ArrayInterfaceBlockBandedMatrices
+          - ArrayInterfaceCuArrays
+          - ArrayInterfaceCUDA
+          - ArrayInterfaceLabelledArrays
+          - ArrayInterfaceOffsetArrays
+          - ArrayInterfaceStaticArrays
+          - ArrayInterfaceTracker
         version:
           - '1.6'
           - '1' # automatically expands to the latest stable 1.x release of Julia.
@@ -27,7 +38,6 @@ jobs:
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.version }}
-          arch: ${{ matrix.arch }}
       - uses: actions/cache@v1
         env:
           cache-name: cache-artifacts
@@ -38,29 +48,12 @@ jobs:
             ${{ runner.os }}-test-${{ env.cache-name }}-
             ${{ runner.os }}-test-
             ${{ runner.os }}-
-      - run: julia --project -e 'using Pkg; Pkg.develop([PackageSpec(path="ArrayInterfaceCore")])'
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+        env:
+          GROUP: ${{ matrix.group }}
       - uses: julia-actions/julia-processcoverage@v1
-        with:
-          directiories: src,ArrayInterfaceCore/src
       - uses: codecov/codecov-action@v1
         with:
           file: lcov.info
-  docs:
-    name: Documentation
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - uses: julia-actions/setup-julia@latest
-        with:
-          version: '1.6'
-      - run: julia --project -e 'using Pkg; Pkg.develop([PackageSpec(path=joinpath(pwd(), "ArrayInterfaceCore"))])'
-      - run: julia --project=docs -e '
-          using Pkg;
-          Pkg.develop(PackageSpec(; path=pwd()));
-          Pkg.instantiate();'
-      - run: julia --project=docs docs/make.jl
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+

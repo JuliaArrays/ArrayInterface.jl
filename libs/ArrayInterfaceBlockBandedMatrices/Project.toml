@@ -1,0 +1,15 @@
+name = "ArrayInterfaceBlockBandedMatrices"
+uuid = "5331f1e9-51c7-46b0-a9b0-df4434785e0a"
+authors = ["Zachary P. Christensen <zchristensen7@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+ArrayInterfaceCore = "30b0a656-2188-435a-8636-2ec0e6a096e2"
+BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
+BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
+
+[compat]
+ArrayInterfaceCore = "0.1"
+BlockBandedMatrices = "0.11"
+BlockArrays = "0.16"
+

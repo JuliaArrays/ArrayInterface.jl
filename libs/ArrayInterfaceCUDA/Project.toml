@@ -1,0 +1,16 @@
+name = "ArrayInterfaceCUDA"
+uuid = "3e6d3b71-936e-4b08-8b74-7853fb4a8432"
+authors = ["Zachary P. Christensen <zchristensen7@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
+ArrayInterfaceCore = "30b0a656-2188-435a-8636-2ec0e6a096e2"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+
+[compat]
+Adapt = "3"
+ArrayInterfaceCore = "0.1"
+CUDA = "3"
+julia = "1.6"
+

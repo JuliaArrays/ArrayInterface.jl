@@ -1,0 +1,15 @@
+name = "ArrayInterfaceCuArrays"
+uuid = "3437ff42-decc-4d23-83d9-97c36d08d837"
+version = "0.1.0"
+
+[deps]
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
+ArrayInterfaceCore = "30b0a656-2188-435a-8636-2ec0e6a096e2"
+CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae"
+
+[compat]
+Adapt = "3"
+ArrayInterfaceCore = "0.1"
+CuArrays = "2"
+julia = "1.6"
+
