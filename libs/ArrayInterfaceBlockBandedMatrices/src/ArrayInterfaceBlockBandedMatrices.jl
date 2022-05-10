@@ -1,10 +1,11 @@
 module ArrayInterfaceBlockBandedMatrices
 
 using ArrayInterfaceCore
+using ArrayInterfaceBandedMatrices
 using BlockArrays
 using BlockBandedMatrices
 
-struct BlockBandedMatrixIndex <: MatrixIndex
+struct BlockBandedMatrixIndex <: ArrayInterfaceCore.MatrixIndex
     count::Int
     refinds::Array{Int,1}
     refcoords::Array{Int,1}# storing col or row inds at ref points
@@ -14,8 +15,8 @@ Base.firstindex(i::BlockBandedMatrixIndex) = 1
 Base.lastindex(i::BlockBandedMatrixIndex) = i.count
 Base.length(i::BlockBandedMatrixIndex) = lastindex(i)
 function BlockBandedMatrixIndex(nrowblock, ncolblock, rowsizes, colsizes, l, u)
-    blockrowind = BandedMatrixIndex(nrowblock, ncolblock, l, u, true)
-    blockcolind = BandedMatrixIndex(nrowblock, ncolblock, l, u, false)
+    blockrowind = ArrayInterfaceBandedMatrices.BandedMatrixIndex(nrowblock, ncolblock, l, u, true)
+    blockcolind = ArrayInterfaceBandedMatrices.BandedMatrixIndex(nrowblock, ncolblock, l, u, false)
     sortedinds = sort(
         [(blockrowind[i], blockcolind[i]) for i = 1:length(blockrowind)],
         by = x -> x[1],
@@ -95,11 +96,11 @@ function ArrayInterfaceCore.findstructralnz(x::BlockBandedMatrices.BlockBandedMa
         u,
     )
 end
-struct BandedBlockBandedMatrixIndex <: MatrixIndex
+struct BandedBlockBandedMatrixIndex <: ArrayInterfaceCore.MatrixIndex
     count::Int
     refinds::Array{Int,1}
     refcoords::Array{Int,1}# storing col or row inds at ref points
-    reflocalinds::Array{BandedMatrixIndex,1}
+    reflocalinds::Array{ArrayInterfaceBandedMatrices.BandedMatrixIndex,1}
     isrow::Bool
 end
 Base.firstindex(i::BandedBlockBandedMatrixIndex) = 1
@@ -127,8 +128,8 @@ function BandedBlockBandedMatrixIndex(
     lambda,
     mu,
 )
-    blockrowind = BandedMatrixIndex(nrowblock, ncolblock, l, u, true)
-    blockcolind = BandedMatrixIndex(nrowblock, ncolblock, l, u, false)
+    blockrowind = ArrayInterfaceBandedMatrices.BandedMatrixIndex(nrowblock, ncolblock, l, u, true)
+    blockcolind = ArrayInterfaceBandedMatrices.BandedMatrixIndex(nrowblock, ncolblock, l, u, false)
     sortedinds = sort(
         [(blockrowind[i], blockcolind[i]) for i = 1:length(blockrowind)],
         by = x -> x[1],
@@ -142,14 +143,14 @@ function BandedBlockBandedMatrixIndex(
     refinds = Array{Int,1}()
     refrowcoords = Array{Int,1}()
     refcolcoords = Array{Int,1}()
-    reflocalrowinds = Array{BandedMatrixIndex,1}()
-    reflocalcolinds = Array{BandedMatrixIndex,1}()
+    reflocalrowinds = Array{ArrayInterfaceBandedMatrices.BandedMatrixIndex,1}()
+    reflocalcolinds = Array{ArrayInterfaceBandedMatrices.BandedMatrixIndex,1}()
     for ind in sortedinds
         rowind, colind = ind
         localrowind =
-            BandedMatrixIndex(rowsizes[rowind], colsizes[colind], lambda, mu, true)
+            ArrayInterfaceBandedMatrices.BandedMatrixIndex(rowsizes[rowind], colsizes[colind], lambda, mu, true)
         localcolind =
-            BandedMatrixIndex(rowsizes[rowind], colsizes[colind], lambda, mu, false)
+            ArrayInterfaceBandedMatrices.BandedMatrixIndex(rowsizes[rowind], colsizes[colind], lambda, mu, false)
         push!(refinds, currenti)
         push!(refrowcoords, rowheights[rowind])
         push!(refcolcoords, colwidths[colind])

@@ -11,6 +11,6 @@ CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 [compat]
 Adapt = "3"
 ArrayInterfaceCore = "0.1"
-CUDA = "3"
+CUDA = "3.9"
 julia = "1.6"
 

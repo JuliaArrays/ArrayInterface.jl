@@ -9,4 +9,12 @@ BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
 [compat]
 ArrayInterfaceCore = "0.1"
 BandedMatrices = "0.17"
+julia = "1.6"
 
+[extras]
+ArrayInterfaceCore = "30b0a656-2188-435a-8636-2ec0e6a096e2"
+BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["ArrayInterfaceCore","BandedMatrices","Test"]

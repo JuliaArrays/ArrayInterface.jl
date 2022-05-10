@@ -2,6 +2,7 @@ module ArrayInterfaceStaticArrays
 
 using Adapt
 using ArrayInterfaceCore
+using LinearAlgebra
 using StaticArrays
 using Static
 
@@ -29,7 +30,9 @@ ArrayInterfaceCore.known_first(::Type{<:StaticArrays.SOneTo}) = 1
 ArrayInterfaceCore.known_last(::Type{StaticArrays.SOneTo{N}}) where {N} = N
 ArrayInterfaceCore.known_length(::Type{StaticArrays.SOneTo{N}}) where {N} = N
 ArrayInterfaceCore.known_length(::Type{StaticArrays.Length{L}}) where {L} = L
-ArrayInterfaceCore.known_length(::Type{A}) where {A <: StaticArrays.StaticArray} = known_length(StaticArrays.Length(A))
+function ArrayInterfaceCore.known_length(::Type{A}) where {A <: StaticArrays.StaticArray}
+    ArrayInterfaceCore.known_length(StaticArrays.Length(A))
+end
 
 ArrayInterfaceCore.device(::Type{<:StaticArrays.MArray}) = ArrayInterfaceCore.CPUPointer()
 ArrayInterfaceCore.device(::Type{<:StaticArrays.SArray}) = ArrayInterfaceCore.CPUTuple()
@@ -63,7 +66,7 @@ end
     return t
 end
 if StaticArrays.SizedArray{Tuple{8,8},Float64,2,2} isa UnionAll
-    @inline ArrayInterfaceCore.strides(B::StaticArrays.SizedArray{S,T,M,N,A}) where {S,T,M,N,A<:SubArray} = strides(B.data)
+    @inline ArrayInterfaceCore.strides(B::StaticArrays.SizedArray{S,T,M,N,A}) where {S,T,M,N,A<:SubArray} = ArrayInterfaceCore.strides(B.data)
     ArrayInterfaceCore.parent_type(::Type{<:StaticArrays.SizedArray{S,T,M,N,A}}) where {S,T,M,N,A} = A
 else
     ArrayInterfaceCore.parent_type(::Type{<:StaticArrays.SizedArray{S,T,M,N}}) where {S,T,M,N} = Array{T,N}
