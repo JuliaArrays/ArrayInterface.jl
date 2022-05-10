@@ -35,28 +35,6 @@ parameterless_type(x::Type) = __parameterless_type(x)
 const VecAdjTrans{T,V<:AbstractVector{T}} = Union{Transpose{T,V},Adjoint{T,V}}
 const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
 
-"""
-    length(A) -> Union{Int,StaticInt}
-
-Returns the length of `A`.  If the length is known at compile time, it is
-returned as `Static` number.  Otherwise, `ArrayInterfaceCore.length(A)` is identical
-to `Base.length(A)`.
-
-```julia
-julia> using StaticArrays, ArrayInterface
-
-julia> A = @SMatrix rand(3,4);
-
-julia> ArrayInterfaceCore.length(A)
-static(12)
-```
-"""
-@inline length(a::UnitRange{T}) where {T} = last(a) - first(a) + oneunit(T)
-@inline length(x) = Static.maybe_static(known_length, Base.length, x)
-
-# Alias to to-be-depreciated internal function
-const static_length = length
-
 @inline static_first(x) = Static.maybe_static(known_first, first, x)
 @inline static_last(x) = Static.maybe_static(known_last, last, x)
 @inline static_step(x) = Static.maybe_static(known_step, step, x)
@@ -100,43 +78,6 @@ may not return another array type.
 buffer(x) = parent(x)
 buffer(x::SparseMatrixCSC) = getfield(x, :nzval)
 buffer(x::SparseVector) = getfield(x, :nzval)
-
-"""
-    known_length(::Type{T}) -> Union{Int,Nothing}
-
-If `length` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `nothing`.
-"""
-known_length(x) = known_length(typeof(x))
-known_length(::Type{<:NamedTuple{L}}) where {L} = length(L)
-known_length(::Type{T}) where {T<:Slice} = known_length(parent_type(T))
-known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N
-known_length(::Type{<:Number}) = 1
-known_length(::Type{<:AbstractCartesianIndex{N}}) where {N} = N
-known_length(::Type{T}) where {T} = _maybe_known_length(Base.IteratorSize(T), T)
-
-@generated function _prod_or_nothing(x::Tuple)
-  p = 1
-  for i in eachindex(x.parameters)
-    x.parameters[i] === Nothing && return nothing
-    p *= x.parameters[i].parameters[1]
-  end
-  StaticInt(p)
-end
-
-function _maybe_known_length(::Base.HasShape, ::Type{T}) where {T}
-  t = map(_static_or_nothing, known_size(T))
-  _int_or_nothing(_prod_or_nothing(t))
-end
-
-_maybe_known_length(::Base.IteratorSize, ::Type) = nothing
-_static_or_nothing(::Nothing) = nothing
-@inline _static_or_nothing(x::Int) = StaticInt{x}()
-_int_or_nothing(::StaticInt{N}) where {N} = N
-_int_or_nothing(::Nothing) = nothing
-function known_length(::Type{<:Iterators.Flatten{I}}) where {I}
-  _int_or_nothing(_prod_or_nothing((_static_or_nothing(known_length(I)),_static_or_nothing(known_length(eltype(I))))))
-end
 
 """
     can_change_size(::Type{T}) -> Bool
@@ -477,22 +418,6 @@ _not_pointer(::CPUPointer) = CPUIndex()
 _not_pointer(x) = x
 _device(::False, ::Type{T}) where {T<:DenseArray} = CPUPointer()
 _device(::False, ::Type{T}) where {T} = CPUIndex()
-
-"""
-    defines_strides(::Type{T}) -> Bool
-
-Is strides(::T) defined? It is assumed that types returning `true` also return a valid
-pointer on `pointer(::T)`.
-"""
-defines_strides(x) = defines_strides(typeof(x))
-_defines_strides(::Type{T}, ::Type{T}) where {T} = false
-_defines_strides(::Type{P}, ::Type{T}) where {P,T} = defines_strides(P)
-defines_strides(::Type{T}) where {T} = _defines_strides(parent_type(T), T)
-defines_strides(::Type{<:StridedArray}) = true
-function defines_strides(::Type{<:SubArray{T,N,P,I}}) where {T,N,P,I}
-    return stride_preserving_index(I) === True()
-end
-defines_strides(::Type{<:BitArray}) = true
 
 """
     can_avx(f) -> Bool

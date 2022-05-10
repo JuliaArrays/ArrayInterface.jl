@@ -1,4 +1,20 @@
 
+"""
+    defines_strides(::Type{T}) -> Bool
+
+Is strides(::T) defined? It is assumed that types returning `true` also return a valid
+pointer on `pointer(::T)`.
+"""
+defines_strides(x) = defines_strides(typeof(x))
+_defines_strides(::Type{T}, ::Type{T}) where {T} = false
+_defines_strides(::Type{P}, ::Type{T}) where {P,T} = defines_strides(P)
+defines_strides(::Type{T}) where {T} = _defines_strides(parent_type(T), T)
+defines_strides(::Type{<:StridedArray}) = true
+function defines_strides(::Type{<:SubArray{T,N,P,I}}) where {T,N,P,I}
+    stride_preserving_index(I) === True()
+end
+defines_strides(::Type{<:BitArray}) = true
+
 #=
     stride_preserving_index(::Type{T}) -> StaticBool
 
