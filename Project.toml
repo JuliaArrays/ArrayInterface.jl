@@ -11,7 +11,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
 
 [compat]
-Compat = "3.37"
+Compat = "3.37, 4"
 IfElse = "0.1"
 Requires = "0.5, 1.0"
 Static = "0.6"
