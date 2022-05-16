@@ -44,16 +44,14 @@ jobs:
         run: |
           using Pkg
           try
-
-            # force it to use this PR's version of the package
-            Pkg.develop(PackageSpec(path="."))  # resolver may fail with main deps
-            
             function dev_subpkg(subpkg)
-                subpkg_path = joinpath(dirname(@__DIR__),"ArrayInterface", "lib", subpkg)
+                subpkg_path = joinpath(".","ArrayInterface", "lib", subpkg)
                 Pkg.develop(Pkg.PackageSpec(path=subpkg_path))
             end
             dev_subpkg("ArrayInterfaceCore")
-            Pkg.develop("ArrayInterface")
+
+            # force it to use this PR's version of the package
+            Pkg.develop(PackageSpec(path="."))  # resolver may fail with main deps
             
             Pkg.update()
             Pkg.test()  # resolver may fail with test time deps
