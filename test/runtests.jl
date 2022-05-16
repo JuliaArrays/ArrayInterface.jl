@@ -15,7 +15,6 @@ function activate_subpkg_env(subpkg)
 end
 
 # Add necessary sub-dependencies
-dev_subpkg("ArrayInterfaceCore")
 if GROUP == "ArrayInterfaceBlockBandedMatrices"
     dev_subpkg("ArrayInterfaceBandedMatrices")
 end
