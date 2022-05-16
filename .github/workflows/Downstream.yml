@@ -34,6 +34,16 @@ jobs:
         with:
           version: ${{ matrix.julia-version }}
           arch: x64
+      - name: Setup ArrayInterface
+        shell: julia --color=yes
+        run: |
+          using Pkg
+          function dev_subpkg(subpkg)
+              subpkg_path = joinpath(".","ArrayInterface", "lib", subpkg)
+              Pkg.develop(Pkg.PackageSpec(path=subpkg_path))
+          end
+          dev_subpkg("ArrayInterfaceCore")
+          Pkg.build()
       - name: Clone Downstream
         uses: actions/checkout@v2
         with:
@@ -44,12 +54,6 @@ jobs:
         run: |
           using Pkg
           try
-            function dev_subpkg(subpkg)
-                subpkg_path = joinpath(".","ArrayInterface", "lib", subpkg)
-                Pkg.develop(Pkg.PackageSpec(path=subpkg_path))
-            end
-            dev_subpkg("ArrayInterfaceCore")
-
             # force it to use this PR's version of the package
             Pkg.develop(PackageSpec(path="."))  # resolver may fail with main deps
             
