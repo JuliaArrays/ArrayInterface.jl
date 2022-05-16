@@ -6,12 +6,9 @@ on:
   push:
     branches:
       - master
-    tags: '*'
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
-    runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.group == 'Downstream' }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -25,13 +22,8 @@ jobs:
           - ArrayInterfaceStaticArrays
           - ArrayInterfaceTracker
         version:
+          - '1'
           - '1.6'
-          - '1' # automatically expands to the latest stable 1.x release of Julia.
-        os:
-          - ubuntu-latest
-          - windows-latest
-        arch:
-          - x64
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
@@ -55,4 +47,3 @@ jobs:
       - uses: codecov/codecov-action@v1
         with:
           file: lcov.info
-

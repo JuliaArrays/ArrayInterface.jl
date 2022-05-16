@@ -18,6 +18,7 @@ end
 if GROUP == "HighLevel"
     # Any tests for the level combined package? None right now.
 else
+    dev_subpkg("ArrayInterfaceCore")
     dev_subpkg(GROUP)
     subpkg_path = joinpath(dirname(@__DIR__), "lib", GROUP)
     Pkg.test(PackageSpec(name=GROUP, path=subpkg_path))
