@@ -17,7 +17,6 @@ jobs:
           - ArrayInterfaceBandedMatrices
           - ArrayInterfaceBlockBandedMatrices
           - ArrayInterfaceCUDA
-          - ArrayInterfaceLabelledArrays
           - ArrayInterfaceOffsetArrays
           - ArrayInterfaceStaticArrays
           - ArrayInterfaceTracker

@@ -14,11 +14,16 @@ function activate_subpkg_env(subpkg)
     Pkg.instantiate()
 end
 
+# Add necessary sub-dependencies
+dev_subpkg("ArrayInterfaceCore")
+if GROUP == "ArrayInterfaceBlockBandedMatrices"
+    dev_subpkg("ArrayInterfaceBandedMatrices")
+end
+
 @time begin
 if GROUP == "HighLevel"
     # Any tests for the level combined package? None right now.
 else
-    dev_subpkg("ArrayInterfaceCore")
     dev_subpkg(GROUP)
     subpkg_path = joinpath(dirname(@__DIR__), "lib", GROUP)
     Pkg.test(PackageSpec(name=GROUP, path=subpkg_path))
