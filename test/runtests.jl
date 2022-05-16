@@ -22,3 +22,4 @@ else
     subpkg_path = joinpath(dirname(@__DIR__), "lib", GROUP)
     Pkg.test(PackageSpec(name=GROUP, path=subpkg_path))
 end
+end
