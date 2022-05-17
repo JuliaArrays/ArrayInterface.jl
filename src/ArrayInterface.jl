@@ -28,6 +28,8 @@ import ArrayInterfaceCore: axes, axes_types, lazy_axes, LazyAxis
 import ArrayInterfaceCore: size, known_size, known_length, static_length
 # managing immutables
 import ArrayInterfaceCore: ismutable, can_change_size, can_setindex, deleteat, insert
+# constants
+import ArrayInterfaceCore: MatAdjTrans, VecAdjTrans, UpTri, LoTri
 
 using Static
 using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
