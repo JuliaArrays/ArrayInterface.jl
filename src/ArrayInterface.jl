@@ -31,12 +31,6 @@ import ArrayInterfaceCore: ismutable, can_change_size, can_setindex, deleteat, i
 # constants
 import ArrayInterfaceCore: MatAdjTrans, VecAdjTrans, UpTri, LoTri
 
-using ArrayInterfaceBandedMatrices
-using ArrayInterfaceBlockBandedMatrices
-using ArrayInterfaceCUDA
-using ArrayInterfaceOffsetArrays
-using ArrayInterfaceStaticArrays
-using ArrayInterfaceTracker
 using Static
 using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
     permute, invariant_permutation, field_type, reduce_tup
