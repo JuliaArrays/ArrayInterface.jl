@@ -5,14 +5,14 @@
 
 Returns the size of each dimension of `A` or along dimension `dim` of `A`. If the size of
 any axes are known at compile time, these should be returned as `Static` numbers. Otherwise,
-`ArrayInterface.size(A)` is identical to `Base.size(A)`
+`ArrayInterfaceCore.size(A)` is identical to `Base.size(A)`
 
 ```julia
 julia> using StaticArrays, ArrayInterface
 
 julia> A = @SMatrix rand(3,4);
 
-julia> ArrayInterface.size(A)
+julia> ArrayInterfaceCore.size(A)
 (static(3), static(4))
 ```
 """
@@ -123,5 +123,64 @@ _known_size(::Type{T}, dim::StaticInt) where {T} = known_length(field_type(T, di
     else
         return known_size(T)[dim]
     end
+end
+
+"""
+    length(A) -> Union{Int,StaticInt}
+
+Returns the length of `A`.  If the length is known at compile time, it is
+returned as `Static` number.  Otherwise, `ArrayInterfaceCore.length(A)` is identical
+to `Base.length(A)`.
+
+```julia
+julia> using StaticArrays, ArrayInterface
+
+julia> A = @SMatrix rand(3,4);
+
+julia> ArrayInterfaceCore.length(A)
+static(12)
+```
+"""
+@inline length(a::UnitRange{T}) where {T} = last(a) - first(a) + oneunit(T)
+@inline length(x) = Static.maybe_static(known_length, Base.length, x)
+
+# Alias to to-be-depreciated internal function
+const static_length = length
+
+"""
+    known_length(::Type{T}) -> Union{Int,Nothing}
+
+If `length` of an instance of type `T` is known at compile time, return it.
+Otherwise, return `nothing`.
+"""
+known_length(x) = known_length(typeof(x))
+known_length(::Type{<:NamedTuple{L}}) where {L} = length(L)
+known_length(::Type{T}) where {T<:Slice} = known_length(parent_type(T))
+known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N
+known_length(::Type{<:Number}) = 1
+known_length(::Type{<:AbstractCartesianIndex{N}}) where {N} = N
+known_length(::Type{T}) where {T} = _maybe_known_length(Base.IteratorSize(T), T)
+
+@generated function _prod_or_nothing(x::Tuple)
+  p = 1
+  for i in eachindex(x.parameters)
+    x.parameters[i] === Nothing && return nothing
+    p *= x.parameters[i].parameters[1]
+  end
+  StaticInt(p)
+end
+
+function _maybe_known_length(::Base.HasShape, ::Type{T}) where {T}
+  t = map(_static_or_nothing, known_size(T))
+  _int_or_nothing(_prod_or_nothing(t))
+end
+
+_maybe_known_length(::Base.IteratorSize, ::Type) = nothing
+_static_or_nothing(::Nothing) = nothing
+@inline _static_or_nothing(x::Int) = StaticInt{x}()
+_int_or_nothing(::StaticInt{N}) where {N} = N
+_int_or_nothing(::Nothing) = nothing
+function known_length(::Type{<:Iterators.Flatten{I}}) where {I}
+  _int_or_nothing(_prod_or_nothing((_static_or_nothing(known_length(I)),_static_or_nothing(known_length(eltype(I))))))
 end
 

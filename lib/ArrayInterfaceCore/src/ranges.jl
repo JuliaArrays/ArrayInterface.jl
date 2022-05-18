@@ -9,10 +9,10 @@ If `first` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
 
 ```julia
-julia> ArrayInterface.known_first(typeof(1:4))
+julia> ArrayInterfaceCore.known_first(typeof(1:4))
 nothing
 
-julia> ArrayInterface.known_first(typeof(Base.OneTo(4)))
+julia> ArrayInterfaceCore.known_first(typeof(Base.OneTo(4)))
 1
 ```
 """
@@ -36,10 +36,10 @@ If `last` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
 
 ```julia
-julia> ArrayInterface.known_last(typeof(1:4))
+julia> ArrayInterfaceCore.known_last(typeof(1:4))
 nothing
 
-julia> ArrayInterface.known_first(typeof(static(1):static(4)))
+julia> ArrayInterfaceCore.known_first(typeof(static(1):static(4)))
 4
 
 ```
@@ -63,10 +63,10 @@ If `step` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
 
 ```julia
-julia> ArrayInterface.known_step(typeof(1:2:8))
+julia> ArrayInterfaceCore.known_step(typeof(1:2:8))
 nothing
 
-julia> ArrayInterface.known_step(typeof(1:4))
+julia> ArrayInterfaceCore.known_step(typeof(1:4))
 1
 
 ```
@@ -123,12 +123,12 @@ the range operator (i.e., `:`).
 ```julia
 julia> using ArrayInterface
 
-julia> x = ArrayInterface.static(2);
+julia> x = ArrayInterfaceCore.static(2);
 
 julia> x:x:10
 static(2):static(2):10
 
-julia> ArrayInterface.OptionallyStaticStepRange(x, x, 10)
+julia> ArrayInterfaceCore.OptionallyStaticStepRange(x, x, 10)
 static(2):static(2):10
 
 ```

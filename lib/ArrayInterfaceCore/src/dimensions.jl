@@ -17,9 +17,9 @@ end
     _promote_shape(a, b)
 end
 
-#julia> @btime ArrayInterface.is_increasing(ArrayInterface.nstatic(Val(10)))
+#julia> @btime ArrayInterfaceCore.is_increasing(ArrayInterfaceCore.nstatic(Val(10)))
 #  0.045 ns (0 allocations: 0 bytes)
-#ArrayInterface.True()
+#ArrayInterfaceCore.True()
 function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y},Vararg}) where {X, Y}
     if X <= Y
         return is_increasing(tail(perm))

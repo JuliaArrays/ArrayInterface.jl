@@ -1,4 +1,20 @@
 
+"""
+    defines_strides(::Type{T}) -> Bool
+
+Is strides(::T) defined? It is assumed that types returning `true` also return a valid
+pointer on `pointer(::T)`.
+"""
+defines_strides(x) = defines_strides(typeof(x))
+_defines_strides(::Type{T}, ::Type{T}) where {T} = false
+_defines_strides(::Type{P}, ::Type{T}) where {P,T} = defines_strides(P)
+defines_strides(::Type{T}) where {T} = _defines_strides(parent_type(T), T)
+defines_strides(::Type{<:StridedArray}) = true
+function defines_strides(::Type{<:SubArray{T,N,P,I}}) where {T,N,P,I}
+    stride_preserving_index(I) === True()
+end
+defines_strides(::Type{<:BitArray}) = true
+
 #=
     stride_preserving_index(::Type{T}) -> StaticBool
 
@@ -515,7 +531,7 @@ these should be returned as `Static` numbers. For example:
 ```julia
 julia> A = rand(3,4);
 
-julia> ArrayInterface.strides(A)
+julia> ArrayInterfaceCore.strides(A)
 (static(1), 3)
 ```
 
@@ -524,7 +540,7 @@ Additionally, the behavior differs from `Base.strides` for adjoint vectors:
 ```julia
 julia> x = rand(5);
 
-julia> ArrayInterface.strides(x')
+julia> ArrayInterfaceCore.strides(x')
 (static(1), static(1))
 ```
 
@@ -545,7 +561,7 @@ strides(A::StrideIndex) = getfield(A, :strides)
     end
 end
 
-# Fixes the example of https://github.com/JuliaArrays/ArrayInterface.jl/issues/160
+# Fixes the example of https://github.com/JuliaArrays/ArrayInterfaceCore.jl/issues/160
 # TODO: Should be generalized to reshaped arrays wrapping more general array types
 function strides(A::ReshapedArray{T,N,P}) where {T, N, P<:AbstractVector}
     if defines_strides(A)
