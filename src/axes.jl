@@ -1,10 +1,3 @@
-
-"""
-    axes_types(::Type{T}) -> Type{Tuple{Vararg{AbstractUnitRange{Int}}}}
-    axes_types(::Type{T}, dim) -> Type{AbstractUnitRange{Int}}
-
-Returns the type of each axis for the `T`, or the type of of the axis along dimension `dim`.
-"""
 @inline axes_types(x, dim) = axes_types(x, to_dims(x, dim))
 @inline function axes_types(x, dim::StaticInt{D}) where {D}
     if D > ndims(x)
@@ -83,17 +76,6 @@ end
 # conditionally typed (but inferrable) axes. It also means we can't depend on constant
 # propagation to preserve statically sized axes. This should probably be addressed before
 # merging into Base Julia.
-"""
-    axes(A) -> Tuple{Vararg{AbstractUnitRange{Int}}}
-    axes(A, dim) -> AbstractUnitRange{Int}
-
-Returns the axis associated with each dimension of `A` or dimension `dim`.
-`ArrayInterface.axes(::AbstractArray)` behaves nearly identical to `Base.axes` with the
-exception of a handful of types replace `Base.OneTo{Int}` with `ArrayInterface.SOneTo`. For
-example, the axis along the first dimension of `Transpose{T,<:AbstractVector{T}}` and
-`Adjoint{T,<:AbstractVector{T}}` can be represented by `SOneTo(1)`. Similarly,
-`Base.ReinterpretArray`'s first axis may be statically sized.
-"""
 @inline axes(A) = Base.axes(A)
 axes(A::ReshapedArray) = Base.axes(A)
 axes(A::PermutedDimsArray) = permute(axes(parent(A)), to_parent_dims(A))
@@ -278,12 +260,6 @@ end
 
 Base.show(io::IO, x::LazyAxis{N}) where {N} = print(io, "LazyAxis{$N}($(parent(x))))")
 
-"""
-    lazy_axes(x)
-
-Produces a tuple of axes where each axis is constructed lazily. If an axis of `x` is already
-constructed or it is simply retrieved.
-"""
 @generated function lazy_axes(x::X) where {X}
     Expr(:block, Expr(:meta, :inline), Expr(:tuple, [:(LazyAxis{$dim}(x)) for dim in 1:ndims(X)]...))
 end

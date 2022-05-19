@@ -5,9 +5,7 @@ using LinearAlgebra
 using LinearAlgebra: AbstractTriangular
 using SparseArrays
 using SuiteSparse
-using Static
-using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
-    find_first_eq, permute, invariant_permutation, field_type, reduce_tup
+
 using Base.Cartesian
 import Compat
 
@@ -26,7 +24,7 @@ end
 _is_reshaped(::Type{<:ReinterpretArray}) = false
 
 @generated function merge_tuple_type(::Type{X}, ::Type{Y}) where {X<:Tuple,Y<:Tuple}
-    Tuple{X.parameters..., Y.parameters...}
+    Tuple{X.parameters...,Y.parameters...}
 end
 Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
@@ -36,12 +34,6 @@ const VecAdjTrans{T,V<:AbstractVector{T}} = Union{Transpose{T,V},Adjoint{T,V}}
 const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
 const UpTri{T,M} = Union{UpperTriangular{T,M},UnitUpperTriangular{T,M}}
 const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
-
-@inline static_first(x) = Static.maybe_static(known_first, first, x)
-@inline static_last(x) = Static.maybe_static(known_last, last, x)
-@inline static_step(x) = Static.maybe_static(known_step, step, x)
-
-include("array_index.jl")
 
 """
     parent_type(::Type{T}) -> Type
@@ -115,15 +107,15 @@ ismutable(::Type{<:Base.ImmutableDict}) = false
 ismutable(::Type{BigFloat}) = false
 ismutable(::Type{BigInt}) = false
 function ismutable(::Type{T}) where {T}
-  if parent_type(T) <: T
-    @static if VERSION ≥ v"1.7.0-DEV.1208"
-      return Base.ismutabletype(T)
+    if parent_type(T) <: T
+        @static if VERSION ≥ v"1.7.0-DEV.1208"
+            return Base.ismutabletype(T)
+        else
+            return T.mutable
+        end
     else
-      return T.mutable
+        return ismutable(parent_type(T))
     end
-  else
-    return ismutable(parent_type(T))
-  end
 end
 
 # Piracy
@@ -200,14 +192,14 @@ has_sparsestruct(::Type{<:SymTridiagonal}) = true
 Determine whether a given abstract matrix is singular.
 """
 issingular(A::AbstractMatrix) = issingular(Matrix(A))
-issingular(A::AbstractSparseMatrix) = !issuccess(lu(A, check = false))
-issingular(A::Matrix) = !issuccess(lu(A, check = false))
+issingular(A::AbstractSparseMatrix) = !issuccess(lu(A, check=false))
+issingular(A::Matrix) = !issuccess(lu(A, check=false))
 issingular(A::UniformScaling) = A.λ == 0
 issingular(A::Diagonal) = any(iszero, A.diag)
 issingular(A::Bidiagonal) = any(iszero, A.dv)
 issingular(A::SymTridiagonal) = diaganyzero(ldlt(A).data)
-issingular(A::Tridiagonal) = !issuccess(lu(A, check = false))
-issingular(A::Union{Hermitian,Symmetric}) = diaganyzero(bunchkaufman(A, check = false).LD)
+issingular(A::Tridiagonal) = !issuccess(lu(A, check=false))
+issingular(A::Union{Hermitian,Symmetric}) = diaganyzero(bunchkaufman(A, check=false).LD)
 issingular(A::Union{LowerTriangular,UpperTriangular}) = diaganyzero(A.data)
 issingular(A::Union{UnitLowerTriangular,UnitUpperTriangular}) = false
 issingular(A::Union{Adjoint,Transpose}) = issingular(parent(A))
@@ -308,7 +300,7 @@ lu_instance(a::Number) = a
 
 Returns the number.
 """
-lu_instance(a::Any) = lu(a, check = false)
+lu_instance(a::Any) = lu(a, check=false)
 
 """
     safevec(v)
@@ -338,9 +330,9 @@ function zeromatrix(u)
 end
 
 # Reduces compile time burdens
-function zeromatrix(u::Array{T}) where T
+function zeromatrix(u::Array{T}) where {T}
     out = Matrix{T}(undef, length(u), length(u))
-    fill!(out,false)
+    fill!(out, false)
 end
 
 """
@@ -517,50 +509,6 @@ end
     end
 end
 
-abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
-
-Base.size(A::AbstractArray2) = map(Int, ArrayInterfaceCore.size(A))
-Base.size(A::AbstractArray2, dim) = Int(ArrayInterfaceCore.size(A, dim))
-
-function Base.axes(A::AbstractArray2)
-    !(parent_type(A) <: typeof(A)) && return ArrayInterfaceCore.axes(parent(A))
-    throw(ArgumentError("Subtypes of `AbstractArray2` must define an axes method"))
-end
-Base.axes(A::AbstractArray2, dim) = ArrayInterfaceCore.axes(A, dim)
-
-function Base.strides(A::AbstractArray2)
-    defines_strides(A) && return map(Int, ArrayInterfaceCore.strides(A))
-    throw(MethodError(Base.strides, (A,)))
-end
-Base.strides(A::AbstractArray2, dim) = Int(ArrayInterfaceCore.strides(A, dim))
-
-function Base.IndexStyle(::Type{T}) where {T<:AbstractArray2}
-    if parent_type(T) <: T
-        return IndexCartesian()
-    else
-        return IndexStyle(parent_type(T))
-    end
-end
-
-function Base.length(A::AbstractArray2)
-    len = known_length(A)
-    if len === nothing
-        return Int(prod(size(A)))
-    else
-        return Int(len)
-    end
-end
-
-@propagate_inbounds Base.getindex(A::AbstractArray2, args...) = getindex(A, args...)
-@propagate_inbounds Base.getindex(A::AbstractArray2; kwargs...) = getindex(A; kwargs...)
-
-@propagate_inbounds function Base.setindex!(A::AbstractArray2, val, args...)
-    return setindex!(A, val, args...)
-end
-@propagate_inbounds function Base.setindex!(A::AbstractArray2, val; kwargs...)
-    return setindex!(A, val; kwargs...)
-end
-
 """
     is_lazy_conjugate(::AbstractArray) -> Bool
 
@@ -585,10 +533,10 @@ Examples
     False()
 
 """
-is_lazy_conjugate(::T) where {T <: AbstractArray} = _is_lazy_conjugate(T, False())
-is_lazy_conjugate(::AbstractArray{<:Real})  = False()
+is_lazy_conjugate(::T) where {T<:AbstractArray} = _is_lazy_conjugate(T, False())
+is_lazy_conjugate(::AbstractArray{<:Real}) = False()
 
-function _is_lazy_conjugate(::Type{T}, isconj) where {T <: AbstractArray}
+function _is_lazy_conjugate(::Type{T}, isconj) where {T<:AbstractArray}
     Tp = parent_type(T)
     if T !== Tp
         _is_lazy_conjugate(Tp, isconj)
@@ -597,7 +545,7 @@ function _is_lazy_conjugate(::Type{T}, isconj) where {T <: AbstractArray}
     end
 end
 
-function _is_lazy_conjugate(::Type{T}, isconj) where {T <: Adjoint}
+function _is_lazy_conjugate(::Type{T}, isconj) where {T<:Adjoint}
     Tp = parent_type(T)
     if T !== Tp
         _is_lazy_conjugate(Tp, !isconj)
@@ -606,12 +554,92 @@ function _is_lazy_conjugate(::Type{T}, isconj) where {T <: Adjoint}
     end
 end
 
-include("ranges.jl")
-include("axes.jl")
-include("size.jl")
-include("dimensions.jl")
-include("indexing.jl")
-include("stridelayout.jl")
-include("broadcast.jl")
+"""
+    fast_scalar_indexing(::Type{T}) -> Bool
+
+Query whether an array type has fast scalar indexing.
+"""
+fast_scalar_indexing(x) = fast_scalar_indexing(typeof(x))
+fast_scalar_indexing(::Type) = true
+fast_scalar_indexing(::Type{<:LinearAlgebra.AbstractQ}) = false
+fast_scalar_indexing(::Type{<:LinearAlgebra.LQPackedQ}) = false
+
+"""
+    allowed_getindex(x,i...)
+
+A scalar `getindex` which is always allowed.
+"""
+allowed_getindex(x, i...) = x[i...]
+
+"""
+    allowed_setindex!(x,v,i...)
+
+A scalar `setindex!` which is always allowed.
+"""
+allowed_setindex!(x, v, i...) = Base.setindex!(x, v, i...)
+
+
+@inline function _to_cartesian(a, i::CanonicalInt)
+    @inbounds(CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))[i])
+end
+@inline function _to_linear(a, i::Tuple{CanonicalInt,Vararg{CanonicalInt}})
+    _strides2int(offsets(a), size_to_strides(size(a), static(1)), i) + static(1)
+end
+
+"""
+    ArrayIndex{N}
+
+Subtypes of `ArrayIndex` represent series of transformations for a provided index to some
+buffer which is typically accomplished with square brackets (e.g., `buffer[index[inds...]]`).
+The only behavior that is required of a subtype of `ArrayIndex` is the ability to transform
+individual index elements (i.e. not collections). This does not guarantee bounds checking or
+the ability to iterate (although additional functionallity may be provided for specific
+types).
+"""
+abstract type ArrayIndex{N} end
+
+const MatrixIndex = ArrayIndex{2}
+
+const VectorIndex = ArrayIndex{1}
+
+Base.ndims(::Type{<:ArrayIndex{N}}) where {N} = N
+
+struct BidiagonalIndex <: MatrixIndex
+    count::Int
+    isup::Bool
+end
+
+struct TridiagonalIndex <: MatrixIndex
+    count::Int# count==nsize+nsize-1+nsize-1
+    nsize::Int
+    isrow::Bool
+end
+
+Base.firstindex(i::Union{BidiagonalIndex,TridiagonalIndex}) = 1
+Base.lastindex(i::Union{BidiagonalIndex,TridiagonalIndex}) = i.count
+Base.length(i::Union{BidiagonalIndex,TridiagonalIndex}) = lastindex(i)
+
+@propagate_inbounds function Base.getindex(ind::BidiagonalIndex, i::Int)
+    @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
+    if ind.isup
+        ii = i + 1
+    else
+        ii = i + 1 + 1
+    end
+    convert(Int, floor(ii / 2))
+end
+
+@propagate_inbounds function Base.getindex(ind::TridiagonalIndex, i::Int)
+    @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
+    offsetu = ind.isrow ? 0 : 1
+    offsetl = ind.isrow ? 1 : 0
+    if 1 <= i <= ind.nsize
+        return i
+    elseif ind.nsize < i <= ind.nsize + ind.nsize - 1
+        return i - ind.nsize + offsetu
+    else
+        return i - (ind.nsize + ind.nsize - 1) + offsetl
+    end
+end
 
 end # module

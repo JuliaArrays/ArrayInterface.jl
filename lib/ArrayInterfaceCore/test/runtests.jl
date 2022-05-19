@@ -13,8 +13,6 @@ using Test
 using Aqua
 Aqua.test_all(ArrayInterfaceCore)
 
-include("setup.jl")
-
 @test zeromatrix(rand(4,4,4)) == zeros(4*4*4,4*4*4)
 
 @testset "matrix colors" begin
@@ -334,16 +332,3 @@ end
         @test ArrayInterfaceCore.deleteat((1, 2, 3), [1, 2]) == (3,)
     end
 end
-
-@testset "indexing" begin
-    include("indexing.jl")
-end
-
-@testset "dimensions" begin
-    include("dimensions.jl")
-end
-
-@testset "broadcast" begin
-    include("broadcast.jl")
-end
-

@@ -21,7 +21,15 @@ end
 
 @time begin
 if GROUP == "HighLevel"
-    # Any tests for the level combined package? None right now.
+    include("setup.jl")
+    include("array_index.jl")
+    include("axes.jl")
+    include("broadcast.jl")
+    include("dimensions.jl")
+    include("indexing.jl")
+    include("ranges.jl")
+    include("setup.jl")
+    include("size.jl")
 else
     dev_subpkg(GROUP)
     subpkg_path = joinpath(dirname(@__DIR__), "lib", GROUP)
