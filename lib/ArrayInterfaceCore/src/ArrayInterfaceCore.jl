@@ -357,32 +357,6 @@ struct CPUIndex <: AbstractCPU end
 struct GPU <: AbstractDevice end
 
 """
-    device(::Type{T}) -> AbstractDevice
-
-Indicates the most efficient way to access elements from the collection in low-level code.
-For `GPUArrays`, will return `ArrayInterfaceCore.GPU()`.
-For `AbstractArray` supporting a `pointer` method, returns `ArrayInterfaceCore.CPUPointer()`.
-For other `AbstractArray`s and `Tuple`s, returns `ArrayInterfaceCore.CPUIndex()`.
-Otherwise, returns `nothing`.
-"""
-device(A) = device(typeof(A))
-device(::Type) = nothing
-device(::Type{<:Tuple}) = CPUTuple()
-device(::Type{T}) where {T<:Array} = CPUPointer()
-device(::Type{T}) where {T<:AbstractArray} = _device(has_parent(T), T)
-function _device(::True, ::Type{T}) where {T}
-    if defines_strides(T)
-        return device(parent_type(T))
-    else
-        return _not_pointer(device(parent_type(T)))
-    end
-end
-_not_pointer(::CPUPointer) = CPUIndex()
-_not_pointer(x) = x
-_device(::False, ::Type{T}) where {T<:DenseArray} = CPUPointer()
-_device(::False, ::Type{T}) where {T} = CPUIndex()
-
-"""
     can_avx(f) -> Bool
 
 Returns `true` if the function `f` is guaranteed to be compatible with

@@ -12,6 +12,9 @@ import ArrayInterfaceCore: ArrayIndex, MatrixIndex, VectorIndex, BidiagonalIndex
 import ArrayInterfaceCore: ismutable, can_change_size, can_setindex, deleteat, insert
 # constants
 import ArrayInterfaceCore: MatAdjTrans, VecAdjTrans, UpTri, LoTri
+# 
+import ArrayInterfaceCore: AbstractDevice, AbstractCPU, CPUPointer, CPUTuple, CheckParent, 
+    CPUIndex, GPU
 
 using Static
 using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
@@ -70,6 +73,32 @@ end
 @inline static_first(x) = Static.maybe_static(known_first, first, x)
 @inline static_last(x) = Static.maybe_static(known_last, last, x)
 @inline static_step(x) = Static.maybe_static(known_step, step, x)
+
+"""
+    device(::Type{T}) -> AbstractDevice
+
+Indicates the most efficient way to access elements from the collection in low-level code.
+For `GPUArrays`, will return `ArrayInterfaceCore.GPU()`.
+For `AbstractArray` supporting a `pointer` method, returns `ArrayInterfaceCore.CPUPointer()`.
+For other `AbstractArray`s and `Tuple`s, returns `ArrayInterfaceCore.CPUIndex()`.
+Otherwise, returns `nothing`.
+"""
+device(A) = device(typeof(A))
+device(::Type) = nothing
+device(::Type{<:Tuple}) = CPUTuple()
+device(::Type{T}) where {T<:Array} = CPUPointer()
+device(::Type{T}) where {T<:AbstractArray} = _device(has_parent(T), T)
+function _device(::True, ::Type{T}) where {T}
+    if defines_strides(T)
+        return device(parent_type(T))
+    else
+        return _not_pointer(device(parent_type(T)))
+    end
+end
+_not_pointer(::CPUPointer) = CPUIndex()
+_not_pointer(x) = x
+_device(::False, ::Type{T}) where {T<:DenseArray} = CPUPointer()
+_device(::False, ::Type{T}) where {T} = CPUIndex()
 
 include("array_index.jl")
 include("axes.jl")
