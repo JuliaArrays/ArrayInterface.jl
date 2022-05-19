@@ -35,6 +35,10 @@ using Static
 using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
     permute, invariant_permutation, field_type, reduce_tup
 
+const CanonicalInt = Union{Int,StaticInt}
+canonicalize(x::Integer) = Int(x)
+canonicalize(@nospecialize(x::StaticInt)) = x
+
 abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
 
 Base.size(A::AbstractArray2) = map(Int, ArrayInterfaceCore.size(A))

@@ -14,10 +14,6 @@ using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretAr
 
 using Base.Iterators: Pairs
 
-const CanonicalInt = Union{Int,StaticInt}
-canonicalize(x::Integer) = Int(x)
-canonicalize(@nospecialize(x::StaticInt)) = x
-
 @static if isdefined(Base, :ReshapedReinterpretArray)
     _is_reshaped(::Type{<:Base.ReshapedReinterpretArray}) = true
 end
