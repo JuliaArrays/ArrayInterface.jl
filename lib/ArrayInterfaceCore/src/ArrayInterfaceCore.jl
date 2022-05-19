@@ -1,14 +1,11 @@
 module ArrayInterfaceCore
 
-using IfElse
 using LinearAlgebra
 using LinearAlgebra: AbstractTriangular
 using SparseArrays
 using SuiteSparse
 
 using Base.Cartesian
-import Compat
-
 using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray,
     ReshapedArray, AbstractCartesianIndex
 
