@@ -5,12 +5,6 @@ using LinearAlgebra: AbstractTriangular
 using SparseArrays
 using SuiteSparse
 
-using Base.Cartesian
-using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray,
-    ReshapedArray, AbstractCartesianIndex
-
-using Base.Iterators: Pairs
-
 @static if isdefined(Base, :ReshapedReinterpretArray)
     _is_reshaped(::Type{<:Base.ReshapedReinterpretArray}) = true
 end

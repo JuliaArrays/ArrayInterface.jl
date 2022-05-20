@@ -22,6 +22,12 @@ using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
 
 using IfElse
 
+using Base.Cartesian
+using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray,
+    ReshapedArray, AbstractCartesianIndex
+
+using Base.Iterators: Pairs
+
 const CanonicalInt = Union{Int,StaticInt}
 canonicalize(x::Integer) = Int(x)
 canonicalize(@nospecialize(x::StaticInt)) = x
