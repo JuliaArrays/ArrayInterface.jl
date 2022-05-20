@@ -325,3 +325,24 @@ end
     @test @inferred(ArrayInterface.strides(u_view_reshaped)) === (4, 4)
     @test @inferred(ArrayInterface.axes(u_vectors)) isa ArrayInterface.axes_types(u_vectors)
 end
+
+@testset "Reshaped strides" begin
+    a = randn(10, 10)
+    @test @inferred(ArrayInterface.strides(reshape(view(a, :, 1:2:9), 2, 5, 5))) === (1, 2, 20)
+    @test @inferred(ArrayInterface.strides(vec(view(a, 1, 1)))) === (static(1),)
+    @test_throws ArgumentError ArrayInterface.strides(reshape(view(a, :, 1:2:9), 5, 5, 2))
+    a = MArray(randn(10, 10))
+    @test @inferred(ArrayInterface.strides(reshape(view(a, 1:9, 1:10), 3, 3, 2, 5))) === (1, 3, 10, 20) 
+    @test @inferred(ArrayInterface.strides(reshape(view(a, static(1):static(9), 1:10), 3, 3, 2, 5))) === (static(1), 3, 10, 20) 
+    @test @inferred(ArrayInterface.strides(reshape(view(a, :, 1:2:9), 2, 5, 5))) === (static(1), 2, 20)
+    a = randn(2, 5, 3)
+    @test @inferred(ArrayInterface.strides(vec(view(a, :, 1:5, 1:3)))) === (1,)
+    @test @inferred(ArrayInterface.strides(reshape(view(a, :, 1:5, 1:3), 5, 2, 3))) === (1,5,10)
+    @test @inferred(ArrayInterface.strides(vec(view(a, static(1):static(2), 1:5, 1:3)))) === (static(1),)
+    @test @inferred(ArrayInterface.strides(reshape(view(a, static(1):static(2), 1:5, 1:3), 5, 2, 3))) === (static(1),5,10)
+    a = MArray(randn(3, 5, 3))
+    @test @inferred(ArrayInterface.strides(vec(view(a, :, 1:5, 1:3)))) === (static(1),)
+    @test @inferred(ArrayInterface.strides(reshape(view(a, static(1):static(3), static(1):static(4), 1:3), 2, 2, 3, 3))) === (static(1), 2, 4, 15)
+    @test @inferred(ArrayInterface.strides(reshape(view(a, static(1):static(2), static(1):static(4), 1:3), 2, 2, 2, 3))) === (static(1), 3, 6, 15)
+    @test @inferred(ArrayInterface.strides(reshape(view(a, static(1):static(2), static(1):static(1), 1:3), 2, 1, 3))) === (static(1), 2, 15)
+end

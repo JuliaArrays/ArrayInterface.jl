@@ -562,20 +562,79 @@ _is_column_dense(::A) where {A<:AbstractArray} =
     (ndims(A) == 0 || Bool(is_dense(A)) && Bool(is_column_major(A)))
 
 # Fixes the example of https://github.com/JuliaArrays/ArrayInterfaceCore.jl/issues/160
-# TODO: Should be generalized to reshaped arrays wrapping more general array types
-function strides(A::ReshapedArray{T,N,P}) where {T, N, P<:AbstractVector}
-    if defines_strides(A)
-        return size_to_strides(size(A), first(strides(parent(A))))
+function strides(A::ReshapedArray)
+    _is_column_dense(parent(A)) && return size_to_strides(size(A), One())
+    pst = strides(parent(A))
+    psz = size(parent(A))
+    # Try dimension merging in order (starting from dim1).
+    # `sz1` and `st1` are the `size`/`stride` of dim1 after dimension merging.
+    # `n` indicates the last merged dimension.
+    # note: `st1` should be static if possible
+    sz1, st1, n = merge_adjacent_dim(psz, pst)
+    n == ndims(A.parent) && return size_to_strides(size(A), st1)
+    return _reshaped_strides(size(A), One(), sz1, st1, n, Dims(psz), Dims(pst))
+end
+
+@inline function _reshaped_strides(::Dims{0}, reshaped, msz::Int, _, ::Int, ::Dims, ::Dims)
+    reshaped == msz && return ()
+    throw(ArgumentError("Input is not strided."))
+end
+function _reshaped_strides(asz::Dims, reshaped, msz::Int, mst, n::Int, apsz::Dims, apst::Dims)
+    st = reshaped * mst
+    reshaped = reshaped * asz[1]
+    if length(asz) > 1 && reshaped == msz && asz[2] != 1
+        msz, mst′, n = merge_adjacent_dim(apsz, apst, n + 1)
+        reshaped = 1
     else
-        return Base.strides(A)
+        mst′ = Int(mst)
+    end
+    sts = _reshaped_strides(tail(asz), reshaped, msz, mst′, n, apsz, apst)
+    return (st, sts...)
+end
+
+merge_adjacent_dim(::Tuple{}, ::Tuple{}) = 1, One(), 0
+merge_adjacent_dim(szs::Tuple{Integer}, sts::Tuple{Integer}) = Int(szs[1]), sts[1], 1
+function merge_adjacent_dim(szs::Tuple, sts::Tuple)
+    if szs[1] isa One # Just ignore dimension with size 1
+        sz, st, n = merge_adjacent_dim(tail(szs), tail(sts))
+        return sz, st, n + 1
+    elseif szs[2] isa One # Just ignore dimension with size 1
+        sz, st, n = merge_adjacent_dim((szs[1], tail(tail(szs))...), (sts[1], tail(tail(sts))...))
+        return sz, st, n + 1
+    elseif (szs[1], szs[2], sts[1], sts[2]) isa NTuple{4,StaticInt} # the check could be done during compiling.
+        if sts[2] == sts[1] * szs[1]
+            szs′ = (szs[1] * szs[2], tail(tail(szs))...)
+            sts′ = (sts[1], tail(tail(sts))...)
+            sz, st, n = merge_adjacent_dim(szs′, sts′)
+            return sz, st, n + 1
+        else
+            return Int(szs[1]), sts[1], 1
+        end
+    else # the check can't be done during compiling.
+        sz, st, n = merge_adjacent_dim(Dims(szs), Dims(sts), 1)
+        if (szs[1], sts[1]) isa NTuple{2,StaticInt} && szs[1] != 1
+            # But the 1st stride might still be static. 
+            return sz, sts[1], n
+        else
+            return sz, st, n
+        end
     end
 end
-function strides(A::ReshapedArray{T,N,P}) where {T, N, P}
-    if defines_strides(A)
-        return size_to_strides(size(A), static(1))
-    else
-        return Base.strides(A)
+
+function merge_adjacent_dim(psz::Dims{N}, pst::Dims{N}, n::Int) where {N}
+    sz, st = psz[n], pst[n]
+    while n < N
+        szₙ, stₙ = psz[n+1], pst[n+1]
+        if sz == 1
+            sz, st = szₙ, stₙ
+        elseif stₙ == st * sz
+            sz *= szₙ
+        elseif szₙ != 1
+            break
+        end
+        n += 1
     end
+    return sz, st, n
 end
 
 # `strides` for `Base.ReinterpretArray`
