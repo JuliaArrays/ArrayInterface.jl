@@ -19,6 +19,8 @@ if GROUP == "ArrayInterfaceBlockBandedMatrices"
     dev_subpkg("ArrayInterfaceBandedMatrices")
 end
 
+@show GROUP, GROUP == "ArrayInterface"
+
 @time begin
 if GROUP == "ArrayInterface"
     include("setup.jl")
