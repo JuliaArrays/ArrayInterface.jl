@@ -92,6 +92,10 @@ end
 
     Ar2c = reinterpret(reshape, Complex{Float64}, view(rand(2, 5, 7), :, 2:4, 3:5));
     @test @inferred(ArrayInterface.strides(Ar2c)) === (StaticInt(1), 5)
+    Ar2c′ = reinterpret(reshape, Complex{Float64}, view(rand(4, 5, 7), Base.oneto(2), 2:4, 3:5));
+    @test @inferred(ArrayInterface.strides(Ar2c′)) === (2, 10)
+    Ar2c″ = reinterpret(reshape, Complex{Float64}, view(rand(3, 5, 7), Base.oneto(2), 2:4, 3:5));
+    @test_throws ArgumentError ArrayInterface.strides(Ar2c″)
     Ar2c_static = reinterpret(reshape, Complex{Float64}, view(MArray(rand(2, 5, 7)), :, 2:4, 3:5));
     @test @inferred(ArrayInterface.strides(Ar2c_static)) === (StaticInt(1), StaticInt(5))
 
@@ -306,18 +310,18 @@ end
 
 @testset "Reinterpreted reshaped views" begin
     u_base = randn(1, 4, 4, 5);
+    u_reinterpreted = reinterpret(Int8, view(u_base, 1:1, 1:4, 1:4, 1:5))
     u_vectors = reshape(reinterpret(NTuple{1, eltype(u_base)}, u_base),
                         Base.tail(size(u_base))...)
     u_view = view(u_vectors, 2, :, 3)
     u_view_reinterpreted = reinterpret(eltype(u_base), u_view)
     u_view_reshaped = reshape(u_view_reinterpreted, 1, length(u_view))
-
     # See https://github.com/JuliaArrays/ArrayInterface.jl/issues/163
-    @test @inferred(ArrayInterface.strides(u_base)) == (StaticInt(1), 1, 4, 16)
-    @test @inferred(ArrayInterface.strides(u_vectors)) == (StaticInt(1), 4, 16)
-    @test @inferred(ArrayInterface.strides(u_view)) == (4,)
-    @test @inferred(ArrayInterface.strides(u_view_reinterpreted)) == (4,)
-    @test @inferred(ArrayInterface.strides(u_view_reshaped)) == (4, 4)
+    @test @inferred(ArrayInterface.strides(u_base)) === (StaticInt(1), 1, 4, 16)
+    @test @inferred(ArrayInterface.strides(u_reinterpreted)) === (StaticInt(1), 8, 32, 128)
+    @test @inferred(ArrayInterface.strides(u_vectors)) === (StaticInt(1), 4, 16)
+    @test @inferred(ArrayInterface.strides(u_view)) === (4,)
+    @test @inferred(ArrayInterface.strides(u_view_reinterpreted)) === (4,)
+    @test @inferred(ArrayInterface.strides(u_view_reshaped)) === (4, 4)
     @test @inferred(ArrayInterface.axes(u_vectors)) isa ArrayInterface.axes_types(u_vectors)
 end
-
