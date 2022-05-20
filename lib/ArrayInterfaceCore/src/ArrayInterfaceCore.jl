@@ -134,7 +134,7 @@ can_setindex(::Type{<:AbstractDict}) = true
 can_setindex(::Type{<:Base.ImmutableDict}) = false
 can_setindex(@nospecialize T::Type{<:Tuple}) = false
 can_setindex(@nospecialize T::Type{<:NamedTuple}) = false
-can_setindex(::Type{<:Pairs{<:Any,<:Any,P}}) where {P} = can_setindex(P)
+can_setindex(::Type{<:Base.Pairs{<:Any,<:Any,P}}) where {P} = can_setindex(P)
 
 """
     aos_to_soa(x)
