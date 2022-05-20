@@ -37,7 +37,7 @@ parent_type(::Type{<:AbstractTriangular{T,S}}) where {T,S} = S
 parent_type(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A} = A
 parent_type(::Type{Base.Slice{T}}) where {T} = T
 parent_type(::Type{T}) where {T} = T
-parent_type(::Type{R}) where {S,T,A,N,R<:ReinterpretArray{T,N,S,A}} = A
+parent_type(::Type{R}) where {S,T,A,N,R<:Base.ReinterpretArray{T,N,S,A}} = A
 parent_type(::Type{Diagonal{T,V}}) where {T,V} = V
 
 """

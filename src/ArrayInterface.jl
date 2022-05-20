@@ -4,7 +4,7 @@ using ArrayInterfaceCore
 import ArrayInterfaceCore: allowed_getindex, allowed_setindex!, aos_to_soa, buffer,
     has_parent, parent_type, fast_matrix_colors, findstructralnz, has_sparsestruct,
     issingular, is_lazy_conjugate, isstructured, matrix_colors, restructure, lu_instance,
-    safevec, unsafe_reconstruct, zeromatrix, ColoringAlgorithm
+    safevec, unsafe_reconstruct, zeromatrix, ColoringAlgorithm, merge_tuple_type
 
 # ArrayIndex subtypes and methods
 import ArrayInterfaceCore: ArrayIndex, MatrixIndex, VectorIndex, BidiagonalIndex, TridiagonalIndex
