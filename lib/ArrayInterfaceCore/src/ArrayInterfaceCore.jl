@@ -134,7 +134,7 @@ can_setindex(::Type{<:AbstractDict}) = true
 can_setindex(::Type{<:Base.ImmutableDict}) = false
 can_setindex(@nospecialize T::Type{<:Tuple}) = false
 can_setindex(@nospecialize T::Type{<:NamedTuple}) = false
-can_setindex(::Type{<:Base.Pairs{<:Any,<:Any,P}}) where {P} = can_setindex(P)
+can_setindex(::Type{<:Base.Iterators.Pairs{<:Any,<:Any,P}}) where {P} = can_setindex(P)
 
 """
     aos_to_soa(x)
@@ -408,13 +408,13 @@ end
 
 Returns a new instance of `collection` with the item at the given `index` removed.
 """
-@propagate_inbounds function deleteat(collection::AbstractVector, index)
+Base.@propagate_inbounds function deleteat(collection::AbstractVector, index)
     @boundscheck if !checkindex(Bool, eachindex(collection), index)
         throw(BoundsError(collection, index))
     end
     return unsafe_deleteat(collection, index)
 end
-@propagate_inbounds function deleteat(collection::Tuple{Vararg{Any,N}}, index) where {N}
+Base.@propagate_inbounds function deleteat(collection::Tuple{Vararg{Any,N}}, index) where {N}
     @boundscheck if !checkindex(Bool, StaticInt{1}():StaticInt{N}(), index)
         throw(BoundsError(collection, index))
     end
@@ -573,7 +573,7 @@ Base.firstindex(i::Union{BidiagonalIndex,TridiagonalIndex}) = 1
 Base.lastindex(i::Union{BidiagonalIndex,TridiagonalIndex}) = i.count
 Base.length(i::Union{BidiagonalIndex,TridiagonalIndex}) = lastindex(i)
 
-@propagate_inbounds function Base.getindex(ind::BidiagonalIndex, i::Int)
+Base.@propagate_inbounds function Base.getindex(ind::BidiagonalIndex, i::Int)
     @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
     if ind.isup
         ii = i + 1
@@ -583,7 +583,7 @@ Base.length(i::Union{BidiagonalIndex,TridiagonalIndex}) = lastindex(i)
     convert(Int, floor(ii / 2))
 end
 
-@propagate_inbounds function Base.getindex(ind::TridiagonalIndex, i::Int)
+Base.@propagate_inbounds function Base.getindex(ind::TridiagonalIndex, i::Int)
     @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
     offsetu = ind.isrow ? 0 : 1
     offsetl = ind.isrow ? 1 : 0
