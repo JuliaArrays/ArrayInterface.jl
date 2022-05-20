@@ -20,7 +20,7 @@ if GROUP == "ArrayInterfaceBlockBandedMatrices"
 end
 
 @time begin
-if GROUP == "HighLevel"
+if GROUP == "ArrayInterface"
     include("setup.jl")
     include("array_index.jl")
     include("axes.jl")
