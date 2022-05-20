@@ -117,12 +117,12 @@ _device(::False, ::Type{T}) where {T<:DenseArray} = CPUPointer()
 _device(::False, ::Type{T}) where {T} = CPUIndex()
 
 include("array_index.jl")
+include("ranges.jl")
 include("axes.jl")
-include("broadcast.jl")
+include("size.jl")
 include("dimensions.jl")
 include("indexing.jl")
-include("ranges.jl")
-include("size.jl")
 include("stridelayout.jl")
+include("broadcast.jl")
 
 end
