@@ -8,7 +8,7 @@ using SuiteSparse
 @static if isdefined(Base, :ReshapedReinterpretArray)
     _is_reshaped(::Type{<:Base.ReshapedReinterpretArray}) = true
 end
-_is_reshaped(::Type{<:ReinterpretArray}) = false
+_is_reshaped(::Type{<:Base.ReinterpretArray}) = false
 
 @generated function merge_tuple_type(::Type{X}, ::Type{Y}) where {X<:Tuple,Y<:Tuple}
     Tuple{X.parameters...,Y.parameters...}
