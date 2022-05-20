@@ -35,7 +35,7 @@ jobs:
           version: ${{ matrix.julia-version }}
           arch: x64
       - name: Setup ArrayInterface
-        shell: julia --color=yes
+        shell: julia --color=yes {0}
         run: |
           using Pkg
           function dev_subpkg(subpkg)
