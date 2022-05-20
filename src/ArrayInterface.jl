@@ -13,7 +13,7 @@ import ArrayInterfaceCore: ismutable, can_change_size, can_setindex, deleteat, i
 # constants
 import ArrayInterfaceCore: MatAdjTrans, VecAdjTrans, UpTri, LoTri
 # 
-import ArrayInterfaceCore: AbstractDevice, AbstractCPU, CPUPointer, CPUTuple, CheckParent, 
+import ArrayInterfaceCore: AbstractDevice, AbstractCPU, CPUPointer, CPUTuple, CheckParent,
     CPUIndex, GPU
 
 using Static
@@ -73,6 +73,13 @@ end
 @inline static_first(x) = Static.maybe_static(known_first, first, x)
 @inline static_last(x) = Static.maybe_static(known_last, last, x)
 @inline static_step(x) = Static.maybe_static(known_step, step, x)
+
+@inline function _to_cartesian(a, i::CanonicalInt)
+    @inbounds(CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))[i])
+end
+@inline function _to_linear(a, i::Tuple{CanonicalInt,Vararg{CanonicalInt}})
+    _strides2int(offsets(a), size_to_strides(size(a), static(1)), i) + static(1)
+end
 
 """
     device(::Type{T}) -> AbstractDevice

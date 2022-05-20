@@ -546,13 +546,6 @@ A scalar `setindex!` which is always allowed.
 allowed_setindex!(x, v, i...) = Base.setindex!(x, v, i...)
 
 
-@inline function _to_cartesian(a, i::CanonicalInt)
-    @inbounds(CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))[i])
-end
-@inline function _to_linear(a, i::Tuple{CanonicalInt,Vararg{CanonicalInt}})
-    _strides2int(offsets(a), size_to_strides(size(a), static(1)), i) + static(1)
-end
-
 """
     ArrayIndex{N}
 
