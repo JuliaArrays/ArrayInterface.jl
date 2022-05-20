@@ -1,6 +1,6 @@
 module ArrayInterfaceOffsetArrays
 
-using ArrayInterfaceCore
+using ArrayInterface
 using OffsetArrays
 using Static
 

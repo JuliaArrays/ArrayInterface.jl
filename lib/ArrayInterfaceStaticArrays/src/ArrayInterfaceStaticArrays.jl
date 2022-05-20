@@ -1,7 +1,7 @@
 module ArrayInterfaceStaticArrays
 
 using Adapt
-using ArrayInterfaceCore
+using ArrayInterface
 using LinearAlgebra
 using StaticArrays
 using Static

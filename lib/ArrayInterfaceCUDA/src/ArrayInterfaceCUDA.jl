@@ -1,7 +1,7 @@
 module ArrayInterfaceCUDA
 
 using Adapt
-using ArrayInterfaceCore
+using ArrayInterface
 using CUDA
 
 const CanonicalInt = Union{Int,StaticInt}
