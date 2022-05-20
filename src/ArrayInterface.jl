@@ -28,6 +28,8 @@ using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretAr
 
 using Base.Iterators: Pairs
 
+import Compat
+
 const CanonicalInt = Union{Int,StaticInt}
 canonicalize(x::Integer) = Int(x)
 canonicalize(@nospecialize(x::StaticInt)) = x
