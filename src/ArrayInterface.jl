@@ -27,6 +27,7 @@ using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretAr
     ReshapedArray, AbstractCartesianIndex
 
 using Base.Iterators: Pairs
+using LinearAlgebra
 
 import Compat
 
