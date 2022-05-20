@@ -12,9 +12,9 @@ import ArrayInterfaceCore: ArrayIndex, MatrixIndex, VectorIndex, BidiagonalIndex
 import ArrayInterfaceCore: ismutable, can_change_size, can_setindex, deleteat, insert
 # constants
 import ArrayInterfaceCore: MatAdjTrans, VecAdjTrans, UpTri, LoTri
-# 
+# device pieces
 import ArrayInterfaceCore: AbstractDevice, AbstractCPU, CPUPointer, CPUTuple, CheckParent,
-    CPUIndex, GPU
+    CPUIndex, GPU, can_avx
 
 using Static
 using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
