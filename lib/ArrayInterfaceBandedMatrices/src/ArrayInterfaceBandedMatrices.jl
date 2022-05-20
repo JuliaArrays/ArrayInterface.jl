@@ -3,6 +3,8 @@ module ArrayInterfaceBandedMatrices
 using ArrayInterfaceCore
 using BandedMatrices
 
+const CanonicalInt = Union{Int,StaticInt}
+
 struct BandedMatrixIndex <: ArrayInterfaceCore.MatrixIndex
     count::Int
     rowsize::Int

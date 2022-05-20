@@ -4,6 +4,8 @@ using Adapt
 using ArrayInterfaceCore
 using CUDA
 
+const CanonicalInt = Union{Int,StaticInt}
+
 ArrayInterfaceCore.fast_scalar_indexing(::Type{<:CUDA.CuArray}) = false
 @inline ArrayInterfaceCore.allowed_getindex(x::CUDA.CuArray, i...) = CUDA.@allowscalar(x[i...])
 @inline ArrayInterfaceCore.allowed_setindex!(x::CUDA.CuArray, v, i...) = (CUDA.@allowscalar(x[i...] = v))

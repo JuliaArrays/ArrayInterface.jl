@@ -6,6 +6,8 @@ using LinearAlgebra
 using StaticArrays
 using Static
 
+const CanonicalInt = Union{Int,StaticInt}
+
 ArrayInterfaceCore.ismutable(::Type{<:StaticArrays.StaticArray}) = false
 ArrayInterfaceCore.ismutable(::Type{<:StaticArrays.MArray}) = true
 ArrayInterfaceCore.ismutable(::Type{<:StaticArrays.SizedArray}) = true
@@ -30,7 +32,7 @@ ArrayInterfaceCore.known_first(::Type{<:StaticArrays.SOneTo}) = 1
 ArrayInterfaceCore.known_last(::Type{StaticArrays.SOneTo{N}}) where {N} = N
 ArrayInterfaceCore.known_length(::Type{StaticArrays.SOneTo{N}}) where {N} = N
 ArrayInterfaceCore.known_length(::Type{StaticArrays.Length{L}}) where {L} = L
-function ArrayInterfaceCore.known_length(::Type{A}) where {A <: StaticArrays.StaticArray}
+function ArrayInterfaceCore.known_length(::Type{A}) where {A<:StaticArrays.StaticArray}
     ArrayInterfaceCore.known_length(StaticArrays.Length(A))
 end
 
