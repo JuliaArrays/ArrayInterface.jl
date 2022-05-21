@@ -1,0 +1,17 @@
+name = "ArrayInterfaceGPUArrays"
+uuid = "6ba088a2-8465-4c0a-af30-387133b534db"
+authors = ["Zachary P. Christensen <zchristensen7@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
+ArrayInterfaceCore = "30b0a656-2188-435a-8636-2ec0e6a096e2"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+GPUArrays = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
+
+[compat]
+Adapt = "3"
+ArrayInterfaceCore = "0.1.1"
+GPUArrays = "8"
+julia = "1.6"
+
