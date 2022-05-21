@@ -44,6 +44,11 @@ development.
 
 ## Breaking Release Notes
 
+6.0: ArrayInterface.jl completely removed all usage of Requires.jl and conditional dependencies
+due to compile time impact. All of the Requires.jl support changed to subpackages within the
+repository which are registered in the General registry. These subpackages are required by
+any packages which seek to use the additional functionality.
+
 2.0: Changed the default of `ismutable(array::AbstractArray) = true`. We previously defaulted to
 `Base.@pure ismutable(array::AbstractArray) = typeof(array).mutable`, but there are a lot of cases
 where this tends to not work out in a way one would expect. For example, if you put a normal array

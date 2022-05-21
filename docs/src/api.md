@@ -1,27 +1,58 @@
 # API
 
-## Traits
+## ArrayInterfaceCore.jl
+
+### Traits
 
 ```@docs
-ArrayInterface.can_avx
-ArrayInterface.can_change_size
-ArrayInterface.can_setindex
+ArrayInterfaceCore.can_avx
+ArrayInterfaceCore.can_change_size
+ArrayInterfaceCore.can_setindex
+ArrayInterfaceCore.fast_matrix_colors
+ArrayInterfaceCore.fast_scalar_indexing
+ArrayInterfaceCore.ismutable
+ArrayInterfaceCore.isstructured
+ArrayInterfaceCore.has_sparsestruct
+```
+
+### Functions
+
+```@docs
+ArrayInterfaceCore.allowed_getindex
+ArrayInterfaceCore.allowed_setindex!
+ArrayInterfaceCore.aos_to_soa
+ArrayInterfaceCore.buffer
+ArrayInterfaceCore.findstructralnz
+ArrayInterfaceCore.lu_instance
+ArrayInterfaceCore.matrix_colors
+ArrayInterfaceCore.issingular
+ArrayInterfaceCoreCore.parent_type
+ArrayInterfaceCore.restructure
+ArrayInterfaceCore.safevec
+ArrayInterfaceCore.zeromatrix
+```
+
+### Types
+
+```@docs
+ArrayInterfaceCore.ArrayIndex
+```
+
+## ArrayInterface.jl
+
+### Traits
+
+```@docs
 ArrayInterface.contiguous_axis
 ArrayInterface.contiguous_axis_indicator
 ArrayInterface.contiguous_batch_size
 ArrayInterface.defines_strides
 ArrayInterface.device
 ArrayInterface.dimnames
-ArrayInterface.fast_matrix_colors
-ArrayInterface.fast_scalar_indexing
 ArrayInterface.has_dimnames
 ArrayInterface.has_parent
-ArrayInterface.has_sparsestruct
 ArrayInterface.is_column_major
 ArrayInterface.is_lazy_conjugate
-ArrayInterface.ismutable
-ArrayInterface.issingular
-ArrayInterface.isstructured
 ArrayInterface.is_splat_index
 ArrayInterface.known_dimnames
 ArrayInterface.known_first
@@ -35,31 +66,21 @@ ArrayInterface.known_strides
 ArrayInterface.ndims_index
 ```
 
-## Functions
+### Functions
 
 ```@docs
-ArrayInterface.allowed_getindex
-ArrayInterface.allowed_setindex!
-ArrayInterface.aos_to_soa
 ArrayInterface.axes
 ArrayInterface.axes_types
 ArrayInterface.broadcast_axis
-ArrayInterface.buffer
 ArrayInterface.deleteat
 ArrayInterface.dense_dims
-ArrayInterface.findstructralnz
 ArrayInterface.from_parent_dims
 ArrayInterface.getindex
 ArrayInterface.indices
 ArrayInterface.insert
 ArrayInterface.lazy_axes
-ArrayInterface.lu_instance
-ArrayInterface.matrix_colors
 ArrayInterface.offset1
 ArrayInterface.offsets
-ArrayInterface.parent_type
-ArrayInterface.restructure
-ArrayInterface.safevec
 ArrayInterface.setindex!
 ArrayInterface.size
 ArrayInterface.strides
@@ -70,13 +91,11 @@ ArrayInterface.to_index
 ArrayInterface.to_indices
 ArrayInterface.to_parent_dims
 ArrayInterface.unsafe_reconstruct
-ArrayInterface.zeromatrix
 ```
 
-## Types
+### Types
 
 ```@docs
-ArrayInterface.ArrayIndex
 ArrayInterface.BroadcastAxis
 ArrayInterface.LazyAxis
 ArrayInterface.OptionallyStaticStepRange
