@@ -2,15 +2,15 @@ module ArrayInterface
 
 using ArrayInterfaceCore
 import ArrayInterfaceCore: allowed_getindex, allowed_setindex!, aos_to_soa, buffer,
-    has_parent, parent_type, fast_matrix_colors, findstructralnz, has_sparsestruct,
-    issingular, is_lazy_conjugate, isstructured, matrix_colors, restructure, lu_instance,
-    safevec, unsafe_reconstruct, zeromatrix, ColoringAlgorithm, merge_tuple_type,
+    parent_type, fast_matrix_colors, findstructralnz, has_sparsestruct,
+    issingular, isstructured, matrix_colors, restructure, lu_instance,
+    safevec, zeromatrix, ColoringAlgorithm, merge_tuple_type,
     fast_scalar_indexing, parameterless_type, _is_reshaped
 
 # ArrayIndex subtypes and methods
 import ArrayInterfaceCore: ArrayIndex, MatrixIndex, VectorIndex, BidiagonalIndex, TridiagonalIndex
 # managing immutables
-import ArrayInterfaceCore: ismutable, can_change_size, can_setindex, deleteat, insert
+import ArrayInterfaceCore: ismutable, can_change_size, can_setindex
 # constants
 import ArrayInterfaceCore: MatAdjTrans, VecAdjTrans, UpTri, LoTri
 # device pieces

@@ -6,6 +6,28 @@ CurrentModule = ArrayInterface
 
 Designs for new Base array interface primitives, used widely through scientific machine learning (SciML) and other organizations
 
+## ArrayInterfaceCore
+
+ArrayInterfaceCore is a smaller set of the ArrayInterface setup which defines the subset which has no compile time impact.
+This for example includes simple functions like `ArrayInterfaceCore.zeromatrix` which have simple few dispatch definitions
+and no dependency on other libraries such as Static.jl. Notably, Static.jl currently has issues with invalidations
+(https://github.com/SciML/Static.jl/issues/52), and thus anything with static outputs are in the domain of ArrayInterface.jl
+proprer.
+
+## Subpackages
+
+In order to remove the runtime impact of Requires.jl, ArrayInterface.jl uses a subpackaging system for defining interface support
+for potential dependencies. These packages are:
+
+- ArrayInterfaceBandedMatrices.jl
+- ArrayInterfaceBlockBandedMatrices.jl
+- ArrayInterfaceCUDA.jl
+- ArrayInterfaceOffsetArrays.jl
+- ArrayInterfaceTracker.jl
+
+In order for ArrayInterface traits to be properly defined on these types, it is required that the downstream package depends on
+and imports the correct subpackages.
+
 ## Inheriting Array Traits
 
 Creating an array type with unique behavior in Julia is often accomplished by creating a lazy wrapper around previously defined array types (e.g. [composition by inheritance](https://en.wikipedia.org/wiki/Composition_over_inheritance)).
