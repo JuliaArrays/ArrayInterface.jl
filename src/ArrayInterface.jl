@@ -101,19 +101,6 @@ has_parent(::Type{T}) where {T} = _has_parent(parent_type(T), T)
 _has_parent(::Type{T}, ::Type{T}) where {T} = False()
 _has_parent(::Type{T1}, ::Type{T2}) where {T1,T2} = True()
 
-"""
-    device(::Type{T}) -> AbstractDevice
-
-Indicates the most efficient way to access elements from the collection in low-level code.
-For `GPUArrays`, will return `ArrayInterface.GPU()`.
-For `AbstractArray` supporting a `pointer` method, returns `ArrayInterface.CPUPointer()`.
-For other `AbstractArray`s and `Tuple`s, returns `ArrayInterface.CPUIndex()`.
-Otherwise, returns `nothing`.
-"""
-device(A) = device(typeof(A))
-device(::Type) = nothing
-device(::Type{<:Tuple}) = CPUTuple()
-device(::Type{T}) where {T<:Array} = CPUPointer()
 device(::Type{T}) where {T<:AbstractArray} = _device(has_parent(T), T)
 function _device(::True, ::Type{T}) where {T}
     if defines_strides(T)
