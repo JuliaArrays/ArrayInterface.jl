@@ -1,7 +1,7 @@
 name = "ArrayInterfaceTracker"
 uuid = "a2b0951a-f94f-4742-8780-617792921f9b"
 authors = ["Zachary P. Christensen <zchristensen7@gmail.com>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 ArrayInterfaceCore = "30b0a656-2188-435a-8636-2ec0e6a096e2"
