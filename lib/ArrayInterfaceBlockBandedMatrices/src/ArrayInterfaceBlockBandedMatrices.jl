@@ -19,9 +19,9 @@ function BlockBandedMatrixIndex(nrowblock, ncolblock, rowsizes, colsizes, l, u)
     blockcolind = ArrayInterfaceBandedMatrices.BandedMatrixIndex(nrowblock, ncolblock, l, u, false)
     sortedinds = sort(
         [(blockrowind[i], blockcolind[i]) for i = 1:length(blockrowind)],
-        by = x -> x[1],
+        by=x -> x[1],
     )
-    sort!(sortedinds, by = x -> x[2], alg = InsertionSort)# stable sort keeps the second index in order
+    sort!(sortedinds, by=x -> x[2], alg=InsertionSort)# stable sort keeps the second index in order
     refinds = Array{Int,1}()
     refrowcoords = Array{Int,1}()
     refcolcoords = Array{Int,1}()
@@ -132,9 +132,9 @@ function BandedBlockBandedMatrixIndex(
     blockcolind = ArrayInterfaceBandedMatrices.BandedMatrixIndex(nrowblock, ncolblock, l, u, false)
     sortedinds = sort(
         [(blockrowind[i], blockcolind[i]) for i = 1:length(blockrowind)],
-        by = x -> x[1],
+        by=x -> x[1],
     )
-    sort!(sortedinds, by = x -> x[2], alg = InsertionSort)# stable sort keeps the second index in order
+    sort!(sortedinds, by=x -> x[2], alg=InsertionSort)# stable sort keeps the second index in order
     rowheights = pushfirst!(copy(rowsizes), 1)
     cumsum!(rowheights, rowheights)
     colwidths = pushfirst!(copy(colsizes), 1)
@@ -218,7 +218,7 @@ function ArrayInterfaceCore.matrix_colors(A::BlockBandedMatrices.BlockBandedMatr
         (startinds[blockcolors[i]]:endinds[blockcolors[i]])[1:cols[i]]
         for i = 1:nblock
     ]
-    return reduce(vcat,colors)
+    return reduce(vcat, colors)
 end
 
 function ArrayInterfaceCore.matrix_colors(A::BlockBandedMatrices.BandedBlockBandedMatrix)

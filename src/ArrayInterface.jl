@@ -2,37 +2,283 @@ module ArrayInterface
 
 using ArrayInterfaceCore
 import ArrayInterfaceCore: allowed_getindex, allowed_setindex!, aos_to_soa, buffer,
-    has_parent, parent_type, fast_matrix_colors,  findstructralnz, has_sparsestruct,
-    issingular, is_lazy_conjugate,  isstructured,  matrix_colors, restructure, lu_instance,
-    safevec, unsafe_reconstruct, zeromatrix
+    has_parent, parent_type, fast_matrix_colors, findstructralnz, has_sparsestruct,
+    issingular, is_lazy_conjugate, isstructured, matrix_colors, restructure, lu_instance,
+    safevec, unsafe_reconstruct, zeromatrix, ColoringAlgorithm, merge_tuple_type,
+    fast_scalar_indexing, parameterless_type, _is_reshaped
 
 # ArrayIndex subtypes and methods
-import ArrayInterfaceCore: ArrayIndex, MatrixIndex, VectorIndex, BidiagonalIndex, TridiagonalIndex, StrideIndex
-# device types and methods
-import ArrayInterfaceCore: AbstractDevice, AbstractCPU, CPUTuple, CPUPointer, GPU, CPUIndex, CheckParent, device
-# range types and methods
-import ArrayInterfaceCore: OptionallyStaticStepRange, OptionallyStaticUnitRange, SOneTo,
-    SUnitRange, indices, known_first, known_last, known_step, static_first, static_last, static_step
-# dimension methods
-import ArrayInterfaceCore: dimnames, known_dimnames, has_dimnames, from_parent_dims, to_dims, to_parent_dims
-# indexing methods
-import ArrayInterfaceCore: to_axes, to_axis, to_indices, to_index, getindex, setindex!,
-    ndims_index, is_splat_index, fast_scalar_indexing
-# stride layout methods
-import ArrayInterfaceCore: strides, stride_rank, contiguous_axis_indicator, contiguous_batch_size,
-    known_strides, known_offsets,offsets, offset1, known_offset1, contiguous_axis, dense_dims,
-    defines_strides, is_column_major
-# axes types and methods
-import ArrayInterfaceCore: axes, axes_types, lazy_axes, LazyAxis
-# static sizing
-import ArrayInterfaceCore: size, known_size, known_length, static_length
+import ArrayInterfaceCore: ArrayIndex, MatrixIndex, VectorIndex, BidiagonalIndex, TridiagonalIndex
 # managing immutables
 import ArrayInterfaceCore: ismutable, can_change_size, can_setindex, deleteat, insert
 # constants
 import ArrayInterfaceCore: MatAdjTrans, VecAdjTrans, UpTri, LoTri
+# device pieces
+import ArrayInterfaceCore: AbstractDevice, AbstractCPU, CPUPointer, CPUTuple, CheckParent,
+    CPUIndex, GPU, can_avx
 
 using Static
 using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
-    permute, invariant_permutation, field_type, reduce_tup
+    permute, invariant_permutation, field_type, reduce_tup, find_first_eq
+
+using IfElse
+
+using Base.Cartesian
+using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray,
+    ReshapedArray, AbstractCartesianIndex
+
+using Base.Iterators: Pairs
+using LinearAlgebra
+
+import Compat
+
+const CanonicalInt = Union{Int,StaticInt}
+canonicalize(x::Integer) = Int(x)
+canonicalize(@nospecialize(x::StaticInt)) = x
+
+abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
+
+Base.size(A::AbstractArray2) = map(Int, ArrayInterface.size(A))
+Base.size(A::AbstractArray2, dim) = Int(ArrayInterface.size(A, dim))
+
+function Base.axes(A::AbstractArray2)
+    !(parent_type(A) <: typeof(A)) && return ArrayInterface.axes(parent(A))
+    throw(ArgumentError("Subtypes of `AbstractArray2` must define an axes method"))
+end
+Base.axes(A::AbstractArray2, dim) = ArrayInterface.axes(A, dim)
+
+function Base.strides(A::AbstractArray2)
+    defines_strides(A) && return map(Int, ArrayInterface.strides(A))
+    throw(MethodError(Base.strides, (A,)))
+end
+Base.strides(A::AbstractArray2, dim) = Int(ArrayInterface.strides(A, dim))
+
+function Base.IndexStyle(::Type{T}) where {T<:AbstractArray2}
+    if parent_type(T) <: T
+        return IndexCartesian()
+    else
+        return IndexStyle(parent_type(T))
+    end
+end
+
+function Base.length(A::AbstractArray2)
+    len = known_length(A)
+    if len === nothing
+        return Int(prod(size(A)))
+    else
+        return Int(len)
+    end
+end
+
+@propagate_inbounds Base.getindex(A::AbstractArray2, args...) = getindex(A, args...)
+@propagate_inbounds Base.getindex(A::AbstractArray2; kwargs...) = getindex(A; kwargs...)
+
+@propagate_inbounds function Base.setindex!(A::AbstractArray2, val, args...)
+    return setindex!(A, val, args...)
+end
+@propagate_inbounds function Base.setindex!(A::AbstractArray2, val; kwargs...)
+    return setindex!(A, val; kwargs...)
+end
+
+@inline static_first(x) = Static.maybe_static(known_first, first, x)
+@inline static_last(x) = Static.maybe_static(known_last, last, x)
+@inline static_step(x) = Static.maybe_static(known_step, step, x)
+
+@inline function _to_cartesian(a, i::CanonicalInt)
+    @inbounds(CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))[i])
+end
+@inline function _to_linear(a, i::Tuple{CanonicalInt,Vararg{CanonicalInt}})
+    _strides2int(offsets(a), size_to_strides(size(a), static(1)), i) + static(1)
+end
+
+"""
+    has_parent(::Type{T}) -> StaticBool
+
+Returns `static(true)` if `parent_type(T)` a type unique to `T`.
+"""
+has_parent(x) = has_parent(typeof(x))
+has_parent(::Type{T}) where {T} = _has_parent(parent_type(T), T)
+_has_parent(::Type{T}, ::Type{T}) where {T} = False()
+_has_parent(::Type{T1}, ::Type{T2}) where {T1,T2} = True()
+
+"""
+    device(::Type{T}) -> AbstractDevice
+
+Indicates the most efficient way to access elements from the collection in low-level code.
+For `GPUArrays`, will return `ArrayInterface.GPU()`.
+For `AbstractArray` supporting a `pointer` method, returns `ArrayInterface.CPUPointer()`.
+For other `AbstractArray`s and `Tuple`s, returns `ArrayInterface.CPUIndex()`.
+Otherwise, returns `nothing`.
+"""
+device(A) = device(typeof(A))
+device(::Type) = nothing
+device(::Type{<:Tuple}) = CPUTuple()
+device(::Type{T}) where {T<:Array} = CPUPointer()
+device(::Type{T}) where {T<:AbstractArray} = _device(has_parent(T), T)
+function _device(::True, ::Type{T}) where {T}
+    if defines_strides(T)
+        return device(parent_type(T))
+    else
+        return _not_pointer(device(parent_type(T)))
+    end
+end
+_not_pointer(::CPUPointer) = CPUIndex()
+_not_pointer(x) = x
+_device(::False, ::Type{T}) where {T<:DenseArray} = CPUPointer()
+_device(::False, ::Type{T}) where {T} = CPUIndex()
+
+"""
+    is_lazy_conjugate(::AbstractArray) -> Bool
+
+Determine if a given array will lazyily take complex conjugates, such as with `Adjoint`. This will work with
+nested wrappers, so long as there is no type in the chain of wrappers such that `parent_type(T) == T`
+
+Examples
+
+    julia> a = transpose([1 + im, 1-im]')
+    2×1 transpose(adjoint(::Vector{Complex{Int64}})) with eltype Complex{Int64}:
+     1 - 1im
+     1 + 1im
+
+    julia> ArrayInterface.is_lazy_conjugate(a)
+    True()
+
+    julia> b = a'
+    1×2 adjoint(transpose(adjoint(::Vector{Complex{Int64}}))) with eltype Complex{Int64}:
+     1+1im  1-1im
+
+    julia> ArrayInterface.is_lazy_conjugate(b)
+    False()
+
+"""
+is_lazy_conjugate(::T) where {T<:AbstractArray} = _is_lazy_conjugate(T, False())
+is_lazy_conjugate(::AbstractArray{<:Real}) = False()
+
+function _is_lazy_conjugate(::Type{T}, isconj) where {T<:AbstractArray}
+    Tp = parent_type(T)
+    if T !== Tp
+        _is_lazy_conjugate(Tp, isconj)
+    else
+        isconj
+    end
+end
+
+function _is_lazy_conjugate(::Type{T}, isconj) where {T<:Adjoint}
+    Tp = parent_type(T)
+    if T !== Tp
+        _is_lazy_conjugate(Tp, !isconj)
+    else
+        !isconj
+    end
+end
+
+"""
+    insert(collection, index, item)
+
+Returns a new instance of `collection` with `item` inserted into at the given `index`.
+"""
+Base.@propagate_inbounds function insert(collection, index, item)
+    @boundscheck checkbounds(collection, index)
+    ret = similar(collection, length(collection) + 1)
+    @inbounds for i = firstindex(ret):(index-1)
+        ret[i] = collection[i]
+    end
+    @inbounds ret[index] = item
+    @inbounds for i = (index+1):lastindex(ret)
+        ret[i] = collection[i-1]
+    end
+    return ret
+end
+
+function insert(x::Tuple{Vararg{Any,N}}, index::Integer, item) where {N}
+    @boundscheck if !checkindex(Bool, StaticInt{1}():StaticInt{N}(), index)
+        throw(BoundsError(x, index))
+    end
+    return unsafe_insert(x, Int(index), item)
+end
+
+@inline function unsafe_insert(x::Tuple, i::Int, item)
+    if i === 1
+        return (item, x...)
+    else
+        return (first(x), unsafe_insert(tail(x), i - 1, item)...)
+    end
+end
+
+"""
+    deleteat(collection, index)
+
+Returns a new instance of `collection` with the item at the given `index` removed.
+"""
+Base.@propagate_inbounds function deleteat(collection::AbstractVector, index)
+    @boundscheck if !checkindex(Bool, eachindex(collection), index)
+        throw(BoundsError(collection, index))
+    end
+    return unsafe_deleteat(collection, index)
+end
+Base.@propagate_inbounds function deleteat(collection::Tuple{Vararg{Any,N}}, index) where {N}
+    @boundscheck if !checkindex(Bool, StaticInt{1}():StaticInt{N}(), index)
+        throw(BoundsError(collection, index))
+    end
+    return unsafe_deleteat(collection, index)
+end
+
+function unsafe_deleteat(src::AbstractVector, index::Integer)
+    dst = similar(src, length(src) - 1)
+    @inbounds for i in indices(dst)
+        if i < index
+            dst[i] = src[i]
+        else
+            dst[i] = src[i+1]
+        end
+    end
+    return dst
+end
+
+@inline function unsafe_deleteat(src::AbstractVector, inds::AbstractVector)
+    dst = similar(src, length(src) - length(inds))
+    dst_index = firstindex(dst)
+    @inbounds for src_index in indices(src)
+        if !in(src_index, inds)
+            dst[dst_index] = src[src_index]
+            dst_index += one(dst_index)
+        end
+    end
+    return dst
+end
+
+@inline function unsafe_deleteat(src::Tuple, inds::AbstractVector)
+    dst = Vector{eltype(src)}(undef, length(src) - length(inds))
+    dst_index = firstindex(dst)
+    @inbounds for src_index in OneTo(length(src))
+        if !in(src_index, inds)
+            dst[dst_index] = src[src_index]
+            dst_index += one(dst_index)
+        end
+    end
+    return Tuple(dst)
+end
+
+@inline unsafe_deleteat(x::Tuple{T}, i::Integer) where {T} = ()
+@inline unsafe_deleteat(x::Tuple{T1,T2}, i::Integer) where {T1,T2} =
+    isone(i) ? (x[2],) : (x[1],)
+@inline function unsafe_deleteat(x::Tuple, i::Integer)
+    if i === one(i)
+        return tail(x)
+    elseif i == length(x)
+        return Base.front(x)
+    else
+        return (first(x), unsafe_deleteat(tail(x), i - one(i))...)
+    end
+end
+
+include("array_index.jl")
+include("ranges.jl")
+include("axes.jl")
+include("size.jl")
+include("dimensions.jl")
+include("indexing.jl")
+include("stridelayout.jl")
+include("broadcast.jl")
 
 end

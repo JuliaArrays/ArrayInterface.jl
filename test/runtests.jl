@@ -19,12 +19,35 @@ if GROUP == "ArrayInterfaceBlockBandedMatrices"
     dev_subpkg("ArrayInterfaceBandedMatrices")
 end
 
-@time begin
-if GROUP == "HighLevel"
-    # Any tests for the level combined package? None right now.
+groups = if GROUP == "All"
+    ["ArrayInterfaceCore", "ArrayInterface", "ArrayInterfaceBandedMatrices", "ArrayInterfaceBlockBandedMatrices",
+     "ArrayInterfaceCUDA", "ArrayInterfaceOffsetArrays", "ArrayInterfaceStaticArrays"]
 else
-    dev_subpkg(GROUP)
-    subpkg_path = joinpath(dirname(@__DIR__), "lib", GROUP)
-    Pkg.test(PackageSpec(name=GROUP, path=subpkg_path))
+    [GROUP]
 end
+
+@time begin
+
+for g in groups
+    if g == "ArrayInterface"
+
+        println("ArrayInterface Tests")
+
+        include("setup.jl")
+        include("array_index.jl")
+        include("axes.jl")
+        include("broadcast.jl")
+        include("dimensions.jl")
+        include("indexing.jl")
+        include("ranges.jl")
+        include("setup.jl")
+        include("size.jl")
+        include("misc.jl")
+    else
+        dev_subpkg(g)
+        subpkg_path = joinpath(dirname(@__DIR__), "lib", g)
+        Pkg.test(PackageSpec(name=g, path=subpkg_path))
+    end
+end
+
 end

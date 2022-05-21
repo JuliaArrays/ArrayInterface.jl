@@ -1,41 +1,3 @@
-
-"""
-    fast_scalar_indexing(::Type{T}) -> Bool
-
-Query whether an array type has fast scalar indexing.
-"""
-fast_scalar_indexing(x) = fast_scalar_indexing(typeof(x))
-fast_scalar_indexing(::Type) = true
-fast_scalar_indexing(::Type{<:LinearAlgebra.AbstractQ}) = false
-fast_scalar_indexing(::Type{<:LinearAlgebra.LQPackedQ}) = false
-
-"""
-    allowed_getindex(x,i...)
-
-A scalar `getindex` which is always allowed.
-"""
-allowed_getindex(x, i...) = x[i...]
-
-"""
-    allowed_setindex!(x,v,i...)
-
-A scalar `setindex!` which is always allowed.
-"""
-allowed_setindex!(x, v, i...) = Base.setindex!(x, v, i...)
-
-
-@inline function _to_cartesian(a, i::CanonicalInt)
-    @inbounds(CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))[i])
-end
-@inline function _to_linear(a, i::Tuple{CanonicalInt,Vararg{CanonicalInt}})
-    _strides2int(offsets(a), size_to_strides(size(a), static(1)), i) + static(1)
-end
-
-"""
-    is_splat_index(::Type{T}) -> StaticBool
-
-Returns `static(true)` if `T` is a type that splats across multiple dimensions. 
-"""
 is_splat_index(@nospecialize(x)) = is_splat_index(typeof(x))
 is_splat_index(::Type{T}) where {T} = static(false)
 _is_splat(::Type{I}, i::StaticInt) where {I} = is_splat_index(field_type(I, i))
@@ -86,14 +48,14 @@ This implementation differs from that of `Base.to_indices` in the following ways
     1.105 μs (12 allocations: 672 bytes)
     (1, 1, 2, 1, 1, 2, 1, 1, 2, 1)
 
-    julia> @btime ArrayInterfaceCore.to_indices(\$x, \$inds2)
+    julia> @btime ArrayInterface.to_indices(\$x, \$inds2)
     0.041 ns (0 allocations: 0 bytes)
     (1, 1, 2, 1, 1, 2, 1, 1, 2, 1)
 
     julia> @btime Base.to_indices(\$x, \$inds3);
     340.629 ns (14 allocations: 768 bytes)
 
-    julia> @btime ArrayInterfaceCore.to_indices(\$x, \$inds3);
+    julia> @btime ArrayInterface.to_indices(\$x, \$inds3);
     11.614 ns (0 allocations: 0 bytes)
 
     ```
@@ -320,10 +282,10 @@ end
 to_axis(S::IndexLinear, axis, inds) = StaticInt(1):length(inds)
 
 """
-    ArrayInterfaceCore.getindex(A, args...)
+    ArrayInterface.getindex(A, args...)
 
 Retrieve the value(s) stored at the given key or index within a collection. Creating
-another instance of `ArrayInterfaceCore.getindex` should only be done by overloading `A`.
+another instance of `ArrayInterface.getindex` should only be done by overloading `A`.
 Changing indexing based on a given argument from `args` should be done through,
 [`to_index`](@ref), or [`to_axis`](@ref).
 """
@@ -420,7 +382,7 @@ end
 end
 
 """
-    ArrayInterfaceCore.setindex!(A, args...)
+    ArrayInterface.setindex!(A, args...)
 
 Store the given values at the given key or index within a collection.
 """

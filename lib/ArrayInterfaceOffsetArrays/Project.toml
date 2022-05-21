@@ -1,23 +1,20 @@
 name = "ArrayInterfaceOffsetArrays"
 uuid = "015c0d05-e682-4f19-8f0a-679ce4c54826"
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
-ArrayInterfaceCore = "30b0a656-2188-435a-8636-2ec0e6a096e2"
+ArrayInterface = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
 OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
 Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
 
 [compat]
-ArrayInterfaceCore = "0.1"
+ArrayInterface = "5"
 OffsetArrays = "1.11"
 Static = "0.6"
 julia = "1.6"
 
 [extras]
-ArrayInterfaceCore = "30b0a656-2188-435a-8636-2ec0e6a096e2"
-OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
-Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["ArrayInterfaceCore","OffsetArrays","Static","Test"]
+test = ["Test"]

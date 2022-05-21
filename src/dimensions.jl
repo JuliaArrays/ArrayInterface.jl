@@ -36,12 +36,6 @@ function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y}}) where {X, Y}
 end
 is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
 
-"""
-    from_parent_dims(::Type{T}) -> Tuple{Vararg{Union{Int,StaticInt}}}
-    from_parent_dims(::Type{T}, dim) -> Union{Int,StaticInt}
-
-Returns the mapping from parent dimensions to child dimensions.
-"""
 from_parent_dims(x) = from_parent_dims(typeof(x))
 from_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
 from_parent_dims(::Type{T}) where {T<:VecAdjTrans} = (StaticInt(2),)
@@ -93,12 +87,6 @@ function from_parent_dims(::Type{T}, ::StaticInt{dim}) where {T,dim}
     end
 end
 
-"""
-    to_parent_dims(::Type{T}) -> Tuple{Vararg{Union{Int,StaticInt}}}
-    to_parent_dims(::Type{T}, dim) -> Union{Int,StaticInt}
-
-Returns the mapping from child dimensions to parent dimensions.
-"""
 to_parent_dims(x) = to_parent_dims(typeof(x))
 to_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
 to_parent_dims(::Type{T}) where {T<:Union{Transpose,Adjoint}} = (StaticInt(2), One())
@@ -147,23 +135,10 @@ function to_parent_dims(::Type{T}, ::StaticInt{dim}) where {T,dim}
     end
 end
 
-"""
-    has_dimnames(::Type{T}) -> StaticBool
-
-Returns `static(true)` if `x` has on or more named dimensions. If all dimensions correspond
-to `static(:_)`, then `static(false)` is returned.
-"""
 @inline function has_dimnames(x)
     static(known_dimnames(x) !== ntuple(Compat.Returns(:_), Val(ndims(x))))
 end
 
-"""
-    known_dimnames(::Type{T}) -> Tuple{Vararg{Union{Symbol,Nothing}}}
-    known_dimnames(::Type{T}, dim::Union{Int,StaticInt}) -> Union{Symbol,Nothing}
-
-Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
-have a name.
-"""
 @inline known_dimnames(x, dim::Integer) = _known_dimname(known_dimnames(x), canonicalize(dim))
 known_dimnames(x) = known_dimnames(typeof(x))
 known_dimnames(::Type{T}) where {T} = _known_dimnames(T, parent_type(T))
@@ -180,13 +155,6 @@ end
 end
 @inline _inbounds_known_dimname(x, dim) = @inbounds(_known_dimname(x, dim))
 
-"""
-    dimnames(x) -> Tuple{Vararg{Union{Symbol,StaticSymbol}}}
-    dimnames(x, dim::Union{Int,StaticInt}) -> Union{Symbol,StaticSymbol}
-
-Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
-have a name.
-"""
 @inline dimnames(x, dim::Integer) = _dimname(dimnames(x), canonicalize(dim))
 @inline dimnames(x) = _dimnames(has_parent(x), x)
 @inline function _dimnames(::True, x)
@@ -201,11 +169,6 @@ _dimnames(::False, x) = ntuple(_->static(:_), Val(ndims(x)))
 end
 @inline _inbounds_dimname(x, dim) = @inbounds(_dimname(x, dim))
 
-"""
-    to_dims(x, dim) -> Union{Int,StaticInt}
-
-This returns the dimension(s) of `x` corresponding to `dim`.
-"""
 to_dims(x, dim::Colon) = dim
 to_dims(x, dim::Integer) = canonicalize(dim)
 to_dims(x, dim::Union{StaticSymbol,Symbol}) = _to_dim(dimnames(x), dim)

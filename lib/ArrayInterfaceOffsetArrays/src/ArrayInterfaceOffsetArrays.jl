@@ -1,6 +1,6 @@
 module ArrayInterfaceOffsetArrays
 
-using ArrayInterfaceCore
+using ArrayInterface
 using OffsetArrays
 using Static
 
@@ -20,29 +20,29 @@ function relative_offsets(A::OffsetArrays.OffsetArray, dim::Int)
         return getfield(relative_offsets(A), dim)
     end
 end
-ArrayInterfaceCore.parent_type(::Type{<:OffsetArrays.OffsetArray{T,N,A}}) where {T,N,A} = A
+ArrayInterface.parent_type(::Type{<:OffsetArrays.OffsetArray{T,N,A}}) where {T,N,A} = A
 function _offset_axis_type(::Type{T}, dim::StaticInt{D}) where {T,D}
-    OffsetArrays.IdOffsetRange{Int,ArrayInterfaceCore.axes_types(T, dim)}
+    OffsetArrays.IdOffsetRange{Int,ArrayInterface.axes_types(T, dim)}
 end
-function ArrayInterfaceCore.axes_types(::Type{T}) where {T<:OffsetArrays.OffsetArray}
-    Static.eachop_tuple(_offset_axis_type, Static.nstatic(Val(ndims(T))), ArrayInterfaceCore.parent_type(T))
+function ArrayInterface.axes_types(::Type{T}) where {T<:OffsetArrays.OffsetArray}
+    Static.eachop_tuple(_offset_axis_type, Static.nstatic(Val(ndims(T))), ArrayInterface.parent_type(T))
 end
-function ArrayInterfaceCore.known_offsets(::Type{A}) where {A<:OffsetArrays.OffsetArray}
+function ArrayInterface.known_offsets(::Type{A}) where {A<:OffsetArrays.OffsetArray}
     ntuple(identity -> nothing, Val(ndims(A)))
 end
-function ArrayInterfaceCore.offsets(A::OffsetArrays.OffsetArray)
-    map(+, ArrayInterfaceCore.offsets(parent(A)), relative_offsets(A))
+function ArrayInterface.offsets(A::OffsetArrays.OffsetArray)
+    map(+, ArrayInterface.offsets(parent(A)), relative_offsets(A))
 end
-@inline function ArrayInterfaceCore.offsets(A::OffsetArrays.OffsetArray, dim)
-    d = ArrayInterfaceCore.to_dims(A, dim)
-    ArrayInterfaceCore.offsets(parent(A), d) + relative_offsets(A, d)
+@inline function ArrayInterface.offsets(A::OffsetArrays.OffsetArray, dim)
+    d = ArrayInterface.to_dims(A, dim)
+    ArrayInterface.offsets(parent(A), d) + relative_offsets(A, d)
 end
-@inline function ArrayInterfaceCore.axes(A::OffsetArrays.OffsetArray)
-    map(OffsetArrays.IdOffsetRange, ArrayInterfaceCore.axes(parent(A)), relative_offsets(A))
+@inline function ArrayInterface.axes(A::OffsetArrays.OffsetArray)
+    map(OffsetArrays.IdOffsetRange, ArrayInterface.axes(parent(A)), relative_offsets(A))
 end
-@inline function ArrayInterfaceCore.axes(A::OffsetArrays.OffsetArray, dim)
-    d = ArrayInterfaceCore.to_dims(A, dim)
-    OffsetArrays.IdOffsetRange(ArrayInterfaceCore.axes(parent(A), d), relative_offsets(A, d))
+@inline function ArrayInterface.axes(A::OffsetArrays.OffsetArray, dim)
+    d = ArrayInterface.to_dims(A, dim)
+    OffsetArrays.IdOffsetRange(ArrayInterface.axes(parent(A), d), relative_offsets(A, d))
 end
 
 end # module

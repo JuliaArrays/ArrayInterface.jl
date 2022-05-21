@@ -39,7 +39,7 @@ jobs:
         run: |
           using Pkg
           function dev_subpkg(subpkg)
-              subpkg_path = joinpath(".","ArrayInterface", "lib", subpkg)
+              subpkg_path = joinpath("lib", subpkg)
               Pkg.develop(Pkg.PackageSpec(path=subpkg_path))
           end
           dev_subpkg("ArrayInterfaceCore")
