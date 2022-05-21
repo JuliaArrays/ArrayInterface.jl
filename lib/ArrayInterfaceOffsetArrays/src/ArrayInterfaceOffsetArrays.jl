@@ -4,8 +4,6 @@ using ArrayInterface
 using OffsetArrays
 using Static
 
-const CanonicalInt = Union{Int,StaticInt}
-
 relative_offsets(r::OffsetArrays.IdOffsetRange) = (getfield(r, :offset),)
 relative_offsets(A::OffsetArrays.OffsetArray) = getfield(A, :offsets)
 function relative_offsets(A::OffsetArrays.OffsetArray, ::StaticInt{dim}) where {dim}

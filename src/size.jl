@@ -5,14 +5,14 @@
 
 Returns the size of each dimension of `A` or along dimension `dim` of `A`. If the size of
 any axes are known at compile time, these should be returned as `Static` numbers. Otherwise,
-`ArrayInterfaceCore.size(A)` is identical to `Base.size(A)`
+`ArrayInterface.size(A)` is identical to `Base.size(A)`
 
 ```julia
 julia> using StaticArrays, ArrayInterface
 
 julia> A = @SMatrix rand(3,4);
 
-julia> ArrayInterfaceCore.size(A)
+julia> ArrayInterface.size(A)
 (static(3), static(4))
 ```
 """
@@ -129,7 +129,7 @@ end
     length(A) -> Union{Int,StaticInt}
 
 Returns the length of `A`.  If the length is known at compile time, it is
-returned as `Static` number.  Otherwise, `ArrayInterfaceCore.length(A)` is identical
+returned as `Static` number.  Otherwise, `ArrayInterface.length(A)` is identical
 to `Base.length(A)`.
 
 ```julia
@@ -137,7 +137,7 @@ julia> using StaticArrays, ArrayInterface
 
 julia> A = @SMatrix rand(3,4);
 
-julia> ArrayInterfaceCore.length(A)
+julia> ArrayInterface.length(A)
 static(12)
 ```
 """

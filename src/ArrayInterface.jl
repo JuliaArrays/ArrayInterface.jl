@@ -5,7 +5,7 @@ import ArrayInterfaceCore: allowed_getindex, allowed_setindex!, aos_to_soa, buff
     has_parent, parent_type, fast_matrix_colors, findstructralnz, has_sparsestruct,
     issingular, is_lazy_conjugate, isstructured, matrix_colors, restructure, lu_instance,
     safevec, unsafe_reconstruct, zeromatrix, ColoringAlgorithm, merge_tuple_type,
-    fast_scalar_indexing, parameterless_type
+    fast_scalar_indexing, parameterless_type, _is_reshaped
 
 # ArrayIndex subtypes and methods
 import ArrayInterfaceCore: ArrayIndex, MatrixIndex, VectorIndex, BidiagonalIndex, TridiagonalIndex
@@ -19,7 +19,7 @@ import ArrayInterfaceCore: AbstractDevice, AbstractCPU, CPUPointer, CPUTuple, Ch
 
 using Static
 using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
-    permute, invariant_permutation, field_type, reduce_tup
+    permute, invariant_permutation, field_type, reduce_tup, find_first_eq
 
 using IfElse
 
@@ -38,20 +38,20 @@ canonicalize(@nospecialize(x::StaticInt)) = x
 
 abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
 
-Base.size(A::AbstractArray2) = map(Int, ArrayInterfaceCore.size(A))
-Base.size(A::AbstractArray2, dim) = Int(ArrayInterfaceCore.size(A, dim))
+Base.size(A::AbstractArray2) = map(Int, ArrayInterface.size(A))
+Base.size(A::AbstractArray2, dim) = Int(ArrayInterface.size(A, dim))
 
 function Base.axes(A::AbstractArray2)
-    !(parent_type(A) <: typeof(A)) && return ArrayInterfaceCore.axes(parent(A))
+    !(parent_type(A) <: typeof(A)) && return ArrayInterface.axes(parent(A))
     throw(ArgumentError("Subtypes of `AbstractArray2` must define an axes method"))
 end
-Base.axes(A::AbstractArray2, dim) = ArrayInterfaceCore.axes(A, dim)
+Base.axes(A::AbstractArray2, dim) = ArrayInterface.axes(A, dim)
 
 function Base.strides(A::AbstractArray2)
-    defines_strides(A) && return map(Int, ArrayInterfaceCore.strides(A))
+    defines_strides(A) && return map(Int, ArrayInterface.strides(A))
     throw(MethodError(Base.strides, (A,)))
 end
-Base.strides(A::AbstractArray2, dim) = Int(ArrayInterfaceCore.strides(A, dim))
+Base.strides(A::AbstractArray2, dim) = Int(ArrayInterface.strides(A, dim))
 
 function Base.IndexStyle(::Type{T}) where {T<:AbstractArray2}
     if parent_type(T) <: T
@@ -92,12 +92,22 @@ end
 end
 
 """
+    has_parent(::Type{T}) -> StaticBool
+
+Returns `static(true)` if `parent_type(T)` a type unique to `T`.
+"""
+has_parent(x) = has_parent(typeof(x))
+has_parent(::Type{T}) where {T} = _has_parent(parent_type(T), T)
+_has_parent(::Type{T}, ::Type{T}) where {T} = False()
+_has_parent(::Type{T1}, ::Type{T2}) where {T1,T2} = True()
+
+"""
     device(::Type{T}) -> AbstractDevice
 
 Indicates the most efficient way to access elements from the collection in low-level code.
-For `GPUArrays`, will return `ArrayInterfaceCore.GPU()`.
-For `AbstractArray` supporting a `pointer` method, returns `ArrayInterfaceCore.CPUPointer()`.
-For other `AbstractArray`s and `Tuple`s, returns `ArrayInterfaceCore.CPUIndex()`.
+For `GPUArrays`, will return `ArrayInterface.GPU()`.
+For `AbstractArray` supporting a `pointer` method, returns `ArrayInterface.CPUPointer()`.
+For other `AbstractArray`s and `Tuple`s, returns `ArrayInterface.CPUIndex()`.
 Otherwise, returns `nothing`.
 """
 device(A) = device(typeof(A))
@@ -116,6 +126,151 @@ _not_pointer(::CPUPointer) = CPUIndex()
 _not_pointer(x) = x
 _device(::False, ::Type{T}) where {T<:DenseArray} = CPUPointer()
 _device(::False, ::Type{T}) where {T} = CPUIndex()
+
+"""
+    is_lazy_conjugate(::AbstractArray) -> Bool
+
+Determine if a given array will lazyily take complex conjugates, such as with `Adjoint`. This will work with
+nested wrappers, so long as there is no type in the chain of wrappers such that `parent_type(T) == T`
+
+Examples
+
+    julia> a = transpose([1 + im, 1-im]')
+    2×1 transpose(adjoint(::Vector{Complex{Int64}})) with eltype Complex{Int64}:
+     1 - 1im
+     1 + 1im
+
+    julia> ArrayInterface.is_lazy_conjugate(a)
+    True()
+
+    julia> b = a'
+    1×2 adjoint(transpose(adjoint(::Vector{Complex{Int64}}))) with eltype Complex{Int64}:
+     1+1im  1-1im
+
+    julia> ArrayInterface.is_lazy_conjugate(b)
+    False()
+
+"""
+is_lazy_conjugate(::T) where {T<:AbstractArray} = _is_lazy_conjugate(T, False())
+is_lazy_conjugate(::AbstractArray{<:Real}) = False()
+
+function _is_lazy_conjugate(::Type{T}, isconj) where {T<:AbstractArray}
+    Tp = parent_type(T)
+    if T !== Tp
+        _is_lazy_conjugate(Tp, isconj)
+    else
+        isconj
+    end
+end
+
+function _is_lazy_conjugate(::Type{T}, isconj) where {T<:Adjoint}
+    Tp = parent_type(T)
+    if T !== Tp
+        _is_lazy_conjugate(Tp, !isconj)
+    else
+        !isconj
+    end
+end
+
+"""
+    insert(collection, index, item)
+
+Returns a new instance of `collection` with `item` inserted into at the given `index`.
+"""
+Base.@propagate_inbounds function insert(collection, index, item)
+    @boundscheck checkbounds(collection, index)
+    ret = similar(collection, length(collection) + 1)
+    @inbounds for i = firstindex(ret):(index-1)
+        ret[i] = collection[i]
+    end
+    @inbounds ret[index] = item
+    @inbounds for i = (index+1):lastindex(ret)
+        ret[i] = collection[i-1]
+    end
+    return ret
+end
+
+function insert(x::Tuple{Vararg{Any,N}}, index::Integer, item) where {N}
+    @boundscheck if !checkindex(Bool, StaticInt{1}():StaticInt{N}(), index)
+        throw(BoundsError(x, index))
+    end
+    return unsafe_insert(x, Int(index), item)
+end
+
+@inline function unsafe_insert(x::Tuple, i::Int, item)
+    if i === 1
+        return (item, x...)
+    else
+        return (first(x), unsafe_insert(tail(x), i - 1, item)...)
+    end
+end
+
+"""
+    deleteat(collection, index)
+
+Returns a new instance of `collection` with the item at the given `index` removed.
+"""
+Base.@propagate_inbounds function deleteat(collection::AbstractVector, index)
+    @boundscheck if !checkindex(Bool, eachindex(collection), index)
+        throw(BoundsError(collection, index))
+    end
+    return unsafe_deleteat(collection, index)
+end
+Base.@propagate_inbounds function deleteat(collection::Tuple{Vararg{Any,N}}, index) where {N}
+    @boundscheck if !checkindex(Bool, StaticInt{1}():StaticInt{N}(), index)
+        throw(BoundsError(collection, index))
+    end
+    return unsafe_deleteat(collection, index)
+end
+
+function unsafe_deleteat(src::AbstractVector, index::Integer)
+    dst = similar(src, length(src) - 1)
+    @inbounds for i in indices(dst)
+        if i < index
+            dst[i] = src[i]
+        else
+            dst[i] = src[i+1]
+        end
+    end
+    return dst
+end
+
+@inline function unsafe_deleteat(src::AbstractVector, inds::AbstractVector)
+    dst = similar(src, length(src) - length(inds))
+    dst_index = firstindex(dst)
+    @inbounds for src_index in indices(src)
+        if !in(src_index, inds)
+            dst[dst_index] = src[src_index]
+            dst_index += one(dst_index)
+        end
+    end
+    return dst
+end
+
+@inline function unsafe_deleteat(src::Tuple, inds::AbstractVector)
+    dst = Vector{eltype(src)}(undef, length(src) - length(inds))
+    dst_index = firstindex(dst)
+    @inbounds for src_index in OneTo(length(src))
+        if !in(src_index, inds)
+            dst[dst_index] = src[src_index]
+            dst_index += one(dst_index)
+        end
+    end
+    return Tuple(dst)
+end
+
+@inline unsafe_deleteat(x::Tuple{T}, i::Integer) where {T} = ()
+@inline unsafe_deleteat(x::Tuple{T1,T2}, i::Integer) where {T1,T2} =
+    isone(i) ? (x[2],) : (x[1],)
+@inline function unsafe_deleteat(x::Tuple, i::Integer)
+    if i === one(i)
+        return tail(x)
+    elseif i == length(x)
+        return Base.front(x)
+    else
+        return (first(x), unsafe_deleteat(tail(x), i - one(i))...)
+    end
+end
 
 include("array_index.jl")
 include("ranges.jl")

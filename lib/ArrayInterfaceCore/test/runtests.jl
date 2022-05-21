@@ -1,13 +1,11 @@
 using ArrayInterfaceCore
 using ArrayInterfaceCore: zeromatrix
 import ArrayInterfaceCore: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance,
-    device, contiguous_axis, contiguous_batch_size, stride_rank, dense_dims, static, NDIndex,
-    is_lazy_conjugate, parent_type, dimnames, zeromatrix
+        parent_type, zeromatrix
 using Base: setindex
 using LinearAlgebra
 using Random
 using SparseArrays
-using Static
 using Test
 
 using Aqua
@@ -56,30 +54,6 @@ end
     @test lu_instance(1) === 1
 end
 
-@testset "Reshaped views" begin
-    u_base = randn(10, 10)
-    u_view = view(u_base, 3, :)
-    u_reshaped_view1 = reshape(u_view, 1, :)
-    u_reshaped_view2 = reshape(u_view, 2, :)
-
-    @test @inferred(ArrayInterfaceCore.defines_strides(u_base))
-    @test @inferred(ArrayInterfaceCore.defines_strides(u_view))
-    @test @inferred(ArrayInterfaceCore.defines_strides(u_reshaped_view1))
-    @test @inferred(ArrayInterfaceCore.defines_strides(u_reshaped_view2))
-
-    # See https://github.com/JuliaArrays/ArrayInterfaceCore.jl/issues/160
-    @test @inferred(ArrayInterfaceCore.strides(u_base)) == (StaticInt(1), 10)
-    @test @inferred(ArrayInterfaceCore.strides(u_view)) == (10,)
-    @test @inferred(ArrayInterfaceCore.strides(u_reshaped_view1)) == (10, 10)
-    @test @inferred(ArrayInterfaceCore.strides(u_reshaped_view2)) == (10, 20)
-
-    # See https://github.com/JuliaArrays/ArrayInterfaceCore.jl/issues/157
-    @test @inferred(ArrayInterfaceCore.dense_dims(u_base)) == (True(), True())
-    @test @inferred(ArrayInterfaceCore.dense_dims(u_view)) == (False(),)
-    @test @inferred(ArrayInterfaceCore.dense_dims(u_reshaped_view1)) == (False(), False())
-    @test @inferred(ArrayInterfaceCore.dense_dims(u_reshaped_view2)) == (False(), False())
-end
-
 @testset "ismutable" begin
     @test ArrayInterfaceCore.ismutable(rand(3))
     @test ArrayInterfaceCore.ismutable((0.1,1.0)) == false
@@ -107,65 +81,6 @@ end
     @test !@inferred(ArrayInterfaceCore.can_setindex(Tuple{}))
     @test !@inferred(ArrayInterfaceCore.can_setindex(NamedTuple{(),Tuple{}}))
     @test @inferred(ArrayInterfaceCore.can_setindex(Dict{Int,Int}))
-end
-
-@testset "known_length" begin
-    @test ArrayInterfaceCore.known_length(1:2) === nothing
-    @test ArrayInterfaceCore.known_length((1,)) == 1
-    @test ArrayInterfaceCore.known_length((a=1,b=2)) == 2
-    @test ArrayInterfaceCore.known_length([]) === nothing
-    @test ArrayInterfaceCore.known_length(CartesianIndex((1,2,3))) === 3
-    @test @inferred(ArrayInterfaceCore.known_length(NDIndex((1,2,3)))) === 3
-
-    itr = StaticInt(1):StaticInt(10)
-    @inferred(ArrayInterfaceCore.known_length((i for i in itr))) == 10
-end
-
-A = zeros(3, 4, 5);
-A[:] = 1:60
-Ap = @view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])';
-S = MArray(zeros(2,3,4))
-A_trailingdim = zeros(2,3,4,1)
-Sp = @view(PermutedDimsArray(S,(3,1,2))[2:3,1:2,:]);
-
-Sp2 = @view(PermutedDimsArray(S,(3,2,1))[2:3,:,:]);
-
-Mp = @view(PermutedDimsArray(S,(3,1,2))[:,2,:])';
-Mp2 = @view(PermutedDimsArray(S,(3,1,2))[2:3,:,2])';
-
-D = @view(A[:,2:2:4,:]);
-R = StaticInt(1):StaticInt(2);
-Rnr = reinterpret(Int32, R);
-Ar = reinterpret(Float32, A);
-A2 = zeros(4, 3, 5)
-A2r = reinterpret(ComplexF64, A2)
-
-irev = Iterators.reverse(S)
-igen = Iterators.map(identity, S)
-iacc = Iterators.accumulate(+, S)
-iprod = Iterators.product(axes(S)...)
-iflat = Iterators.flatten(iprod)
-ienum = enumerate(S)
-ipairs = pairs(S)
-izip = zip(S,S)
-
-sv5 = MArray(zeros(5));
-v5 = Vector{Float64}(undef, 5);
-
-@testset "size" begin
-    include("size.jl")
-end
-
-@testset "ArrayIndex" begin
-    include("array_index.jl")
-end
-
-@testset "Range Interface" begin
-    include("ranges.jl")
-end
-
-@testset "axes" begin
-    include("axes.jl")
 end
 
 @testset "fast_scalar_indexing" begin
@@ -231,21 +146,6 @@ end
     @test @inferred(ArrayInterfaceCore.isstructured(SymTridiagonal{Int64, Vector{Int64}}))
 end
 
-@testset "is_lazy_conjugate" begin
-    a = rand(ComplexF64, 2)
-    @test @inferred(is_lazy_conjugate(a)) == false
-    b = a'
-    @test @inferred(is_lazy_conjugate(b)) == true
-    c = transpose(b)
-    @test @inferred(is_lazy_conjugate(c)) == true
-    d = c'
-    @test @inferred(is_lazy_conjugate(d)) == false
-    e = permutedims(d)
-    @test @inferred(is_lazy_conjugate(e)) == false
-
-    @test @inferred(is_lazy_conjugate([1,2,3]')) == false # We don't care about conj on `<:Real`
-end
-
 @testset "ArrayInterfaceCore.issingular" begin
     for T in [Float64, ComplexF64]
         R = randn(MersenneTwister(2), T, 5, 5)
@@ -267,68 +167,76 @@ end
     @test !@inferred(ArrayInterfaceCore.issingular(Tridiagonal([1,2,3],[1,2,3,4],[4,5,6])))
 end
 
-@testset "Pseudo-mutating" begin
-    @testset "setindex" begin
-        @testset "$(typeof(x))" for x in [
-            zeros(3),
-            falses(3),
-            spzeros(3),
-        ]
-            y = setindex(x, true, 1)
-            @test iszero(x)  # x is not mutated
-            @test y[1] == true
-            @test iszero(x[CartesianIndices(size(x)) .== [CartesianIndex(1)]])
+@testset "setindex" begin
+    @testset "$(typeof(x))" for x in [
+        zeros(3),
+        falses(3),
+        spzeros(3),
+    ]
+        y = setindex(x, true, 1)
+        @test iszero(x)  # x is not mutated
+        @test y[1] == true
+        @test iszero(x[CartesianIndices(size(x)) .== [CartesianIndex(1)]])
 
-            y2 = setindex(x, one.(x), :)
-            @test iszero(x)
-            @test all(isone, y2)
-        end
-
-        @testset "$(typeof(x))" for x in [
-            zeros(3, 3),
-            falses(3, 3),
-            spzeros(3, 3),
-        ]
-            y = setindex(x, true, 1, 1)
-            @test iszero(x)  # x is not mutated
-            @test y[1, 1] == true
-            @test iszero(x[CartesianIndices(size(x)) .== [CartesianIndex(1, 1)]])
-
-            y2 = setindex(x, one.(x), :, :)
-            @test iszero(x)
-            @test all(isone, y2)
-        end
-
-        @testset "$(typeof(x))" for x in [
-            zeros(3, 3, 3),
-            falses(3, 3, 3),
-        ]
-            y = setindex(x, true, 1, 1, 1)
-            @test iszero(x)  # x is not mutated
-            @test y[1, 1, 1] == true
-            @test iszero(x[CartesianIndices(size(x)) .== [CartesianIndex(1, 1, 1)]])
-
-            y2 = setindex(x, one.(x), :, :, :)
-            @test iszero(x)
-            @test all(isone, y2)
-        end
+        y2 = setindex(x, one.(x), :)
+        @test iszero(x)
+        @test all(isone, y2)
     end
 
-    @testset "insert/deleteat" begin
-        @test @inferred(ArrayInterfaceCore.insert([1,2,3], 2, -2)) == [1, -2, 2, 3]
-        @test @inferred(ArrayInterfaceCore.deleteat([1, 2, 3], 2)) == [1, 3]
+    @testset "$(typeof(x))" for x in [
+        zeros(3, 3),
+        falses(3, 3),
+        spzeros(3, 3),
+    ]
+        y = setindex(x, true, 1, 1)
+        @test iszero(x)  # x is not mutated
+        @test y[1, 1] == true
+        @test iszero(x[CartesianIndices(size(x)) .== [CartesianIndex(1, 1)]])
 
-        @test @inferred(ArrayInterfaceCore.deleteat([1, 2, 3], [1, 2])) == [3]
-        @test @inferred(ArrayInterfaceCore.deleteat([1, 2, 3], [1, 3])) == [2]
-        @test @inferred(ArrayInterfaceCore.deleteat([1, 2, 3], [2, 3])) == [1]
-
-        @test @inferred(ArrayInterfaceCore.insert((2,3,4), 1, -2)) == (-2, 2, 3, 4)
-        @test @inferred(ArrayInterfaceCore.insert((2,3,4), 2, -2)) == (2, -2, 3, 4)
-        @test @inferred(ArrayInterfaceCore.insert((2,3,4), 3, -2)) == (2, 3, -2, 4)
-
-        @test @inferred(ArrayInterfaceCore.deleteat((2, 3, 4), 1)) == (3, 4)
-        @test @inferred(ArrayInterfaceCore.deleteat((2, 3, 4), 2)) == (2, 4)
-        @test @inferred(ArrayInterfaceCore.deleteat((2, 3, 4), 3)) == (2, 3)
-        @test ArrayInterfaceCore.deleteat((1, 2, 3), [1, 2]) == (3,)
+        y2 = setindex(x, one.(x), :, :)
+        @test iszero(x)
+        @test all(isone, y2)
     end
+
+    @testset "$(typeof(x))" for x in [
+        zeros(3, 3, 3),
+        falses(3, 3, 3),
+    ]
+        y = setindex(x, true, 1, 1, 1)
+        @test iszero(x)  # x is not mutated
+        @test y[1, 1, 1] == true
+        @test iszero(x[CartesianIndices(size(x)) .== [CartesianIndex(1, 1, 1)]])
+
+        y2 = setindex(x, one.(x), :, :, :)
+        @test iszero(x)
+        @test all(isone, y2)
+    end
+end
+
+@testset "Sparsity Structure" begin
+    D=Diagonal([1,2,3,4])
+    @test has_sparsestruct(D)
+    rowind,colind=findstructralnz(D)
+    @test [D[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,2,3,4]
+    @test length(rowind)==4
+    @test length(rowind)==length(colind)
+
+    Bu = Bidiagonal([1,2,3,4], [7,8,9], :U)
+    @test has_sparsestruct(Bu)
+    rowind,colind=findstructralnz(Bu)
+    @test [Bu[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,7,2,8,3,9,4]
+    Bl = Bidiagonal([1,2,3,4], [7,8,9], :L)
+    @test has_sparsestruct(Bl)
+    rowind,colind=findstructralnz(Bl)
+    @test [Bl[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,7,2,8,3,9,4]
+
+    Tri=Tridiagonal([1,2,3],[1,2,3,4],[4,5,6])
+    @test has_sparsestruct(Tri)
+    rowind,colind=findstructralnz(Tri)
+    @test [Tri[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,2,3,4,4,5,6,1,2,3]
+
+    STri=SymTridiagonal([1,2,3,4],[5,6,7])
+    @test has_sparsestruct(STri)
+    rowind,colind=findstructralnz(STri)
+    @test [STri[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,2,3,4,5,6,7,5,6,7]
 end

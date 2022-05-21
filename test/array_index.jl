@@ -1,5 +1,3 @@
-using ArrayInterface
-
 A = zeros(3, 4, 5);
 A[:] = 1:60
 Ap = @view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])';
@@ -25,30 +23,3 @@ let v = Float64.(1:10)', v2 = transpose(parent(v))
   @test @inferred(ArrayInterface.StrideIndex(sv)) === @inferred(ArrayInterface.StrideIndex(sv2)) === ArrayInterface.StrideIndex{2, (2, 1), 2}((StaticInt(1), StaticInt(1)), (StaticInt(1), StaticInt(1)))
   @test @inferred(ArrayInterface.stride_rank(parent(sv))) === @inferred(ArrayInterface.stride_rank(parent(sv2))) === (StaticInt(1),)
 end
-
-D=Diagonal([1,2,3,4])
-@test has_sparsestruct(D)
-rowind,colind=findstructralnz(D)
-@test [D[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,2,3,4]
-@test length(rowind)==4
-@test length(rowind)==length(colind)
-
-Bu = Bidiagonal([1,2,3,4], [7,8,9], :U)
-@test has_sparsestruct(Bu)
-rowind,colind=findstructralnz(Bu)
-@test [Bu[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,7,2,8,3,9,4]
-Bl = Bidiagonal([1,2,3,4], [7,8,9], :L)
-@test has_sparsestruct(Bl)
-rowind,colind=findstructralnz(Bl)
-@test [Bl[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,7,2,8,3,9,4]
-
-Tri=Tridiagonal([1,2,3],[1,2,3,4],[4,5,6])
-@test has_sparsestruct(Tri)
-rowind,colind=findstructralnz(Tri)
-@test [Tri[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,2,3,4,4,5,6,1,2,3]
-
-STri=SymTridiagonal([1,2,3,4],[5,6,7])
-@test has_sparsestruct(STri)
-rowind,colind=findstructralnz(STri)
-@test [STri[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,2,3,4,5,6,7,5,6,7]
-

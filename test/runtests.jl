@@ -19,22 +19,35 @@ if GROUP == "ArrayInterfaceBlockBandedMatrices"
     dev_subpkg("ArrayInterfaceBandedMatrices")
 end
 
-@show GROUP, GROUP == "ArrayInterface"
+groups = if GROUP == "All"
+    ["ArrayInterfaceCore", "ArrayInterface", "ArrayInterfaceBandedMatrices", "ArrayInterfaceBlockBandedMatrices",
+     "ArrayInterfaceCUDA", "ArrayInterfaceOffsetArrays", "ArrayInterfaceStaticArrays"]
+else
+    [GROUP]
+end
 
 @time begin
-if GROUP == "ArrayInterface"
-    include("setup.jl")
-    include("array_index.jl")
-    include("axes.jl")
-    include("broadcast.jl")
-    include("dimensions.jl")
-    include("indexing.jl")
-    include("ranges.jl")
-    include("setup.jl")
-    include("size.jl")
-else
-    dev_subpkg(GROUP)
-    subpkg_path = joinpath(dirname(@__DIR__), "lib", GROUP)
-    Pkg.test(PackageSpec(name=GROUP, path=subpkg_path))
+
+for g in groups
+    if g == "ArrayInterface"
+
+        println("ArrayInterface Tests")
+
+        include("setup.jl")
+        include("array_index.jl")
+        include("axes.jl")
+        include("broadcast.jl")
+        include("dimensions.jl")
+        include("indexing.jl")
+        include("ranges.jl")
+        include("setup.jl")
+        include("size.jl")
+        include("misc.jl")
+    else
+        dev_subpkg(g)
+        subpkg_path = joinpath(dirname(@__DIR__), "lib", g)
+        Pkg.test(PackageSpec(name=g, path=subpkg_path))
+    end
 end
+
 end

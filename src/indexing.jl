@@ -48,14 +48,14 @@ This implementation differs from that of `Base.to_indices` in the following ways
     1.105 μs (12 allocations: 672 bytes)
     (1, 1, 2, 1, 1, 2, 1, 1, 2, 1)
 
-    julia> @btime ArrayInterfaceCore.to_indices(\$x, \$inds2)
+    julia> @btime ArrayInterface.to_indices(\$x, \$inds2)
     0.041 ns (0 allocations: 0 bytes)
     (1, 1, 2, 1, 1, 2, 1, 1, 2, 1)
 
     julia> @btime Base.to_indices(\$x, \$inds3);
     340.629 ns (14 allocations: 768 bytes)
 
-    julia> @btime ArrayInterfaceCore.to_indices(\$x, \$inds3);
+    julia> @btime ArrayInterface.to_indices(\$x, \$inds3);
     11.614 ns (0 allocations: 0 bytes)
 
     ```
@@ -282,10 +282,10 @@ end
 to_axis(S::IndexLinear, axis, inds) = StaticInt(1):length(inds)
 
 """
-    ArrayInterfaceCore.getindex(A, args...)
+    ArrayInterface.getindex(A, args...)
 
 Retrieve the value(s) stored at the given key or index within a collection. Creating
-another instance of `ArrayInterfaceCore.getindex` should only be done by overloading `A`.
+another instance of `ArrayInterface.getindex` should only be done by overloading `A`.
 Changing indexing based on a given argument from `args` should be done through,
 [`to_index`](@ref), or [`to_axis`](@ref).
 """
@@ -382,7 +382,7 @@ end
 end
 
 """
-    ArrayInterfaceCore.setindex!(A, args...)
+    ArrayInterface.setindex!(A, args...)
 
 Store the given values at the given key or index within a collection.
 """

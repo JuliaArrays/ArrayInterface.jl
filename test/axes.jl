@@ -2,18 +2,18 @@
 
 v = Array{Float64}(undef, 4)
 m = Array{Float64}(undef, 4, 3)
-@test @inferred(ArrayInterfaceCore.axes(v')) === (StaticInt(1):StaticInt(1),Base.OneTo(4))
-@test @inferred(ArrayInterfaceCore.axes(m')) === (Base.OneTo(3),Base.OneTo(4))
-@test ArrayInterfaceCore.axes(v', StaticInt(1)) === StaticInt(1):StaticInt(1)
-@test ArrayInterfaceCore.axes(v, StaticInt(2)) === StaticInt(1):StaticInt(1)
+@test @inferred(ArrayInterface.axes(v')) === (StaticInt(1):StaticInt(1),Base.OneTo(4))
+@test @inferred(ArrayInterface.axes(m')) === (Base.OneTo(3),Base.OneTo(4))
+@test ArrayInterface.axes(v', StaticInt(1)) === StaticInt(1):StaticInt(1)
+@test ArrayInterface.axes(v, StaticInt(2)) === StaticInt(1):StaticInt(1)
 
 @testset "LazyAxis" begin
     A = zeros(3,4,5);
     SA = MArray(zeros(3,4,5))
-    lz1 = ArrayInterfaceCore.LazyAxis{1}(A)
-    slz1 = ArrayInterfaceCore.LazyAxis{1}(SA)
-    lzc = ArrayInterfaceCore.LazyAxis{:}(A)
-    slzc = ArrayInterfaceCore.LazyAxis{:}(SA)
+    lz1 = ArrayInterface.LazyAxis{1}(A)
+    slz1 = ArrayInterface.LazyAxis{1}(SA)
+    lzc = ArrayInterface.LazyAxis{:}(A)
+    slzc = ArrayInterface.LazyAxis{:}(SA)
 
     @test @inferred(first(lz1)) === @inferred(first(slz1))
     @test @inferred(first(lzc)) === @inferred(first(slzc))
@@ -29,19 +29,19 @@ m = Array{Float64}(undef, 4, 3)
     @test @inferred(getindex(lz1, 1:2)) == 1:2
     @test @inferred(getindex(lz1, 1:1:3)) == 1:1:3
 
-    @test @inferred(ArrayInterfaceCore.parent_type(ArrayInterfaceCore.LazyAxis{:}(A))) <: Base.OneTo{Int}
-    @test @inferred(ArrayInterfaceCore.parent_type(ArrayInterfaceCore.LazyAxis{4}(SA))) <: ArrayInterfaceCore.SOneTo{1}
-    @test @inferred(ArrayInterfaceCore.parent_type(ArrayInterfaceCore.LazyAxis{:}(SA))) <: ArrayInterfaceCore.SOneTo{60}
-    @test ArrayInterfaceCore.can_change_size(ArrayInterfaceCore.LazyAxis{1,Vector{Any}})
+    @test @inferred(ArrayInterface.parent_type(ArrayInterface.LazyAxis{:}(A))) <: Base.OneTo{Int}
+    @test @inferred(ArrayInterface.parent_type(ArrayInterface.LazyAxis{4}(SA))) <: ArrayInterface.SOneTo{1}
+    @test @inferred(ArrayInterface.parent_type(ArrayInterface.LazyAxis{:}(SA))) <: ArrayInterface.SOneTo{60}
+    @test ArrayInterface.can_change_size(ArrayInterface.LazyAxis{1,Vector{Any}})
 
     Aperm = PermutedDimsArray(A, (3,1,2))
     Aview = @view(Aperm[:,1:2,1])
-    @test map(parent, @inferred(ArrayInterfaceCore.lazy_axes(Aperm))) === @inferred(ArrayInterfaceCore.axes(Aperm))
-    @test map(parent, @inferred(ArrayInterfaceCore.lazy_axes(Aview))) === @inferred(ArrayInterfaceCore.axes(Aview))
-    @test map(parent, @inferred(ArrayInterfaceCore.lazy_axes(Aview'))) === @inferred(ArrayInterfaceCore.axes(Aview'))
-    @test map(parent, @inferred(ArrayInterfaceCore.lazy_axes((1:2)'))) === @inferred(ArrayInterfaceCore.axes((1:2)'))
+    @test map(parent, @inferred(ArrayInterface.lazy_axes(Aperm))) === @inferred(ArrayInterface.axes(Aperm))
+    @test map(parent, @inferred(ArrayInterface.lazy_axes(Aview))) === @inferred(ArrayInterface.axes(Aview))
+    @test map(parent, @inferred(ArrayInterface.lazy_axes(Aview'))) === @inferred(ArrayInterface.axes(Aview'))
+    @test map(parent, @inferred(ArrayInterface.lazy_axes((1:2)'))) === @inferred(ArrayInterface.axes((1:2)'))
 
-    @test_throws DimensionMismatch ArrayInterfaceCore.LazyAxis{0}(A)
+    @test_throws DimensionMismatch ArrayInterface.LazyAxis{0}(A)
 end
 
 @testset "`axes(A, dim)`` with `dim > ndims(A)` (#224)" begin
@@ -50,42 +50,42 @@ end
     B = Array{Float64, 2}(undef, m, n)
     b = view(B, :, 1)
 
-    @test @inferred(ArrayInterfaceCore.axes(B, 1)) == 1:m
-    @test @inferred(ArrayInterfaceCore.axes(B, 2)) == 1:n
-    @test @inferred(ArrayInterfaceCore.axes(B, 3)) == 1:1
+    @test @inferred(ArrayInterface.axes(B, 1)) == 1:m
+    @test @inferred(ArrayInterface.axes(B, 2)) == 1:n
+    @test @inferred(ArrayInterface.axes(B, 3)) == 1:1
 
-    @test @inferred(ArrayInterfaceCore.axes(B, static(1))) == 1:m
-    @test @inferred(ArrayInterfaceCore.axes(B, static(2))) == 1:n
-    @test @inferred(ArrayInterfaceCore.axes(B, static(3))) == 1:1
+    @test @inferred(ArrayInterface.axes(B, static(1))) == 1:m
+    @test @inferred(ArrayInterface.axes(B, static(2))) == 1:n
+    @test @inferred(ArrayInterface.axes(B, static(3))) == 1:1
 
-    @test @inferred(ArrayInterfaceCore.axes(b, 1)) == 1:m
-    @test @inferred(ArrayInterfaceCore.axes(b, 2)) == 1:1
-    @test @inferred(ArrayInterfaceCore.axes(b, 3)) == 1:1
+    @test @inferred(ArrayInterface.axes(b, 1)) == 1:m
+    @test @inferred(ArrayInterface.axes(b, 2)) == 1:1
+    @test @inferred(ArrayInterface.axes(b, 3)) == 1:1
 
-    @test @inferred(ArrayInterfaceCore.axes(b, static(1))) == 1:m
-    @test @inferred(ArrayInterfaceCore.axes(b, static(2))) == 1:1
-    @test @inferred(ArrayInterfaceCore.axes(b, static(3))) == 1:1
+    @test @inferred(ArrayInterface.axes(b, static(1))) == 1:m
+    @test @inferred(ArrayInterface.axes(b, static(2))) == 1:1
+    @test @inferred(ArrayInterface.axes(b, static(3))) == 1:1
 end
 
 @testset "SubArray Adjoint Axis" begin
   N = 4; d = rand(N);
 
-  @test @inferred(ArrayInterfaceCore.axes_types(typeof(view(d',:,1:2)))) === Tuple{ArrayInterfaceCore.OptionallyStaticUnitRange{StaticInt{1}, StaticInt{1}}, Base.OneTo{Int64}}
+  @test @inferred(ArrayInterface.axes_types(typeof(view(d',:,1:2)))) === Tuple{ArrayInterface.OptionallyStaticUnitRange{StaticInt{1}, StaticInt{1}}, Base.OneTo{Int64}}
 
 end
 if isdefined(Base, :ReshapedReinterpretArray)
   @testset "ReshapedReinterpretArray" begin
     a = rand(3, 5)
     ua = reinterpret(reshape, UInt64, a)
-    @test ArrayInterfaceCore.axes(ua) === ArrayInterfaceCore.axes(a)
-    @test ArrayInterfaceCore.axes(ua, 1) === ArrayInterfaceCore.axes(a, 1)
-    @test @inferred(ArrayInterfaceCore.axes(ua)) isa ArrayInterfaceCore.axes_types(ua)
+    @test ArrayInterface.axes(ua) === ArrayInterface.axes(a)
+    @test ArrayInterface.axes(ua, 1) === ArrayInterface.axes(a, 1)
+    @test @inferred(ArrayInterface.axes(ua)) isa ArrayInterface.axes_types(ua)
     u8a = reinterpret(reshape, UInt8, a)
-    @test @inferred(ArrayInterfaceCore.axes(u8a)) isa ArrayInterfaceCore.axes_types(u8a)
-    @test @inferred(ArrayInterfaceCore.axes(u8a, static(1))) isa ArrayInterfaceCore.axes_types(u8a, 1)
-    @test @inferred(ArrayInterfaceCore.axes(u8a, static(2))) isa ArrayInterfaceCore.axes_types(u8a, 2)
+    @test @inferred(ArrayInterface.axes(u8a)) isa ArrayInterface.axes_types(u8a)
+    @test @inferred(ArrayInterface.axes(u8a, static(1))) isa ArrayInterface.axes_types(u8a, 1)
+    @test @inferred(ArrayInterface.axes(u8a, static(2))) isa ArrayInterface.axes_types(u8a, 2)
     fa = reinterpret(reshape, Float64, copy(u8a))
-    @inferred(ArrayInterfaceCore.axes(fa)) isa ArrayInterfaceCore.axes_types(fa)
+    @inferred(ArrayInterface.axes(fa)) isa ArrayInterface.axes_types(fa)
   end
 end
 

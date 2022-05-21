@@ -5,8 +5,6 @@ using ArrayInterfaceBandedMatrices
 using BlockArrays
 using BlockBandedMatrices
 
-const CanonicalInt = Union{Int,StaticInt}
-
 struct BlockBandedMatrixIndex <: ArrayInterfaceCore.MatrixIndex
     count::Int
     refinds::Array{Int,1}
