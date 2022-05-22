@@ -9,4 +9,8 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 SuiteSparse = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [compat]
+ArrayInterface = "6"
 julia = "1.6"
+
+[extras]
+ArrayInterface = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
