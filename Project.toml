@@ -1,6 +1,6 @@
 name = "ArrayInterface"
 uuid = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
-version = "5.3.0"
+version = "6.0.0"
 
 [deps]
 ArrayInterfaceCore = "30b0a656-2188-435a-8636-2ec0e6a096e2"
