@@ -65,7 +65,7 @@ ArrayInterfaceCore.fast_matrix_colors(::Type{<:BandedMatrices.BandedMatrix}) = t
 function ArrayInterfaceCore.matrix_colors(A::BandedMatrices.BandedMatrix)
     l, u = BandedMatrices.bandwidths(A)
     width = u + l + 1
-    return _cycle(1:width, Base.size(A, 2))
+    return ArrayInterfaceCore._cycle(1:width, Base.size(A, 2))
 end
 
 end # module
