@@ -209,7 +209,7 @@ function ArrayInterfaceCore.matrix_colors(A::BlockBandedMatrices.BlockBandedMatr
     blockwidth = l + u + 1
     nblock = BlockBandedMatrices.blocksize(A, 2)
     cols = BlockArrays.blocklengths(axes(A, 2))
-    blockcolors = _cycle(1:blockwidth, nblock)
+    blockcolors = ArrayInterfaceCore._cycle(1:blockwidth, nblock)
     # the reserved number of colors of a block is the maximum length of columns of blocks with the same block color
     ncolors = [maximum(cols[i:blockwidth:nblock]) for i = 1:blockwidth]
     endinds = cumsum(ncolors)
@@ -228,7 +228,7 @@ function ArrayInterfaceCore.matrix_colors(A::BlockBandedMatrices.BandedBlockBand
     subblockwidth = lambda + mu + 1
     nblock = BlockBandedMatrices.blocksize(A, 2)
     cols = BlockArrays.blocklengths(axes(A, 2))
-    blockcolors = _cycle(1:blockwidth, nblock)
+    blockcolors = ArrayInterfaceCore._cycle(1:blockwidth, nblock)
     # the reserved number of colors of a block is the min of subblockwidth and the largest length of columns of blocks with the same block color
     ncolors = [
         min(subblockwidth, maximum(cols[i:blockwidth:nblock]))
@@ -237,7 +237,7 @@ function ArrayInterfaceCore.matrix_colors(A::BlockBandedMatrices.BandedBlockBand
     endinds = cumsum(ncolors)
     startinds = [endinds[i] - ncolors[i] + 1 for i = 1:min(blockwidth, nblock)]
     colors = [
-        _cycle(startinds[blockcolors[i]]:endinds[blockcolors[i]], cols[i])
+        ArrayInterfaceCore._cycle(startinds[blockcolors[i]]:endinds[blockcolors[i]], cols[i])
         for i = 1:nblock
     ]
     return reduce(vcat, colors)
