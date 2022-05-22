@@ -262,31 +262,29 @@ stride_rank(x, i) = stride_rank(x)[i]
 function stride_rank(::Type{R}) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}}
     return nstatic(Val(N))
 end
-if VERSION ≥ v"1.6.0-DEV.1581"
-  @inline function stride_rank(::Type{A}) where {NB, NA, B <: AbstractArray{<:Any,NB},A<: Base.ReinterpretArray{<:Any, NA, <:Any, B, true}}
+@inline function stride_rank(::Type{A}) where {NB,NA,B<:AbstractArray{<:Any,NB},A<:Base.ReinterpretArray{<:Any,NA,<:Any,B,true}}
     NA == NB ? stride_rank(B) : _stride_rank_reinterpret(stride_rank(B), gt(StaticInt{NB}(), StaticInt{NA}()))
-  end
-  @inline _stride_rank_reinterpret(sr, ::False) = (One(), map(Base.Fix2(+,One()),sr)...)
-  @inline _stride_rank_reinterpret(sr::Tuple{One,Vararg}, ::True) = map(Base.Fix2(-,One()), tail(sr))
-  # if the leading dim's `stride_rank` is not one, then that means the individual elements are split across an axis, which ArrayInterface
-  # doesn't currently have a means of representing.
-  @inline function contiguous_axis(::Type{A}) where {NB, NA, B <: AbstractArray{<:Any,NB},A<: Base.ReinterpretArray{<:Any, NA, <:Any, B, true}}
+end
+@inline _stride_rank_reinterpret(sr, ::False) = (One(), map(Base.Fix2(+, One()), sr)...)
+@inline _stride_rank_reinterpret(sr::Tuple{One,Vararg}, ::True) = map(Base.Fix2(-, One()), tail(sr))
+# if the leading dim's `stride_rank` is not one, then that means the individual elements are split across an axis, which ArrayInterface
+# doesn't currently have a means of representing.
+@inline function contiguous_axis(::Type{A}) where {NB,NA,B<:AbstractArray{<:Any,NB},A<:Base.ReinterpretArray{<:Any,NA,<:Any,B,true}}
     _reinterpret_contiguous_axis(stride_rank(B), dense_dims(B), contiguous_axis(B), gt(StaticInt{NB}(), StaticInt{NA}()))
-  end
-  @inline _reinterpret_contiguous_axis(::Any, ::Any, ::Any, ::False) = One()
-  @inline _reinterpret_contiguous_axis(::Any, ::Any, ::Any, ::True) = Zero()
-  @generated function _reinterpret_contiguous_axis(t::Tuple{One,Vararg{StaticInt,N}}, d::Tuple{True,Vararg{StaticBool,N}}, ::One, ::True) where {N}
+end
+@inline _reinterpret_contiguous_axis(::Any, ::Any, ::Any, ::False) = One()
+@inline _reinterpret_contiguous_axis(::Any, ::Any, ::Any, ::True) = Zero()
+@generated function _reinterpret_contiguous_axis(t::Tuple{One,Vararg{StaticInt,N}}, d::Tuple{True,Vararg{StaticBool,N}}, ::One, ::True) where {N}
     for n in 1:N
-      if t.parameters[n+1].parameters[1] === 2
-        if d.parameters[n+1] === True
-          return :(StaticInt{$n}())
-        else
-          return :(Zero())
+        if t.parameters[n+1].parameters[1] === 2
+            if d.parameters[n+1] === True
+                return :(StaticInt{$n}())
+            else
+                return :(Zero())
+            end
         end
-      end
     end
     :(Zero())
-  end
 end
 
 function stride_rank(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.SignedMultiplicativeInverse{Int},M}}}}) where {T,N,P,M}
@@ -411,11 +409,9 @@ end
 function dense_dims(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
     return _dense_dims(S, dense_dims(A), Val(stride_rank(A)))
 end
-if VERSION ≥ v"1.6.0-DEV.1581"
-    @inline function dense_dims(::Type{A}) where {NB, NA, B <: AbstractArray{<:Any,NB},A<: Base.ReinterpretArray{<:Any, NA, <:Any, B, true}}
-        ddb = dense_dims(B)
-        IfElse.ifelse(Static.le(StaticInt(NB), StaticInt(NA)), (True(), ddb...), Base.tail(ddb))
-    end
+@inline function dense_dims(::Type{A}) where {NB, NA, B <: AbstractArray{<:Any,NB},A<: Base.ReinterpretArray{<:Any, NA, <:Any, B, true}}
+    ddb = dense_dims(B)
+    IfElse.ifelse(Static.le(StaticInt(NB), StaticInt(NA)), (True(), ddb...), Base.tail(ddb))
 end
 
 _dense_dims(::Type{S}, ::Nothing, ::Val{R}) where {R,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}} = nothing
@@ -582,47 +578,33 @@ end
 @inline bmap(f::F, t::Tuple{}, x::Number) where {F} = ()
 @inline bmap(f::F, t::Tuple{T}, x::Number) where {F, T} = (f(first(t),x), )
 @inline bmap(f::F, t::Tuple, x::Number) where {F} = (f(first(t),x), bmap(f, Base.tail(t), x)...)
-@static if VERSION ≥ v"1.6.0-DEV.1581"
-  # from `reinterpret(reshape, ...)`
-  @inline function strides(A::Base.ReinterpretArray{R, N, T, B, true}) where {R,N,T,B}
+# from `reinterpret(reshape, ...)`
+@inline function strides(A::Base.ReinterpretArray{R,N,T,B,true}) where {R,N,T,B}
     P = strides(parent(A))
     if sizeof(R) == sizeof(T)
-      P
+        P
     elseif sizeof(R) > sizeof(T)
-      x = Base.tail(P)
-      fx = first(x)
-      if fx isa Int
-        (One(), bmap(Base.sdiv_int, Base.tail(x), fx)...)
-      else
-        (One(), bmap(÷, Base.tail(x), fx)...)
-      end
+        x = Base.tail(P)
+        fx = first(x)
+        if fx isa Int
+            (One(), bmap(Base.sdiv_int, Base.tail(x), fx)...)
+        else
+            (One(), bmap(÷, Base.tail(x), fx)...)
+        end
     else
-      (One(), bmap(*, P, StaticInt(sizeof(T)) ÷ StaticInt(sizeof(R)))...)
+        (One(), bmap(*, P, StaticInt(sizeof(T)) ÷ StaticInt(sizeof(R)))...)
     end
-  end
-  # plain `reinterpret(...)`
-  @inline function strides(A::Base.ReinterpretArray{R, N, T, B, false}) where {R,N,T,B}
+end
+# plain `reinterpret(...)`
+@inline function strides(A::Base.ReinterpretArray{R,N,T,B,false}) where {R,N,T,B}
     P = strides(parent(A))
     if sizeof(R) == sizeof(T)
-      P
+        P
     elseif sizeof(R) > sizeof(T)
-      (first(P), bmap(÷, Base.tail(P), StaticInt(sizeof(R)) ÷ StaticInt(sizeof(T)))...)
+        (first(P), bmap(÷, Base.tail(P), StaticInt(sizeof(R)) ÷ StaticInt(sizeof(T)))...)
     else # sizeof(R) < sizeof(T)
-      (first(P), bmap(*, Base.tail(P), StaticInt(sizeof(T)) ÷ StaticInt(sizeof(R)))...)
+        (first(P), bmap(*, Base.tail(P), StaticInt(sizeof(T)) ÷ StaticInt(sizeof(R)))...)
     end
-  end
-else
-  # plain `reinterpret(...)`
-  @inline function strides(A::Base.ReinterpretArray{R, N, T}) where {R,N,T}
-    P = strides(parent(A))
-    if sizeof(R) == sizeof(T)
-      P
-    elseif sizeof(R) > sizeof(T)
-      (first(P), bmap(÷, Base.tail(P), StaticInt(sizeof(R)) ÷ StaticInt(sizeof(T)))...)
-    else # sizeof(R) < sizeof(T)
-      (first(P), bmap(*, Base.tail(P), StaticInt(sizeof(T)) ÷ StaticInt(sizeof(R)))...)
-    end
-  end
 end
 #@inline strides(A) = _strides(A, Base.strides(A), contiguous_axis(A))
 
