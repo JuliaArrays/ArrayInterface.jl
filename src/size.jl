@@ -160,27 +160,13 @@ known_length(::Type{<:Tuple{Vararg{Any,N}}}) where {N} = N
 known_length(::Type{<:Number}) = 1
 known_length(::Type{<:AbstractCartesianIndex{N}}) where {N} = N
 known_length(::Type{T}) where {T} = _maybe_known_length(Base.IteratorSize(T), T)
-
-@generated function _prod_or_nothing(x::Tuple)
-  p = 1
-  for i in eachindex(x.parameters)
-    x.parameters[i] === Nothing && return nothing
-    p *= x.parameters[i].parameters[1]
-  end
-  StaticInt(p)
-end
-
-function _maybe_known_length(::Base.HasShape, ::Type{T}) where {T}
-  t = map(_static_or_nothing, known_size(T))
-  _int_or_nothing(_prod_or_nothing(t))
-end
-
-_maybe_known_length(::Base.IteratorSize, ::Type) = nothing
-_static_or_nothing(::Nothing) = nothing
-@inline _static_or_nothing(x::Int) = StaticInt{x}()
-_int_or_nothing(::StaticInt{N}) where {N} = N
-_int_or_nothing(::Nothing) = nothing
 function known_length(::Type{<:Iterators.Flatten{I}}) where {I}
-  _int_or_nothing(_prod_or_nothing((_static_or_nothing(known_length(I)),_static_or_nothing(known_length(eltype(I))))))
+  _prod_or_nothing((known_length(I),known_length(eltype(I))))
 end
+
+_prod_or_nothing(x::Tuple{Vararg{Int}}) = prod(x)
+_prod_or_nothing(_) = nothing
+
+_maybe_known_length(::Base.HasShape, ::Type{T}) where {T} = _prod_or_nothing(known_size(T))
+_maybe_known_length(::Base.IteratorSize, ::Type) = nothing
 
