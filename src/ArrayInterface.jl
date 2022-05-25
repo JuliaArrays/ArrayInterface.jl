@@ -17,6 +17,8 @@ import ArrayInterfaceCore: MatAdjTrans, VecAdjTrans, UpTri, LoTri
 import ArrayInterfaceCore: AbstractDevice, AbstractCPU, CPUPointer, CPUTuple, CheckParent,
     CPUIndex, GPU, can_avx
 
+import ArrayInterfaceCore: known_first, known_step, known_last
+
 using Static
 using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
     permute, invariant_permutation, field_type, reduce_tup, find_first_eq

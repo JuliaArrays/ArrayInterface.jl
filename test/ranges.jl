@@ -54,29 +54,12 @@ end
 @test iterate(static(1):static(5), 5) === nothing
 @test iterate(static(2):static(5), 5) === nothing
 
-@test isnothing(@inferred(ArrayInterface.known_first(typeof(1:4))))
-@test isone(@inferred(ArrayInterface.known_first(Base.OneTo(4))))
-@test isone(@inferred(ArrayInterface.known_first(typeof(Base.OneTo(4)))))
 @test isone(@inferred(ArrayInterface.known_first(typeof(static(1):2:10))))
-
-@test isnothing(@inferred(ArrayInterface.known_last(1:4)))
-@test isnothing(@inferred(ArrayInterface.known_last(typeof(1:4))))
 @test isone(@inferred(ArrayInterface.known_last(typeof(static(-1):static(2):static(1)))))
 
 # CartesianIndices
-CI = CartesianIndices((2, 2))
-@test @inferred(ArrayInterface.known_first(typeof(CI))) == CartesianIndex(1, 1)
-@test @inferred(ArrayInterface.known_last(typeof(CI))) === nothing
-
 CI = CartesianIndices((static(1):static(2), static(1):static(2)))
-@test @inferred(ArrayInterface.known_first(typeof(CI))) == CartesianIndex(1, 1)
 @test @inferred(ArrayInterface.known_last(typeof(CI))) == CartesianIndex(2, 2)
-
-@test isnothing(@inferred(ArrayInterface.known_step(typeof(1:0.2:4))))
-@test isone(@inferred(ArrayInterface.known_step(1:4)))
-@test isone(@inferred(ArrayInterface.known_step(typeof(1:4))))
-@test isone(@inferred(ArrayInterface.known_step(typeof(Base.Slice(1:4)))))
-@test isone(@inferred(ArrayInterface.known_step(typeof(view(1:4, 1:2)))))
 
 @testset "length" begin
     @test @inferred(length(ArrayInterface.OptionallyStaticUnitRange(1, 0))) == 0

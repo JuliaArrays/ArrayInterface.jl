@@ -240,3 +240,24 @@ end
     rowind,colind=findstructralnz(STri)
     @test [STri[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,2,3,4,5,6,7,5,6,7]
 end
+
+@testset "known values" begin
+    CI = CartesianIndices((2, 2))
+
+    @test isnothing(@inferred(ArrayInterfaceCore.known_first(typeof(1:4))))
+    @test isone(@inferred(ArrayInterfaceCore.known_first(Base.OneTo(4))))
+    @test isone(@inferred(ArrayInterfaceCore.known_first(typeof(Base.OneTo(4)))))
+    @test @inferred(ArrayInterfaceCore.known_first(typeof(CI))) == CartesianIndex(1, 1)
+    @test @inferred(ArrayInterfaceCore.known_first(typeof(CI))) == CartesianIndex(1, 1)
+
+    @test isnothing(@inferred(ArrayInterfaceCore.known_last(1:4)))
+    @test isnothing(@inferred(ArrayInterfaceCore.known_last(typeof(1:4))))
+    @test @inferred(ArrayInterfaceCore.known_last(typeof(CI))) === nothing
+
+    @test isnothing(@inferred(ArrayInterfaceCore.known_step(typeof(1:0.2:4))))
+    @test isone(@inferred(ArrayInterfaceCore.known_step(1:4)))
+    @test isone(@inferred(ArrayInterfaceCore.known_step(typeof(1:4))))
+    @test isone(@inferred(ArrayInterfaceCore.known_step(typeof(Base.Slice(1:4)))))
+    @test isone(@inferred(ArrayInterfaceCore.known_step(typeof(view(1:4, 1:2)))))
+end
+
