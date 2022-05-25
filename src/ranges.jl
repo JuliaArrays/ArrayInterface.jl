@@ -124,13 +124,13 @@ SOneTo(n::Int) = SOneTo{n}()
 const OptionallyStaticRange = Union{<:OptionallyStaticUnitRange,<:OptionallyStaticStepRange}
 
 
-known_first(::Type{<:OptionallyStaticUnitRange{StaticInt{F}}}) where {F} = F::Int
-known_first(::Type{<:OptionallyStaticStepRange{StaticInt{F}}}) where {F} = F::Int
+ArrayInterfaceCore.known_first(::Type{<:OptionallyStaticUnitRange{StaticInt{F}}}) where {F} = F::Int
+ArrayInterfaceCore.known_first(::Type{<:OptionallyStaticStepRange{StaticInt{F}}}) where {F} = F::Int
 
-known_step(::Type{<:OptionallyStaticStepRange{<:Any,StaticInt{S}}}) where {S} = S::Int
+ArrayInterfaceCore.known_step(::Type{<:OptionallyStaticStepRange{<:Any,StaticInt{S}}}) where {S} = S::Int
 
-known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = L::Int
-known_last(::Type{<:OptionallyStaticStepRange{<:Any,<:Any,StaticInt{L}}}) where {L} = L::Int
+ArrayInterfaceCore.known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = L::Int
+ArrayInterfaceCore.known_last(::Type{<:OptionallyStaticStepRange{<:Any,<:Any,StaticInt{L}}}) where {L} = L::Int
 
 @inline function Base.first(r::OptionallyStaticRange)::Int
     if known_first(r) === nothing

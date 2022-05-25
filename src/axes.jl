@@ -191,11 +191,11 @@ Base.IndexStyle(::Type{T}) where {T<:LazyAxis} = IndexStyle(parent_type(T))
 
 can_change_size(::Type{LazyAxis{N,P}}) where {N,P} = can_change_size(P)
 
-known_first(::Type{LazyAxis{N,P}}) where {N,P} = known_offsets(P, static(N))
-known_first(::Type{LazyAxis{:,P}}) where {P} = 1
+ArrayInterfaceCore.known_first(::Type{LazyAxis{N,P}}) where {N,P} = known_offsets(P, static(N))
+ArrayInterfaceCore.known_first(::Type{LazyAxis{:,P}}) where {P} = 1
 Base.firstindex(x::LazyAxis) = first(x)
 @inline function Base.first(x::LazyAxis{N})::Int where {N}
-    if known_first(x) === nothing
+    if ArrayInterfaceCore.known_first(x) === nothing
         return Int(offsets(parent(x), static(N)))
     else
         return Int(known_first(x))
@@ -208,8 +208,8 @@ end
         return known_first(x)
     end
 end
-known_last(::Type{LazyAxis{N,P}}) where {N,P} = known_last(axes_types(P, static(N)))
-known_last(::Type{LazyAxis{:,P}}) where {P} = known_length(P)
+ArrayInterfaceCore.known_last(::Type{LazyAxis{N,P}}) where {N,P} = known_last(axes_types(P, static(N)))
+ArrayInterfaceCore.known_last(::Type{LazyAxis{:,P}}) where {P} = known_length(P)
 Base.lastindex(x::LazyAxis) = last(x)
 Base.last(x::LazyAxis) = _last(known_last(x), x)
 _last(::Nothing, x) = last(parent(x))
