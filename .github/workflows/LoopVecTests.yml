@@ -31,8 +31,8 @@ jobs:
         with:
           repository: ${{ matrix.package.user }}/${{ matrix.package.repo }}
           path: loopvec
-      - name: Load this and run the LoopVectorization tests
-          shell: julia --color=yes {0}
+      - name: Load this and run the downstream tests
+        shell: julia --color=yes --project=downstream {0}
         run: |
           using Pkg
           try
