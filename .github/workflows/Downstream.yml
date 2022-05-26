@@ -34,18 +34,18 @@ jobs:
         with:
           version: ${{ matrix.julia-version }}
           arch: x64
-      - name: Setup ArrayInterface
-        shell: julia --color=yes {0}
-        run: |
-          using Pkg
-          Pkg.develop(Pkg.PackageSpec(path=joinpath("lib", "ArrayInterfaceCore")))
-          Pkg.develop(Pkg.PackageSpec(path=joinpath("ArrayInterface")))
-          Pkg.build()
+      - uses: julia-actions/julia-buildpkg@latest
       - name: Clone Downstream
         uses: actions/checkout@v2
         with:
           repository: ${{ matrix.package.user }}/${{ matrix.package.repo }}
           path: downstream
+      - name: Setup ArrayInterface
+        shell: julia --color=yes {0}
+        run: |
+          using Pkg
+          Pkg.develop(Pkg.PackageSpec(path=joinpath("lib", "ArrayInterfaceCore")))
+          Pkg.build()
       - name: Load this and run the downstream tests
         shell: julia --color=yes --project=downstream {0}
         run: |
