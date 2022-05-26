@@ -40,7 +40,7 @@ jobs:
         run: |
           using Pkg
           Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceCore")))
-          Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "ArrayInterface")))
+          Pkg.develop(Pkg.PackageSpec(path=joinpath(".")))  # ArrayInterface
           Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceOffsetArrays")))
           Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceStaticArrays")))
           Pkg.build()
