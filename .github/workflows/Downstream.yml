@@ -34,29 +34,23 @@ jobs:
         with:
           version: ${{ matrix.julia-version }}
           arch: x64
-      - name: Setup ArrayInterface
-        shell: julia --color=yes {0}
-        run: |
-          using Pkg
-          function dev_subpkg(subpkg)
-              subpkg_path = joinpath("lib", subpkg)
-              Pkg.develop(Pkg.PackageSpec(path=subpkg_path))
-          end
-          dev_subpkg("ArrayInterfaceCore")
-          Pkg.build()
+      - uses: julia-actions/julia-buildpkg@latest
       - name: Clone Downstream
         uses: actions/checkout@v2
         with:
           repository: ${{ matrix.package.user }}/${{ matrix.package.repo }}
           path: downstream
       - name: Load this and run the downstream tests
-        shell: julia --color=yes --project=downstream {0}
+        shell: julia --color=yes {0}
         run: |
           using Pkg
           try
             # force it to use this PR's version of the package
             Pkg.develop(PackageSpec(path="."))  # resolver may fail with main deps
-            
+            Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceCore")))
+            Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceOffsetArrays")))
+            Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceStaticArrays")))
+            Pkg.activate("downstream")
             Pkg.update()
             Pkg.test()  # resolver may fail with test time deps
           catch err

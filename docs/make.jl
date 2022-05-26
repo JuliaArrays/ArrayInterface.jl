@@ -1,4 +1,5 @@
 using ArrayInterface
+using Pkg
 
 function dev_subpkg(subpkg)
     subpkg_path = joinpath(dirname(@__DIR__), "lib", subpkg)
@@ -21,4 +22,3 @@ makedocs(;
 deploydocs(;
     repo="github.com/JuliaArrays/ArrayInterface.jl"
 )
-

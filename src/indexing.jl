@@ -1,22 +1,13 @@
-is_splat_index(@nospecialize(x)) = is_splat_index(typeof(x))
-is_splat_index(::Type{T}) where {T} = static(false)
-_is_splat(::Type{I}, i::StaticInt) where {I} = is_splat_index(field_type(I, i))
 
-"""
-    ndims_index(::Type{I}) -> StaticInt
+function _is_splat(::Type{I}, i::StaticInt) where {I}
+    if dynamic(is_splat_index(field_type(I, i)))
+        True()
+    else
+        False()
+    end
+end
 
-Returns the number of dimension that an instance of `I` maps to when indexing. For example,
-`CartesianIndex{3}` maps to 3 dimensions. If this method is not explicitly defined, then `1`
-is returned.
-
-"""
-ndims_index(@nospecialize(i)) = ndims_index(typeof(i))
-ndims_index(::Type{I}) where {I} = static(1)
-ndims_index(::Type{<:AbstractCartesianIndex{N}}) where {N} = static(N)
-ndims_index(::Type{<:AbstractArray{T}}) where {T} = ndims_index(T)
-ndims_index(::Type{<:AbstractArray{Bool,N}}) where {N} = static(N)
-ndims_index(::Type{<:LogicalIndex{<:Any,<:AbstractArray{Bool,N}}}) where {N} = static(N)
-_ndims_index(::Type{I}, i::StaticInt) where {I} = ndims_index(field_type(I, i))
+_ndims_index(::Type{I}, i::StaticInt) where {I} = StaticInt(ndims_index(field_type(I, i)))
 
 """
     to_indices(A, I::Tuple) -> Tuple
@@ -238,7 +229,7 @@ indices calling [`to_axis`](@ref).
 end
 # drop this dimension
 to_axes(A, a::Tuple, i::Tuple{<:Integer,Vararg{Any}}) = to_axes(A, tail(a), tail(i))
-to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}}) where {I} = _to_axes(ndims_index(I), A, a, i)
+to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}}) where {I} = _to_axes(StaticInt(ndims_index(I)), A, a, i)
 function _to_axes(::StaticInt{1}, A, axs::Tuple, inds::Tuple)
     return (to_axis(first(axs), first(inds)), to_axes(A, tail(axs), tail(inds))...)
 end

@@ -441,4 +441,95 @@ Base.@propagate_inbounds function Base.getindex(ind::TridiagonalIndex, i::Int)
     end
 end
 
+_cartesian_index(i::Tuple{Vararg{Int}}) = CartesianIndex(i)
+_cartesian_index(::Any) = nothing
+
+"""
+    known_first(::Type{T}) -> Union{Int,Nothing}
+
+If `first` of an instance of type `T` is known at compile time, return it.
+Otherwise, return `nothing`.
+
+```julia
+julia> ArrayInterface.known_first(typeof(1:4))
+nothing
+
+julia> ArrayInterface.known_first(typeof(Base.OneTo(4)))
+1
+```
+"""
+known_first(x) = known_first(typeof(x))
+function known_first(::Type{T}) where {T}
+    if parent_type(T) <: T
+        return nothing
+    else
+        return known_first(parent_type(T))
+    end
+end
+known_first(::Type{Base.OneTo{T}}) where {T} = 1
+function known_first(::Type{<:CartesianIndices{N,R}}) where {N,R}
+    _cartesian_index(ntuple(i -> known_first(R.parameters[i]), Val(N)))
+end
+
+"""
+    known_last(::Type{T}) -> Union{Int,Nothing}
+
+If `last` of an instance of type `T` is known at compile time, return it.
+Otherwise, return `nothing`.
+
+```julia
+julia> ArrayInterface.known_last(typeof(1:4))
+nothing
+
+julia> ArrayInterface.known_first(typeof(static(1):static(4)))
+4
+
+```
+"""
+known_last(x) = known_last(typeof(x))
+known_last(::Type{T}) where {T} = parent_type(T) <: T ? nothing : known_last(parent_type(T))
+function known_last(::Type{<:CartesianIndices{N,R}}) where {N,R}
+    _cartesian_index(ntuple(i -> known_last(R.parameters[i]), Val(N)))
+end
+
+"""
+    known_step(::Type{T}) -> Union{Int,Nothing}
+
+If `step` of an instance of type `T` is known at compile time, return it.
+Otherwise, return `nothing`.
+
+```julia
+julia> ArrayInterface.known_step(typeof(1:2:8))
+nothing
+
+julia> ArrayInterface.known_step(typeof(1:4))
+1
+
+```
+"""
+known_step(x) = known_step(typeof(x))
+known_step(::Type{T}) where {T} = parent_type(T) <: T ? nothing : known_step(parent_type(T))
+known_step(::Type{<:AbstractUnitRange}) = 1
+
+"""
+    is_splat_index(::Type{T}) -> Bool
+Returns `static(true)` if `T` is a type that splats across multiple dimensions. 
+"""
+is_splat_index(@nospecialize(x)) = is_splat_index(typeof(x))
+is_splat_index(T::Type) = false
+
+"""
+    ndims_index(::Type{I}) -> Int
+
+Returns the number of dimension that an instance of `I` maps to when indexing. For example,
+`CartesianIndex{3}` maps to 3 dimensions. If this method is not explicitly defined, then `1`
+is returned.
+"""
+ndims_index(@nospecialize(i)) = ndims_index(typeof(i))
+ndims_index(::Type{I}) where {I} = 1
+ndims_index(::Type{<:Base.AbstractCartesianIndex{N}}) where {N} = N
+ndims_index(::Type{<:AbstractArray{T}}) where {T} = ndims_index(T)
+ndims_index(::Type{<:AbstractArray{Bool,N}}) where {N} = N
+ndims_index(::Type{<:Base.LogicalIndex{<:Any,<:AbstractArray{Bool,N}}}) where {N} = N
+
 end # module
