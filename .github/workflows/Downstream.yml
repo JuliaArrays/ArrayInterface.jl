@@ -44,7 +44,7 @@ jobs:
         shell: julia --color=yes {0}
         run: |
           using Pkg
-          Pkg.develop(Pkg.PackageSpec(path=joinpath("lib", "ArrayInterfaceCore")))
+          Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceCore")))
           Pkg.build()
       - name: Load this and run the downstream tests
         shell: julia --color=yes --project=downstream {0}
