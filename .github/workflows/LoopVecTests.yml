@@ -32,7 +32,7 @@ jobs:
           repository: ${{ matrix.package.user }}/${{ matrix.package.repo }}
           path: loopvec
       - name: Load this and run the LoopVectorization tests
-        shell: julia --color=yes
+        shell: julia --color=yes {0}
         run: |
           using Pkg
           try
