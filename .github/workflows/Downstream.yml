@@ -35,15 +35,6 @@ jobs:
           version: ${{ matrix.julia-version }}
           arch: x64
       - uses: julia-actions/julia-buildpkg@latest
-      - name: Setup ArrayInterface
-        shell: julia --color=yes {0}
-        run: |
-          using Pkg
-          Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceCore")))
-          Pkg.develop(Pkg.PackageSpec(path=joinpath(".")))  # ArrayInterface
-          Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceOffsetArrays")))
-          Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceStaticArrays")))
-          Pkg.build()
       - name: Clone Downstream
         uses: actions/checkout@v2
         with:
@@ -56,6 +47,9 @@ jobs:
           try
             # force it to use this PR's version of the package
             Pkg.develop(PackageSpec(path="."))  # resolver may fail with main deps
+            Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceCore")))
+            Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceOffsetArrays")))
+            Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceStaticArrays")))
             Pkg.update()
             Pkg.test()  # resolver may fail with test time deps
           catch err
