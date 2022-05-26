@@ -32,13 +32,13 @@ jobs:
           repository: ${{ matrix.package.user }}/${{ matrix.package.repo }}
           path: loopvec
       - name: Load this and run the LoopVectorization tests
-        shell: julia --color=yes {0}
+          shell: julia --color=yes {0}
         run: |
           using Pkg
           try
-            # force it to use this PR's version of the package
             Pkg.develop(PackageSpec(path="."))  # resolver may fail with main deps
-            Pkg.develop(Pkg.PackageSpec(path=joinpath("lib", "ArrayInterfaceCore")))
+            Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceCore")))
+            Pkg.activate("loopvec")
             Pkg.update()
             Pkg.test()  # resolver may fail with test time deps
           catch err
