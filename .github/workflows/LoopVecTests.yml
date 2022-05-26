@@ -26,19 +26,19 @@ jobs:
           version: ${{ matrix.julia-version }}
           arch: x64
       - uses: julia-actions/julia-buildpkg@latest
-      - name: Clone Downstream
+      - name: Clone LoopVectorization
         uses: actions/checkout@v2
         with:
           repository: ${{ matrix.package.user }}/${{ matrix.package.repo }}
-          path: downstream
-      - name: Load this and run the downstream tests
-        shell: julia --color=yes --project=downstream {0}
+          path: loopvec
+      - name: Load this and run the LoopVectorization tests
+        shell: julia --color=yes --project=loopvec {0}
         run: |
           using Pkg
           try
             # force it to use this PR's version of the package
             Pkg.develop(PackageSpec(path="."))  # resolver may fail with main deps
-            #Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceCore")))
+            Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceCore")))
             Pkg.update()
             Pkg.test()  # resolver may fail with test time deps
           catch err

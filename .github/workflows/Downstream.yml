@@ -46,8 +46,8 @@ jobs:
             # force it to use this PR's version of the package
             Pkg.develop(PackageSpec(path="."))  # resolver may fail with main deps
             Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceCore")))
-            #Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceOffsetArrays")))
-            #Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceStaticArrays")))
+            Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceOffsetArrays")))
+            Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceStaticArrays")))
             Pkg.update()
             Pkg.test()  # resolver may fail with test time deps
           catch err
