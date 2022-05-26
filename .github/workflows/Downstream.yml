@@ -26,6 +26,8 @@ jobs:
           - {user: SciML, repo: OrdinaryDiffEq.jl, group: Core}
           - {user: SciML, repo: OrdinaryDiffEq.jl, group: Interface}
           - {user: SciML, repo: DelayDiffEq.jl, group: Interface}
+          - {user: JuliaSIMD, repo: VectorizationBase.jl, group: Interface}
+          - {user: JuliaSIMD, repo: LoopVectorization.jl, group: Downstream3}
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
@@ -39,7 +41,7 @@ jobs:
           repository: ${{ matrix.package.user }}/${{ matrix.package.repo }}
           path: downstream
       - name: Load this and run the downstream tests
-        shell: julia --color=yes --project=downstream {0}
+        shell: julia --color=yes {0}
         run: |
           using Pkg
           try
@@ -48,6 +50,7 @@ jobs:
             Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceCore")))
             Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceOffsetArrays")))
             Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceStaticArrays")))
+            Pkg.activate("downstream")
             Pkg.update()
             Pkg.test()  # resolver may fail with test time deps
           catch err
