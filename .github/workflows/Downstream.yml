@@ -35,11 +35,6 @@ jobs:
           version: ${{ matrix.julia-version }}
           arch: x64
       - uses: julia-actions/julia-buildpkg@latest
-      - name: Clone Downstream
-        uses: actions/checkout@v2
-        with:
-          repository: ${{ matrix.package.user }}/${{ matrix.package.repo }}
-          path: downstream
       - name: Setup ArrayInterface
         shell: julia --color=yes {0}
         run: |
@@ -49,6 +44,11 @@ jobs:
           Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceOffsetArrays")))
           Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceStaticArrays")))
           Pkg.build()
+      - name: Clone Downstream
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ matrix.package.user }}/${{ matrix.package.repo }}
+          path: downstream
       - name: Load this and run the downstream tests
         shell: julia --color=yes --project=downstream {0}
         run: |
