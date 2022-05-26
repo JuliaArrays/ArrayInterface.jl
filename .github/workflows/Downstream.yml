@@ -45,6 +45,8 @@ jobs:
         run: |
           using Pkg
           Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceCore")))
+          Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceOffsetArrays")))
+          Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "lib", "ArrayInterfaceStaticArrays")))
           Pkg.build()
       - name: Load this and run the downstream tests
         shell: julia --color=yes --project=downstream {0}
