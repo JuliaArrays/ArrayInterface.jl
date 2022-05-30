@@ -12,7 +12,7 @@ _is_reshaped(::Type{<:Base.ReinterpretArray}) = false
 
 @static if isdefined(Base, Symbol("@assume_effects"))
     using Base: @constprop
-    import Base: @assume_effects
+    using Base: @assume_effects
 else
     macro assume_effects(_, ex)
         Base.@pure ex
