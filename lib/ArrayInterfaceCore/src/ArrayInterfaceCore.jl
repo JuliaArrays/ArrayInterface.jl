@@ -18,10 +18,6 @@ else
     end
 end
 
-@generated function merge_tuple_type(::Type{X}, ::Type{Y}) where {X<:Tuple,Y<:Tuple}
-    Tuple{X.parameters...,Y.parameters...}
-end
-
 @assume_effects :total __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
 parameterless_type(x::Type) = __parameterless_type(x)

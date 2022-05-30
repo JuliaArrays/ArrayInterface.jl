@@ -4,7 +4,7 @@ using ArrayInterfaceCore
 import ArrayInterfaceCore: allowed_getindex, allowed_setindex!, aos_to_soa, buffer,
     parent_type, fast_matrix_colors, findstructralnz, has_sparsestruct,
     issingular, isstructured, matrix_colors, restructure, lu_instance,
-    safevec, zeromatrix, ColoringAlgorithm, merge_tuple_type,
+    safevec, zeromatrix, ColoringAlgorithm,
     fast_scalar_indexing, parameterless_type, _is_reshaped, ndims_index, is_splat_index
 
 # ArrayIndex subtypes and methods
@@ -33,6 +33,10 @@ using Base.Iterators: Pairs
 using LinearAlgebra
 
 import Compat
+
+@generated function merge_tuple_type(::Type{X}, ::Type{Y}) where {X<:Tuple,Y<:Tuple}
+    Tuple{X.parameters...,Y.parameters...}
+end
 
 const CanonicalInt = Union{Int,StaticInt}
 canonicalize(x::Integer) = Int(x)

@@ -26,7 +26,7 @@ ArrayInterfaceCore.findstructralnz
 ArrayInterfaceCore.lu_instance
 ArrayInterfaceCore.matrix_colors
 ArrayInterfaceCore.issingular
-ArrayInterfaceCoreCore.parent_type
+ArrayInterfaceCore.parent_type
 ArrayInterfaceCore.restructure
 ArrayInterfaceCore.safevec
 ArrayInterfaceCore.zeromatrix
