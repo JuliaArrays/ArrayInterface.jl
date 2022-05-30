@@ -43,7 +43,8 @@ end
 axes_types(::Type{T}) where {T<:ReshapedArray} = NTuple{ndims(T),OneTo{Int}}
 function _sub_axis_type(::Type{PA}, ::Type{I}, dim::StaticInt{D}) where {I<:Tuple,PA,D}
     IT = field_type(I, dim)
-    if IT <: Base.Slice
+    if IT <: Base.Slice{Base.OneTo{Int}}
+        # this helps workaround slices over statically sized dimensions
         axes_types(field_type(PA, dim), static(1))
     else
         axes_types(IT, static(1))

@@ -26,3 +26,6 @@ o = OffsetArray(vec(A), 8);
 @test @inferred(ArrayInterface.device(OffsetArray(@view(reshape(1:8, 2,2,2)[1,1:2,:]),-3,4))) === ArrayInterface.CPUIndex()
 @test @inferred(ArrayInterface.device(OffsetArray(zeros(2,2,2),8,-2,-5))) === ArrayInterface.CPUPointer()
 
+offset_view = @view OffsetArrays.centered(zeros(eltype(A), 5, 5))[:, begin]; # SubArray of OffsetArray
+@test @inferred(ArrayInterface.known_offsets(out)) == (-2,)
+
