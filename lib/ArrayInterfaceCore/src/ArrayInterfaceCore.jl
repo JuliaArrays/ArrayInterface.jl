@@ -10,10 +10,19 @@ using SuiteSparse
 end
 _is_reshaped(::Type{<:Base.ReinterpretArray}) = false
 
+@static if isdefined(Base, Symbol("@assume_effects"))
+    using Base: @constprop
+else
+    macro assume_effects(_, ex)
+        Base.@pure ex
+    end
+end
+
 @generated function merge_tuple_type(::Type{X}, ::Type{Y}) where {X<:Tuple,Y<:Tuple}
     Tuple{X.parameters...,Y.parameters...}
 end
-Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
+
+@assume_effects :total __parameterless_type(T) = Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
 parameterless_type(x::Type) = __parameterless_type(x)
 
