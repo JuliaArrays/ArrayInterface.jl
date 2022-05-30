@@ -11,7 +11,6 @@ end
 _is_reshaped(::Type{<:Base.ReinterpretArray}) = false
 
 @static if isdefined(Base, Symbol("@assume_effects"))
-    using Base: @constprop
     using Base: @assume_effects
 else
     macro assume_effects(_, ex)
