@@ -1,6 +1,6 @@
 using ArrayInterface, Static, LinearAlgebra
 
-struct MArray{T,N,R} <: AbstractArray{T,N}
+struct MArray{T,N,R} <: DenseArray{T,N}
     parent::Array{T,N}
     indices::LinearIndices{N,R}
 end
@@ -14,6 +14,7 @@ Base.axes(x::MArray) = ArrayInterface.axes(x)
 ArrayInterface.axes_types(T::Type{<:MArray}) = T.parameters[3]
 #ArrayInterface.size(x::MArray) = ArrayInterface.size(x.indices)
 ArrayInterface.defines_strides(::Type{<:MArray}) = true
+Base.strides(x::MArray) = strides(parent(x))
 function Base.getindex(x::MArray, inds...)
     @boundscheck checkbounds(x, inds...)
     @inbounds parent(x)[inds...]
@@ -49,9 +50,8 @@ struct Wrapper{T,N,P<:AbstractArray{T,N}} <: ArrayInterface.AbstractArray2{T,N}
 end
 ArrayInterface.parent_type(::Type{<:Wrapper{T,N,P}}) where {T,N,P} = P
 Base.parent(x::Wrapper) = x.parent
-ArrayInterface.device(::Type{T}) where {T<:Wrapper} = device(parent_type(T))
+ArrayInterface.device(::Type{T}) where {T<:Wrapper} = ArrayInterface.device(ArrayInterface.parent_type(T))
 
 struct DenseWrapper{T,N,P<:AbstractArray{T,N}} <: DenseArray{T,N} end
 ArrayInterface.parent_type(::Type{DenseWrapper{T,N,P}}) where {T,N,P} = P
-
 

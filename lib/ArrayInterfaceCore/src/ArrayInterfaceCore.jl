@@ -471,6 +471,7 @@ function known_first(::Type{T}) where {T}
     end
 end
 known_first(::Type{Base.OneTo{T}}) where {T} = 1
+known_first(::Type{<:Base.IdentityUnitRange{T}}) where {T} = known_first(T)
 function known_first(::Type{<:CartesianIndices{N,R}}) where {N,R}
     _cartesian_index(ntuple(i -> known_first(R.parameters[i]), Val(N)))
 end
