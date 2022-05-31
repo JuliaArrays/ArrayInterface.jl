@@ -293,12 +293,5 @@ lazy_axes(x::CartesianIndices) = axes(x)
 @inline lazy_axes(x::MatAdjTrans) = reverse(lazy_axes(parent(x)))
 @inline lazy_axes(x::VecAdjTrans) = (SOneTo{1}(), first(lazy_axes(parent(x))))
 @inline lazy_axes(x::PermutedDimsArray) = permute(lazy_axes(parent(x)), to_parent_dims(x))
-@generated function lazy_axes(x::X) where {X}
-    Expr(:block, Expr(:meta, :inline), Expr(:tuple, [:(LazyAxis{$dim}(x)) for dim in 1:ndims(X)]...))
-end
-lazy_axes(x::LinearIndices) = axes(x)
-lazy_axes(x::CartesianIndices) = axes(x)
-@inline lazy_axes(x::MatAdjTrans) = reverse(lazy_axes(parent(x)))
-@inline lazy_axes(x::VecAdjTrans) = (SOneTo{1}(), first(lazy_axes(parent(x))))
-@inline lazy_axes(x::PermutedDimsArray) = permute(lazy_axes(parent(x)), to_parent_dims(x))
+
 
