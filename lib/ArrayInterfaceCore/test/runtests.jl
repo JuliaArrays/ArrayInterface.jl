@@ -261,3 +261,10 @@ end
     @test isone(@inferred(ArrayInterfaceCore.known_step(typeof(view(1:4, 1:2)))))
 end
 
+@testset "ndims_index" begin
+    @test @inferred(ArrayInterfaceCore.ndims_index(CartesianIndices(()))) == 1
+    @test @inferred(ArrayInterfaceCore.ndims_index(trues(2, 2))) == 2
+    @test @inferred(ArrayInterfaceCore.ndims_index(CartesianIndex(2,2))) == 2
+    @test @inferred(ArrayInterfaceCore.ndims_index(1)) == 1
+end
+
