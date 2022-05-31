@@ -40,7 +40,6 @@ for g in groups
         include("dimensions.jl")
         include("indexing.jl")
         include("ranges.jl")
-        include("setup.jl")
         include("size.jl")
         include("misc.jl")
     else

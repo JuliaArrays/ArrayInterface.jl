@@ -89,6 +89,7 @@ known_size(x) = known_size(typeof(x))
 function known_size(::Type{T}) where {T<:AbstractRange}
     (_range_length(known_first(T), known_step(T), known_last(T)),)
 end
+known_size(::Type{<:Base.IdentityUnitRange{I}}) where {I} = known_size(I)
 known_size(::Type{<:Base.Generator{I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Reverse{I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Enumerate{I}}) where {I} = known_size(I)
