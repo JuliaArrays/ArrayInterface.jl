@@ -41,6 +41,7 @@ for g in groups
         include("indexing.jl")
         include("ranges.jl")
         include("size.jl")
+        include("stridelayout.jl")
         include("misc.jl")
     else
         dev_subpkg(g)
