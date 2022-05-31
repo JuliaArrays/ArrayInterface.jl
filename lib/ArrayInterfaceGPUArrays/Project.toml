@@ -1,6 +1,5 @@
 name = "ArrayInterfaceGPUArrays"
 uuid = "6ba088a2-8465-4c0a-af30-387133b534db"
-authors = ["Zachary P. Christensen <zchristensen7@gmail.com>"]
 version = "0.1.0"
 
 [deps]

@@ -1,6 +1,5 @@
 name = "ArrayInterfaceCore"
 uuid = "30b0a656-2188-435a-8636-2ec0e6a096e2"
-authors = ["Zachary P. Christensen <zchristensen7@gmail.com>"]
 version = "0.1.5"
 
 [deps]

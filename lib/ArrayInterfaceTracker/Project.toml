@@ -1,6 +1,5 @@
 name = "ArrayInterfaceTracker"
 uuid = "a2b0951a-f94f-4742-8780-617792921f9b"
-authors = ["Zachary P. Christensen <zchristensen7@gmail.com>"]
 version = "0.1.1"
 
 [deps]
