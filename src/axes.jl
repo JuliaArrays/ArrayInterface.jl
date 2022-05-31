@@ -40,6 +40,7 @@ end
 function axes_types(::Type{T}) where {T<:PermutedDimsArray}
     eachop_tuple(field_type, to_parent_dims(T), axes_types(parent_type(T)))
 end
+axes_types(::Type{<:Base.Slice{I}}) where {I} = Tuple{Base.IdentityUnitRange{I}}
 function axes_types(::Type{T}) where {T<:AbstractRange}
     if known_length(T) === nothing
         return Tuple{OneTo{Int}}
