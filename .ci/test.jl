@@ -18,6 +18,6 @@ Pkg.update()
 
 # All packages need the core
 dev_subpkg("ArrayInterfaceCore")
-Pkg.develop("ArrayInterface")
+Pkg.develop(Pkg.PackageSpec(path="."))
 
 Pkg.test("ArrayInterface"; coverage=true)
