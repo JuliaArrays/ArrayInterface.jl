@@ -51,7 +51,7 @@ function Base.axes(A::AbstractArray2)
     !(parent_type(A) <: typeof(A)) && return ArrayInterface.axes(parent(A))
     throw(ArgumentError("Subtypes of `AbstractArray2` must define an axes method"))
 end
-Base.axes(A::AbstractArray2, dim) = ArrayInterface.axes(A, dim)
+Base.axes(A::AbstractArray2, dim::Union{Symbol,StaticSymbol}) = Base.axes(A, to_dims(A, dim))
 
 function Base.strides(A::AbstractArray2)
     defines_strides(A) && return map(Int, ArrayInterface.strides(A))

@@ -239,7 +239,6 @@ end
 end
 
 ## length
-Base.lastindex(x::OptionallyStaticRange) = length(x)
 @inline function Base.length(r::OptionallyStaticUnitRange)
     if isempty(r)
         return 0
@@ -274,7 +273,6 @@ function Base.AbstractUnitRange{T}(r::OptionallyStaticUnitRange) where {T}
     end
 end
 
-Base.eachindex(r::OptionallyStaticRange) = One():length(r)
 @inline function Base.iterate(r::OptionallyStaticRange)
     isempty(r) && return nothing
     fi = Int(first(r));
@@ -302,7 +300,7 @@ Base.axes(S::Slice{<:OptionallyStaticUnitRange{One}}) = (S.indices,)
 Base.axes(S::Slice{<:OptionallyStaticRange}) = (Base.IdentityUnitRange(S.indices),)
 
 Base.axes(x::OptionallyStaticRange) = (Base.axes1(x),)
-Base.axes1(x::OptionallyStaticRange) = eachindex(x)
+Base.axes1(x::OptionallyStaticRange) = static(1):length(x)
 Base.axes1(x::Slice{<:OptionallyStaticUnitRange{One}}) = x.indices
 Base.axes1(x::Slice{<:OptionallyStaticRange}) = Base.IdentityUnitRange(x.indices)
 
