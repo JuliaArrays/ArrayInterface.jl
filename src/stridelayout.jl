@@ -44,7 +44,7 @@ not known at compile time `nothing` is returned its position.
 """
 known_offsets(x, dim) = known_offsets(typeof(x), dim)
 known_offsets(::Type{T}, dim) where {T} = known_offsets(T, to_dims(T, dim))
-function known_offsets(::Type{T}, dim::Integer) where {T}
+function known_offsets(::Type{T}, dim::CanonicalInt) where {T}
     if ndims(T) < dim
         return 1
     else
@@ -187,7 +187,7 @@ function _contiguous_axis(::Type{A}, c::StaticInt{C}) where {T,N,P,I,A<:SubArray
         return from_parent_dims(A)[C]
     elseif field_type(I, c) <: AbstractArray
         return -One()
-    elseif field_type(I, c) <: Integer
+    elseif field_type(I, c) <: CanonicalInt
         return -One()
     else
         return nothing
@@ -489,7 +489,7 @@ compile time are represented by `nothing`.
 """
 known_strides(x, dim) = known_strides(typeof(x), dim)
 known_strides(::Type{T}, dim) where {T} = known_strides(T, to_dims(T, dim))
-function known_strides(::Type{T}, dim::Integer) where {T}
+function known_strides(::Type{T}, dim::CanonicalInt) where {T}
     # see https://github.com/JuliaLang/julia/blob/6468dcb04ea2947f43a11f556da9a5588de512a0/base/reinterpretarray.jl#L148
     if ndims(T) < dim
         return known_length(T)
@@ -663,7 +663,7 @@ maybe_static_step(_) = nothing
 end
 
 strides(a, dim) = strides(a, to_dims(a, dim))
-function strides(a::A, dim::Integer) where {A}
+function strides(a::A, dim::CanonicalInt) where {A}
     if parent_type(A) <: A
         return Base.stride(a, Int(dim))
     else
@@ -674,4 +674,3 @@ end
 @inline stride(A::AbstractArray, ::StaticInt{N}) where {N} = strides(A)[N]
 @inline stride(A::AbstractArray, ::Val{N}) where {N} = strides(A)[N]
 stride(A, i) = Base.stride(A, i) # for type stability
-

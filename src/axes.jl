@@ -119,7 +119,7 @@ end
     end
 end
 
-@inline function axes(A::SubArray, dim::Integer)
+@inline function axes(A::SubArray, dim::CanonicalInt)
     if dim > ndims(A)
         return OneTo(1)
     else
@@ -260,7 +260,7 @@ Base.axes(x::Slice{<:LazyAxis}) = (Base.axes1(x),)
 Base.axes1(x::Slice{<:LazyAxis}) = indices(parent(x.indices))
 Base.to_shape(x::LazyAxis) = length(x)
 
-@inline function Base.checkindex(::Type{Bool}, x::LazyAxis, i::Integer)
+@inline function Base.checkindex(::Type{Bool}, x::LazyAxis, i::CanonicalInt)
     if known_first(x) === nothing || known_last(x) === nothing
         return checkindex(Bool, parent(x), i)
     else  # everything is static so we don't have to retrieve the axis
@@ -268,7 +268,7 @@ Base.to_shape(x::LazyAxis) = length(x)
     end
 end
 
-@propagate_inbounds function Base.getindex(x::LazyAxis, i::Integer)
+@propagate_inbounds function Base.getindex(x::LazyAxis, i::CanonicalInt)
     @boundscheck checkindex(Bool, x, i) || throw(BoundsError(x, i))
     return Int(i)
 end
@@ -294,5 +294,3 @@ lazy_axes(x::CartesianIndices) = axes(x)
 @inline lazy_axes(x::MatAdjTrans) = reverse(lazy_axes(parent(x)))
 @inline lazy_axes(x::VecAdjTrans) = (SOneTo{1}(), first(lazy_axes(parent(x))))
 @inline lazy_axes(x::PermutedDimsArray) = permute(lazy_axes(parent(x)), to_parent_dims(x))
-
-

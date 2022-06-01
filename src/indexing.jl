@@ -60,7 +60,7 @@ This implementation differs from that of `Base.to_indices` in the following ways
 * Specializing by dispatch through method definitions like this:
   `to_indices(::ArrayType, ::Tuple{AxisType,Vararg{Any}}, ::Tuple{::IndexType,Vararg{Any}})`
   require an excessive number of hand written methods to avoid ambiguities. Furthermore, if
-  `AxisType` is wrapping another axis that should have unique behavior, then unique parametric 
+  `AxisType` is wrapping another axis that should have unique behavior, then unique parametric
   types need to also be explicitly defined.
 * `to_index(axes(A, dim), index)` is called, as opposed to `Base.to_index(A, index)`. The
   `IndexStyle` of the resulting axis is used to allow indirect dispatch on nested axis types
@@ -228,7 +228,7 @@ indices calling [`to_axis`](@ref).
     end
 end
 # drop this dimension
-to_axes(A, a::Tuple, i::Tuple{<:Integer,Vararg{Any}}) = to_axes(A, tail(a), tail(i))
+to_axes(A, a::Tuple, i::Tuple{<:CanonicalInt,Vararg{Any}}) = to_axes(A, tail(a), tail(i))
 to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}}) where {I} = _to_axes(StaticInt(ndims_index(I)), A, a, i)
 function _to_axes(::StaticInt{1}, A, axs::Tuple, inds::Tuple)
     return (to_axis(first(axs), first(inds)), to_axes(A, tail(axs), tail(inds))...)
@@ -353,7 +353,7 @@ function unsafe_get_collection(A, inds)
     end
     return dest
 end
-_ints2range(x::Integer) = x:x
+_ints2range(x::CanonicalInt) = x:x
 _ints2range(x::AbstractRange) = x
 @inline function unsafe_get_collection(A::CartesianIndices{N}, inds) where {N}
     if (Base.length(inds) === 1 && N > 1) || stride_preserving_index(typeof(inds)) === False()

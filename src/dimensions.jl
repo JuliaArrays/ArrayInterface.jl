@@ -52,7 +52,7 @@ from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(I
     dim_i = 1
     for i in 1:length(I.parameters)
         p = I.parameters[i]
-        if p <: Integer
+        if p <: CanonicalInt
             push!(out.args, :(StaticInt(0)))
         else
             push!(out.args, :(StaticInt($dim_i)))
@@ -107,7 +107,7 @@ to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(I)
     out = Expr(:tuple)
     n = 1
     for p in I.parameters
-        if !(p <: Integer)
+        if !(p <: CanonicalInt)
             push!(out.args, :(StaticInt($n)))
         end
         n += 1
@@ -161,7 +161,7 @@ to `:_`, then `false` is returned.
 Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
 have a name.
 """
-@inline known_dimnames(x, dim::Integer) = _known_dimname(known_dimnames(x), canonicalize(dim))
+@inline known_dimnames(x, dim) = _known_dimname(known_dimnames(x), canonicalize(dim))
 known_dimnames(x) = known_dimnames(typeof(x))
 known_dimnames(::Type{T}) where {T} = _known_dimnames(T, parent_type(T))
 _known_dimnames(::Type{T}, ::Type{T}) where {T} = _unknown_dimnames(Base.IteratorSize(T))
@@ -184,7 +184,7 @@ end
 Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
 have a name.
 """
-@inline dimnames(x, dim::Integer) = _dimname(dimnames(x), canonicalize(dim))
+@inline dimnames(x, dim) = _dimname(dimnames(x), canonicalize(dim))
 @inline dimnames(x) = _dimnames(has_parent(x), x)
 @inline function _dimnames(::True, x)
     eachop(_inbounds_dimname, to_parent_dims(x), dimnames(parent(x)))
@@ -204,7 +204,8 @@ end
 This returns the dimension(s) of `x` corresponding to `dim`.
 """
 to_dims(x, dim::Colon) = dim
-to_dims(x, dim::Integer) = canonicalize(dim)
+to_dims(x, @nospecialize(dim::CanonicalInt)) = dim
+to_dims(x, dim::Integer) = Int(dim)
 to_dims(x, dim::Union{StaticSymbol,Symbol}) = _to_dim(dimnames(x), dim)
 function to_dims(x, dims::Tuple{Vararg{Any,N}}) where {N}
     eachop(_to_dims, nstatic(Val(N)), dimnames(x), dims)
@@ -257,4 +258,3 @@ An error is thrown if any keywords are used which do not occur in `nda`'s names.
         end
     end
 end
-

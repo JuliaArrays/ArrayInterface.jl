@@ -14,7 +14,7 @@ struct OptionallyStaticUnitRange{F<:CanonicalInt,L<:CanonicalInt} <: AbstractUni
     function OptionallyStaticUnitRange(start::CanonicalInt, stop::CanonicalInt)
         new{typeof(start),typeof(stop)}(start, stop)
     end
-   function OptionallyStaticUnitRange(start::Integer, stop::Integer)
+    function OptionallyStaticUnitRange(start, stop)
         OptionallyStaticUnitRange(canonicalize(start), canonicalize(stop))
     end
     function OptionallyStaticUnitRange(x::AbstractRange)
@@ -60,7 +60,7 @@ struct OptionallyStaticStepRange{F<:CanonicalInt,S<:CanonicalInt,L<:CanonicalInt
         lst = _steprange_last(start, step, stop)
         new{typeof(start),typeof(step),typeof(lst)}(start, step, lst)
     end
-    function OptionallyStaticStepRange(start::Integer, step::Integer, stop::Integer)
+    function OptionallyStaticStepRange(start, step, stop)
         OptionallyStaticStepRange(canonicalize(start), canonicalize(step), canonicalize(stop))
     end
     function OptionallyStaticStepRange(x::AbstractRange)
@@ -72,7 +72,7 @@ end
 @inline function _steprange_last(start::StaticInt, step::StaticInt, stop::StaticInt)
     return StaticInt(_steprange_last(Int(start), Int(step), Int(stop)))
 end
-@inline function _steprange_last(start::Integer, step::StaticInt, stop::StaticInt)
+@inline function _steprange_last(start, step::StaticInt, stop::StaticInt)
     if step === one(step)
         # we don't need to check the `stop` if we know it acts like a unit range
         return stop
@@ -80,7 +80,7 @@ end
         return _steprange_last(start, Int(step), Int(stop))
     end
 end
-@inline function _steprange_last(start::Integer, step::Integer, stop::Integer)
+@inline function _steprange_last(start, step, stop)
     z = zero(step)
     if step === z
         throw(ArgumentError("step cannot be zero"))
@@ -415,4 +415,3 @@ end
 function Base.similar(::Type{<:Array{T}}, axes::Tuple{Base.OneTo,OptionallyStaticUnitRange{StaticInt{1}},Vararg{Union{Base.OneTo,OptionallyStaticUnitRange{StaticInt{1}}}}}) where {T}
   Array{T}(undef, map(last, axes))
 end
-
