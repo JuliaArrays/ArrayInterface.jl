@@ -256,7 +256,7 @@ end
 @inline function unsafe_deleteat(src::Tuple, inds::AbstractVector)
     dst = Vector{eltype(src)}(undef, length(src) - length(inds))
     dst_index = firstindex(dst)
-    @inbounds for src_index in OneTo(length(src))
+    @inbounds for src_index in static(1):length(src)
         if !in(src_index, inds)
             dst[dst_index] = src[src_index]
             dst_index += one(dst_index)

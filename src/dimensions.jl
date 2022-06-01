@@ -50,8 +50,8 @@ from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(I
 @generated function _from_sub_dims(::Type{I}) where {I<:Tuple}
     out = Expr(:tuple)
     dim_i = 1
-    for i in 1:length(I.parameters)
-        p = I.parameters[i]
+    for i in 1:fieldcount(I)
+        p = fieldtype(I, i)
         if p <: CanonicalInt
             push!(out.args, :(StaticInt(0)))
         else
@@ -106,7 +106,8 @@ to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(I)
 @generated function _to_sub_dims(::Type{I}) where {I<:Tuple}
     out = Expr(:tuple)
     n = 1
-    for p in I.parameters
+    for i in 1:fieldcount(I)
+        p = fieldtype(I, i)
         if !(p <: CanonicalInt)
             push!(out.args, :(StaticInt($n)))
         end

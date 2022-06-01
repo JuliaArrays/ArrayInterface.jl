@@ -17,7 +17,7 @@ end
     if dim > ndims(x)
         return SOneTo{1}
     else
-        return axes_types(x).parameters[dim]
+        return fieldtype(axes_types(x), dim)
     end
 end
 axes_types(x) = axes_types(typeof(x))
