@@ -17,7 +17,7 @@ end
     if dim > ndims(x)
         return SOneTo{1}
     else
-        return axes_types(x).parameters[dim]
+        return fieldtype(axes_types(x), dim)
     end
 end
 axes_types(x) = axes_types(typeof(x))
@@ -230,7 +230,6 @@ end
 end
 ArrayInterfaceCore.known_last(::Type{LazyAxis{N,P}}) where {N,P} = known_last(axes_types(P, static(N)))
 ArrayInterfaceCore.known_last(::Type{LazyAxis{:,P}}) where {P} = known_length(P)
-Base.lastindex(x::LazyAxis) = last(x)
 Base.last(x::LazyAxis) = _last(known_last(x), x)
 _last(::Nothing, x) = last(parent(x))
 _last(N::Int, x) = N
