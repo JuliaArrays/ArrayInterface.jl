@@ -196,7 +196,7 @@ Base.@propagate_inbounds function insert(collection, index, item)
     return ret
 end
 
-function insert(x::Tuple{Vararg{Any,N}}, index::Integer, item) where {N}
+function insert(x::Tuple{Vararg{Any,N}}, index, item) where {N}
     @boundscheck if !checkindex(Bool, StaticInt{1}():StaticInt{N}(), index)
         throw(BoundsError(x, index))
     end
@@ -229,7 +229,7 @@ Base.@propagate_inbounds function deleteat(collection::Tuple{Vararg{Any,N}}, ind
     return unsafe_deleteat(collection, index)
 end
 
-function unsafe_deleteat(src::AbstractVector, index::Integer)
+function unsafe_deleteat(src::AbstractVector, index)
     dst = similar(src, length(src) - 1)
     @inbounds for i in indices(dst)
         if i < index
@@ -265,10 +265,10 @@ end
     return Tuple(dst)
 end
 
-@inline unsafe_deleteat(x::Tuple{T}, i::Integer) where {T} = ()
-@inline unsafe_deleteat(x::Tuple{T1,T2}, i::Integer) where {T1,T2} =
+@inline unsafe_deleteat(x::Tuple{T}, i) where {T} = ()
+@inline unsafe_deleteat(x::Tuple{T1,T2}, i) where {T1,T2} =
     isone(i) ? (x[2],) : (x[1],)
-@inline function unsafe_deleteat(x::Tuple, i::Integer)
+@inline function unsafe_deleteat(x::Tuple, i)
     if i === one(i)
         return tail(x)
     elseif i == length(x)

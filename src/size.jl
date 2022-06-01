@@ -54,8 +54,8 @@ size(x::Iterators.Pairs) = size(getfield(x, :itr))
 end
 
 size(a, dim) = size(a, to_dims(a, dim))
-size(a::Array, dim::Integer) = Base.arraysize(a, convert(Int, dim))
-function size(a::A, dim::Integer) where {A}
+size(a::Array, dim::CanonicalInt) = Base.arraysize(a, convert(Int, dim))
+function size(a::A, dim::CanonicalInt) where {A}
     if parent_type(A) <: A
         len = known_size(A, dim)
         if len === nothing
@@ -67,7 +67,7 @@ function size(a::A, dim::Integer) where {A}
         return size(a)[dim]
     end
 end
-function size(A::SubArray, dim::Integer)
+function size(A::SubArray, dim::CanonicalInt)
     pdim = to_parent_dims(A, dim)
     if pdim > ndims(parent_type(A))
         return size(parent(A), pdim)
@@ -170,4 +170,3 @@ _prod_or_nothing(_) = nothing
 
 _maybe_known_length(::Base.HasShape, ::Type{T}) where {T} = _prod_or_nothing(known_size(T))
 _maybe_known_length(::Base.IteratorSize, ::Type) = nothing
-
