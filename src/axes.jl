@@ -29,8 +29,8 @@ axes_types(::Type{T}) where {T<:Array} = NTuple{ndims(T),OneTo{Int}}
         return axes_types(parent_type(T))
     end
 end
-axes_types(::Type{LinearIndices{N,R}}) where {N,R} = R
-axes_types(::Type{CartesianIndices{N,R}}) where {N,R} = R
+axes_types(::Type{<:LinearIndices{N,R}}) where {N,R} = R
+axes_types(::Type{<:CartesianIndices{N,R}}) where {N,R} = R
 function axes_types(::Type{T}) where {T<:VecAdjTrans}
     Tuple{SOneTo{1},axes_types(parent_type(T), static(1))}
 end
@@ -40,7 +40,9 @@ end
 function axes_types(::Type{T}) where {T<:PermutedDimsArray}
     eachop_tuple(field_type, to_parent_dims(T), axes_types(parent_type(T)))
 end
+axes_types(T::Type{<:Base.IdentityUnitRange}) = Tuple{T}
 axes_types(::Type{<:Base.Slice{I}}) where {I} = Tuple{Base.IdentityUnitRange{I}}
+axes_types(::Type{<:Base.Slice{I}}) where {I<:Base.IdentityUnitRange} = Tuple{I}
 function axes_types(::Type{T}) where {T<:AbstractRange}
     if known_length(T) === nothing
         return Tuple{OneTo{Int}}
@@ -207,49 +209,30 @@ end
 
 Base.keys(x::LazyAxis) = keys(parent(x))
 
-Base.IndexStyle(::Type{T}) where {T<:LazyAxis} = IndexStyle(parent_type(T))
+Base.IndexStyle(::Type{<:LazyAxis}) = IndexStyle(parent_type(T))
 
-can_change_size(::Type{LazyAxis{N,P}}) where {N,P} = can_change_size(P)
+ArrayInterfaceCore.can_change_size(@nospecialize T::Type{<:LazyAxis}) = can_change_size(fieldtype(T, :parent))
 
-ArrayInterfaceCore.known_first(::Type{LazyAxis{N,P}}) where {N,P} = known_offsets(P, static(N))
-ArrayInterfaceCore.known_first(::Type{LazyAxis{:,P}}) where {P} = 1
-Base.firstindex(x::LazyAxis) = first(x)
+ArrayInterfaceCore.known_first(::Type{<:LazyAxis{N,P}}) where {N,P} = known_offsets(P, static(N))
+ArrayInterfaceCore.known_first(::Type{<:LazyAxis{:,P}}) where {P} = 1
 @inline function Base.first(x::LazyAxis{N})::Int where {N}
     if ArrayInterfaceCore.known_first(x) === nothing
-        return Int(offsets(parent(x), static(N)))
+        return Int(offsets(parent(x), StaticInt(N)))
     else
         return Int(known_first(x))
     end
 end
-@inline function Base.first(x::LazyAxis{:})::Int
-    if known_first(x) === nothing
-        return first(parent(x))
-    else
-        return known_first(x)
-    end
-end
+@inline Base.first(x::LazyAxis{:})::Int = Int(offset1(getfield(x, :parent)))
 ArrayInterfaceCore.known_last(::Type{LazyAxis{N,P}}) where {N,P} = known_last(axes_types(P, static(N)))
 ArrayInterfaceCore.known_last(::Type{LazyAxis{:,P}}) where {P} = known_length(P)
 Base.last(x::LazyAxis) = _last(known_last(x), x)
 _last(::Nothing, x) = last(parent(x))
 _last(N::Int, x) = N
 
-known_length(::Type{LazyAxis{N,P}}) where {N,P} = known_size(P, static(N))
-known_length(::Type{LazyAxis{:,P}}) where {P} = known_length(P)
-@inline function Base.length(x::LazyAxis{N})::Int where {N}
-    if known_length(x) === nothing
-        return size(getfield(x, :parent), static(N))
-    else
-        return known_length(x)
-    end
-end
-@inline function Base.length(x::LazyAxis{:})::Int
-    if known_length(x) === nothing
-        return length(parent(x))
-    else
-        return known_length(x)
-    end
-end
+known_length(::Type{<:LazyAxis{:,P}}) where {P} = known_length(P)
+known_length(::Type{<:LazyAxis{N,P}}) where {N,P} = known_size(P, static(N))
+@inline Base.length(x::LazyAxis{:}) = Base.length(getfield(x, :parent))
+@inline Base.length(x::LazyAxis{N}) where {N} = Base.size(getfield(x, :parent), N)
 
 Base.axes(x::LazyAxis) = (Base.axes1(x),)
 Base.axes1(x::LazyAxis) = x
@@ -258,14 +241,6 @@ Base.axes(x::Slice{<:LazyAxis}) = (Base.axes1(x),)
 # be used again later with `Slice{LazyAxis}`, we quickly load indices
 Base.axes1(x::Slice{<:LazyAxis}) = indices(parent(x.indices))
 Base.to_shape(x::LazyAxis) = length(x)
-
-@inline function Base.checkindex(::Type{Bool}, x::LazyAxis, i::CanonicalInt)
-    if known_first(x) === nothing || known_last(x) === nothing
-        return checkindex(Bool, parent(x), i)
-    else  # everything is static so we don't have to retrieve the axis
-        return (!(known_first(x) > i) || !(known_last(x) < i))
-    end
-end
 
 @propagate_inbounds function Base.getindex(x::LazyAxis, i::CanonicalInt)
     @boundscheck checkindex(Bool, x, i) || throw(BoundsError(x, i))
@@ -288,8 +263,7 @@ constructed or it is simply retrieved.
 @generated function lazy_axes(x::X) where {X}
     Expr(:block, Expr(:meta, :inline), Expr(:tuple, [:(LazyAxis{$dim}(x)) for dim in 1:ndims(X)]...))
 end
-lazy_axes(x::LinearIndices) = axes(x)
-lazy_axes(x::CartesianIndices) = axes(x)
+lazy_axes(x::Union{LinearIndices,CartesianIndices,AbstractRange}) = axes(x)
 @inline lazy_axes(x::MatAdjTrans) = reverse(lazy_axes(parent(x)))
 @inline lazy_axes(x::VecAdjTrans) = (SOneTo{1}(), first(lazy_axes(parent(x))))
 @inline lazy_axes(x::PermutedDimsArray) = permute(lazy_axes(parent(x)), to_parent_dims(x))

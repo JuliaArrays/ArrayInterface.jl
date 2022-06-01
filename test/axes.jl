@@ -6,6 +6,7 @@ m = Array{Float64}(undef, 4, 3)
 @test @inferred(ArrayInterface.axes(m')) === (Base.OneTo(3),Base.OneTo(4))
 @test ArrayInterface.axes(v', StaticInt(1)) === StaticInt(1):StaticInt(1)
 @test ArrayInterface.axes(v, StaticInt(2)) === StaticInt(1):StaticInt(1)
+@test ArrayInterface.axes_types(view(CartesianIndices(map(Base.Slice, (0:3, 3:5))), 0, :), 1) <: Base.IdentityUnitRange
 
 @testset "LazyAxis" begin
     A = zeros(3,4,5);
@@ -88,4 +89,3 @@ if isdefined(Base, :ReshapedReinterpretArray)
     @inferred(ArrayInterface.axes(fa)) isa ArrayInterface.axes_types(fa)
   end
 end
-
