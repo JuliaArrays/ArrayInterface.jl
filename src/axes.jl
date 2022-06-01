@@ -176,6 +176,8 @@ end
     LazyAxis{N}(parent::AbstractArray)
 
 A lazy representation of `axes(parent, N)`.
+"""
+struct LazyAxis{N,P} <: AbstractUnitRange{Int}
     parent::P
 
     function LazyAxis{N}(parent::P) where {N,P}
