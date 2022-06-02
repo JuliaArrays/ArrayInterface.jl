@@ -1,9 +1,9 @@
 
 function known_lastindex(::Type{T}) where {T}
-    if known_first(T) === nothing || known_last(T) === nothing
+    if known_offset1(T) === nothing || known_length(T) === nothing
         return nothing
     else
-        return known_first(T) - known_last(T) + 1
+        return known_length(T) - known_offset1(T) + 1
     end
 end
 known_lastindex(@nospecialize x) = known_lastindex(typeof(x))
