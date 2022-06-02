@@ -1,11 +1,9 @@
 
 function known_lastindex(::Type{T}) where {T}
-    start = ArrayInterface.known_first(T)
-    stop = ArrayInterface.known_last(T)
-    if start === nothing || stop === nothing
+    if known_first(T) === nothing || known_last(T) === nothing
         return nothing
     else
-        return start - stop + 1
+        return known_first(T) - known_last(T) + 1
     end
 end
 known_lastindex(@nospecialize x) = known_lastindex(typeof(x))

@@ -193,7 +193,7 @@ end
 end
 
 @testset "n-first/last" begin
-    x = [1, 2, 3, 4]
+    x = MArray([1, 2, 3, 4])
     n = static(2)
     @test @inferred(first(x, n)) == [1, 2]
     @test @inferred(last(x, n)) == [3, 4]
