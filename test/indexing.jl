@@ -192,6 +192,13 @@ end
     end
 end
 
+@testset "n-first/last" begin
+    x = [1, 2, 3, 4]
+    n = static(2)
+    @test @inferred(first(x, n)) == [1, 2]
+    @test @inferred(last(x, n)) == [3, 4]
+end
+
 A = zeros(3, 4, 5);
 A[:] = 1:60
 Ap = @view(PermutedDimsArray(A, (3, 1, 2))[:, 1:2, 1])';
@@ -222,4 +229,3 @@ izip = zip(S, S)
 
 sv5 = MArray(zeros(5));
 v5 = Vector{Float64}(undef, 5);
-
