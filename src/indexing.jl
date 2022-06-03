@@ -1,4 +1,27 @@
 
+function known_lastindex(::Type{T}) where {T}
+    if known_offset1(T) === nothing || known_length(T) === nothing
+        return nothing
+    else
+        return known_length(T) - known_offset1(T) + 1
+    end
+end
+known_lastindex(@nospecialize x) = known_lastindex(typeof(x))
+
+@inline static_lastindex(x) = Static.maybe_static(known_lastindex, lastindex, x)
+
+function Base.first(x::AbstractVector, n::StaticInt)
+    @boundscheck n < 0 && throw(ArgumentError("Number of elements must be nonnegative"))
+    start = offset1(x)
+    @inbounds x[start:min((start - one(start)) + n, static_lastindex(x))]
+end
+
+function Base.last(x::AbstractVector, n::StaticInt)
+    @boundscheck n < 0 && throw(ArgumentError("Number of elements must be nonnegative"))
+    stop = static_lastindex(x)
+    @inbounds x[max(offset1(x), (stop + one(stop)) - n):stop]
+end
+
 function _is_splat(::Type{I}, i::StaticInt) where {I}
     if dynamic(is_splat_index(field_type(I, i)))
         True()
