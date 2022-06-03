@@ -2,12 +2,16 @@
 """
     OptionallyStaticUnitRange(start, stop, check_lower_bound=True(), check_upper_bound=True()) <: AbstractUnitRange{Int}
 
-Similar to `UnitRange` except each field may be an `Int` or `StaticInt`. An
-`OptionallyStaticUnitRange` is intended to be constructed internally from other valid
-indices. Therefore, users should not expect the same checks are used to ensure construction
-of a valid `OptionallyStaticUnitRange` as a `UnitRange`. `check_lower_bound` and
-`check_upper_bound` determine whether `start` and `stop` are bounds checked when
-`OptionallyStaticUnitRange` is used as an index.
+Similar to `UnitRange` except each field may be an `Int` or `StaticInt`. `check_lower_bound`
+and `check_upper_bound` determine whether `start` and `stop` are bounds checked when
+`OptionallyStaticUnitRange` is used as an index. This type is intended to be constructed
+internally from other valid indices. Therefore, users should not expect the same checks are
+used to ensure construction of a valid `OptionallyStaticUnitRange` as a `UnitRange`.
+
+!!! warning
+
+    Manually setting `check_lower_bound` and `check_upper_bound` to `False()` has similar
+    behavior as `@inbounds` and may result in incorrect results/crashes/corruption.
 """
 struct OptionallyStaticUnitRange{F<:CanonicalInt,L<:CanonicalInt,CLB<:Union{False,True},CUB<:Union{False,True}} <: AbstractUnitRange{Int}
     start::F
@@ -157,7 +161,7 @@ ArrayInterfaceCore.known_last(::Type{<:OptionallyStaticStepRange{<:Any,<:Any,Sta
         return known_first(r)
     end
 end
-function Base.step(r::OptionallyStaticStepRange)::Int
+@inline function Base.step(r::OptionallyStaticStepRange)::Int
     if known_step(r) === nothing
         return getfield(r, :step)
     else
