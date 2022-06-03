@@ -593,7 +593,7 @@ function _reshaped_strides(asz::Dims, reshaped, msz::Int, mst, n::Int, apsz::Dim
 end
 
 merge_adjacent_dim(::Tuple{}, ::Tuple{}) = 1, One(), 0
-merge_adjacent_dim(szs::Tuple{Integer}, sts::Tuple{Integer}) = Int(szs[1]), sts[1], 1
+merge_adjacent_dim(szs::Tuple{Any}, sts::Tuple{Any}) = Int(szs[1]), sts[1], 1
 function merge_adjacent_dim(szs::Tuple, sts::Tuple)
     if szs[1] isa One # Just ignore dimension with size 1
         sz, st, n = merge_adjacent_dim(tail(szs), tail(sts))
@@ -657,7 +657,7 @@ function strides(A::Base.ReinterpretArray{T,<:Any,S,<:AbstractArray{S},IsReshape
     end
 end
 _new_static(P,_,_,_) = P # This should never be called, just in case.
-@generated function _new_static(p::P, ::SR, ::DD, ::StaticInt{S}) where {S,N,P<:NTuple{N,Integer},SR<:NTuple{N,StaticInt},DD<:NTuple{N,StaticBool}}
+@generated function _new_static(p::P, ::SR, ::DD, ::StaticInt{S}) where {S,N,P<:NTuple{N,Union{Int,StaticInt}},SR<:NTuple{N,StaticInt},DD<:NTuple{N,StaticBool}}
     sr = fieldtypes(SR)
     j = findfirst(T -> T() == sr[1]()+1, sr)
     if !isnothing(j) && !(fieldtype(P, j) <: StaticInt) && fieldtype(DD, j) === True
