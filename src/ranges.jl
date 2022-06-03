@@ -1,13 +1,15 @@
 
 """
-    OptionallyStaticUnitRange(start, stop) <: AbstractUnitRange{Int}
+    OptionallyStaticUnitRange(start, stop, check_lower_bound=True(), check_upper_bound=True()) <: AbstractUnitRange{Int}
 
 Similar to `UnitRange` except each field may be an `Int` or `StaticInt`. An
 `OptionallyStaticUnitRange` is intended to be constructed internally from other valid
 indices. Therefore, users should not expect the same checks are used to ensure construction
-of a valid `OptionallyStaticUnitRange` as a `UnitRange`.
+of a valid `OptionallyStaticUnitRange` as a `UnitRange`. `check_lower_bound` and
+`check_upper_bound` determine whether `start` and `stop` are bounds checked when
+`OptionallyStaticUnitRange` is used as an index.
 """
-struct OptionallyStaticUnitRange{F<:CanonicalInt,L<:CanonicalInt,CLB<:Union{False,True,Bool},CUB<:Union{False,True,Bool}} <: AbstractUnitRange{Int}
+struct OptionallyStaticUnitRange{F<:CanonicalInt,L<:CanonicalInt,CLB<:Union{False,True},CUB<:Union{False,True}} <: AbstractUnitRange{Int}
     start::F
     stop::L
     check_lower_bound::CLB
@@ -19,26 +21,29 @@ struct OptionallyStaticUnitRange{F<:CanonicalInt,L<:CanonicalInt,CLB<:Union{Fals
     function OptionallyStaticUnitRange(start, stop, check_lower_bound=True(), check_upper_bound=True())
         OptionallyStaticUnitRange(canonicalize(start), canonicalize(stop), check_lower_bound, check_upper_bound)
     end
-    function OptionallyStaticUnitRange(x::AbstractRange, check_lower_bound=True(), check_upper_bound=True())
+    function OptionallyStaticUnitRange(x::AbstractRange, check_lower_bound=check_lower_bound(x), check_upper_bound=check_upper_bound(x))
         step(x) == 1 && return OptionallyStaticUnitRange(static_first(x), static_last(x), check_lower_bound, check_upper_bound)
 
         errmsg(x) = throw(ArgumentError("step must be 1, got $(step(x))")) # avoid GC frame
         errmsg(x)
     end
-    OptionallyStaticUnitRange{F,L}(x::AbstractRange) where {F,L} = OptionallyStaticUnitRange(x)
+    function OptionallyStaticUnitRange{F,L}(x::AbstractRange, check_lower_bound=check_lower_bound(x), check_upper_bound=check_upper_bound(x)) where {F,L}
+        OptionallyStaticUnitRange(x)
+    end
     function OptionallyStaticUnitRange{StaticInt{F},StaticInt{L}}(check_lower_bound=True(), check_upper_bound=True()) where {F,L}
         new{StaticInt{F},StaticInt{L},typeof(check_lower_bound),typeof(check_upper_bound)}(StaticInt(F), StaticInt(L), check_lower_bound, check_upper_bound)
     end
 end
 
 """
-    OptionallyStaticStepRange(start, step, stop) <: OrdinalRange{Int,Int}
+    OptionallyStaticStepRange(start, step, stop, check_lower_bound=True(), check_upper_bound=True(), check_lower_bound=True(), check_upper_bound=True()) <: OrdinalRange{Int,Int}
 
 Similarly to [`OptionallyStaticUnitRange`](@ref), `OptionallyStaticStepRange` permits
 a combination of static and standard primitive `Int`s to construct a range. It
 specifically enables the use of ranges without a step size of 1. It may be constructed
-through the use of `OptionallyStaticStepRange` directly or using static integers with
-the range operator (i.e., `:`).
+through the use of `OptionallyStaticStepRange` directly or using static integers with the
+range operator (i.e., `:`). `check_lower_bound` and `check_upper_bound` determine whether
+`start` and `stop` are bounds checked when `OptionallyStaticStepRange` is used as an index.
 
 ```julia
 julia> using ArrayInterface
@@ -53,7 +58,7 @@ static(2):static(2):10
 
 ```
 """
-struct OptionallyStaticStepRange{F<:CanonicalInt,S<:CanonicalInt,L<:CanonicalInt,CLB<:Union{False,True,Bool},CUB<:Union{False,True,Bool}} <: OrdinalRange{Int,Int}
+struct OptionallyStaticStepRange{F<:CanonicalInt,S<:CanonicalInt,L<:CanonicalInt,CLB<:Union{False,True},CUB<:Union{False,True}} <: OrdinalRange{Int,Int}
     start::F
     step::S
     stop::L
@@ -67,8 +72,8 @@ struct OptionallyStaticStepRange{F<:CanonicalInt,S<:CanonicalInt,L<:CanonicalInt
     function OptionallyStaticStepRange(start, step, stop, check_lower_bound=True(), check_upper_bound=True())
         OptionallyStaticStepRange(canonicalize(start), canonicalize(step), canonicalize(stop), check_lower_bound, check_upper_bound)
     end
-    function OptionallyStaticStepRange(x::AbstractRange, check_lower_bound=True(), check_upper_bound=True())
-        return OptionallyStaticStepRange(static_first(x), static_step(x), static_last(x), check_lower_bound, check_upper_bound)
+    function OptionallyStaticStepRange(x::AbstractRange, check_lower_bound=check_lower_bound(x), check_upper_bound=check_upper_bound(x))
+        OptionallyStaticStepRange(static_first(x), static_step(x), static_last(x), check_lower_bound, check_upper_bound)
     end
 end
 
@@ -127,6 +132,15 @@ SOneTo(n::Int) = SOneTo{n}()
 
 const OptionallyStaticRange = Union{<:OptionallyStaticUnitRange,<:OptionallyStaticStepRange}
 
+check_lower_bound(x) = True()
+check_lower_bound(x::OptionallyStaticRange) = getfield(x, :check_lower_bound)
+check_lower_bound(x::Base.IdentityUnitRange) = check_lower_bound(getfield(x, :indices))
+check_lower_bound(::Base.Slice) = False()
+
+check_upper_bound(x) = True()
+check_upper_bound(x::OptionallyStaticRange) = getfield(x, :check_upper_bound)
+check_upper_bound(x::Base.IdentityUnitRange) = check_upper_bound(getfield(x, :indices))
+check_upper_bound(::Base.Slice) = False()
 
 ArrayInterfaceCore.known_first(::Type{<:OptionallyStaticUnitRange{StaticInt{F}}}) where {F} = F::Int
 ArrayInterfaceCore.known_first(::Type{<:OptionallyStaticStepRange{StaticInt{F}}}) where {F} = F::Int
@@ -197,12 +211,19 @@ function Base.isempty(r::OptionallyStaticStepRange)
     (r.start != r.stop) & ((r.step > 0) != (r.stop > r.start))
 end
 
-Base.checkindex(::Type{Bool}, x::SUnitRange{F,L}, ::StaticInt{I}) where {F,L,I} = F <= I <= L
-function Base.checkindex(::Type{Bool}, x::AbstractUnitRange, i::OptionallyStaticRange)
-    (Static.ifelse(getfield(i, :check_lower_bound), checkindex, Compat.Returns(true))(Bool, x, getfield(i, :start)) &&
-     Static.ifelse(getfield(i, :check_lower_bound), checkindex, Compat.Returns(true))(Bool, x, getfield(i, :stop))) || isempty(i)
-end
+const CheckBoundsRange{CLB,CUB} = Union{OptionallyStaticUnitRange{<:CanonicalInt,<:CanonicalInt,CLB,CUB},OptionallyStaticStepRange{<:CanonicalInt,<:CanonicalInt,<:CanonicalInt,CLB,CUB}}
 
+Base.checkindex(::Type{Bool}, x::SUnitRange{F,L}, ::StaticInt{I}) where {F,L,I} = F <= I <= L
+Base.checkindex(::Type{Bool}, x::AbstractUnitRange, i::CheckBoundsRange{False,False}) = true
+@inline function Base.checkindex(::Type{Bool}, x::AbstractUnitRange, i::CheckBoundsRange{False,True})
+    checkindex(Bool, x, getfield(i, :stop)) || isempty(i)
+end
+@inline function Base.checkindex(::Type{Bool}, x::AbstractUnitRange, i::CheckBoundsRange{True,False})
+    checkindex(Bool, x, getfield(i, :start)) || isempty(i)
+end
+@inline function Base.checkindex(::Type{Bool}, x::AbstractUnitRange, i::CheckBoundsRange{True,True})
+    (checkindex(Bool, x, getfield(i, :stop)) && checkindex(Bool, x, getfield(i, :start))) || isempty(i)
+end
 @propagate_inbounds function Base.getindex(
     r::OptionallyStaticUnitRange,
     s::AbstractUnitRange{<:Integer},

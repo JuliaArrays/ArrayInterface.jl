@@ -43,7 +43,14 @@
     @test @inferred((static(1):static(10))[2:3]) === 2:3
     @test @inferred((1:static(10))[static(2):static(3)]) === 2:3
 
-    @test Base.checkindex(Bool, static(1):static(10), static(1):static(5))
+    @test !Base.checkindex(Bool, 1:5, ArrayInterface.OptionallyStaticUnitRange(1, 10, True(), True()))
+    @test !Base.checkindex(Bool, 1:5, ArrayInterface.OptionallyStaticUnitRange(1, 10, False(), True()))
+    @test Base.checkindex(Bool, 1:10, ArrayInterface.OptionallyStaticUnitRange(1, 5, False(), True()))
+    @test Base.checkindex(Bool, 1:10, ArrayInterface.OptionallyStaticUnitRange(1, 5, True(), False()))
+    @test Base.checkindex(Bool, 1:10, ArrayInterface.OptionallyStaticUnitRange(1, 5, True(), True()))
+    # these are actually out of bounds but we want to ensure that we can actually elide bounds checking
+    @test Base.checkindex(Bool, 1:5, ArrayInterface.OptionallyStaticUnitRange(1, 10, True(), False()))
+    @test Base.checkindex(Bool, 1:5, ArrayInterface.OptionallyStaticUnitRange(1, 10, False(), False()))
     @test -(static(1):static(10)) === static(-1):static(-1):static(-10)
 
     @test reverse(static(1):static(10)) === static(10):static(-1):static(1)
@@ -149,4 +156,3 @@ end
     @test ArrayInterface.indices((x',y'),StaticInt(1)) === Base.Slice(StaticInt(1):StaticInt(1))
     @test ArrayInterface.indices((x,y), StaticInt(2)) === Base.Slice(StaticInt(1):StaticInt(1))
 end
-
