@@ -224,16 +224,25 @@ end
 @inline function Base.checkindex(::Type{Bool}, x::AbstractUnitRange, i::CheckBoundsRange{True,True})
     (checkindex(Bool, x, getfield(i, :stop)) && checkindex(Bool, x, getfield(i, :start))) || isempty(i)
 end
-@propagate_inbounds function Base.getindex(
-    r::OptionallyStaticUnitRange,
-    s::AbstractUnitRange{<:Integer},
-)
+
+@inline function Base.getindex(r::OptionallyStaticUnitRange, s::AbstractUnitRange{<:Integer})
     @boundscheck checkbounds(r, s)
     f = static_first(r)
     fnew = f - one(f)
-    return (fnew+static_first(s)):(fnew+static_last(s))
+    # propagate bounds checking directives in case this is a subset of a known inbounds range
+    return OptionallyStaticUnitRange((fnew+static_first(s)), (fnew+static_last(s)), getfield(r, :check_lower_bound), getfield(r, :check_upper_bound))
 end
 
+@inline function Base.getindex(x::OptionallyStaticRange, i::AbstractRange{T}) where {T<:Integer}
+    @boundscheck checkbounds(x, i)
+    fi = static_first(i)
+    sx = static_step(x)
+    si = static_step(i)
+    start = static_first(x) + (fi - one(fi)) * sx
+    st = sx * si
+    len = static_length(i)
+    return OptionallyStaticStepRange(start, st, (start + (len - one(len)) * st),  getfield(r, :check_lower_bound), getfield(r, :check_upper_bound))
+end
 @propagate_inbounds function Base.getindex(x::OptionallyStaticUnitRange{StaticInt{1}}, i::Int)
     @boundscheck checkbounds(x, i)
     i
