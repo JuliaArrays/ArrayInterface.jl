@@ -67,45 +67,47 @@ end
 end
 
 @testset "Static-Dynamic Size, Strides, and Offsets" begin
-    if VERSION ≥ v"1.6.0-DEV.1581"
-        colors = [(R = rand(), G = rand(), B = rand()) for i ∈ 1:100];
+    colors = [(R = rand(), G = rand(), B = rand()) for i ∈ 1:100];
 
-        colormat = reinterpret(reshape, Float64, colors)
-        @test @inferred(ArrayInterface.strides(colormat)) === (StaticInt(1), StaticInt(3))
-        @test @inferred(ArrayInterface.dense_dims(colormat)) === (True(),True())
-        @test @inferred(ArrayInterface.dense_dims(view(colormat,:,4))) === (True(),)
-        @test @inferred(ArrayInterface.dense_dims(view(colormat,:,4:7))) === (True(),True())
-        @test @inferred(ArrayInterface.dense_dims(view(colormat,2:3,:))) === (True(),False())
+    colormat = reinterpret(reshape, Float64, colors)
+    @test @inferred(ArrayInterface.strides(colormat)) === (StaticInt(1), StaticInt(3))
+    @test @inferred(ArrayInterface.dense_dims(colormat)) === (True(),True())
+    @test @inferred(ArrayInterface.dense_dims(view(colormat,:,4))) === (True(),)
+    @test @inferred(ArrayInterface.dense_dims(view(colormat,:,4:7))) === (True(),True())
+    @test @inferred(ArrayInterface.dense_dims(view(colormat,2:3,:))) === (True(),False())
 
-        Rr = reinterpret(reshape, Int32, R)
-        @test @inferred(ArrayInterface.size(Rr)) === (StaticInt(2),StaticInt(2))
-        @test @inferred(ArrayInterface.known_size(Rr)) === (2, 2)
+    Rr = reinterpret(reshape, Int32, R)
+    @test @inferred(ArrayInterface.size(Rr)) === (StaticInt(2),StaticInt(2))
+    @test @inferred(ArrayInterface.known_size(Rr)) === (2, 2)
 
-        Sr = Wrapper(reinterpret(reshape, Complex{Int64}, S))
-        @test @inferred(ArrayInterface.size(Sr)) == (static(3), static(4))
-        @test @inferred(ArrayInterface.known_size(Sr)) === (3, 4)
-        @test @inferred(ArrayInterface.strides(Sr)) === (static(1), static(3))
-        Sr2 = reinterpret(reshape, Complex{Int64}, S);
-        @test @inferred(ArrayInterface.dense_dims(Sr2)) === (True(),True())
-        @test @inferred(ArrayInterface.dense_dims(view(Sr2,:,2))) === (True(),)
-        @test @inferred(ArrayInterface.dense_dims(view(Sr2,:,2:3))) === (True(),True())
-        @test @inferred(ArrayInterface.dense_dims(view(Sr2,2:3,:))) === (True(),False())
+    Sr = Wrapper(reinterpret(reshape, Complex{Int64}, S))
+    @test @inferred(ArrayInterface.size(Sr)) == (static(3), static(4))
+    @test @inferred(ArrayInterface.known_size(Sr)) === (3, 4)
+    @test @inferred(ArrayInterface.strides(Sr)) === (static(1), static(3))
+    Sr2 = reinterpret(reshape, Complex{Int64}, S);
+    @test @inferred(ArrayInterface.dense_dims(Sr2)) === (True(),True())
+    @test @inferred(ArrayInterface.dense_dims(view(Sr2,:,2))) === (True(),)
+    @test @inferred(ArrayInterface.dense_dims(view(Sr2,:,2:3))) === (True(),True())
+    @test @inferred(ArrayInterface.dense_dims(view(Sr2,2:3,:))) === (True(),False())
 
-        Ar2c = reinterpret(reshape, Complex{Float64}, view(rand(2, 5, 7), :, 2:4, 3:5));
-        @test @inferred(ArrayInterface.strides(Ar2c)) === (StaticInt(1), 5)
-        Ar2c_static = reinterpret(reshape, Complex{Float64}, view(MArray(rand(2, 5, 7)), :, 2:4, 3:5));
-        @test @inferred(ArrayInterface.strides(Ar2c_static)) === (StaticInt(1), StaticInt(5))
+    Ar2c = reinterpret(reshape, Complex{Float64}, view(rand(2, 5, 7), :, 2:4, 3:5));
+    @test @inferred(ArrayInterface.strides(Ar2c)) === (StaticInt(1), 5)
+    Ar2c′ = reinterpret(reshape, Complex{Float64}, view(rand(4, 5, 7), Base.oneto(2), 2:4, 3:5));
+    @test @inferred(ArrayInterface.strides(Ar2c′)) === (2, 10)
+    Ar2c″ = reinterpret(reshape, Complex{Float64}, view(rand(3, 5, 7), Base.oneto(2), 2:4, 3:5));
+    @test_throws ArgumentError ArrayInterface.strides(Ar2c″)
+    Ar2c_static = reinterpret(reshape, Complex{Float64}, view(MArray(rand(2, 5, 7)), :, 2:4, 3:5));
+    @test @inferred(ArrayInterface.strides(Ar2c_static)) === (StaticInt(1), StaticInt(5))
 
-        Ac2r = reinterpret(reshape, Float64, view(rand(ComplexF64, 5, 7), 2:4, 3:6));
-        @test @inferred(ArrayInterface.strides(Ac2r)) === (StaticInt(1), StaticInt(2), 10)
-        Ac2r_static = reinterpret(reshape, Float64, view(MArray(rand(ComplexF64, 5, 7)), 2:4, 3:6));
-        @test @inferred(ArrayInterface.strides(Ac2r_static)) === (StaticInt(1), StaticInt(2), StaticInt(10))
+    Ac2r = reinterpret(reshape, Float64, view(rand(ComplexF64, 5, 7), 2:4, 3:6));
+    @test @inferred(ArrayInterface.strides(Ac2r)) === (StaticInt(1), StaticInt(2), 10)
+    Ac2r_static = reinterpret(reshape, Float64, view(MArray(rand(ComplexF64, 5, 7)), 2:4, 3:6));
+    @test @inferred(ArrayInterface.strides(Ac2r_static)) === (StaticInt(1), StaticInt(2), StaticInt(10))
 
-        Ac2t = reinterpret(reshape, Tuple{Float64,Float64}, view(rand(ComplexF64, 5, 7), 2:4, 3:6));
-        @test @inferred(ArrayInterface.strides(Ac2t)) === (StaticInt(1), 5)
-        Ac2t_static = reinterpret(reshape, Tuple{Float64,Float64}, view(MArray(rand(ComplexF64, 5, 7)), 2:4, 3:6));
-        @test @inferred(ArrayInterface.strides(Ac2t_static)) === (StaticInt(1), StaticInt(5))
-    end
+    Ac2t = reinterpret(reshape, Tuple{Float64,Float64}, view(rand(ComplexF64, 5, 7), 2:4, 3:6));
+    @test @inferred(ArrayInterface.strides(Ac2t)) === (StaticInt(1), 5)
+    Ac2t_static = reinterpret(reshape, Tuple{Float64,Float64}, view(MArray(rand(ComplexF64, 5, 7)), 2:4, 3:6));
+    @test @inferred(ArrayInterface.strides(Ac2t_static)) === (StaticInt(1), StaticInt(5))
 end
 
 @testset "Memory Layout" begin
@@ -269,59 +271,78 @@ end
     doubleperm = PermutedDimsArray(PermutedDimsArray(C,(4,2,3,1)), (4,2,1,3));
     @test collect(strides(C))[collect(ArrayInterface.stride_rank(doubleperm))] == collect(strides(doubleperm))
 
-    if isdefined(Base, :ReshapedReinterpretArray) # reinterpret(reshape,...) tests
-        C1 = reinterpret(reshape, Float64, PermutedDimsArray(Array{Complex{Float64}}(undef, 3,4,5), (2,1,3)));
-        C2 = reinterpret(reshape, Complex{Float64}, PermutedDimsArray(view(A,1:2,:,:), (1,3,2)));
-        C3 = reinterpret(reshape, Complex{Float64}, PermutedDimsArray(Wrapper(reshape(view(x, 1:24), (2,3,4))), (1,3,2)));
+    C1 = reinterpret(reshape, Float64, PermutedDimsArray(Array{Complex{Float64}}(undef, 3,4,5), (2,1,3)));
+    C2 = reinterpret(reshape, Complex{Float64}, PermutedDimsArray(view(A,1:2,:,:), (1,3,2)));
+    C3 = reinterpret(reshape, Complex{Float64}, PermutedDimsArray(Wrapper(reshape(view(x, 1:24), (2,3,4))), (1,3,2)));
 
-        @test @inferred(ArrayInterface.defines_strides(C1))
-        @test @inferred(ArrayInterface.defines_strides(C2))
-        @test @inferred(ArrayInterface.defines_strides(C3))
+    @test @inferred(ArrayInterface.defines_strides(C1))
+    @test @inferred(ArrayInterface.defines_strides(C2))
+    @test @inferred(ArrayInterface.defines_strides(C3))
 
-        @test @inferred(ArrayInterface.device(C1)) === ArrayInterface.CPUPointer()
-        @test @inferred(ArrayInterface.device(C2)) === ArrayInterface.CPUPointer()
-        @test @inferred(ArrayInterface.device(C3)) === ArrayInterface.CPUPointer()
+    @test @inferred(ArrayInterface.device(C1)) === ArrayInterface.CPUPointer()
+    @test @inferred(ArrayInterface.device(C2)) === ArrayInterface.CPUPointer()
+    @test @inferred(ArrayInterface.device(C3)) === ArrayInterface.CPUPointer()
 
-        @test @inferred(ArrayInterface.contiguous_batch_size(C1)) === ArrayInterface.StaticInt(0)
-        @test @inferred(ArrayInterface.contiguous_batch_size(C2)) === ArrayInterface.StaticInt(0)
-        @test @inferred(ArrayInterface.contiguous_batch_size(C3)) === ArrayInterface.StaticInt(0)
+    @test @inferred(ArrayInterface.contiguous_batch_size(C1)) === ArrayInterface.StaticInt(0)
+    @test @inferred(ArrayInterface.contiguous_batch_size(C2)) === ArrayInterface.StaticInt(0)
+    @test @inferred(ArrayInterface.contiguous_batch_size(C3)) === ArrayInterface.StaticInt(0)
 
-        @test @inferred(ArrayInterface.stride_rank(C1)) == (1,3,2,4)
-        @test @inferred(ArrayInterface.stride_rank(C2)) == (2,1)
-        @test @inferred(ArrayInterface.stride_rank(C3)) == (2,1)
+    @test @inferred(ArrayInterface.stride_rank(C1)) == (1,3,2,4)
+    @test @inferred(ArrayInterface.stride_rank(C2)) == (2,1)
+    @test @inferred(ArrayInterface.stride_rank(C3)) == (2,1)
 
-        @test @inferred(ArrayInterface.contiguous_axis(C1)) === StaticInt(1)
-        @test @inferred(ArrayInterface.contiguous_axis(C2)) === StaticInt(0)
-        @test @inferred(ArrayInterface.contiguous_axis(C3)) === StaticInt(2)
+    @test @inferred(ArrayInterface.contiguous_axis(C1)) === StaticInt(1)
+    @test @inferred(ArrayInterface.contiguous_axis(C2)) === StaticInt(0)
+    @test @inferred(ArrayInterface.contiguous_axis(C3)) === StaticInt(2)
 
-        @test @inferred(ArrayInterface.contiguous_axis_indicator(C1)) == (true,false,false,false)
-        @test @inferred(ArrayInterface.contiguous_axis_indicator(C2)) == (false,false)
-        @test @inferred(ArrayInterface.contiguous_axis_indicator(C3)) == (false,true)
+    @test @inferred(ArrayInterface.contiguous_axis_indicator(C1)) == (true,false,false,false)
+    @test @inferred(ArrayInterface.contiguous_axis_indicator(C2)) == (false,false)
+    @test @inferred(ArrayInterface.contiguous_axis_indicator(C3)) == (false,true)
 
-        @test @inferred(ArrayInterface.is_column_major(C1)) === False()
-        @test @inferred(ArrayInterface.is_column_major(C2)) === False()
-        @test @inferred(ArrayInterface.is_column_major(C3)) === False()
+    @test @inferred(ArrayInterface.is_column_major(C1)) === False()
+    @test @inferred(ArrayInterface.is_column_major(C2)) === False()
+    @test @inferred(ArrayInterface.is_column_major(C3)) === False()
 
-        @test @inferred(ArrayInterface.dense_dims(C1)) == (true,true,true,true)
-        @test @inferred(ArrayInterface.dense_dims(C2)) == (false,false)
-        @test @inferred(ArrayInterface.dense_dims(C3)) == (true,true)
-    end
+    @test @inferred(ArrayInterface.dense_dims(C1)) == (true,true,true,true)
+    @test @inferred(ArrayInterface.dense_dims(C2)) == (false,false)
+    @test @inferred(ArrayInterface.dense_dims(C3)) == (true,true)
 end
 
 @testset "Reinterpreted reshaped views" begin
     u_base = randn(1, 4, 4, 5);
+    u_reinterpreted = reinterpret(Int8, view(u_base, 1:1, 1:4, 1:4, 1:5))
     u_vectors = reshape(reinterpret(NTuple{1, eltype(u_base)}, u_base),
                         Base.tail(size(u_base))...)
     u_view = view(u_vectors, 2, :, 3)
     u_view_reinterpreted = reinterpret(eltype(u_base), u_view)
     u_view_reshaped = reshape(u_view_reinterpreted, 1, length(u_view))
-
     # See https://github.com/JuliaArrays/ArrayInterface.jl/issues/163
-    @test @inferred(ArrayInterface.strides(u_base)) == (StaticInt(1), 1, 4, 16)
-    @test @inferred(ArrayInterface.strides(u_vectors)) == (StaticInt(1), 4, 16)
-    @test @inferred(ArrayInterface.strides(u_view)) == (4,)
-    @test @inferred(ArrayInterface.strides(u_view_reinterpreted)) == (4,)
-    @test @inferred(ArrayInterface.strides(u_view_reshaped)) == (4, 4)
+    @test @inferred(ArrayInterface.strides(u_base)) === (StaticInt(1), 1, 4, 16)
+    @test @inferred(ArrayInterface.strides(u_reinterpreted)) === (StaticInt(1), 8, 32, 128)
+    @test @inferred(ArrayInterface.strides(u_vectors)) === (StaticInt(1), 4, 16)
+    @test @inferred(ArrayInterface.strides(u_view)) === (4,)
+    @test @inferred(ArrayInterface.strides(u_view_reinterpreted)) === (4,)
+    @test @inferred(ArrayInterface.strides(u_view_reshaped)) === (4, 4)
     @test @inferred(ArrayInterface.axes(u_vectors)) isa ArrayInterface.axes_types(u_vectors)
 end
 
+@testset "Reshaped strides" begin
+    a = randn(10, 10)
+    @test @inferred(ArrayInterface.strides(reshape(view(a, :, 1:2:9), 2, 5, 5))) === (1, 2, 20)
+    @test @inferred(ArrayInterface.strides(vec(view(a, 1, 1)))) === (static(1),)
+    @test_throws ArgumentError ArrayInterface.strides(reshape(view(a, :, 1:2:9), 5, 5, 2))
+    a = MArray(randn(10, 10))
+    @test @inferred(ArrayInterface.strides(reshape(view(a, 1:9, 1:10), 3, 3, 2, 5))) === (1, 3, 10, 20) 
+    @test @inferred(ArrayInterface.strides(reshape(view(a, static(1):static(9), 1:10), 3, 3, 2, 5))) === (static(1), 3, 10, 20) 
+    @test @inferred(ArrayInterface.strides(reshape(view(a, :, 1:2:9), 2, 5, 5))) === (static(1), 2, 20)
+    a = randn(2, 5, 3)
+    @test @inferred(ArrayInterface.strides(vec(view(a, :, 1:5, 1:3)))) === (1,)
+    @test @inferred(ArrayInterface.strides(reshape(view(a, :, 1:5, 1:3), 5, 2, 3))) === (1,5,10)
+    @test @inferred(ArrayInterface.strides(vec(view(a, static(1):static(2), 1:5, 1:3)))) === (static(1),)
+    @test @inferred(ArrayInterface.strides(reshape(view(a, static(1):static(2), 1:5, 1:3), 5, 2, 3))) === (static(1),5,10)
+    a = MArray(randn(3, 5, 3))
+    @test @inferred(ArrayInterface.strides(vec(view(a, :, 1:5, 1:3)))) === (static(1),)
+    @test @inferred(ArrayInterface.strides(reshape(view(a, static(1):static(3), static(1):static(4), 1:3), 2, 2, 3, 3))) === (static(1), 2, 4, 15)
+    @test @inferred(ArrayInterface.strides(reshape(view(a, static(1):static(2), static(1):static(4), 1:3), 2, 2, 2, 3))) === (static(1), 3, 6, 15)
+    @test @inferred(ArrayInterface.strides(reshape(view(a, static(1):static(2), static(1):static(1), 1:3), 2, 1, 3))) === (static(1), 2, 15)
+end
