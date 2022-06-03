@@ -36,23 +36,21 @@
     @test_throws DimensionMismatch ArrayInterface.from_parent_dims(typeof(vadj), 0)
     @test_throws DimensionMismatch ArrayInterface.from_parent_dims(typeof(vadj), static(0))
 
-    if VERSION ≥ v"1.6.0-DEV.1581"
-        colormat = reinterpret(reshape, Float64, [(R=rand(), G=rand(), B=rand()) for i ∈ 1:100])
-        @test @inferred(ArrayInterface.from_parent_dims(typeof(colormat))) === (static(2),)
-        @test @inferred(ArrayInterface.to_parent_dims(typeof(colormat))) === (static(0), static(1),)
+    colormat = reinterpret(reshape, Float64, [(R=rand(), G=rand(), B=rand()) for i ∈ 1:100])
+    @test @inferred(ArrayInterface.from_parent_dims(typeof(colormat))) === (static(2),)
+    @test @inferred(ArrayInterface.to_parent_dims(typeof(colormat))) === (static(0), static(1),)
 
-        Rr = reinterpret(reshape, Int32, ones(4))
-        @test @inferred(ArrayInterface.from_parent_dims(typeof(Rr))) === (static(2),)
-        @test @inferred(ArrayInterface.to_parent_dims(typeof(Rr))) === (static(0), static(1),)
+    Rr = reinterpret(reshape, Int32, ones(4))
+    @test @inferred(ArrayInterface.from_parent_dims(typeof(Rr))) === (static(2),)
+    @test @inferred(ArrayInterface.to_parent_dims(typeof(Rr))) === (static(0), static(1),)
 
-        Rr = reinterpret(reshape, Int64, ones(4))
-        @test @inferred(ArrayInterface.from_parent_dims(typeof(Rr))) === (static(1),)
-        @test @inferred(ArrayInterface.to_parent_dims(typeof(Rr))) === (static(1),)
+    Rr = reinterpret(reshape, Int64, ones(4))
+    @test @inferred(ArrayInterface.from_parent_dims(typeof(Rr))) === (static(1),)
+    @test @inferred(ArrayInterface.to_parent_dims(typeof(Rr))) === (static(1),)
 
-        Sr = reinterpret(reshape, Complex{Int64}, zeros(2, 3, 4))
-        @test @inferred(ArrayInterface.from_parent_dims(typeof(Sr))) === (static(0), static(1), static(2))
-        @test @inferred(ArrayInterface.to_parent_dims(typeof(Sr))) === (static(2), static(3))
-    end
+    Sr = reinterpret(reshape, Complex{Int64}, zeros(2, 3, 4))
+    @test @inferred(ArrayInterface.from_parent_dims(typeof(Sr))) === (static(0), static(1), static(2))
+    @test @inferred(ArrayInterface.to_parent_dims(typeof(Sr))) === (static(2), static(3))
 end
 
 @testset "order_named_inds" begin
@@ -139,7 +137,7 @@ end
     x[x=1] = [2, 3]
     @test @inferred(getindex(x, x=1)) == [2, 3]
     y = NamedDimsWrapper((:x, static(:y)), ones(2, 2))
-    # FIXME this doesn't correctly infer the output because it can't infer 
+    # FIXME this doesn't correctly infer the output because it can't infer
     @test getindex(y, x=1) == [1, 1]
 end
 

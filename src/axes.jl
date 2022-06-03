@@ -136,39 +136,37 @@ end
     end
 end
 
-if isdefined(Base, :ReshapedReinterpretArray)
-    function axes_types(::Type{A}) where {T,N,S,A<:Base.ReshapedReinterpretArray{T,N,S}}
-        if sizeof(S) > sizeof(T)
-            return merge_tuple_type(Tuple{SOneTo{div(sizeof(S), sizeof(T))}}, axes_types(parent_type(A)))
-        elseif sizeof(S) < sizeof(T)
-            P = parent_type(A)
-            return eachop_tuple(field_type, tail(nstatic(Val(ndims(P)))), axes_types(P))
-        else
-            return axes_types(parent_type(A))
-        end
+function axes_types(::Type{A}) where {T,N,S,A<:Base.ReshapedReinterpretArray{T,N,S}}
+    if sizeof(S) > sizeof(T)
+        return merge_tuple_type(Tuple{SOneTo{div(sizeof(S), sizeof(T))}}, axes_types(parent_type(A)))
+    elseif sizeof(S) < sizeof(T)
+        P = parent_type(A)
+        return eachop_tuple(field_type, tail(nstatic(Val(ndims(P)))), axes_types(P))
+    else
+        return axes_types(parent_type(A))
     end
-    @inline function axes(A::Base.ReshapedReinterpretArray{T,N,S}) where {T,N,S}
-        if sizeof(S) > sizeof(T)
-            return (SOneTo(div(sizeof(S), sizeof(T))), axes(parent(A))...)
-        elseif sizeof(S) < sizeof(T)
-            return tail(axes(parent(A)))
-        else
-            return axes(parent(A))
-        end
+end
+@inline function axes(A::Base.ReshapedReinterpretArray{T,N,S}) where {T,N,S}
+    if sizeof(S) > sizeof(T)
+        return (SOneTo(div(sizeof(S), sizeof(T))), axes(parent(A))...)
+    elseif sizeof(S) < sizeof(T)
+        return tail(axes(parent(A)))
+    else
+        return axes(parent(A))
     end
-    @inline function axes(A::Base.ReshapedReinterpretArray{T,N,S}, dim) where {T,N,S}
-        d = to_dims(A, dim)
-        if sizeof(S) > sizeof(T)
-            if d == 1
-                return SOneTo(div(sizeof(S), sizeof(T)))
-            else
-                return axes(parent(A), d - static(1))
-            end
-        elseif sizeof(S) < sizeof(T)
+end
+@inline function axes(A::Base.ReshapedReinterpretArray{T,N,S}, dim) where {T,N,S}
+    d = to_dims(A, dim)
+    if sizeof(S) > sizeof(T)
+        if d == 1
+            return SOneTo(div(sizeof(S), sizeof(T)))
+        else
             return axes(parent(A), d - static(1))
-        else
-            return axes(parent(A), d)
         end
+    elseif sizeof(S) < sizeof(T)
+        return axes(parent(A), d - static(1))
+    else
+        return axes(parent(A), d)
     end
 end
 

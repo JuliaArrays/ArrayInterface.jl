@@ -28,9 +28,9 @@ _sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = length(getfield(x, dim))
 @inline function size(B::PermutedDimsArray{T,N,I1}) where {T,N,I1}
     permute(size(parent(B)), static(I1))
 end
-function size(a::ReinterpretArray{T,N,S,A}) where {T,N,S,A}
+function size(a::ReinterpretArray{T,N,S,A,IsReshaped}) where {T,N,S,A,IsReshaped}
     psize = size(parent(a))
-    if _is_reshaped(typeof(a))
+    if IsReshaped
         if sizeof(S) === sizeof(T)
             return psize
         elseif sizeof(S) > sizeof(T)
