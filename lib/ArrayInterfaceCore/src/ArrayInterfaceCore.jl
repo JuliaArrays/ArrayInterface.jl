@@ -540,7 +540,7 @@ ndims_index(T::DataType) = 1
 ndims_index(@nospecialize(i)) = ndims_index(typeof(i))
 
 """
-    safeivdepeltype(::Type{T}) -> Bool
+    instances_do_not_alias(::Type{T}) -> Bool
 
 Is it safe to `ivdep` arrays containing elements of type `T`?
 That is, would it be safe to write to an array full of `T` in parallel?
@@ -548,21 +548,21 @@ This is not true for `mutable struct`s in general, where editing one index
 could edit other indices.
 That is, it is not safe when different instances may alias the same memory.
 """
-safeivdepeltype(::Type{T}) where {T} = Base.isbitstype(T)
+instances_do_not_alias(::Type{T}) where {T} = Base.isbitstype(T)
 
 """
-    safeivdep(::Type{T<:AbstractArray}) -> Bool
+    indices_do_not_alias(::Type{T<:AbstractArray}) -> Bool
 
 Is it safe to `ivdep` arrays of type `T`?
 That is, would it be safe to write to an array of type `T` in parallel?
 Examples where this is not true are `BitArray`s or `view(rand(6), [1,2,3,1,2,3])`.
 That is, it is not safe whenever different indices may alias the same memory.
 """
-safeivdep(::Type) = false
-safeivdep(::Type{A}) where {T, A<:Base.StridedArray{T}} = safeivdepeltype(T)
-safeivdep(::Type{Adjoint{T,A}}) where {T, A <: AbstractArray{T}} = safeivdep(A)
-safeivdep(::Type{Transpose{T,A}}) where {T, A <: AbstractArray{T}} = safeivdep(A)
-safeivdep(::Type{<:SubArray{<:Any,<:Any,A,I}}) where {
-  A,I<:Tuple{Vararg{Union{Base.RangeIndex, Base.ReshapedUnitRange, Base.AbstractCartesianIndex}}}} = safeivdep(A)
+indices_do_not_alias(::Type) = false
+indices_do_not_alias(::Type{A}) where {T, A<:Base.StridedArray{T}} = instances_do_not_alias(T)
+indices_do_not_alias(::Type{Adjoint{T,A}}) where {T, A <: AbstractArray{T}} = indices_do_not_alias(A)
+indices_do_not_alias(::Type{Transpose{T,A}}) where {T, A <: AbstractArray{T}} = indices_do_not_alias(A)
+indices_do_not_alias(::Type{<:SubArray{<:Any,<:Any,A,I}}) where {
+  A,I<:Tuple{Vararg{Union{Base.RangeIndex, Base.ReshapedUnitRange, Base.AbstractCartesianIndex}}}} = indices_do_not_alias(A)
 
 end # module

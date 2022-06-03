@@ -268,18 +268,18 @@ end
     @test @inferred(ArrayInterfaceCore.ndims_index(1)) == 1
 end
 
-@testset "safeivdep" begin
-  @test ArrayInterfaceCore.safeivdepeltype(Float64)
-  @test !ArrayInterfaceCore.safeivdepeltype(Matrix{Float64})
-  @test ArrayInterfaceCore.safeivdep(Matrix{Float64})
-  @test !ArrayInterfaceCore.safeivdep(BitMatrix)
-  @test !ArrayInterfaceCore.safeivdep(Matrix{Matrix{Float64}})
-  @test ArrayInterfaceCore.safeivdep(Adjoint{Float64,Matrix{Float64}})
-  @test ArrayInterfaceCore.safeivdep(Transpose{Float64,Matrix{Float64}})
-  @test ArrayInterfaceCore.safeivdep(typeof(view(rand(4,4)', 2:3, 1:2)))
-  @test !ArrayInterfaceCore.safeivdep(typeof(view(rand(7),ones(Int,7))))
-  @test !ArrayInterfaceCore.safeivdep(Adjoint{Matrix{Float64},Matrix{Matrix{Float64}}})
-  @test !ArrayInterfaceCore.safeivdep(Transpose{Matrix{Float64},Matrix{Matrix{Float64}}})
-  @test !ArrayInterfaceCore.safeivdep(typeof(view(fill(rand(4,4),4,4)', 2:3, 1:2)))
+@testset "indices_do_not_alias" begin
+  @test ArrayInterfaceCore.instances_do_not_alias(Float64)
+  @test !ArrayInterfaceCore.instances_do_not_alias(Matrix{Float64})
+  @test ArrayInterfaceCore.indices_do_not_alias(Matrix{Float64})
+  @test !ArrayInterfaceCore.indices_do_not_alias(BitMatrix)
+  @test !ArrayInterfaceCore.indices_do_not_alias(Matrix{Matrix{Float64}})
+  @test ArrayInterfaceCore.indices_do_not_alias(Adjoint{Float64,Matrix{Float64}})
+  @test ArrayInterfaceCore.indices_do_not_alias(Transpose{Float64,Matrix{Float64}})
+  @test ArrayInterfaceCore.indices_do_not_alias(typeof(view(rand(4,4)', 2:3, 1:2)))
+  @test !ArrayInterfaceCore.indices_do_not_alias(typeof(view(rand(7),ones(Int,7))))
+  @test !ArrayInterfaceCore.indices_do_not_alias(Adjoint{Matrix{Float64},Matrix{Matrix{Float64}}})
+  @test !ArrayInterfaceCore.indices_do_not_alias(Transpose{Matrix{Float64},Matrix{Matrix{Float64}}})
+  @test !ArrayInterfaceCore.indices_do_not_alias(typeof(view(fill(rand(4,4),4,4)', 2:3, 1:2)))
 end
 
