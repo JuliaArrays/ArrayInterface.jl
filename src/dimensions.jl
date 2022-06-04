@@ -62,8 +62,8 @@ from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(I
     out
 end
 from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I} = static(Val(I))
-function from_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
-    if !_is_reshaped(R) || sizeof(S) === sizeof(T)
+function from_parent_dims(::Type{<:ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
+    if !IsReshaped || sizeof(S) === sizeof(T)
         return nstatic(Val(ndims(A)))
     elseif sizeof(S) > sizeof(T)
         return tail(nstatic(Val(ndims(A) + 1)))
@@ -115,9 +115,9 @@ to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(I)
     end
     out
 end
-function to_parent_dims(::Type{R}) where {T,N,S,A,R<:ReinterpretArray{T,N,S,A}}
+function to_parent_dims(::Type{<:ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
     pdims = nstatic(Val(ndims(A)))
-    if !_is_reshaped(R) || sizeof(S) === sizeof(T)
+    if !IsReshaped || sizeof(S) === sizeof(T)
         return pdims
     elseif sizeof(S) > sizeof(T)
         return (Zero(), pdims...,)

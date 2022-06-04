@@ -268,3 +268,21 @@ end
     @test @inferred(ArrayInterfaceCore.ndims_index(1)) == 1
 end
 
+@testset "indices_do_not_alias" begin
+  @test ArrayInterfaceCore.instances_do_not_alias(Float64)
+  @test !ArrayInterfaceCore.instances_do_not_alias(Matrix{Float64})
+  @test ArrayInterfaceCore.indices_do_not_alias(Matrix{Float64})
+  @test !ArrayInterfaceCore.indices_do_not_alias(BitMatrix)
+  @test !ArrayInterfaceCore.indices_do_not_alias(Matrix{Matrix{Float64}})
+  @test ArrayInterfaceCore.indices_do_not_alias(Adjoint{Float64,Matrix{Float64}})
+  @test ArrayInterfaceCore.indices_do_not_alias(Transpose{Float64,Matrix{Float64}})
+  @test ArrayInterfaceCore.indices_do_not_alias(typeof(view(rand(4,4)', 2:3, 1:2)))
+  @test ArrayInterfaceCore.indices_do_not_alias(typeof(view(rand(4,4,4), CartesianIndex(1,2), 2:3)))
+  @test ArrayInterfaceCore.indices_do_not_alias(typeof(view(rand(4,4)', 1:2, 2)))
+  @test !ArrayInterfaceCore.indices_do_not_alias(typeof(view(rand(7),ones(Int,7))))
+  @test !ArrayInterfaceCore.indices_do_not_alias(Adjoint{Matrix{Float64},Matrix{Matrix{Float64}}})
+  @test !ArrayInterfaceCore.indices_do_not_alias(Transpose{Matrix{Float64},Matrix{Matrix{Float64}}})
+  @test !ArrayInterfaceCore.indices_do_not_alias(typeof(view(fill(rand(4,4),4,4)', 2:3, 1:2)))
+  @test !ArrayInterfaceCore.indices_do_not_alias(typeof(view(rand(4,4)', StepRangeLen(1,0,5), 1:2)))
+end
+

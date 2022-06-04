@@ -548,4 +548,30 @@ ndims_index(@nospecialize T::Type{<:Base.LogicalIndex}) = ndims(fieldtype(T, :ma
 ndims_index(T::Type) = 1
 ndims_index(@nospecialize(i)) = ndims_index(typeof(i))
 
+"""
+    instances_do_not_alias(::Type{T}) -> Bool
+
+Is it safe to `ivdep` arrays containing elements of type `T`?
+That is, would it be safe to write to an array full of `T` in parallel?
+This is not true for `mutable struct`s in general, where editing one index
+could edit other indices.
+That is, it is not safe when different instances may alias the same memory.
+"""
+instances_do_not_alias(::Type{T}) where {T} = Base.isbitstype(T)
+
+"""
+    indices_do_not_alias(::Type{T<:AbstractArray}) -> Bool
+
+Is it safe to `ivdep` arrays of type `T`?
+That is, would it be safe to write to an array of type `T` in parallel?
+Examples where this is not true are `BitArray`s or `view(rand(6), [1,2,3,1,2,3])`.
+That is, it is not safe whenever different indices may alias the same memory.
+"""
+indices_do_not_alias(::Type) = false
+indices_do_not_alias(::Type{A}) where {T, A<:Base.StridedArray{T}} = instances_do_not_alias(T)
+indices_do_not_alias(::Type{Adjoint{T,A}}) where {T, A <: AbstractArray{T}} = indices_do_not_alias(A)
+indices_do_not_alias(::Type{Transpose{T,A}}) where {T, A <: AbstractArray{T}} = indices_do_not_alias(A)
+indices_do_not_alias(::Type{<:SubArray{<:Any,<:Any,A,I}}) where {
+  A,I<:Tuple{Vararg{Union{Integer, UnitRange, Base.ReshapedUnitRange, Base.AbstractCartesianIndex}}}} = indices_do_not_alias(A)
+
 end # module

@@ -262,31 +262,29 @@ stride_rank(x, i) = stride_rank(x)[i]
 function stride_rank(::Type{R}) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}}
     return nstatic(Val(N))
 end
-if VERSION ≥ v"1.6.0-DEV.1581"
-  @inline function stride_rank(::Type{A}) where {NB, NA, B <: AbstractArray{<:Any,NB},A<: Base.ReinterpretArray{<:Any, NA, <:Any, B, true}}
+@inline function stride_rank(::Type{A}) where {NB,NA,B<:AbstractArray{<:Any,NB},A<:Base.ReinterpretArray{<:Any,NA,<:Any,B,true}}
     NA == NB ? stride_rank(B) : _stride_rank_reinterpret(stride_rank(B), gt(StaticInt{NB}(), StaticInt{NA}()))
-  end
-  @inline _stride_rank_reinterpret(sr, ::False) = (One(), map(Base.Fix2(+,One()),sr)...)
-  @inline _stride_rank_reinterpret(sr::Tuple{One,Vararg}, ::True) = map(Base.Fix2(-,One()), tail(sr))
-  # if the leading dim's `stride_rank` is not one, then that means the individual elements are split across an axis, which ArrayInterface
-  # doesn't currently have a means of representing.
-  @inline function contiguous_axis(::Type{A}) where {NB, NA, B <: AbstractArray{<:Any,NB},A<: Base.ReinterpretArray{<:Any, NA, <:Any, B, true}}
+end
+@inline _stride_rank_reinterpret(sr, ::False) = (One(), map(Base.Fix2(+, One()), sr)...)
+@inline _stride_rank_reinterpret(sr::Tuple{One,Vararg}, ::True) = map(Base.Fix2(-, One()), tail(sr))
+# if the leading dim's `stride_rank` is not one, then that means the individual elements are split across an axis, which ArrayInterface
+# doesn't currently have a means of representing.
+@inline function contiguous_axis(::Type{A}) where {NB,NA,B<:AbstractArray{<:Any,NB},A<:Base.ReinterpretArray{<:Any,NA,<:Any,B,true}}
     _reinterpret_contiguous_axis(stride_rank(B), dense_dims(B), contiguous_axis(B), gt(StaticInt{NB}(), StaticInt{NA}()))
-  end
-  @inline _reinterpret_contiguous_axis(::Any, ::Any, ::Any, ::False) = One()
-  @inline _reinterpret_contiguous_axis(::Any, ::Any, ::Any, ::True) = Zero()
-  @generated function _reinterpret_contiguous_axis(t::Tuple{One,Vararg{StaticInt,N}}, d::Tuple{True,Vararg{StaticBool,N}}, ::One, ::True) where {N}
+end
+@inline _reinterpret_contiguous_axis(::Any, ::Any, ::Any, ::False) = One()
+@inline _reinterpret_contiguous_axis(::Any, ::Any, ::Any, ::True) = Zero()
+@generated function _reinterpret_contiguous_axis(t::Tuple{One,Vararg{StaticInt,N}}, d::Tuple{True,Vararg{StaticBool,N}}, ::One, ::True) where {N}
     for n in 1:N
-      if t.parameters[n+1].parameters[1] === 2
-        if d.parameters[n+1] === True
-          return :(StaticInt{$n}())
-        else
-          return :(Zero())
+        if t.parameters[n+1].parameters[1] === 2
+            if d.parameters[n+1] === True
+                return :(StaticInt{$n}())
+            else
+                return :(Zero())
+            end
         end
-      end
     end
     :(Zero())
-  end
 end
 
 function stride_rank(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.SignedMultiplicativeInverse{Int},M}}}}) where {T,N,P,M}
@@ -411,11 +409,9 @@ end
 function dense_dims(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
     return _dense_dims(S, dense_dims(A), Val(stride_rank(A)))
 end
-if VERSION ≥ v"1.6.0-DEV.1581"
-    @inline function dense_dims(::Type{A}) where {NB, NA, B <: AbstractArray{<:Any,NB},A<: Base.ReinterpretArray{<:Any, NA, <:Any, B, true}}
-        ddb = dense_dims(B)
-        IfElse.ifelse(Static.le(StaticInt(NB), StaticInt(NA)), (True(), ddb...), Base.tail(ddb))
-    end
+@inline function dense_dims(::Type{A}) where {NB, NA, B <: AbstractArray{<:Any,NB},A<: Base.ReinterpretArray{<:Any, NA, <:Any, B, true}}
+    ddb = dense_dims(B)
+    IfElse.ifelse(Static.le(StaticInt(NB), StaticInt(NA)), (True(), ddb...), Base.tail(ddb))
 end
 
 _dense_dims(::Type{S}, ::Nothing, ::Val{R}) where {R,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}} = nothing
@@ -561,70 +557,127 @@ strides(A::StrideIndex) = getfield(A, :strides)
     end
 end
 
-# Fixes the example of https://github.com/JuliaArrays/ArrayInterface.jl/issues/160
-# TODO: Should be generalized to reshaped arrays wrapping more general array types
-function strides(A::ReshapedArray{T,N,P}) where {T, N, P<:AbstractVector}
-    if defines_strides(A)
-        return size_to_strides(size(A), first(strides(parent(A))))
-    else
-        return Base.strides(A)
-    end
+_is_column_dense(::A) where {A<:AbstractArray} =
+    defines_strides(A) && 
+    (ndims(A) == 0 || Bool(is_dense(A)) && Bool(is_column_major(A)))
+
+# Fixes the example of https://github.com/JuliaArrays/ArrayInterfaceCore.jl/issues/160
+function strides(A::ReshapedArray)
+    _is_column_dense(parent(A)) && return size_to_strides(size(A), One())
+    pst = strides(parent(A))
+    psz = size(parent(A))
+    # Try dimension merging in order (starting from dim1).
+    # `sz1` and `st1` are the `size`/`stride` of dim1 after dimension merging.
+    # `n` indicates the last merged dimension.
+    # note: `st1` should be static if possible
+    sz1, st1, n = merge_adjacent_dim(psz, pst)
+    n == ndims(A.parent) && return size_to_strides(size(A), st1)
+    return _reshaped_strides(size(A), One(), sz1, st1, n, Dims(psz), Dims(pst))
 end
-function strides(A::ReshapedArray{T,N,P}) where {T, N, P}
-    if defines_strides(A)
-        return size_to_strides(size(A), static(1))
+
+@inline function _reshaped_strides(::Dims{0}, reshaped, msz::Int, _, ::Int, ::Dims, ::Dims)
+    reshaped == msz && return ()
+    throw(ArgumentError("Input is not strided."))
+end
+function _reshaped_strides(asz::Dims, reshaped, msz::Int, mst, n::Int, apsz::Dims, apst::Dims)
+    st = reshaped * mst
+    reshaped = reshaped * asz[1]
+    if length(asz) > 1 && reshaped == msz && asz[2] != 1
+        msz, mst′, n = merge_adjacent_dim(apsz, apst, n + 1)
+        reshaped = 1
     else
-        return Base.strides(A)
+        mst′ = Int(mst)
+    end
+    sts = _reshaped_strides(tail(asz), reshaped, msz, mst′, n, apsz, apst)
+    return (st, sts...)
+end
+
+merge_adjacent_dim(::Tuple{}, ::Tuple{}) = 1, One(), 0
+merge_adjacent_dim(szs::Tuple{Any}, sts::Tuple{Any}) = Int(szs[1]), sts[1], 1
+function merge_adjacent_dim(szs::Tuple, sts::Tuple)
+    if szs[1] isa One # Just ignore dimension with size 1
+        sz, st, n = merge_adjacent_dim(tail(szs), tail(sts))
+        return sz, st, n + 1
+    elseif szs[2] isa One # Just ignore dimension with size 1
+        sz, st, n = merge_adjacent_dim((szs[1], tail(tail(szs))...), (sts[1], tail(tail(sts))...))
+        return sz, st, n + 1
+    elseif (szs[1], szs[2], sts[1], sts[2]) isa NTuple{4,StaticInt} # the check could be done during compiling.
+        if sts[2] == sts[1] * szs[1]
+            szs′ = (szs[1] * szs[2], tail(tail(szs))...)
+            sts′ = (sts[1], tail(tail(sts))...)
+            sz, st, n = merge_adjacent_dim(szs′, sts′)
+            return sz, st, n + 1
+        else
+            return Int(szs[1]), sts[1], 1
+        end
+    else # the check can't be done during compiling.
+        sz, st, n = merge_adjacent_dim(Dims(szs), Dims(sts), 1)
+        if (szs[1], sts[1]) isa NTuple{2,StaticInt} && szs[1] != 1
+            # But the 1st stride might still be static. 
+            return sz, sts[1], n
+        else
+            return sz, st, n
+        end
     end
 end
 
-
-@inline bmap(f::F, t::Tuple{}, x::Number) where {F} = ()
-@inline bmap(f::F, t::Tuple{T}, x::Number) where {F, T} = (f(first(t),x), )
-@inline bmap(f::F, t::Tuple, x::Number) where {F} = (f(first(t),x), bmap(f, Base.tail(t), x)...)
-@static if VERSION ≥ v"1.6.0-DEV.1581"
-  # from `reinterpret(reshape, ...)`
-  @inline function strides(A::Base.ReinterpretArray{R, N, T, B, true}) where {R,N,T,B}
-    P = strides(parent(A))
-    if sizeof(R) == sizeof(T)
-      P
-    elseif sizeof(R) > sizeof(T)
-      x = Base.tail(P)
-      fx = first(x)
-      if fx isa Int
-        (One(), bmap(Base.sdiv_int, Base.tail(x), fx)...)
-      else
-        (One(), bmap(÷, Base.tail(x), fx)...)
-      end
-    else
-      (One(), bmap(*, P, StaticInt(sizeof(T)) ÷ StaticInt(sizeof(R)))...)
+function merge_adjacent_dim(psz::Dims{N}, pst::Dims{N}, n::Int) where {N}
+    sz, st = psz[n], pst[n]
+    while n < N
+        szₙ, stₙ = psz[n+1], pst[n+1]
+        if sz == 1
+            sz, st = szₙ, stₙ
+        elseif stₙ == st * sz
+            sz *= szₙ
+        elseif szₙ != 1
+            break
+        end
+        n += 1
     end
-  end
-  # plain `reinterpret(...)`
-  @inline function strides(A::Base.ReinterpretArray{R, N, T, B, false}) where {R,N,T,B}
-    P = strides(parent(A))
-    if sizeof(R) == sizeof(T)
-      P
-    elseif sizeof(R) > sizeof(T)
-      (first(P), bmap(÷, Base.tail(P), StaticInt(sizeof(R)) ÷ StaticInt(sizeof(T)))...)
-    else # sizeof(R) < sizeof(T)
-      (first(P), bmap(*, Base.tail(P), StaticInt(sizeof(T)) ÷ StaticInt(sizeof(R)))...)
-    end
-  end
-else
-  # plain `reinterpret(...)`
-  @inline function strides(A::Base.ReinterpretArray{R, N, T}) where {R,N,T}
-    P = strides(parent(A))
-    if sizeof(R) == sizeof(T)
-      P
-    elseif sizeof(R) > sizeof(T)
-      (first(P), bmap(÷, Base.tail(P), StaticInt(sizeof(R)) ÷ StaticInt(sizeof(T)))...)
-    else # sizeof(R) < sizeof(T)
-      (first(P), bmap(*, Base.tail(P), StaticInt(sizeof(T)) ÷ StaticInt(sizeof(R)))...)
-    end
-  end
+    return sz, st, n
 end
-#@inline strides(A) = _strides(A, Base.strides(A), contiguous_axis(A))
+
+# `strides` for `Base.ReinterpretArray`
+function strides(A::Base.ReinterpretArray{T,<:Any,S,<:AbstractArray{S},IsReshaped}) where {T,S,IsReshaped}
+    _is_column_dense(parent(A)) && return size_to_strides(size(A), One())
+    stp = strides(parent(A))
+    ET, ES = static(sizeof(T)), static(sizeof(S))
+    ET === ES && return stp
+    IsReshaped && ET < ES && return (One(), _reinterp_strides(stp, ET, ES)...)
+    first(stp) == 1 || throw(ArgumentError("Parent must be contiguous in the 1st dimension!"))
+    if IsReshaped
+        # The wrapper tell us `A`'s parent has static size in dim1.
+        # We can make the next stride static if the following dim is still dense.
+        sr = stride_rank(parent(A))
+        dd = dense_dims(parent(A))
+        stp′ = _new_static(stp, sr, dd, ET ÷ ES)
+        return _reinterp_strides(tail(stp′), ET, ES)
+    else
+        return (One(), _reinterp_strides(tail(stp), ET, ES)...)
+    end
+end
+_new_static(P,_,_,_) = P # This should never be called, just in case.
+@generated function _new_static(p::P, ::SR, ::DD, ::StaticInt{S}) where {S,N,P<:NTuple{N,Union{Int,StaticInt}},SR<:NTuple{N,StaticInt},DD<:NTuple{N,StaticBool}}
+    sr = fieldtypes(SR)
+    j = findfirst(T -> T() == sr[1]()+1, sr)
+    if !isnothing(j) && !(fieldtype(P, j) <: StaticInt) && fieldtype(DD, j) === True
+        return :(tuple($((i == j ? :(static($S)) : :(p[$i]) for i in 1:N)...)))
+    else
+        return :(p)
+    end
+end
+@inline function _reinterp_strides(stp::Tuple, els::StaticInt, elp::StaticInt)
+    if elp % els == 0
+        N = elp ÷ els
+        return map(i -> N * i, stp)
+    else
+        return map(stp) do i
+            d, r = divrem(elp * i, els)
+            iszero(r) || throw(ArgumentError("Parent's strides could not be exactly divided!"))
+            d
+        end
+    end
+end
 
 strides(::AbstractRange) = (One(),)
 function strides(x::VecAdjTrans)
