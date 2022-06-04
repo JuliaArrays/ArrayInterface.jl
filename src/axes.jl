@@ -103,7 +103,7 @@ axes(A::ReshapedArray) = Base.axes(A)
 axes(A::PermutedDimsArray) = permute(axes(parent(A)), to_parent_dims(A))
 axes(A::MatAdjTrans) = permute(axes(parent(A)), to_parent_dims(A))
 axes(A::VecAdjTrans) = (SOneTo{1}(), axes(parent(A), 1))
-axes(A::SubArray{<:Any,N}) where {N} = ntuple(Base.Fix1(axes, A), Val(N))
+axes(A::SubArray{<:Any,N}) where {N} = map(Base.Fix1(axes, A), Static.nstatic(Val(N)))
 
 @inline axes(A, dim) = _axes(A, to_dims(A, dim))
 @inline function _axes(A, dim::Int)
@@ -137,7 +137,7 @@ end
     if dim > ndims(A)
         return SOneTo{1}()
     else
-        return _inbound_axes(A, dim)
+        return _inbound_axes(A, StaticInt(dim))
     end
 end
 
