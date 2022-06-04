@@ -266,7 +266,7 @@ end
     @test @inferred(ArrayInterface.dense_dims(view(DummyZeros(3,4), :, 1)')) === nothing
     @test @inferred(ArrayInterface.is_dense(A)) === @inferred(ArrayInterface.is_dense(A)) === @inferred(ArrayInterface.is_dense(PermutedDimsArray(A,(3,1,2)))) === @inferred(ArrayInterface.is_dense(Array{Float64,0}(undef))) === True()
     @test @inferred(ArrayInterface.is_dense(@view(PermutedDimsArray(A,(3,1,2))[2:3,1:2,:]))) === @inferred(ArrayInterface.is_dense(@view(PermutedDimsArray(A,(3,1,2))[2:3,:,[1,2]]))) === @inferred(ArrayInterface.is_dense(@view(PermutedDimsArray(A,(3,1,2))[2:3,[1,2,3],:]))) === False()
-  
+
     C = Array{Int8}(undef, 2,2,2,2);
     doubleperm = PermutedDimsArray(PermutedDimsArray(C,(4,2,3,1)), (4,2,1,3));
     @test collect(strides(C))[collect(ArrayInterface.stride_rank(doubleperm))] == collect(strides(doubleperm))
@@ -332,8 +332,8 @@ end
     @test @inferred(ArrayInterface.strides(vec(view(a, 1, 1)))) === (static(1),)
     @test_throws ArgumentError ArrayInterface.strides(reshape(view(a, :, 1:2:9), 5, 5, 2))
     a = MArray(randn(10, 10))
-    @test @inferred(ArrayInterface.strides(reshape(view(a, 1:9, 1:10), 3, 3, 2, 5))) === (1, 3, 10, 20) 
-    @test @inferred(ArrayInterface.strides(reshape(view(a, static(1):static(9), 1:10), 3, 3, 2, 5))) === (static(1), 3, 10, 20) 
+    @test @inferred(ArrayInterface.strides(reshape(view(a, 1:9, 1:10), 3, 3, 2, 5))) === (1, 3, 10, 20)
+    @test @inferred(ArrayInterface.strides(reshape(view(a, static(1):static(9), 1:10), 3, 3, 2, 5))) === (static(1), 3, 10, 20)
     @test @inferred(ArrayInterface.strides(reshape(view(a, :, 1:2:9), 2, 5, 5))) === (static(1), 2, 20)
     a = randn(2, 5, 3)
     @test @inferred(ArrayInterface.strides(vec(view(a, :, 1:5, 1:3)))) === (1,)

@@ -5,7 +5,7 @@ import ArrayInterfaceCore: allowed_getindex, allowed_setindex!, aos_to_soa, buff
     parent_type, fast_matrix_colors, findstructralnz, has_sparsestruct,
     issingular, isstructured, matrix_colors, restructure, lu_instance,
     safevec, zeromatrix, ColoringAlgorithm,
-    fast_scalar_indexing, parameterless_type, ndims_index, is_splat_index
+    fast_scalar_indexing, parameterless_type, ndims_index, is_splat_index, is_forwarding_wrapper
 
 # ArrayIndex subtypes and methods
 import ArrayInterfaceCore: ArrayIndex, MatrixIndex, VectorIndex, BidiagonalIndex, TridiagonalIndex
@@ -34,6 +34,8 @@ using LinearAlgebra
 
 import Compat
 
+n_of_x(::StaticInt{N}, x::X) where {N,X} = ntuple(Compat.Returns(x), Val{N}())
+
 @generated function merge_tuple_type(::Type{X}, ::Type{Y}) where {X<:Tuple,Y<:Tuple}
     Tuple{X.parameters...,Y.parameters...}
 end
@@ -48,7 +50,7 @@ Base.size(A::AbstractArray2) = map(Int, ArrayInterface.size(A))
 Base.size(A::AbstractArray2, dim) = Int(ArrayInterface.size(A, dim))
 
 function Base.axes(A::AbstractArray2)
-    !(parent_type(A) <: typeof(A)) && return ArrayInterface.axes(parent(A))
+    is_forwarding_wrapper(A) && return ArrayInterface.axes(parent(A))
     throw(ArgumentError("Subtypes of `AbstractArray2` must define an axes method"))
 end
 function Base.axes(A::AbstractArray2, dim::Union{Symbol,StaticSymbol})
@@ -62,11 +64,7 @@ end
 Base.strides(A::AbstractArray2, dim) = Int(ArrayInterface.strides(A, dim))
 
 function Base.IndexStyle(::Type{T}) where {T<:AbstractArray2}
-    if parent_type(T) <: T
-        return IndexCartesian()
-    else
-        return IndexStyle(parent_type(T))
-    end
+    is_forwarding_wrapper(T) ? IndexStyle(parent_type(T)) : IndexCartesian()
 end
 
 function Base.length(A::AbstractArray2)

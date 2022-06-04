@@ -34,15 +34,19 @@ Creating an array type with unique behavior in Julia is often accomplished by cr
 This allows the new array type to inherit functionality by redirecting methods to the parent array (e.g., `Base.size(x::Wrapper) = size(parent(x))`).
 Generic design limits the need to define an excessive number of methods like this.
 However, methods used to describe a type's traits often need to be explicitly defined for each trait method.
-`ArrayInterface` assists with this by providing information about the parent type using [`ArrayInterface.parent_type`](@ref).
-By default `ArrayInterface.parent_type(::Type{T})` returns `T` (analogous to `Base.parent(x) = x`).
-If any type other than `T` is returned we assume `T` wraps a parent structure, so methods know to unwrap instances of `T`.
-It is also assumed that if `T` has a parent type `Base.parent` is defined.
+If the the underlying data and access to it are unchanged by it's wrapper the [`ArrayInterface.is_forwarding_wrapper`](@ref) trait can signal to other trait methods to access its parent data structure.
+Supporting this for a new type only requires defines these methods:
+
+```julia
+ArrayInterface.is_forwarding_wrapper(::Type{<:NewType}) = true
+ArrayInterface.parent_type(::Type{<:NewType}) = NewTypeParent
+Base.parent(x::NewType) = x.parent
+```
 
 For those authoring new trait methods, this may change the default definition from `has_trait(::Type{T}) where {T} = false`, to:
 ```julia
 function has_trait(::Type{T}) where {T}
-    if parent_type(T) <:T
+    if is_forwarding_wrapper(T)
         return false
     else
         return has_trait(parent_type(T))
