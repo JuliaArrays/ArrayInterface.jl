@@ -59,7 +59,7 @@ buffer(@nospecialize x::Union{Base.Slice,Base.IdentityUnitRange}) = getfield(x, 
 """
     is_forwarding_wrapper(::Type{T}) -> Bool
 
-Returns `true` if the type `T` lazily wraps another data type and does not alter any of its
+Returns `true` if the type `T` wraps another data type and does not alter any of its
 standard interface. For example, if `T` were an array then its size, indices, and elements
 would all be equivalent to its wrapped data.
 """
