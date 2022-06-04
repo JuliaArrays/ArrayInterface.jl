@@ -103,7 +103,7 @@ axes(A::ReshapedArray) = Base.axes(A)
 axes(A::PermutedDimsArray) = permute(axes(parent(A)), to_parent_dims(A))
 axes(A::MatAdjTrans) = permute(axes(parent(A)), to_parent_dims(A))
 axes(A::VecAdjTrans) = (SOneTo{1}(), axes(parent(A), 1))
-axes(A::SubArray) = map(Base.axes1, permute(A.indices, to_parent_dims(A)))
+axes(A::SubArray{<:Any,N}) where {N} = ntuple(Base.Fix1(axes, A), Val(N))
 
 @inline axes(A, dim) = _axes(A, to_dims(A, dim))
 @inline function _axes(A, dim::Int)
@@ -120,19 +120,24 @@ end
         return getfield(axes(A), Int(dim))
     end
 end
-
+@inline function _inbound_axes(A::SubArray, dim)
+    pd = to_parent_dims(A, to_dims(A, dim))
+    ax = getindex(A.indices, pd)
+    ax isa Base.Slice || return axes(ax, 1)
+    axes(parent(A))[pd]
+end
 @inline function axes(A::SubArray, dim::CanonicalInt)
     if dim > ndims(A)
         return OneTo(1)
     else
-        return axes(getindex(A.indices, to_parent_dims(A, to_dims(A, dim))), 1)
+        return _inbound_axes(A, dim)
     end
 end
 @inline function axes(A::SubArray, ::StaticInt{dim}) where {dim}
     if dim > ndims(A)
         return SOneTo{1}()
     else
-        return axes(getindex(A.indices, to_parent_dims(A, to_dims(A, dim))), 1)
+        return _inbound_axes(A, dim)
     end
 end
 
