@@ -33,17 +33,17 @@ const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
 Returns the parent array that type `T` wraps.
 """
 parent_type(x) = parent_type(typeof(x))
-parent_type(::Type{<:SubArray{T,N,P}}) where {T,N,P} = P
-parent_type(::Type{<:Base.ReshapedArray{T,N,P}}) where {T,N,P} = P
-parent_type(::Type{Adjoint{T,S}}) where {T,S} = S
-parent_type(::Type{Transpose{T,S}}) where {T,S} = S
 parent_type(::Type{Symmetric{T,S}}) where {T,S} = S
 parent_type(::Type{<:AbstractTriangular{T,S}}) where {T,S} = S
-parent_type(::Type{<:PermutedDimsArray{T,N,I1,I2,A}}) where {T,N,I1,I2,A} = A
-parent_type(::Type{Base.Slice{T}}) where {T} = T
-parent_type(::Type{T}) where {T} = T
-parent_type(::Type{R}) where {S,T,A,N,R<:Base.ReinterpretArray{T,N,S,A}} = A
+parent_type(@nospecialize T::Type{<:PermutedDimsArray}) = fieldtype(T, :parent)
+parent_type(@nospecialize T::Type{<:Adjoint}) = fieldtype(T, :parent)
+parent_type(@nospecialize T::Type{<:Transpose}) = fieldtype(T, :parent)
+parent_type(@nospecialize T::Type{<:SubArray}) = fieldtype(T, :parent)
+parent_type(@nospecialize T::Type{<:Base.ReinterpretArray}) = fieldtype(T, :parent)
+parent_type(@nospecialize T::Type{<:Base.ReshapedArray}) = fieldtype(T, :parent)
+parent_type(@nospecialize T::Type{<:Union{Base.Slice,Base.IdentityUnitRange}}) = fieldtype(T, :indices)
 parent_type(::Type{Diagonal{T,V}}) where {T,V} = V
+parent_type(T::Type) = T
 
 """
     buffer(x)
@@ -54,6 +54,18 @@ may not return another array type.
 buffer(x) = parent(x)
 buffer(x::SparseMatrixCSC) = getfield(x, :nzval)
 buffer(x::SparseVector) = getfield(x, :nzval)
+buffer(@nospecialize x::Union{Base.Slice,Base.IdentityUnitRange}) = getfield(x, :indices)
+
+"""
+    is_forwarding_wrapper(::Type{T}) -> Bool
+
+Returns `true` if the type `T` wraps another data type and does not alter any of its
+standard interface. For example, if `T` were an array then its size, indices, and elements
+would all be equivalent to its wrapped data.
+"""
+is_forwarding_wrapper(T::Type) = false
+is_forwarding_wrapper(@nospecialize T::Type{<:Base.Slice}) = true
+is_forwarding_wrapper(@nospecialize x) = is_forwarding_wrapper(typeof(x))
 
 """
     can_change_size(::Type{T}) -> Bool
@@ -62,7 +74,9 @@ Returns `true` if the Base.size of `T` can change, in which case operations
 such as `pop!` and `popfirst!` are available for collections of type `T`.
 """
 can_change_size(x) = can_change_size(typeof(x))
-can_change_size(::Type{T}) where {T} = false
+function can_change_size(::Type{T}) where {T}
+    is_forwarding_wrapper(T) ? can_change_size(parent_type(T)) : false
+end
 can_change_size(::Type{<:Vector}) = true
 can_change_size(::Type{<:AbstractDict}) = true
 can_change_size(::Type{<:Base.ImmutableDict}) = false
@@ -123,8 +137,8 @@ end
 Query whether a type can use `setindex!`.
 """
 can_setindex(x) = can_setindex(typeof(x))
-can_setindex(::Type) = true
-can_setindex(::Type{<:AbstractRange}) = false
+can_setindex(T::Type) = is_forwarding_wrapper(T) ? can_setindex(parent_type(T)) : true
+can_setindex(@nospecialize T::Type{<:AbstractRange}) = false
 can_setindex(::Type{<:AbstractDict}) = true
 can_setindex(::Type{<:Base.ImmutableDict}) = false
 can_setindex(@nospecialize T::Type{<:Tuple}) = false
@@ -463,15 +477,10 @@ julia> ArrayInterface.known_first(typeof(Base.OneTo(4)))
 ```
 """
 known_first(x) = known_first(typeof(x))
-function known_first(::Type{T}) where {T}
-    if parent_type(T) <: T
-        return nothing
-    else
-        return known_first(parent_type(T))
-    end
-end
-known_first(::Type{Base.OneTo{T}}) where {T} = 1
-known_first(::Type{<:Base.IdentityUnitRange{T}}) where {T} = known_first(T)
+known_first(T::Type) = is_forwarding_wrapper(T) ? known_first(parent_type(T)) : nothing
+known_first(::Type{<:Base.OneTo}) = 1
+known_first(@nospecialize T::Type{<:LinearIndices}) = 1
+known_first(@nospecialize T::Type{<:Base.IdentityUnitRange}) = known_first(parent_type(T))
 function known_first(::Type{<:CartesianIndices{N,R}}) where {N,R}
     _cartesian_index(ntuple(i -> known_first(R.parameters[i]), Val(N)))
 end
@@ -483,16 +492,16 @@ If `last` of an instance of type `T` is known at compile time, return it.
 Otherwise, return `nothing`.
 
 ```julia
-julia> ArrayInterface.known_last(typeof(1:4))
+julia> ArrayInterfaceCore.known_last(typeof(1:4))
 nothing
 
-julia> ArrayInterface.known_first(typeof(static(1):static(4)))
+julia> ArrayInterfaceCore.known_first(typeof(static(1):static(4)))
 4
 
 ```
 """
 known_last(x) = known_last(typeof(x))
-known_last(::Type{T}) where {T} = parent_type(T) <: T ? nothing : known_last(parent_type(T))
+known_last(T::Type) = is_forwarding_wrapper(T) ? known_last(parent_type(T)) : nothing
 function known_last(::Type{<:CartesianIndices{N,R}}) where {N,R}
     _cartesian_index(ntuple(i -> known_last(R.parameters[i]), Val(N)))
 end
@@ -513,12 +522,12 @@ julia> ArrayInterface.known_step(typeof(1:4))
 ```
 """
 known_step(x) = known_step(typeof(x))
-known_step(::Type{T}) where {T} = parent_type(T) <: T ? nothing : known_step(parent_type(T))
+known_step(T::Type) = is_forwarding_wrapper(T) ? known_step(parent_type(T)) : nothing
 known_step(@nospecialize T::Type{<:AbstractUnitRange}) = 1
 
 """
     is_splat_index(::Type{T}) -> Bool
-Returns `static(true)` if `T` is a type that splats across multiple dimensions. 
+Returns `static(true)` if `T` is a type that splats across multiple dimensions.
 """
 is_splat_index(T::Type) = false
 is_splat_index(@nospecialize(x)) = is_splat_index(typeof(x))
@@ -536,7 +545,7 @@ ndims_index(::Type{CartesianIndices{0,Tuple{}}}) = 1
 ndims_index(@nospecialize T::Type{<:AbstractArray{Bool}}) = ndims(T)
 ndims_index(@nospecialize T::Type{<:AbstractArray}) = ndims_index(eltype(T))
 ndims_index(@nospecialize T::Type{<:Base.LogicalIndex}) = ndims(fieldtype(T, :mask))
-ndims_index(T::DataType) = 1
+ndims_index(T::Type) = 1
 ndims_index(@nospecialize(i)) = ndims_index(typeof(i))
 
 """
