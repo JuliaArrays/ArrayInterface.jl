@@ -57,15 +57,15 @@ buffer(x::SparseVector) = getfield(x, :nzval)
 buffer(@nospecialize x::Union{Base.Slice,Base.IdentityUnitRange}) = getfield(x, :indices)
 
 """
-    is_lazy_wrapper(::Type{T}) -> Bool
+    is_forwarding_wrapper(::Type{T}) -> Bool
 
 Returns `true` if the type `T` lazily wraps another data type and does not alter any of its
 standard interface. For example, if `T` were an array then its size, indices, and elements
 would all be equivalent to its wrapped data.
 """
-is_lazy_wrapper(T::Type) = false
-is_lazy_wrapper(@nospecialize T::Type{<:Base.Slice}) = true
-is_lazy_wrapper(@nospecialize x) = is_lazy_wrapper(typeof(x))
+is_forwarding_wrapper(T::Type) = false
+is_forwarding_wrapper(@nospecialize T::Type{<:Base.Slice}) = true
+is_forwarding_wrapper(@nospecialize x) = is_forwarding_wrapper(typeof(x))
 
 """
     can_change_size(::Type{T}) -> Bool
@@ -75,7 +75,7 @@ such as `pop!` and `popfirst!` are available for collections of type `T`.
 """
 can_change_size(x) = can_change_size(typeof(x))
 function can_change_size(::Type{T}) where {T}
-    is_lazy_wrapper(T) ? can_change_size(parent_type(T)) : false
+    is_forwarding_wrapper(T) ? can_change_size(parent_type(T)) : false
 end
 can_change_size(::Type{<:Vector}) = true
 can_change_size(::Type{<:AbstractDict}) = true
@@ -137,7 +137,7 @@ end
 Query whether a type can use `setindex!`.
 """
 can_setindex(x) = can_setindex(typeof(x))
-can_setindex(T::Type) = is_lazy_wrapper(T) ? can_setindex(parent_type(T)) : true
+can_setindex(T::Type) = is_forwarding_wrapper(T) ? can_setindex(parent_type(T)) : true
 can_setindex(@nospecialize T::Type{<:AbstractRange}) = false
 can_setindex(::Type{<:AbstractDict}) = true
 can_setindex(::Type{<:Base.ImmutableDict}) = false
@@ -477,7 +477,7 @@ julia> ArrayInterface.known_first(typeof(Base.OneTo(4)))
 ```
 """
 known_first(x) = known_first(typeof(x))
-known_first(T::Type) = is_lazy_wrapper(T) ? known_first(parent_type(T)) : nothing
+known_first(T::Type) = is_forwarding_wrapper(T) ? known_first(parent_type(T)) : nothing
 known_first(::Type{<:Base.OneTo}) = 1
 known_first(@nospecialize T::Type{<:LinearIndices}) = 1
 known_first(@nospecialize T::Type{<:Base.IdentityUnitRange}) = known_first(parent_type(T))
@@ -501,7 +501,7 @@ julia> ArrayInterfaceCore.known_first(typeof(static(1):static(4)))
 ```
 """
 known_last(x) = known_last(typeof(x))
-known_last(T::Type) = is_lazy_wrapper(T) ? known_last(parent_type(T)) : nothing
+known_last(T::Type) = is_forwarding_wrapper(T) ? known_last(parent_type(T)) : nothing
 function known_last(::Type{<:CartesianIndices{N,R}}) where {N,R}
     _cartesian_index(ntuple(i -> known_last(R.parameters[i]), Val(N)))
 end
@@ -522,7 +522,7 @@ julia> ArrayInterface.known_step(typeof(1:4))
 ```
 """
 known_step(x) = known_step(typeof(x))
-known_step(T::Type) = is_lazy_wrapper(T) ? known_step(parent_type(T)) : nothing
+known_step(T::Type) = is_forwarding_wrapper(T) ? known_step(parent_type(T)) : nothing
 known_step(@nospecialize T::Type{<:AbstractUnitRange}) = 1
 
 """
