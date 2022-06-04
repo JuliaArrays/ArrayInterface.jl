@@ -277,9 +277,12 @@ end
   @test ArrayInterfaceCore.indices_do_not_alias(Adjoint{Float64,Matrix{Float64}})
   @test ArrayInterfaceCore.indices_do_not_alias(Transpose{Float64,Matrix{Float64}})
   @test ArrayInterfaceCore.indices_do_not_alias(typeof(view(rand(4,4)', 2:3, 1:2)))
+  @test ArrayInterfaceCore.indices_do_not_alias(typeof(view(rand(4,4,4), CartesianIndex(1,2), 2:3)))
+  @test ArrayInterfaceCore.indices_do_not_alias(typeof(view(rand(4,4)', 1:2, 2)))
   @test !ArrayInterfaceCore.indices_do_not_alias(typeof(view(rand(7),ones(Int,7))))
   @test !ArrayInterfaceCore.indices_do_not_alias(Adjoint{Matrix{Float64},Matrix{Matrix{Float64}}})
   @test !ArrayInterfaceCore.indices_do_not_alias(Transpose{Matrix{Float64},Matrix{Matrix{Float64}}})
   @test !ArrayInterfaceCore.indices_do_not_alias(typeof(view(fill(rand(4,4),4,4)', 2:3, 1:2)))
+  @test !ArrayInterfaceCore.indices_do_not_alias(typeof(view(rand(4,4)', StepRangeLen(1,0,5), 1:2)))
 end
 
