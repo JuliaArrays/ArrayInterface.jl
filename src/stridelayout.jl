@@ -566,7 +566,6 @@ function strides(A::ReshapedArray)
         # note: `st1` should be static if possible
         sz1, st1, n = merge_adjacent_dim(psz, pst)
         n == ndims(A.parent) && return size_to_strides(size(A), st1)
-        n == ndims(A.parent) && return size_to_strides(size(A), st1)
         return _reshaped_strides(size(A), One(), sz1, st1, n, Dims(psz), Dims(pst))
     end
 end
