@@ -164,9 +164,8 @@ function contiguous_axis(::Type{T}) where {T<:PermutedDimsArray}
     end
 end
 function contiguous_axis(::Type{<:Base.ReshapedArray{T, N, A, Tuple{}}}) where {T, N, A}
-    c = contiguous_axis(A)
-    if c === nothing || isone(-c)
-        return c
+    if isone(-contiguous_axis(A))
+        return StaticInt(-1)
     elseif dynamic(is_column_major(A) & is_dense(A))
         return StaticInt(1)
     else
