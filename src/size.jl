@@ -16,7 +16,13 @@ julia> ArrayInterface.size(A)
 (static(3), static(4))
 ```
 """
-size(a::A) where {A} = _maybe_size(Base.IteratorSize(A), a)
+@inline function size(a::A) where {A}
+    if is_forwarding_wrapper(A)
+        return size(parent(a))
+    else
+        return _maybe_size(Base.IteratorSize(A), a)
+    end
+end
 size(a::Base.Broadcast.Broadcasted) = map(length, axes(a))
 
 _maybe_size(::Base.HasShape{N}, a::A) where {N,A} = map(length, axes(a))

@@ -164,13 +164,18 @@ function contiguous_axis(::Type{T}) where {T<:PermutedDimsArray}
     end
 end
 function contiguous_axis(::Type{<:Base.ReshapedArray{T, N, A, Tuple{}}}) where {T, N, A}
-  IfElse.ifelse(is_column_major(A) & is_dense(A), static(1), static(-1))
+    c = contiguous_axis(A)
+    if c === nothing || isone(-c)
+        return c
+    elseif dynamic(is_column_major(A) & is_dense(A))
+        return StaticInt(1)
+    else
+        return nothing
+    end
 end
-function contiguous_axis(::Type{<:Base.ReshapedArray{T, 1, LinearAlgebra.Adjoint{T, A}, Tuple{}}}) where {T, A <: AbstractVector{T}}
-  IfElse.ifelse(is_column_major(A) & is_dense(A), static(1), static(-1))
-end
-function contiguous_axis(::Type{<:Base.ReshapedArray{T, 1, LinearAlgebra.Transpose{T, A}, Tuple{}}}) where {T, A <: AbstractVector{T}}
-  IfElse.ifelse(is_column_major(A) & is_dense(A), static(1), static(-1))
+# we're actually looking at the original vector indices before transpose/adjoint
+function contiguous_axis(::Type{<:Base.ReshapedArray{T, 1, A, Tuple{}}}) where {T, A <: VecAdjTrans}
+    contiguous_axis(parent_type(A))
 end
 function contiguous_axis(::Type{T}) where {T<:SubArray}
     _contiguous_axis(T, contiguous_axis(parent_type(T)))
@@ -555,7 +560,7 @@ _is_column_dense(::A) where {A<:AbstractArray} =
 
 # Fixes the example of https://github.com/JuliaArrays/ArrayInterfaceCore.jl/issues/160
 function strides(A::ReshapedArray)
-    if defines_strides(parent(A)) && (ndims(A) == 0 || Bool(is_dense(A)) && Bool(is_column_major(A)))
+    if _is_column_dense(parent(A))
         return size_to_strides(size(A), One())
     else
         pst = strides(parent(A))
