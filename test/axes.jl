@@ -66,6 +66,10 @@ end
     @test @inferred(ArrayInterface.axes(b, static(1))) == 1:m
     @test @inferred(ArrayInterface.axes(b, static(2))) == 1:1
     @test @inferred(ArrayInterface.axes(b, static(3))) == 1:1
+
+    # multidimensional subindices
+    vx = view(rand(4), reshape(1:4, 2, 2))
+    @test @inferred(axes(vx)) == (1:2, 1:2)
 end
 
 @testset "SubArray Adjoint Axis" begin

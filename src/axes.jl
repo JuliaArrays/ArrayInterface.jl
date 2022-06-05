@@ -103,7 +103,27 @@ axes(A::ReshapedArray) = Base.axes(A)
 axes(A::PermutedDimsArray) = permute(axes(parent(A)), to_parent_dims(A))
 axes(A::MatAdjTrans) = permute(axes(parent(A)), to_parent_dims(A))
 axes(A::VecAdjTrans) = (SOneTo{1}(), axes(parent(A), 1))
-axes(A::SubArray{<:Any,N}) where {N} = map(Base.Fix1(axes, A), Static.nstatic(Val(N)))
+axes(A::SubArray) = _sub_axes(parent(A), A.indices)
+@generated function _sub_axes(A, inds::I) where {N,P,I}
+    out = Expr(:block, Expr(:meta, :inline))
+    t = Expr(:tuple)
+    for i in 1:fieldcount(I)
+        I_i = fieldtype(I, i)
+        if I_i <: Base.Slice{Base.OneTo{Int}}
+            push!(t.args, :(axes(A, $i)))
+        elseif ndims(I_i) === 1
+            push!(t.args, :(getfield(axes(getfield(inds, $i)), 1)))
+        else
+            axsi = Symbol(:axes_, i)
+            push!(out.args, :(axes(getfield(inds, $i))))
+            for j in 1:ndims(I_i)
+                push!(t.args, :(getfield($(axsi), $j)))
+            end
+        end
+    end
+    push!(out.args, t)
+    out
+end
 
 @inline axes(A, dim) = _axes(A, to_dims(A, dim))
 @inline function _axes(A, dim::Int)
@@ -120,27 +140,6 @@ end
         return getfield(axes(A), Int(dim))
     end
 end
-@inline function _inbound_axes(A::SubArray, dim)
-    pd = to_parent_dims(A, to_dims(A, dim))
-    ax = getindex(A.indices, pd)
-    ax isa Base.Slice || return axes(ax, 1)
-    axes(parent(A))[pd]
-end
-@inline function axes(A::SubArray, dim::CanonicalInt)
-    if dim > ndims(A)
-        return OneTo(1)
-    else
-        return _inbound_axes(A, dim)
-    end
-end
-@inline function axes(A::SubArray, ::StaticInt{dim}) where {dim}
-    if dim > ndims(A)
-        return SOneTo{1}()
-    else
-        return _inbound_axes(A, StaticInt(dim))
-    end
-end
-
 function axes_types(::Type{A}) where {T,N,S,A<:Base.ReshapedReinterpretArray{T,N,S}}
     if sizeof(S) > sizeof(T)
         return merge_tuple_type(Tuple{SOneTo{div(sizeof(S), sizeof(T))}}, axes_types(parent_type(A)))
