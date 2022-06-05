@@ -83,11 +83,14 @@ end
     @test @inferred(ArrayInterface.dimnames(x)) === d
     @test @inferred(ArrayInterface.ArrayInterface.dimnames(z)) === (:x, static(:y))
     @test @inferred(ArrayInterface.dimnames(parent(x))) === (static(:_), static(:_))
+    @test @inferred(ArrayInterface.dimnames(reshape(x, (1, 4)))) === d
+    @test @inferred(ArrayInterface.dimnames(reshape(x, :))) === (static(:_),)
     @test @inferred(ArrayInterface.dimnames(x')) === reverse(d)
     @test @inferred(ArrayInterface.dimnames(y')) === (static(:_), static(:x))
     @test @inferred(ArrayInterface.dimnames(PermutedDimsArray(x, (2, 1)))) === reverse(d)
     @test @inferred(ArrayInterface.dimnames(PermutedDimsArray(x', (2, 1)))) === d
     @test @inferred(ArrayInterface.dimnames(view(x, :, 1))) === (static(:x),)
+    @test @inferred(ArrayInterface.dimnames(view(x, :, 1)')) === (static(:_), static(:x))
     @test @inferred(ArrayInterface.dimnames(view(x, :, :, :))) === (static(:x), static(:y), static(:_))
     @test @inferred(ArrayInterface.dimnames(view(x, :, 1, :))) === (static(:x), static(:_))
     @test @inferred(ArrayInterface.dimnames(x, ArrayInterface.One())) === static(:x)
@@ -95,6 +98,9 @@ end
     @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10))) === (:_,)
     @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10), static(1))) === :_
     @test @inferred(ArrayInterface.known_dimnames(z)) === (nothing, :y)
+    @test @inferred(ArrayInterface.known_dimnames(reshape(x, (1, 4)))) == d
+    @test @inferred(ArrayInterface.known_dimnames(reshape(x, :))) === (:_,)
+    @test @inferred(ArrayInterface.known_dimnames(view(x, :, 1)')) === (:_, :x)
 end
 
 @testset "to_dims" begin
@@ -139,28 +145,4 @@ end
     y = NamedDimsWrapper((:x, static(:y)), ones(2, 2))
     # FIXME this doesn't correctly infer the output because it can't infer
     @test getindex(y, x=1) == [1, 1]
-end
-
-@testset "Reshaped views" begin
-    u_base = randn(10, 10)
-    u_view = view(u_base, 3, :)
-    u_reshaped_view1 = reshape(u_view, 1, :)
-    u_reshaped_view2 = reshape(u_view, 2, :)
-
-    @test @inferred(ArrayInterface.defines_strides(u_base))
-    @test @inferred(ArrayInterface.defines_strides(u_view))
-    @test @inferred(ArrayInterface.defines_strides(u_reshaped_view1))
-    @test @inferred(ArrayInterface.defines_strides(u_reshaped_view2))
-
-    # See https://github.com/JuliaArrays/ArrayInterface.jl/issues/160
-    @test @inferred(ArrayInterface.strides(u_base)) == (StaticInt(1), 10)
-    @test @inferred(ArrayInterface.strides(u_view)) == (10,)
-    @test @inferred(ArrayInterface.strides(u_reshaped_view1)) == (10, 10)
-    @test @inferred(ArrayInterface.strides(u_reshaped_view2)) == (10, 20)
-
-    # See https://github.com/JuliaArrays/ArrayInterface.jl/issues/157
-    @test @inferred(ArrayInterface.dense_dims(u_base)) == (True(), True())
-    @test @inferred(ArrayInterface.dense_dims(u_view)) == (False(),)
-    @test @inferred(ArrayInterface.dense_dims(u_reshaped_view1)) == (False(), False())
-    @test @inferred(ArrayInterface.dense_dims(u_reshaped_view2)) == (False(), False())
 end

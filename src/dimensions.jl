@@ -171,10 +171,21 @@ end
 function known_dimnames(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsArray,SubArray}})
     eachop(_inbounds_known_dimname, to_parent_dims(T), known_dimnames(parent_type(T)))
 end
-# TODO Base.NonReshapedReinterpretArray
-function known_dimnames(@nospecialize T::Type{<:Base.NonReshapedReinterpretArray})
-    known_dimnames(parent_type(T))
+function known_dimnames(::Type{<:ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
+    pnames = known_dimnames(A)
+    if IsReshaped
+        if sizeof(S) === sizeof(T)
+            return pnames
+        elseif sizeof(S) > sizeof(T)
+            return (:_, pnames...)
+        else
+            return tail(pnames)
+        end
+    else
+        return pnames
+    end
 end
+
 @inline function known_dimnames(@nospecialize T::Type{<:Base.ReshapedArray})
     if ndims(T) === ndims(parent_type(T))
         return known_dimnames(parent_type(T))
@@ -191,7 +202,8 @@ end
         return _unknown_dimnames(Base.IteratorSize(T))
     end
 end
-_unknown_dimnames(::Base.HasShape{N}) where {N} = ntuple(Compat.Returns(:_), Val(N))
+
+_unknown_dimnames(::Base.HasShape{N}) where {N} = n_of_x(StaticInt(N), :_)
 _unknown_dimnames(::Any) = (:_,)
 
 #=
@@ -219,8 +231,20 @@ have a name.
     eachop(_inbounds_known_dimname, to_parent_dims(x), dimnames(parent(x)))
 end
 dimnames(x::VecAdjTrans) = (static(:_), getfield(dimnames(parent(x)), 1))
-# TODO Base.NonReshapedReinterpretArray
-dimnames(x::Base.NonReshapedReinterpretArray) = dimnames(parent(x))
+@inline function dimnames(x::ReinterpretArray{T,N,S,A,IsReshaped}) where {T,N,S,A,IsReshaped}
+    pnames = dimnames(parent(x))
+    if IsReshaped
+        if sizeof(S) === sizeof(T)
+            return pnames
+        elseif sizeof(S) > sizeof(T)
+            return (static(:_), pnames...)
+        else
+            return tail(pnames)
+        end
+    else
+        return pnames
+    end
+end
 @inline function dimnames(x::Base.ReshapedArray)
     p = parent(x)
     if ndims(x) === ndims(p)
@@ -231,11 +255,13 @@ dimnames(x::Base.NonReshapedReinterpretArray) = dimnames(parent(x))
         return n_of_x(StaticInt(ndims(x)), static(:_))
     end
 end
-@inline dimnames(x) = _dimnames(has_parent(x), x)
-@inline function _dimnames(::True, x)
-    eachop(_inbounds_dimname, to_parent_dims(x), dimnames(parent(x)))
+@inline function dimnames(x::X) where {X}
+    if is_forwarding_wrapper(X)
+        return dimnames(parent(x))
+    else
+        return n_of_x(StaticInt(ndims(x)), static(:_))
+    end
 end
-_dimnames(::False, x) = ntuple(_->static(:_), Val(ndims(x)))
 @inline function _dimname(x::Tuple{Vararg{Any,N}}, dim::CanonicalInt) where {N}
     # we cannot have `@boundscheck`, else this will depend on bounds checking being enabled
     # for calls such as `dimnames(view(x, :, 1, :))`

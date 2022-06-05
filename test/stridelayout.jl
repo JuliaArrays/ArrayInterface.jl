@@ -346,3 +346,27 @@ end
     @test @inferred(ArrayInterface.strides(reshape(view(a, static(1):static(2), static(1):static(4), 1:3), 2, 2, 2, 3))) === (static(1), 3, 6, 15)
     @test @inferred(ArrayInterface.strides(reshape(view(a, static(1):static(2), static(1):static(1), 1:3), 2, 1, 3))) === (static(1), 2, 15)
 end
+
+@testset "Reshaped views" begin
+    u_base = randn(10, 10)
+    u_view = view(u_base, 3, :)
+    u_reshaped_view1 = reshape(u_view, 1, :)
+    u_reshaped_view2 = reshape(u_view, 2, :)
+
+    @test @inferred(ArrayInterface.defines_strides(u_base))
+    @test @inferred(ArrayInterface.defines_strides(u_view))
+    @test @inferred(ArrayInterface.defines_strides(u_reshaped_view1))
+    @test @inferred(ArrayInterface.defines_strides(u_reshaped_view2))
+
+    # See https://github.com/JuliaArrays/ArrayInterface.jl/issues/160
+    @test @inferred(ArrayInterface.strides(u_base)) == (StaticInt(1), 10)
+    @test @inferred(ArrayInterface.strides(u_view)) == (10,)
+    @test @inferred(ArrayInterface.strides(u_reshaped_view1)) == (10, 10)
+    @test @inferred(ArrayInterface.strides(u_reshaped_view2)) == (10, 20)
+
+    # See https://github.com/JuliaArrays/ArrayInterface.jl/issues/157
+    @test @inferred(ArrayInterface.dense_dims(u_base)) == (True(), True())
+    @test @inferred(ArrayInterface.dense_dims(u_view)) == (False(),)
+    @test @inferred(ArrayInterface.dense_dims(u_reshaped_view1)) == (False(), False())
+    @test @inferred(ArrayInterface.dense_dims(u_reshaped_view2)) == (False(), False())
+end
