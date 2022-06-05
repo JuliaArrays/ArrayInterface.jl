@@ -119,7 +119,7 @@ axes(A::SubArray) = _sub_axes(parent(A), A.indices)
             for j in 1:ndims(I_i)
                 push!(t.args, :(getfield($(axsi), $j)))
             end
-            push!(out.args, Expr(:(=), axsi, :(getfield(axes(getfield(inds, $i))))))
+            push!(out.args, Expr(:(=), axsi, :(axes(getfield(inds, $i)))))
         end
     end
     push!(out.args, t)
