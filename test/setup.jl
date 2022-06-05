@@ -6,7 +6,6 @@ struct MArray{T,N,R} <: DenseArray{T,N}
 end
 
 MArray(A::Array) = MArray(A, LinearIndices(map(s -> static(1):static(s), size(A))))
-
 Base.parent(x::MArray) = x.parent
 Base.IndexStyle(::Type{<:MArray}) = IndexLinear()
 ArrayInterface.axes(x::MArray) = ArrayInterface.axes(x.indices)
@@ -27,6 +26,7 @@ struct NamedDimsWrapper{D,T,N,P<:AbstractArray{T,N}} <: ArrayInterface.AbstractA
     parent::P
     NamedDimsWrapper(d::D, p::P) where {D,P} = new{D,eltype(P),ndims(p),P}(d, p)
 end
+ArrayInterface.is_forwarding_wrapper(::Type{<:NamedDimsWrapper}) = true
 Base.parent(x::NamedDimsWrapper) = getfield(x, :parent)
 ArrayInterface.parent_type(::Type{T}) where {P,T<:NamedDimsWrapper{<:Any,<:Any,<:Any,P}} = P
 ArrayInterface.dimnames(x::NamedDimsWrapper) = getfield(x, :dimnames)
@@ -50,8 +50,7 @@ struct Wrapper{T,N,P<:AbstractArray{T,N}} <: ArrayInterface.AbstractArray2{T,N}
 end
 ArrayInterface.parent_type(::Type{<:Wrapper{T,N,P}}) where {T,N,P} = P
 Base.parent(x::Wrapper) = x.parent
-ArrayInterface.device(::Type{T}) where {T<:Wrapper} = ArrayInterface.device(ArrayInterface.parent_type(T))
+ArrayInterface.is_forwarding_wrapper(::Type{<:Wrapper}) = true
 
 struct DenseWrapper{T,N,P<:AbstractArray{T,N}} <: DenseArray{T,N} end
 ArrayInterface.parent_type(::Type{DenseWrapper{T,N,P}}) where {T,N,P} = P
-

@@ -35,6 +35,7 @@ function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y}}) where {X, Y}
     end
 end
 is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
+is_increasing(::Tuple{}) = True()
 
 """
     from_parent_dims(::Type{T}) -> Tuple{Vararg{Union{Int,StaticInt}}}
@@ -164,13 +165,53 @@ have a name.
 """
 @inline known_dimnames(x, dim) = _known_dimname(known_dimnames(x), canonicalize(dim))
 known_dimnames(x) = known_dimnames(typeof(x))
-known_dimnames(::Type{T}) where {T} = _known_dimnames(T, parent_type(T))
-_known_dimnames(::Type{T}, ::Type{T}) where {T} = _unknown_dimnames(Base.IteratorSize(T))
-_unknown_dimnames(::Base.HasShape{N}) where {N} = ntuple(Compat.Returns(:_), Val(N))
+function known_dimnames(@nospecialize T::Type{<:VecAdjTrans})
+    (:_, getfield(known_dimnames(parent_type(T)), 1))
+end
+function known_dimnames(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsArray,SubArray}})
+    eachop(_inbounds_known_dimname, to_parent_dims(T), known_dimnames(parent_type(T)))
+end
+function known_dimnames(::Type{<:ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
+    pnames = known_dimnames(A)
+    if IsReshaped
+        if sizeof(S) === sizeof(T)
+            return pnames
+        elseif sizeof(S) > sizeof(T)
+            return (:_, pnames...)
+        else
+            return tail(pnames)
+        end
+    else
+        return pnames
+    end
+end
+
+@inline function known_dimnames(@nospecialize T::Type{<:Base.ReshapedArray})
+    if ndims(T) === ndims(parent_type(T))
+        return known_dimnames(parent_type(T))
+    elseif ndims(T) > ndims(parent_type(T))
+        return (known_dimnames(parent_type(T))..., n_of_x(StaticInt(ndims(T) - ndims(parent_type(T))), :_)...)
+    else
+        return n_of_x(StaticInt(ndims(T)), :_)
+    end
+end
+@inline function known_dimnames(::Type{T}) where {T}
+    if is_forwarding_wrapper(T)
+        return known_dimnames(parent_type(T))
+    else
+        return _unknown_dimnames(Base.IteratorSize(T))
+    end
+end
+
+_unknown_dimnames(::Base.HasShape{N}) where {N} = n_of_x(StaticInt(N), :_)
 _unknown_dimnames(::Any) = (:_,)
+
+#=
+_known_dimnames(::Type{T}, ::Type{T}) where {T} = _unknown_dimnames(Base.IteratorSize(T))
 function _known_dimnames(::Type{C}, ::Type{P}) where {C,P}
     eachop(_inbounds_known_dimname, to_parent_dims(C), known_dimnames(P))
 end
+=#
 @inline function _known_dimname(x::Tuple{Vararg{Any,N}}, dim::CanonicalInt) where {N}
     # we cannot have `@boundscheck`, else this will depend on bounds checking being enabled
     (dim > N || dim < 1) && return :_
@@ -186,11 +227,41 @@ Return the names of the dimensions for `x`. `:_` is used to indicate a dimension
 have a name.
 """
 @inline dimnames(x, dim) = _dimname(dimnames(x), canonicalize(dim))
-@inline dimnames(x) = _dimnames(has_parent(x), x)
-@inline function _dimnames(::True, x)
-    eachop(_inbounds_dimname, to_parent_dims(x), dimnames(parent(x)))
+@inline function dimnames(x::Union{MatAdjTrans,PermutedDimsArray,SubArray})
+    eachop(_inbounds_known_dimname, to_parent_dims(x), dimnames(parent(x)))
 end
-_dimnames(::False, x) = ntuple(_->static(:_), Val(ndims(x)))
+dimnames(x::VecAdjTrans) = (static(:_), getfield(dimnames(parent(x)), 1))
+@inline function dimnames(x::ReinterpretArray{T,N,S,A,IsReshaped}) where {T,N,S,A,IsReshaped}
+    pnames = dimnames(parent(x))
+    if IsReshaped
+        if sizeof(S) === sizeof(T)
+            return pnames
+        elseif sizeof(S) > sizeof(T)
+            return (static(:_), pnames...)
+        else
+            return tail(pnames)
+        end
+    else
+        return pnames
+    end
+end
+@inline function dimnames(x::Base.ReshapedArray)
+    p = parent(x)
+    if ndims(x) === ndims(p)
+        return dimnames(p)
+    elseif ndims(x) > ndims(p)
+        return (dimnames(p)..., n_of_x(StaticInt(ndims(x) - ndims(p)), static(:_))...)
+    else
+        return n_of_x(StaticInt(ndims(x)), static(:_))
+    end
+end
+@inline function dimnames(x::X) where {X}
+    if is_forwarding_wrapper(X)
+        return dimnames(parent(x))
+    else
+        return n_of_x(StaticInt(ndims(x)), static(:_))
+    end
+end
 @inline function _dimname(x::Tuple{Vararg{Any,N}}, dim::CanonicalInt) where {N}
     # we cannot have `@boundscheck`, else this will depend on bounds checking being enabled
     # for calls such as `dimnames(view(x, :, 1, :))`

@@ -318,14 +318,14 @@ end
 
 ## unsafe_getindex ##
 function unsafe_getindex(a::A) where {A}
-    parent_type(A) <: A && throw(MethodError(unsafe_getindex, (A,)))
+    is_forwarding_wrapper(A) || throw(MethodError(unsafe_getindex, (A,)))
     unsafe_getindex(parent(a))
 end
 
 # TODO Need to manage index transformations between nested layers of arrays
 function unsafe_getindex(a::A, i::CanonicalInt) where {A}
     if IndexStyle(A) === IndexLinear()
-        parent_type(A) <: A && throw(MethodError(unsafe_getindex, (A, i)))
+        is_forwarding_wrapper(A) || throw(MethodError(unsafe_getindex, (A, i)))
         return unsafe_getindex(parent(a), i)
     else
         return unsafe_getindex(a, _to_cartesian(a, i)...)
@@ -335,7 +335,7 @@ function unsafe_getindex(a::A, i::CanonicalInt, ii::Vararg{CanonicalInt}) where 
     if IndexStyle(A) === IndexLinear()
         return unsafe_getindex(a, _to_linear(a, (i, ii...)))
     else
-        parent_type(A) <: A && throw(MethodError(unsafe_getindex, (A, i)))
+        is_forwarding_wrapper(A) || throw(MethodError(unsafe_getindex, (A, i)))
         return unsafe_getindex(parent(a), i, ii...)
     end
 end
@@ -415,13 +415,13 @@ end
 
 ## unsafe_setindex! ##
 function unsafe_setindex!(a::A, v) where {A}
-    parent_type(A) <: A && throw(MethodError(unsafe_setindex!, (A, v)))
+    is_forwarding_wrapper(A) || throw(MethodError(unsafe_setindex!, (A, v)))
     return unsafe_setindex!(parent(a), v)
 end
 # TODO Need to manage index transformations between nested layers of arrays
 function unsafe_setindex!(a::A, v, i::CanonicalInt) where {A}
     if IndexStyle(A) === IndexLinear()
-        parent_type(A) <: A && throw(MethodError(unsafe_setindex!, (A, v, i)))
+        is_forwarding_wrapper(A) || throw(MethodError(unsafe_setindex!, (A, v, i)))
         return unsafe_setindex!(parent(a), v, i)
     else
         return unsafe_setindex!(a, v, _to_cartesian(a, i)...)
@@ -431,7 +431,7 @@ function unsafe_setindex!(a::A, v, i::CanonicalInt, ii::Vararg{CanonicalInt}) wh
     if IndexStyle(A) === IndexLinear()
         return unsafe_setindex!(a, v, _to_linear(a, (i, ii...)))
     else
-        parent_type(A) <: A && throw(MethodError(unsafe_setindex!, (A, v, i, ii...)))
+        is_forwarding_wrapper(A) || throw(MethodError(unsafe_setindex!, (A, v, i, ii...)))
         return unsafe_setindex!(parent(a), v, i, ii...)
     end
 end

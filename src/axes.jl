@@ -23,10 +23,10 @@ end
 axes_types(x) = axes_types(typeof(x))
 axes_types(::Type{T}) where {T<:Array} = NTuple{ndims(T),OneTo{Int}}
 @inline function axes_types(::Type{T}) where {T}
-    if parent_type(T) <: T
-        return NTuple{ndims(T),OptionallyStaticUnitRange{One,Int}}
-    else
+    if is_forwarding_wrapper(T)
         return axes_types(parent_type(T))
+    else
+        return NTuple{ndims(T),OptionallyStaticUnitRange{One,Int}}
     end
 end
 axes_types(::Type{<:LinearIndices{N,R}}) where {N,R} = R
@@ -212,7 +212,7 @@ end
 
 Base.keys(x::LazyAxis) = keys(parent(x))
 
-Base.IndexStyle(::Type{<:LazyAxis}) = IndexStyle(parent_type(T))
+Base.IndexStyle(T::Type{<:LazyAxis}) = IndexStyle(parent_type(T))
 
 ArrayInterfaceCore.can_change_size(@nospecialize T::Type{<:LazyAxis}) = can_change_size(fieldtype(T, :parent))
 

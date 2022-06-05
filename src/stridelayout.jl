@@ -127,11 +127,7 @@ contiguous_axis(x) = contiguous_axis(typeof(x))
 contiguous_axis(::Type{<:StrideIndex{N,R,C}}) where {N,R,C} = static(C)
 contiguous_axis(::Type{<:StrideIndex{N,R,nothing}}) where {N,R} = nothing
 function contiguous_axis(::Type{T}) where {T}
-    if parent_type(T) <: T
-        return nothing
-    else
-        return contiguous_axis(parent_type(T))
-    end
+    is_forwarding_wrapper(T) ? contiguous_axis(parent_type(T)) : nothing
 end
 contiguous_axis(::Type{<:DenseArray}) = One()
 contiguous_axis(::Type{<:BitArray}) = One()
@@ -167,17 +163,21 @@ function contiguous_axis(::Type{T}) where {T<:PermutedDimsArray}
         return from_parent_dims(T, c)
     end
 end
-function contiguous_axis(::Type{Base.ReshapedArray{T, 1, A, Tuple{}}}) where {T, A}
-  IfElse.ifelse(is_column_major(A) & is_dense(A), static(1), nothing)
+function contiguous_axis(::Type{<:Base.ReshapedArray{T, N, A, Tuple{}}}) where {T, N, A}
+    if isone(-contiguous_axis(A))
+        return StaticInt(-1)
+    elseif dynamic(is_column_major(A) & is_dense(A))
+        return StaticInt(1)
+    else
+        return nothing
+    end
 end
-function contiguous_axis(::Type{Base.ReshapedArray{T, 1, LinearAlgebra.Adjoint{T, A}, Tuple{}}}) where {T, A <: AbstractVector{T}}
-  IfElse.ifelse(is_column_major(A) & is_dense(A), static(1), nothing)
-end
-function contiguous_axis(::Type{Base.ReshapedArray{T, 1, LinearAlgebra.Transpose{T, A}, Tuple{}}}) where {T, A <: AbstractVector{T}}
-  IfElse.ifelse(is_column_major(A) & is_dense(A), static(1), nothing)
+# we're actually looking at the original vector indices before transpose/adjoint
+function contiguous_axis(::Type{<:Base.ReshapedArray{T, 1, A, Tuple{}}}) where {T, A <: VecAdjTrans}
+    contiguous_axis(parent_type(A))
 end
 function contiguous_axis(::Type{T}) where {T<:SubArray}
-    return _contiguous_axis(T, contiguous_axis(parent_type(T)))
+    _contiguous_axis(T, contiguous_axis(parent_type(T)))
 end
 
 _contiguous_axis(::Type{A}, ::Nothing) where {T,N,P,I,A<:SubArray{T,N,P,I}} = nothing
@@ -230,11 +230,7 @@ end
 stride_rank(::Type{<:StrideIndex{N,R}}) where {N,R} = static(R)
 stride_rank(x) = stride_rank(typeof(x))
 function stride_rank(::Type{T}) where {T}
-    if parent_type(T) <: T
-        return nothing
-    else
-        return stride_rank(parent_type(T))
-    end
+    is_forwarding_wrapper(T) ? stride_rank(parent_type(T)) : nothing
 end
 stride_rank(::Type{<:DenseArray{T,N}}) where {T,N} = nstatic(Val(N))
 stride_rank(::Type{BitArray{N}}) where {N} = nstatic(Val(N))
@@ -370,11 +366,7 @@ where `stride_rank(A)[i] + 1 == stride_rank(A)[j]`.
 """
 dense_dims(x) = dense_dims(typeof(x))
 function dense_dims(::Type{T}) where {T}
-    if parent_type(T) <: T
-        return nothing
-    else
-        return dense_dims(parent_type(T))
-    end
+    is_forwarding_wrapper(T) ? dense_dims(parent_type(T)) : nothing
 end
 _all_dense(::Val{N}) where {N} = ntuple(_ -> True(), Val{N}())
 
@@ -412,6 +404,9 @@ end
 @inline function dense_dims(::Type{A}) where {NB, NA, B <: AbstractArray{<:Any,NB},A<: Base.ReinterpretArray{<:Any, NA, <:Any, B, true}}
     ddb = dense_dims(B)
     IfElse.ifelse(Static.le(StaticInt(NB), StaticInt(NA)), (True(), ddb...), Base.tail(ddb))
+end
+@inline function dense_dims(::Type{A}) where {NB, NA, B <: AbstractArray{<:Any,NB},A<: Base.ReinterpretArray{<:Any, NA, <:Any, B, false}}
+    dense_dims(B)
 end
 
 _dense_dims(::Type{S}, ::Nothing, ::Val{R}) where {R,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}} = nothing
@@ -462,10 +457,11 @@ _is_dense(::Tuple{False,Vararg}) = False()
 _is_dense(t::Tuple{True,Vararg}) = _is_dense(Base.tail(t))
 _is_dense(t::Tuple{True}) = True()
 _is_dense(t::Tuple{}) = True()
+_is_dense(::Nothing) = False()
 
 
 _reshaped_dense_dims(_, __, ___, ____) = nothing
-function _reshaped_dense_dims(dense::D, ::True, ::Val{N}, ::Val{0}) where {D,N}
+function _reshaped_dense_dims(dense::Tuple, ::True, ::Val{N}, ::Val{0}) where {N}
     if all(dense)
         return _all_dense(Val{N}())
     else
@@ -498,17 +494,17 @@ known_strides(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(S)
 known_strides(x) = known_strides(typeof(x))
 known_strides(::Type{T}) where {T<:Vector} = (1,)
 function known_strides(::Type{T}) where {T<:MatAdjTrans}
-    return permute(known_strides(parent_type(T)), to_parent_dims(T))
+    permute(known_strides(parent_type(T)), to_parent_dims(T))
 end
 @inline function known_strides(::Type{T}) where {T<:VecAdjTrans}
     strd = first(known_strides(parent_type(T)))
     return (strd, strd)
 end
 @inline function known_strides(::Type{T}) where {T<:PermutedDimsArray}
-    return permute(known_strides(parent_type(T)), to_parent_dims(T))
+    permute(known_strides(parent_type(T)), to_parent_dims(T))
 end
 @inline function known_strides(::Type{T}) where {T<:SubArray}
-    return permute(known_strides(parent_type(T)), to_parent_dims(T))
+    permute(known_strides(parent_type(T)), to_parent_dims(T))
 end
 function known_strides(::Type{T}) where {T}
     if ndims(T) === 1
@@ -548,7 +544,7 @@ strides(A::StrideIndex) = getfield(A, :strides)
 @inline strides(A::Vector{<:Any}) = (StaticInt(1),)
 @inline strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
 @inline function strides(x::X) where {X}
-    if !(parent_type(X) <: X)
+    if is_forwarding_wrapper(X)
         return strides(parent(x))
     elseif defines_strides(X)
         return size_to_strides(size(x), One())
@@ -558,21 +554,24 @@ strides(A::StrideIndex) = getfield(A, :strides)
 end
 
 _is_column_dense(::A) where {A<:AbstractArray} =
-    defines_strides(A) && 
+    defines_strides(A) &&
     (ndims(A) == 0 || Bool(is_dense(A)) && Bool(is_column_major(A)))
 
 # Fixes the example of https://github.com/JuliaArrays/ArrayInterfaceCore.jl/issues/160
 function strides(A::ReshapedArray)
-    _is_column_dense(parent(A)) && return size_to_strides(size(A), One())
-    pst = strides(parent(A))
-    psz = size(parent(A))
-    # Try dimension merging in order (starting from dim1).
-    # `sz1` and `st1` are the `size`/`stride` of dim1 after dimension merging.
-    # `n` indicates the last merged dimension.
-    # note: `st1` should be static if possible
-    sz1, st1, n = merge_adjacent_dim(psz, pst)
-    n == ndims(A.parent) && return size_to_strides(size(A), st1)
-    return _reshaped_strides(size(A), One(), sz1, st1, n, Dims(psz), Dims(pst))
+    if _is_column_dense(parent(A))
+        return size_to_strides(size(A), One())
+    else
+        pst = strides(parent(A))
+        psz = size(parent(A))
+        # Try dimension merging in order (starting from dim1).
+        # `sz1` and `st1` are the `size`/`stride` of dim1 after dimension merging.
+        # `n` indicates the last merged dimension.
+        # note: `st1` should be static if possible
+        sz1, st1, n = merge_adjacent_dim(psz, pst)
+        n == ndims(A.parent) && return size_to_strides(size(A), st1)
+        return _reshaped_strides(size(A), One(), sz1, st1, n, Dims(psz), Dims(pst))
+    end
 end
 
 @inline function _reshaped_strides(::Dims{0}, reshaped, msz::Int, _, ::Int, ::Dims, ::Dims)
@@ -613,7 +612,7 @@ function merge_adjacent_dim(szs::Tuple, sts::Tuple)
     else # the check can't be done during compiling.
         sz, st, n = merge_adjacent_dim(Dims(szs), Dims(sts), 1)
         if (szs[1], sts[1]) isa NTuple{2,StaticInt} && szs[1] != 1
-            # But the 1st stride might still be static. 
+            # But the 1st stride might still be static.
             return sz, sts[1], n
         else
             return sz, st, n
@@ -717,10 +716,10 @@ end
 
 strides(a, dim) = strides(a, to_dims(a, dim))
 function strides(a::A, dim::CanonicalInt) where {A}
-    if parent_type(A) <: A
-        return Base.stride(a, Int(dim))
-    else
+    if is_forwarding_wrapper(A)
         return strides(parent(a), to_parent_dims(A, dim))
+    else
+        return Base.stride(a, Int(dim))
     end
 end
 

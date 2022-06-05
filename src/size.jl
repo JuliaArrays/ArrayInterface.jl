@@ -16,7 +16,13 @@ julia> ArrayInterface.size(A)
 (static(3), static(4))
 ```
 """
-size(a::A) where {A} = _maybe_size(Base.IteratorSize(A), a)
+@inline function size(a::A) where {A}
+    if is_forwarding_wrapper(A)
+        return size(parent(a))
+    else
+        return _maybe_size(Base.IteratorSize(A), a)
+    end
+end
 size(a::Base.Broadcast.Broadcasted) = map(length, axes(a))
 
 _maybe_size(::Base.HasShape{N}, a::A) where {N,A} = map(length, axes(a))
@@ -56,15 +62,15 @@ end
 size(a, dim) = size(a, to_dims(a, dim))
 size(a::Array, dim::CanonicalInt) = Base.arraysize(a, convert(Int, dim))
 function size(a::A, dim::CanonicalInt) where {A}
-    if parent_type(A) <: A
+    if is_forwarding_wrapper(A)
+        return size(parent(a), dim)
+    else
         len = known_size(A, dim)
         if len === nothing
             return Int(length(axes(a, dim)))
         else
             return StaticInt(len)
         end
-    else
-        return size(a)[dim]
     end
 end
 function size(A::SubArray, dim::CanonicalInt)
@@ -86,6 +92,17 @@ compile time. If a dimension does not have a known size along a dimension then `
 returned in its position.
 """
 known_size(x) = known_size(typeof(x))
+@inline function known_size(::Type{T}) where {T}
+    if is_forwarding_wrapper(T)
+        return known_size(parent_type(T))
+    else
+        return _maybe_known_size(Base.IteratorSize(T), T)
+    end
+end
+function _maybe_known_size(::Base.HasShape{N}, ::Type{T}) where {N,T}
+    eachop(_known_size, nstatic(Val(N)), axes_types(T))
+end
+_maybe_known_size(::Base.IteratorSize, ::Type{T}) where {T} = (known_length(T),)
 function known_size(::Type{T}) where {T<:AbstractRange}
     (_range_length(known_first(T), known_step(T), known_last(T)),)
 end
@@ -109,12 +126,6 @@ end
     dynamic(reduce_tup(_promote_shape, eachop(_unzip_size, nstatic(Val(known_length(T))), T)))
 end
 _unzip_size(::Type{T}, n::StaticInt{N}) where {T,N} = known_size(field_type(T, n))
-
-known_size(::Type{T}) where {T} = _maybe_known_size(Base.IteratorSize(T), T)
-function _maybe_known_size(::Base.HasShape{N}, ::Type{T}) where {N,T}
-    eachop(_known_size, nstatic(Val(N)), axes_types(T))
-end
-_maybe_known_size(::Base.IteratorSize, ::Type{T}) where {T} = (known_length(T),)
 _known_size(::Type{T}, dim::StaticInt) where {T} = known_length(field_type(T, dim))
 @inline known_size(x, dim) = known_size(typeof(x), dim)
 @inline known_size(::Type{T}, dim) where {T} = known_size(T, to_dims(T, dim))
