@@ -70,9 +70,14 @@ end
 
 @testset "ArrayInterface.dimnames" begin
     d = (static(:x), static(:y))
-    x = NamedDimsWrapper(d, ones(2, 2))
+    x = NamedDimsWrapper(d, ones(Int64, 2, 2))
     y = NamedDimsWrapper((static(:x),), ones(2))
     z = NamedDimsWrapper((:x, static(:y)), ones(2))
+    r1 = reinterpret(Int8, x)
+    r2 = reinterpret(reshape, Int8, x)
+    r3 = reinterpret(reshape, Complex{Int}, x)
+    r4 = reinterpret(reshape, Float64, x)
+    w = Wrapper(x)
     dnums = ntuple(+, length(d))
     @test @inferred(ArrayInterface.has_dimnames(x)) == true
     @test @inferred(ArrayInterface.has_dimnames(z)) == true
@@ -81,6 +86,11 @@ end
     @test @inferred(ArrayInterface.has_dimnames(typeof(x))) == true
     @test @inferred(ArrayInterface.has_dimnames(typeof(view(x, :, 1, :)))) == true
     @test @inferred(ArrayInterface.dimnames(x)) === d
+    @test @inferred(ArrayInterface.dimnames(w)) === d
+    @test @inferred(ArrayInterface.dimnames(r1)) === d
+    @test @inferred(ArrayInterface.dimnames(r2)) === (static(:_), d...)
+    @test @inferred(ArrayInterface.dimnames(r3)) === Base.tail(d)
+    @test @inferred(ArrayInterface.dimnames(r4)) === d
     @test @inferred(ArrayInterface.ArrayInterface.dimnames(z)) === (:x, static(:y))
     @test @inferred(ArrayInterface.dimnames(parent(x))) === (static(:_), static(:_))
     @test @inferred(ArrayInterface.dimnames(reshape(x, (1, 4)))) === d
@@ -99,6 +109,11 @@ end
     @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10), static(1))) === :_
     @test @inferred(ArrayInterface.known_dimnames(z)) === (nothing, :y)
     @test @inferred(ArrayInterface.known_dimnames(reshape(x, (1, 4)))) == d
+    @test @inferred(ArrayInterface.known_dimnames(r1)) == d
+    @test @inferred(ArrayInterface.known_dimnames(r2)) == (:_, d...)
+    @test @inferred(ArrayInterface.known_dimnames(r3)) == Base.tail(d)
+    @test @inferred(ArrayInterface.known_dimnames(r4)) == d
+    @test @inferred(ArrayInterface.known_dimnames(w)) == d
     @test @inferred(ArrayInterface.known_dimnames(reshape(x, :))) === (:_,)
     @test @inferred(ArrayInterface.known_dimnames(view(x, :, 1)')) === (:_, :x)
 end
