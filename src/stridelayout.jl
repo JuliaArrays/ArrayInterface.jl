@@ -261,8 +261,15 @@ end
 @inline function stride_rank(::Type{A}) where {NB,NA,B<:AbstractArray{<:Any,NB},A<:Base.ReinterpretArray{<:Any,NA,<:Any,B,true}}
     NA == NB ? stride_rank(B) : _stride_rank_reinterpret(stride_rank(B), gt(StaticInt{NB}(), StaticInt{NA}()))
 end
+@inline function stride_rank(::Type{A}) where {N,B<:AbstractArray{<:Any,N},A<:Base.ReinterpretArray{<:Any,N,<:Any,B,false}}
+    stride_rank(B)
+end
+
 @inline _stride_rank_reinterpret(sr, ::False) = (One(), map(Base.Fix2(+, One()), sr)...)
 @inline _stride_rank_reinterpret(sr::Tuple{One,Vararg}, ::True) = map(Base.Fix2(-, One()), tail(sr))
+function contiguous_axis(::Type{R}) where {T,N,S,B<:AbstractArray{S,N},R<:ReinterpretArray{T,N,S,B,false}}
+    contiguous_axis(B)
+end
 # if the leading dim's `stride_rank` is not one, then that means the individual elements are split across an axis, which ArrayInterface
 # doesn't currently have a means of representing.
 @inline function contiguous_axis(::Type{A}) where {NB,NA,B<:AbstractArray{<:Any,NB},A<:Base.ReinterpretArray{<:Any,NA,<:Any,B,true}}

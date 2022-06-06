@@ -108,6 +108,11 @@ end
     @test @inferred(ArrayInterface.strides(Ac2t)) === (StaticInt(1), 5)
     Ac2t_static = reinterpret(reshape, Tuple{Float64,Float64}, view(MArray(rand(ComplexF64, 5, 7)), 2:4, 3:6));
     @test @inferred(ArrayInterface.strides(Ac2t_static)) === (StaticInt(1), StaticInt(5))
+
+    a = rand(Float32, 100, 2);
+    b = reinterpret(Float64, view(a,:,1));
+    @test @inferred(ArrayInterface.contiguous_axis(a)) === StaticInt(1)
+    @test @inferred(ArrayInterface.stride_rank(b)) === (StaticInt(1),)
 end
 
 @testset "Memory Layout" begin
