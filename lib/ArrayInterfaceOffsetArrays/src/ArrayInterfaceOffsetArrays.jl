@@ -44,5 +44,6 @@ end
     d = ArrayInterface.to_dims(A, dim)
     OffsetArrays.IdOffsetRange(ArrayInterface.axes(parent(A), d), relative_offsets(A, d))
 end
+@inline ArrayInterface.is_forwarding_wrapper(::Type{<:OffsetArrays.OffsetArray}) = true
 
 end # module
