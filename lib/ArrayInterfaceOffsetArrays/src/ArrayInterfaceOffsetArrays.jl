@@ -44,5 +44,11 @@ end
     d = ArrayInterface.to_dims(A, dim)
     OffsetArrays.IdOffsetRange(ArrayInterface.axes(parent(A), d), relative_offsets(A, d))
 end
+function ArrayInterface.stride_rank(T::Type{<:OffsetArray})
+  ArrayInterface.stride_rank(ArrayInterface.parent_type(T))
+end
+function ArrayInterface.contiguous_axis(T::Type{<:OffsetArray})
+  ArrayInterface.contiguous_axis(ArrayInterface.parent_type(T))
+end
 
 end # module
