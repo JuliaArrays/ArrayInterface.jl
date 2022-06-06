@@ -108,12 +108,12 @@ end
     @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10))) === (:_,)
     @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10), static(1))) === :_
     @test @inferred(ArrayInterface.known_dimnames(z)) === (nothing, :y)
-    @test @inferred(ArrayInterface.known_dimnames(reshape(x, (1, 4)))) == d
-    @test @inferred(ArrayInterface.known_dimnames(r1)) == d
-    @test @inferred(ArrayInterface.known_dimnames(r2)) == (:_, d...)
-    @test @inferred(ArrayInterface.known_dimnames(r3)) == Base.tail(d)
-    @test @inferred(ArrayInterface.known_dimnames(r4)) == d
-    @test @inferred(ArrayInterface.known_dimnames(w)) == d
+    @test @inferred(ArrayInterface.known_dimnames(reshape(x, (1, 4)))) === (:x, :y)
+    @test @inferred(ArrayInterface.known_dimnames(r1)) === (:x, :y)
+    @test @inferred(ArrayInterface.known_dimnames(r2)) === (:_, :x, :y)
+    @test @inferred(ArrayInterface.known_dimnames(r3)) === (:y,)
+    @test @inferred(ArrayInterface.known_dimnames(r4)) === (:x, :y)
+    @test @inferred(ArrayInterface.known_dimnames(w)) === (:x, :y)
     @test @inferred(ArrayInterface.known_dimnames(reshape(x, :))) === (:_,)
     @test @inferred(ArrayInterface.known_dimnames(view(x, :, 1)')) === (:_, :x)
 end
