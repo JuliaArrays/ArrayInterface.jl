@@ -27,6 +27,7 @@ end
 function ArrayInterface.axes_types(::Type{T}) where {T<:OffsetArrays.OffsetArray}
     Static.eachop_tuple(_offset_axis_type, Static.nstatic(Val(ndims(T))), ArrayInterface.parent_type(T))
 end
+ArrayInterface.strides(A::OffsetArray) = ArrayInterface.strides(parent(A))
 function ArrayInterface.known_offsets(::Type{A}) where {A<:OffsetArrays.OffsetArray}
     ntuple(identity -> nothing, Val(ndims(A)))
 end
