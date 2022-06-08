@@ -48,6 +48,9 @@ end
 function ArrayInterface.stride_rank(T::Type{<:OffsetArray})
   ArrayInterface.stride_rank(ArrayInterface.parent_type(T))
 end
+function ArrayInterface.dense_dims(T::Type{<:OffsetArray})
+    ArrayInterface.dense_dims(ArrayInterface.parent_type(T))
+end
 function ArrayInterface.contiguous_axis(T::Type{<:OffsetArray})
   ArrayInterface.contiguous_axis(ArrayInterface.parent_type(T))
 end
