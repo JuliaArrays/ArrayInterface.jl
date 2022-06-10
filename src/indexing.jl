@@ -188,7 +188,7 @@ to_index(x, i::AbstractArray{Bool}) = LogicalIndex(i)
 to_index(x::LinearIndices, i::AbstractArray{Bool}) = LogicalIndex{Int}(i)
 # cartesian indexing
 @inline to_index(x, i::CartesianIndices{0}) = i
-@inline to_index(x, i::CartesianIndices) = axes(i)
+@inline to_index(x, i::CartesianIndices) = getfield(i, :indices)
 @inline to_index(x, i::CartesianIndex) = Tuple(i)
 @inline to_index(x, i::NDIndex) = Tuple(i)
 @inline to_index(x, i::AbstractArray{<:AbstractCartesianIndex}) = i
