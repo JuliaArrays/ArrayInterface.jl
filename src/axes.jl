@@ -220,7 +220,7 @@ ArrayInterfaceCore.known_first(::Type{<:LazyAxis{N,P}}) where {N,P} = known_offs
 ArrayInterfaceCore.known_first(::Type{<:LazyAxis{:,P}}) where {P} = 1
 @inline function Base.first(x::LazyAxis{N})::Int where {N}
     if ArrayInterfaceCore.known_first(x) === nothing
-        return Int(offsets(parent(x), StaticInt(N)))
+        return Int(offsets(getfield(x, :parent), StaticInt(N)))
     else
         return Int(known_first(x))
     end

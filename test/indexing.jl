@@ -6,6 +6,7 @@
     @test @inferred(ArrayInterface.to_index(axis, CartesianIndex(1))) === (1,)
     @test @inferred(ArrayInterface.to_index(axis, 1:2)) === 1:2
     @test @inferred(ArrayInterface.to_index(axis, CartesianIndices((1:2,)))) == (1:2,)
+    @test @inferred(ArrayInterface.to_index(axis, CartesianIndices((2:3,)))) == (2:3,)
     @test @inferred(ArrayInterface.to_index(axis, [1, 2])) == [1, 2]
     @test @inferred(ArrayInterface.to_index(axis, [true, false, false])) == [1]
     index = @inferred(ArrayInterface.to_index(axis, :))
