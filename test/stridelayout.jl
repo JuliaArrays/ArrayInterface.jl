@@ -160,6 +160,7 @@ end
     @test @inferred(ArrayInterface.contiguous_axis((3,4))) === StaticInt(1)
     @test @inferred(ArrayInterface.contiguous_axis(rand(4)')) === StaticInt(2)
     @test @inferred(ArrayInterface.contiguous_axis(view(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])', :, 1)')) === StaticInt(-1)
+    @test @inferred(ArrayInterface.contiguous_axis(reshape(DummyZeros(3,4), (4, 3)))) === nothing
     @test @inferred(ArrayInterface.contiguous_axis(DummyZeros(3,4))) === nothing
     @test @inferred(ArrayInterface.contiguous_axis(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === nothing
     @test @inferred(ArrayInterface.contiguous_axis(view(DummyZeros(3,4), 1, :))) === nothing
