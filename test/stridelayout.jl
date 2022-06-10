@@ -260,6 +260,7 @@ end
     @test @inferred(ArrayInterface.dense_dims(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) == (true,false)
     @test @inferred(ArrayInterface.dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,:,[1,2]]))) == (false,true,false)
     @test @inferred(ArrayInterface.dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,[1,2,3],:]))) == (false,false,false)
+    @test @inferred(ArrayInterface.dense_dims(reshape(view(randn(10, 10, 10), 3, :, :), 1, 100))) == (false, false)
     # TODO Currently Wrapper can't function the same as Array because Array can change
     # the dimensions on reshape. We should be rewrapping the result in `Wrapper` but we
     # first need to develop a standard method for reconstructing arrays
