@@ -183,6 +183,8 @@ to_index(::MyIndexStyle, axis, arg) = ...
 """
 to_index(x, i::Slice) = i
 to_index(x, ::Colon) = indices(x)
+to_index(::LinearIndices{0,Tuple{}}, ::Colon) = Slice(static(1):static(1))
+to_index(::CartesianIndices{0,Tuple{}}, ::Colon) = Slice(static(1):static(1))
 # logical indexing
 to_index(x, i::AbstractArray{Bool}) = LogicalIndex(i)
 to_index(x::LinearIndices, i::AbstractArray{Bool}) = LogicalIndex{Int}(i)
@@ -251,7 +253,7 @@ indices calling [`to_axis`](@ref).
     end
 end
 # drop this dimension
-to_axes(A, a::Tuple, i::Tuple{<:CanonicalInt,Vararg{Any}}) = to_axes(A, tail(a), tail(i))
+to_axes(A, a::Tuple, i::Tuple{<:CanonicalInt,Vararg{Any}}) = to_axes(A, _maybe_tail(a), tail(i))
 to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}}) where {I} = _to_axes(StaticInt(ndims_index(I)), A, a, i)
 function _to_axes(::StaticInt{1}, A, axs::Tuple, inds::Tuple)
     return (to_axis(_maybe_first(axs), first(inds)), to_axes(A, _maybe_tail(axs), tail(inds))...)
@@ -354,7 +356,9 @@ unsafe_getindex(A::Array, i::CanonicalInt) = Base.arrayref(false, A, Int(i))
 end
 
 unsafe_getindex(A::LinearIndices, i::CanonicalInt) = Int(i)
-unsafe_getindex(A::CartesianIndices, i::CanonicalInt, ii::Vararg{CanonicalInt}) = CartesianIndex(i, ii...)
+unsafe_getindex(A::CartesianIndices{N}, ii::Vararg{CanonicalInt,N}) where {N} = CartesianIndex(ii...)
+unsafe_getindex(A::CartesianIndices, ii::Vararg{CanonicalInt}) =
+    unsafe_getindex(A, Base.front(ii)...)
 unsafe_getindex(A::CartesianIndices, i::CanonicalInt) = @inbounds(A[i])
 
 unsafe_getindex(A::ReshapedArray, i::CanonicalInt) = @inbounds(parent(A)[i])
@@ -381,20 +385,16 @@ function unsafe_get_collection(A, inds)
     end
     return dest
 end
-_ints2range(x::CanonicalInt) = x:x
-_ints2range(x::AbstractRange) = x
+# _ints2range(x::CanonicalInt) = x:x
+# _ints2range(x::AbstractRange) = x
 @inline function unsafe_get_collection(A::CartesianIndices{N}, inds) where {N}
-    if (Base.length(inds) === 1 && N > 1) || stride_preserving_index(typeof(inds)) === False()
-        return Base._getindex(IndexStyle(A), A, inds...)
-    else
-        return CartesianIndices(to_axes(A, _ints2range.(inds)))
-    end
+    return Base._getindex(IndexStyle(A), A, inds...)
 end
 @inline function unsafe_get_collection(A::LinearIndices{N}, inds) where {N}
     if Base.length(inds) === 1 && isone(_ndims_index(typeof(inds), static(1)))
         return @inbounds(eachindex(A)[first(inds)])
     elseif stride_preserving_index(typeof(inds)) === True()
-        return LinearIndices(to_axes(A, _ints2range.(inds)))
+        return LinearIndices(to_axes(A, inds))
     else
         return Base._getindex(IndexStyle(A), A, inds...)
     end

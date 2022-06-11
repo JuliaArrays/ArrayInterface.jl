@@ -103,12 +103,34 @@ end
 @testset  "getindex with additional inds" begin
     A = reshape(1:12, (3, 4))
     subA = view(A, :, :)
+    LA = LinearIndices(A)
+    CA = CartesianIndices(A)
     @test @inferred(ArrayInterface.getindex(A, 1, 1, 1)) == 1
     @test @inferred(ArrayInterface.getindex(A, 1, 1, :)) == [1]
+    @test @inferred(ArrayInterface.getindex(A, 1, 1, 1:1)) == [1]
     @test @inferred(ArrayInterface.getindex(A, 1, 1, :, :)) == ones(1, 1)
+    @test @inferred(ArrayInterface.getindex(A, :, 1, 1)) == 1:3
+    @test @inferred(ArrayInterface.getindex(A, :, 1, :)) == reshape(1:3, 3, 1)
     @test @inferred(ArrayInterface.getindex(subA, 1, 1, 1)) == 1
     @test @inferred(ArrayInterface.getindex(subA, 1, 1, :)) == [1]
+    @test @inferred(ArrayInterface.getindex(subA, 1, 1, 1:1)) == [1]
     @test @inferred(ArrayInterface.getindex(subA, 1, 1, :, :)) == ones(1, 1)
+    @test @inferred(ArrayInterface.getindex(subA, :, 1, 1)) == 1:3
+    @test @inferred(ArrayInterface.getindex(subA, :, 1, :)) == reshape(1:3, 3, 1)
+    @test @inferred(ArrayInterface.getindex(LA, 1, 1, 1)) == 1
+    @test @inferred(ArrayInterface.getindex(LA, 1, 1, :)) == [1]
+    @test @inferred(ArrayInterface.getindex(LA, 1, 1, 1:1)) == [1]
+    @test @inferred(ArrayInterface.getindex(LA, 1, 1, :, :)) == ones(1, 1)
+    @test @inferred(ArrayInterface.getindex(LA, :, 1, 1)) == 1:3
+    @test @inferred(ArrayInterface.getindex(LA, :, 1, :)) == reshape(1:3, 3, 1)
+    @test @inferred(ArrayInterface.getindex(CA, 1, 1, 1)) == CartesianIndex(1, 1)
+    @test @inferred(ArrayInterface.getindex(CA, 1, 1, :)) == [CartesianIndex(1, 1)]
+    @test @inferred(ArrayInterface.getindex(CA, 1, 1, 1:1)) == [CartesianIndex(1, 1)]
+    @test @inferred(ArrayInterface.getindex(CA, 1, 1, :, :)) == fill(CartesianIndex(1, 1), 1, 1)
+    @test @inferred(ArrayInterface.getindex(CA, :, 1, 1)) ==
+        reshape(CartesianIndex(1, 1):CartesianIndex(3, 1), 3)
+    @test @inferred(ArrayInterface.getindex(CA, :, 1, :)) ==
+        reshape(CartesianIndex(1, 1):CartesianIndex(3, 1), 3, 1)
 end
 
 @testset "0-dimensional" begin
