@@ -254,7 +254,7 @@ end
 to_axes(A, a::Tuple, i::Tuple{<:CanonicalInt,Vararg{Any}}) = to_axes(A, tail(a), tail(i))
 to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}}) where {I} = _to_axes(StaticInt(ndims_index(I)), A, a, i)
 function _to_axes(::StaticInt{1}, A, axs::Tuple, inds::Tuple)
-    return (to_axis(first(axs), first(inds)), to_axes(A, tail(axs), tail(inds))...)
+    return (to_axis(_maybe_first(axs), first(inds)), to_axes(A, _maybe_tail(axs), tail(inds))...)
 end
 @propagate_inbounds function _to_axes(::StaticInt{N}, A, axs::Tuple, inds::Tuple) where {N}
     axes_front, axes_tail = Base.IteratorsMD.split(axs, Val(N))
@@ -267,6 +267,11 @@ end
 end
 to_axes(A, ::Tuple{Ax,Vararg{Any}}, ::Tuple{}) where {Ax} = ()
 to_axes(A, ::Tuple{}, ::Tuple{}) = ()
+
+_maybe_first(::Tuple{}) = static(1):static(1)
+_maybe_first(t::Tuple) = first(t)
+_maybe_tail(::Tuple{}) = ()
+_maybe_tail(t::Tuple) = tail(t)
 
 """
     to_axis(old_axis, index) -> new_axis

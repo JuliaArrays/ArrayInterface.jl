@@ -96,6 +96,19 @@ end
 
     @test ArrayInterface.to_axis(axis, axis) === axis
     @test ArrayInterface.to_axis(axis, ArrayInterface.indices(axis)) === axis
+
+    @test @inferred(ArrayInterface.to_axes(A, (), (inds,))) === (inds,)
+end
+
+@testset  "getindex with additional inds" begin
+    A = reshape(1:12, (3, 4))
+    subA = view(A, :, :)
+    @test @inferred(ArrayInterface.getindex(A, 1, 1, 1)) == 1
+    @test @inferred(ArrayInterface.getindex(A, 1, 1, :)) == [1]
+    @test @inferred(ArrayInterface.getindex(A, 1, 1, :, :)) == ones(1, 1)
+    @test @inferred(ArrayInterface.getindex(subA, 1, 1, 1)) == 1
+    @test @inferred(ArrayInterface.getindex(subA, 1, 1, :)) == [1]
+    @test @inferred(ArrayInterface.getindex(subA, 1, 1, :, :)) == ones(1, 1)
 end
 
 @testset "0-dimensional" begin
