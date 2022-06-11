@@ -191,9 +191,7 @@ struct LazyAxis{N,P} <: AbstractUnitRange{Int}
 end
 
 @inline Base.parent(x::LazyAxis{N,P}) where {N,P} = axes(getfield(x, :parent), static(N))
-@inline function Base.parent(x::LazyAxis{:,P}) where {P}
-    return eachindex(IndexLinear(), getfield(x, :parent))
-end
+@inline Base.parent(x::LazyAxis{:,P}) where {P} = eachindex(IndexLinear(), getfield(x, :parent))
 
 @inline parent_type(::Type{LazyAxis{N,P}}) where {N,P} = axes_types(P, static(N))
 # TODO this approach to parent_type(::Type{LazyAxis{:}}) is a bit hacky. Something like
