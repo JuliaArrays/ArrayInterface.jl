@@ -11,20 +11,27 @@ m = Array{Float64}(undef, 4, 3)
 @testset "LazyAxis" begin
     A = zeros(3,4,5);
     SA = MArray(zeros(3,4,5))
+    DA = MArray(zeros(3,4,5), LinearIndices((Base.Slice(1:3), 1:4, 1:5)))
     lz1 = ArrayInterface.LazyAxis{1}(A)
     slz1 = ArrayInterface.LazyAxis{1}(SA)
+    dlz1 = ArrayInterface.LazyAxis{1}(DA)
     lzc = ArrayInterface.LazyAxis{:}(A)
     slzc = ArrayInterface.LazyAxis{:}(SA)
+    dlzc = ArrayInterface.LazyAxis{:}(DA)
 
-    @test @inferred(first(lz1)) === @inferred(first(slz1))
-    @test @inferred(first(lzc)) === @inferred(first(slzc))
-    @test @inferred(last(lz1)) === @inferred(last(slz1))
-    @test @inferred(last(lzc)) === @inferred(last(slzc))
-    @test @inferred(length(lz1)) === @inferred(length(slz1))
-    @test @inferred(length(lzc)) === @inferred(length(slzc))
-    @test @inferred(Base.to_shape(lzc)) == length(slzc)
+    @test @inferred(first(lz1)) === @inferred(first(slz1)) === @inferred(first(dlz1))
+    @test @inferred(first(lzc)) === @inferred(first(slzc)) === @inferred(first(dlzc))
+    @test @inferred(last(lz1)) === @inferred(last(slz1)) === @inferred(last(dlz1))
+    @test @inferred(last(lzc)) === @inferred(last(slzc)) === @inferred(last(dlzc))
+    @test @inferred(length(lz1)) === @inferred(length(slz1)) === @inferred(length(dlz1))
+    @test @inferred(length(lzc)) === @inferred(length(slzc)) === @inferred(length(dlzc))
+    @test @inferred(Base.to_shape(lzc)) == length(slzc) == length(dlzc)
     @test @inferred(Base.checkindex(Bool, lzc, 1)) & @inferred(Base.checkindex(Bool, slzc, 1))
     @test axes(lzc)[1] == Base.axes1(lzc) == axes(Base.Slice(lzc))[1] == Base.axes1(Base.Slice(lzc))
+    @test keys(axes(A, 1)) == @inferred(keys(lz1))
+
+    @test @inferred(ArrayInterface.known_first(slzc)) === 1
+    @test @inferred(ArrayInterface.known_length(slz1)) === 3
 
     @test @inferred(getindex(lz1, 2)) == 2
     @test @inferred(getindex(lz1, 1:2)) == 1:2
@@ -33,6 +40,8 @@ m = Array{Float64}(undef, 4, 3)
     @test @inferred(ArrayInterface.parent_type(ArrayInterface.LazyAxis{:}(A))) <: Base.OneTo{Int}
     @test @inferred(ArrayInterface.parent_type(ArrayInterface.LazyAxis{4}(SA))) <: ArrayInterface.SOneTo{1}
     @test @inferred(ArrayInterface.parent_type(ArrayInterface.LazyAxis{:}(SA))) <: ArrayInterface.SOneTo{60}
+    @test @inferred(IndexStyle(SA)) isa IndexLinear
+    @test @inferred(IndexStyle(DA)) isa IndexLinear
     @test ArrayInterface.can_change_size(ArrayInterface.LazyAxis{1,Vector{Any}})
 
     Aperm = PermutedDimsArray(A, (3,1,2))
