@@ -110,18 +110,24 @@ end
     @test @inferred(ArrayInterface.getindex(A, 1, 1, 1:1)) == [1]
     @test @inferred(ArrayInterface.getindex(A, 1, 1, :, :)) == ones(1, 1)
     @test @inferred(ArrayInterface.getindex(A, :, 1, 1)) == 1:3
+    @test @inferred(ArrayInterface.getindex(A, 2:3, 1, 1)) == 2:3
+    @test @inferred(ArrayInterface.getindex(A, static(1):2, 1, 1)) == 1:2
     @test @inferred(ArrayInterface.getindex(A, :, 1, :)) == reshape(1:3, 3, 1)
     @test @inferred(ArrayInterface.getindex(subA, 1, 1, 1)) == 1
     @test @inferred(ArrayInterface.getindex(subA, 1, 1, :)) == [1]
     @test @inferred(ArrayInterface.getindex(subA, 1, 1, 1:1)) == [1]
     @test @inferred(ArrayInterface.getindex(subA, 1, 1, :, :)) == ones(1, 1)
     @test @inferred(ArrayInterface.getindex(subA, :, 1, 1)) == 1:3
+    @test @inferred(ArrayInterface.getindex(subA, 2:3, 1, 1)) == 2:3
+    @test @inferred(ArrayInterface.getindex(subA, static(1):2, 1, 1)) == 1:2
     @test @inferred(ArrayInterface.getindex(subA, :, 1, :)) == reshape(1:3, 3, 1)
     @test @inferred(ArrayInterface.getindex(LA, 1, 1, 1)) == 1
     @test @inferred(ArrayInterface.getindex(LA, 1, 1, :)) == [1]
     @test @inferred(ArrayInterface.getindex(LA, 1, 1, 1:1)) == [1]
     @test @inferred(ArrayInterface.getindex(LA, 1, 1, :, :)) == ones(1, 1)
     @test @inferred(ArrayInterface.getindex(LA, :, 1, 1)) == 1:3
+    @test @inferred(ArrayInterface.getindex(LA, 2:3, 1, 1)) == 2:3
+    @test @inferred(ArrayInterface.getindex(LA, static(1):2, 1, 1)) == 1:2
     @test @inferred(ArrayInterface.getindex(LA, :, 1, :)) == reshape(1:3, 3, 1)
     @test @inferred(ArrayInterface.getindex(CA, 1, 1, 1)) == CartesianIndex(1, 1)
     @test @inferred(ArrayInterface.getindex(CA, 1, 1, :)) == [CartesianIndex(1, 1)]
@@ -129,6 +135,10 @@ end
     @test @inferred(ArrayInterface.getindex(CA, 1, 1, :, :)) == fill(CartesianIndex(1, 1), 1, 1)
     @test @inferred(ArrayInterface.getindex(CA, :, 1, 1)) ==
         reshape(CartesianIndex(1, 1):CartesianIndex(3, 1), 3)
+    @test @inferred(ArrayInterface.getindex(CA, 2:3, 1, 1)) ==
+        reshape(CartesianIndex(2, 1):CartesianIndex(3, 1), 2)
+    @test @inferred(ArrayInterface.getindex(CA, static(1):2, 1, 1)) ==
+        reshape(CartesianIndex(1, 1):CartesianIndex(2, 1), 2)
     @test @inferred(ArrayInterface.getindex(CA, :, 1, :)) ==
         reshape(CartesianIndex(1, 1):CartesianIndex(3, 1), 3, 1)
 end

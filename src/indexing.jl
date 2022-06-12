@@ -385,16 +385,39 @@ function unsafe_get_collection(A, inds)
     end
     return dest
 end
-# _ints2range(x::CanonicalInt) = x:x
-# _ints2range(x::AbstractRange) = x
+_ints2range(x::CanonicalInt) = x:x
+_ints2range(x::AbstractRange) = x
+# apply _ints2range to front N elements
+_ints2range_front(::Val{N}, ind, inds...) where {N} =
+    (_ints2range(ind), _ints2range_front(Val(N - 1), inds...)...)
+_ints2range_front(::Val{0}, ind, inds...) = ()
+_ints2range_front(::Val{0}) = ()
+# get output shape with given indices
+_output_shape(::CanonicalInt, inds...) = _output_shape(inds...)
+_output_shape(ind::AbstractRange, inds...) = (length(ind), _output_shape(inds...)...)
+_output_shape(::CanonicalInt) = ()
+_output_shape(x::AbstractRange) = (length(x),)
 @inline function unsafe_get_collection(A::CartesianIndices{N}, inds) where {N}
-    return Base._getindex(IndexStyle(A), A, inds...)
+    if (Base.length(inds) === 1 && N > 1) || stride_preserving_index(typeof(inds)) === False()
+        return Base._getindex(IndexStyle(A), A, inds...)
+    else
+        return reshape(
+            CartesianIndices(_ints2range_front(Val(N), inds...)),
+            _output_shape(inds...)
+        )
+    end
 end
+_known_first_isone(ind) = known_first(ind) !== nothing && isone(known_first(ind))
 @inline function unsafe_get_collection(A::LinearIndices{N}, inds) where {N}
     if Base.length(inds) === 1 && isone(_ndims_index(typeof(inds), static(1)))
         return @inbounds(eachindex(A)[first(inds)])
-    elseif stride_preserving_index(typeof(inds)) === True()
-        return LinearIndices(to_axes(A, inds))
+    elseif stride_preserving_index(typeof(inds)) === True() &&
+            reduce_tup(&, map(_known_first_isone, inds))
+        # create a LinearIndices when first(ind) != 1 is imposable
+        return reshape(
+            LinearIndices(_ints2range_front(Val(N), inds...)),
+            _output_shape(inds...)
+        )
     else
         return Base._getindex(IndexStyle(A), A, inds...)
     end
