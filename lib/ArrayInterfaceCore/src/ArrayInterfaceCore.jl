@@ -562,6 +562,22 @@ ndims_shape(@nospecialize T::Type{<:Number}) = 0
 ndims_shape(@nospecialize T::Type{<:AbstractArray}) = ndims(T)
 ndims_shape(x) = ndims_shape(typeof(x))
 
+struct IndicesInfo{NI,NS,IS} end
+IndicesInfo(@nospecialize x::Tuple) = IndicesInfo(typeof(x))
+@generated function IndicesInfo(::Type{T}) where {T<:Tuple}
+    NI = Expr(:tuple)
+    NS = Expr(:tuple)
+    IS = Expr(:tuple)
+    for i in 1:fieldcount(T)
+        T_i = fieldtype(T, i)
+        push!(NI.args, :(ndims_index($(T_i))))
+        push!(NS.args, :(ndims_shape($(T_i))))
+        push!(IS.args, :(is_splat_index($(T_i))))
+    end
+    :(IndicesInfo{$(NI),$(NS),$(IS)}())
+end
+
+
 """
     instances_do_not_alias(::Type{T}) -> Bool
 

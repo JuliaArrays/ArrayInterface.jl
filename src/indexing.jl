@@ -90,6 +90,7 @@ This implementation differs from that of `Base.to_indices` in the following ways
   within `to_index`.
 """
 to_indices(A, ::Tuple{}) = ()
+#=
 @inline function to_indices(a::A, inds::I) where {A,I}
     _to_indices(
         a,
@@ -154,6 +155,173 @@ end
         :(_flatten_tuples($t))
     )
 end
+=#
+@inline function to_indices(a::A, inds::I) where {A,I}
+    _to_indices(a, inds, IndexStyle(A), static(ndims(A)), IndicesInfo(I))
+end
+@generated function _to_indices(a, inds, ::S, ::StaticInt{N}, ::IndicesInfo{NI,NS,IS}) where {S,N,NI,NS,IS}
+    _to_indices_expr(S, N, NI, NS, IS)
+end
+function _to_indices_expr(S::DataType, N::Int, ni, ns, is)
+    blk = Expr(:block, Expr(:meta, :inline))
+    # check to see if we are dealing with linear indexing over a multidimensional array
+    if length(ni) == 1 && ni[1] === 1
+        push!(blk.args, :((to_index(LazyAxis{:}(a), getfield(inds, 1)),)))
+    else
+        indsexpr = Expr(:tuple)
+        ndi = Int[]
+        nds = Int[]
+        isi = Bool[]
+        # 1. unwrap AbstractCartesianIndex, CartesianIndices, Indices
+        for i in 1:length(ns)
+            ns_i = ns[i]
+            if ns_i isa Tuple
+                for j in 1:length(ns_i)
+                    push!(ndi, 1)
+                    push!(nds, ns_i[j])
+                    push!(isi, false)
+                    push!(indsexpr.args, :(getfield(getfield(getfield(inds, $i), 1), $j)))
+                end
+            else
+                push!(indsexpr.args, :(getfield(inds, $i)))
+                push!(ndi, ni[i])
+                push!(nds, ns_i)
+                push!(isi, is[i])
+            end
+        end
+
+        # 2. find splat indices
+        splat_position = 0
+        remaining = N
+        for i in eachindex(ndi, nds, isi)
+            if isi[i] && splat_position == 0
+                splat_position = i
+            else
+                remaining -= ndi[i]
+            end
+        end
+        if splat_position !== 0
+            for _ in 2:remaining
+                insert!(ndi, splat_position, 1)
+                insert!(nds, splat_position, 1)
+                insert!(indsexpr.args, splat_position, indsexpr.args[splat_position])
+            end
+        end
+
+        # 3. insert `to_index` calls
+        dim = 0
+        nndi = length(ndi)
+        for i in 1:nndi
+            if dim == N
+                # at this point each dimension has an index assigned to it and remaining indices
+                # are we set the ndims_index argument corresponding to it to zero so that it's
+                # clear that this doesn't actually map to a dimension of the indexed array `a`.
+                # If this maps to an element then nds[i] == 0 and it will be dropped after
+                # bounds checking. If it's a slice/range (1:1) then it will be propagated in the
+                # returned array but we don't bother with it when accessing `a`.
+                ndi[i] = 0
+                indsexpr.args[i] = :(to_index($(CartesianIndices(())), $(indsexpr.args[i])))
+            else
+                ndi_i = ndi[i]
+                if ndi_i == 1
+                    dim += 1
+                    indsexpr.args[i] = :(to_index(getfield(axs, $dim), $(indsexpr.args[i])))
+                else
+                    subaxs = Expr(:tuple)
+                    for _ in 1:ndi_i
+                        if dim < N
+                            dim += 1
+                            push!(subaxs.args, :(getfield(axs, $dim)))
+                        end
+                    end
+                    if i == nndi && S <: IndexLinear
+                        indsexpr.args[i] = :(to_index(LinearIndices($(subaxs)), $(indsexpr.args[i])))
+                    else
+                        indsexpr.args[i] = :(to_index(CartesianIndices($(subaxs)), $(indsexpr.args[i])))
+                    end
+                end
+            end
+        end
+
+        #= 4. Pad unindexed trailing dimensions
+        for i in nndi:N
+            push!(indsexpr.args, StaticInt(1))
+            push!(ndi, 1)
+            push!(ndi, 0)
+        end
+
+        # 5. Map indexing to iterating dimensions
+        subdims = Expr(:tuple)
+        nd = 0
+        sdtype = Expr(:curly, :Tuple)
+        indexmap = Expr(:tuple)
+        imtype = Expr(:curly, :Tuple)
+        nindex = 0
+        for i in 1:length(nds)
+            if ndi[i] === 0
+                push!(subdims.args, StaticInt(0))
+                push!(sdtype.args, StaticInt{0})
+                if nds[i] === 0
+                    push!(indexmap.args, StaticInt(0))
+                    push!(imtype.args, StaticInt{0})
+                else
+                    nindex += 1
+                    push!(indexmap.args, StaticInt(nindex))
+                    push!(imtype.args, StaticInt{nindex})
+                end
+            elseif ndi[i] === 1
+                nd += 1
+                push!(subdims.args, StaticInt(nd))
+                push!(sdtype.args, StaticInt{nd})
+                if nds[i] === 0
+                elseif nds[i] === 1
+                else
+                end
+            else
+                tmp = Expr(:tuple)
+                tmptype = Expr(:curly, :Tuple)
+                for _ in 1:ndi_i
+                    nd += 1
+                    push!(tmp.args, StaticInt(nd))
+                    push!(tmptype.args, StaticInt{nd})
+                end
+                push!(subdims.args, tmp)
+                push!(sdtype.args, tmptype)
+            end
+        end
+
+        # 6. Map how each iteration turns into a CartesianIndex
+        for i in 1:length(ndi)
+            ndi_i = ndi[i]
+            if ndi_i === 0
+                push!(indexmap.args, StaticInt(0))
+                push!(imtype.args, StaticInt{0})
+            elseif ndi_i === 1
+                dim += 1
+                push!(indexmap.args, StaticInt(dim))
+                push!(imtype.args, StaticInt{dim})
+            else
+                tmp = Expr(:tuple)
+                tmptype = Expr(:curly, :Tuple)
+                for _ in 1:ndi_i
+                    dim += 1
+                    push!(tmp.args, StaticInt(dim))
+                    push!(tmptype.args, StaticInt{dim})
+                end
+                push!(indexmap.args, tmp)
+                push!(imtype.args, tmptype)
+            end
+        end
+        =#
+
+
+        push!(blk.args, Expr(:(=), :axs, :(lazy_axes(a))))
+        push!(blk.args, :(_flatten_tuples($(indsexpr))))
+        #push!(blk.args, :(Indices{$(sum(nds)),$(sum(ndi)),$((nds...,)),$((ndi...,)),typeof(indsout)}(indsout)))
+    end
+    return blk
+end
+
 @generated function _flatten_tuples(inds::I) where {I}
     t = Expr(:tuple)
     for i in 1:known_length(I)
@@ -409,7 +577,7 @@ _output_shape(x::AbstractRange) = (length(x),)
 end
 _known_first_isone(ind) = known_first(ind) !== nothing && isone(known_first(ind))
 @inline function unsafe_get_collection(A::LinearIndices{N}, inds) where {N}
-    if Base.length(inds) === 1 && isone(_ndims_index(typeof(inds), static(1)))
+    if Base.length(inds) === 1 && ndims_index(typeof(first(inds))) === 1
         return @inbounds(eachindex(A)[first(inds)])
     elseif stride_preserving_index(typeof(inds)) === True() &&
             reduce_tup(&, map(_known_first_isone, inds))
