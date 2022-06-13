@@ -268,6 +268,14 @@ end
     @test @inferred(ArrayInterfaceCore.ndims_index(1)) == 1
 end
 
+@testset "ndims_shape" begin
+    @test @inferred(ArrayInterfaceCore.ndims_shape(1)) === 0
+    @test @inferred(ArrayInterfaceCore.ndims_shape(:)) === 1
+    @test @inferred(ArrayInterfaceCore.ndims_shape(CartesianIndex(1, 2))) === (0, 0)
+    @test @inferred(ArrayInterfaceCore.ndims_shape(CartesianIndices((2,2)))) === (1, 1)
+    @test @inferred(ArrayInterfaceCore.ndims_shape([1 1])) === 2
+end
+
 @testset "indices_do_not_alias" begin
   @test ArrayInterfaceCore.instances_do_not_alias(Float64)
   @test !ArrayInterfaceCore.instances_do_not_alias(Matrix{Float64})
@@ -285,4 +293,3 @@ end
   @test !ArrayInterfaceCore.indices_do_not_alias(typeof(view(fill(rand(4,4),4,4)', 2:3, 1:2)))
   @test !ArrayInterfaceCore.indices_do_not_alias(typeof(view(rand(4,4)', StepRangeLen(1,0,5), 1:2)))
 end
-
