@@ -549,6 +549,20 @@ ndims_index(T::Type) = 1
 ndims_index(@nospecialize(i)) = ndims_index(typeof(i))
 
 """
+    ndims_shape(::Type{I}) -> Union{Int,Tuple{Vararg{Int}}}
+
+Returns the number of dimension that are represented in shape of the returned array when
+indexing with an instance of `I`.
+"""
+ndims_shape(T::DataType) = ndims_index(T)
+ndims_shape(::Type{Colon}) = 1
+ndims_shape(T::Type{<:Base.AbstractCartesianIndex{N}}) where {N} = ntuple(zero, Val{N}())
+ndims_shape(@nospecialize T::Type{<:CartesianIndices}) = ntuple(one, Val{ndims(T)}())
+ndims_shape(@nospecialize T::Type{<:Number}) = 0
+ndims_shape(@nospecialize T::Type{<:AbstractArray}) = ndims(T)
+ndims_shape(x) = ndims_shape(typeof(x))
+
+"""
     instances_do_not_alias(::Type{T}) -> Bool
 
 Is it safe to `ivdep` arrays containing elements of type `T`?
