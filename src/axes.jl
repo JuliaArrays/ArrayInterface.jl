@@ -191,9 +191,7 @@ struct LazyAxis{N,P} <: AbstractUnitRange{Int}
 end
 
 @inline Base.parent(x::LazyAxis{N,P}) where {N,P} = axes(getfield(x, :parent), static(N))
-@inline function Base.parent(x::LazyAxis{:,P}) where {P}
-    return eachindex(IndexLinear(), getfield(x, :parent))
-end
+@inline Base.parent(x::LazyAxis{:,P}) where {P} = eachindex(IndexLinear(), getfield(x, :parent))
 
 @inline parent_type(::Type{LazyAxis{N,P}}) where {N,P} = axes_types(P, static(N))
 # TODO this approach to parent_type(::Type{LazyAxis{:}}) is a bit hacky. Something like
@@ -220,7 +218,7 @@ ArrayInterfaceCore.known_first(::Type{<:LazyAxis{N,P}}) where {N,P} = known_offs
 ArrayInterfaceCore.known_first(::Type{<:LazyAxis{:,P}}) where {P} = 1
 @inline function Base.first(x::LazyAxis{N})::Int where {N}
     if ArrayInterfaceCore.known_first(x) === nothing
-        return Int(offsets(parent(x), StaticInt(N)))
+        return Int(offsets(getfield(x, :parent), StaticInt(N)))
     else
         return Int(known_first(x))
     end
@@ -229,7 +227,8 @@ end
 ArrayInterfaceCore.known_last(::Type{LazyAxis{N,P}}) where {N,P} = known_last(axes_types(P, static(N)))
 ArrayInterfaceCore.known_last(::Type{LazyAxis{:,P}}) where {P} = known_length(P)
 Base.last(x::LazyAxis) = _last(known_last(x), x)
-_last(::Nothing, x) = last(parent(x))
+_last(::Nothing, x::LazyAxis{:}) = lastindex(getfield(x, :parent))
+_last(::Nothing, x::LazyAxis{N}) where {N} = lastindex(getfield(x, :parent), N)
 _last(N::Int, x) = N
 
 known_length(::Type{<:LazyAxis{:,P}}) where {P} = known_length(P)
@@ -242,7 +241,9 @@ Base.axes1(x::LazyAxis) = x
 Base.axes(x::Slice{<:LazyAxis}) = (Base.axes1(x),)
 # assuming that lazy loaded params like dynamic length from `size(::Array, dim)` are going
 # be used again later with `Slice{LazyAxis}`, we quickly load indices
-Base.axes1(x::Slice{<:LazyAxis}) = indices(parent(x.indices))
+
+Base.axes1(x::Slice{LazyAxis{N,A}}) where {N,A} = indices(getfield(x.indices, :parent), StaticInt(N))
+Base.axes1(x::Slice{LazyAxis{:,A}}) where {A} = indices(getfield(x.indices, :parent))
 Base.to_shape(x::LazyAxis) = Base.length(x)
 
 @propagate_inbounds function Base.getindex(x::LazyAxis, i::CanonicalInt)

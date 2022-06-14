@@ -164,7 +164,8 @@ function contiguous_axis(::Type{T}) where {T<:PermutedDimsArray}
     end
 end
 function contiguous_axis(::Type{<:Base.ReshapedArray{T, N, A, Tuple{}}}) where {T, N, A}
-    if isone(-contiguous_axis(A))
+    c = contiguous_axis(A)
+    if c !== nothing && isone(-c)
         return StaticInt(-1)
     elseif dynamic(is_column_major(A) & is_dense(A))
         return StaticInt(1)
@@ -261,8 +262,15 @@ end
 @inline function stride_rank(::Type{A}) where {NB,NA,B<:AbstractArray{<:Any,NB},A<:Base.ReinterpretArray{<:Any,NA,<:Any,B,true}}
     NA == NB ? stride_rank(B) : _stride_rank_reinterpret(stride_rank(B), gt(StaticInt{NB}(), StaticInt{NA}()))
 end
+@inline function stride_rank(::Type{A}) where {N,B<:AbstractArray{<:Any,N},A<:Base.ReinterpretArray{<:Any,N,<:Any,B,false}}
+    stride_rank(B)
+end
+
 @inline _stride_rank_reinterpret(sr, ::False) = (One(), map(Base.Fix2(+, One()), sr)...)
 @inline _stride_rank_reinterpret(sr::Tuple{One,Vararg}, ::True) = map(Base.Fix2(-, One()), tail(sr))
+function contiguous_axis(::Type{R}) where {T,N,S,B<:AbstractArray{S,N},R<:ReinterpretArray{T,N,S,B,false}}
+    contiguous_axis(B)
+end
 # if the leading dim's `stride_rank` is not one, then that means the individual elements are split across an axis, which ArrayInterface
 # doesn't currently have a means of representing.
 @inline function contiguous_axis(::Type{A}) where {NB,NA,B<:AbstractArray{<:Any,NB},A<:Base.ReinterpretArray{<:Any,NA,<:Any,B,true}}
@@ -448,9 +456,17 @@ _dense_dims(::Type{S}, ::Nothing, ::Val{R}) where {R,N,NP,T,A<:AbstractArray{T,N
     end
 end
 
-function dense_dims(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.SignedMultiplicativeInverse{Int},M}}}}) where {T,N,P,M}
-    return _reshaped_dense_dims(dense_dims(P), is_column_major(P), Val{N}(), Val{M}())
+function dense_dims(T::Type{<:Base.ReshapedArray})
+    d = dense_dims(parent_type(T))
+    if d === nothing
+        return nothing
+    elseif all(d)
+        return n_of_x(StaticInt(ndims(T)), True())
+    else
+        return n_of_x(StaticInt(ndims(T)), False())
+    end
 end
+                
 is_dense(A) = is_dense(typeof(A))
 is_dense(::Type{A}) where {A} = _is_dense(dense_dims(A))
 _is_dense(::Tuple{False,Vararg}) = False()
@@ -458,19 +474,6 @@ _is_dense(t::Tuple{True,Vararg}) = _is_dense(Base.tail(t))
 _is_dense(t::Tuple{True}) = True()
 _is_dense(t::Tuple{}) = True()
 _is_dense(::Nothing) = False()
-
-
-_reshaped_dense_dims(_, __, ___, ____) = nothing
-function _reshaped_dense_dims(dense::Tuple, ::True, ::Val{N}, ::Val{0}) where {N}
-    if all(dense)
-        return _all_dense(Val{N}())
-    else
-        return nothing
-    end
-end
-function _reshaped_dense_dims(dense::Tuple{Static.False}, ::True, ::Val{N}, ::Val{0}) where {N}
-    return return ntuple(_ -> False(), Val{N}())
-end
 
 """
     known_strides(::Type{T}) -> Tuple

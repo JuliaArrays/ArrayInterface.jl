@@ -183,12 +183,14 @@ to_index(::MyIndexStyle, axis, arg) = ...
 """
 to_index(x, i::Slice) = i
 to_index(x, ::Colon) = indices(x)
+to_index(::LinearIndices{0,Tuple{}}, ::Colon) = Slice(static(1):static(1))
+to_index(::CartesianIndices{0,Tuple{}}, ::Colon) = Slice(static(1):static(1))
 # logical indexing
 to_index(x, i::AbstractArray{Bool}) = LogicalIndex(i)
 to_index(x::LinearIndices, i::AbstractArray{Bool}) = LogicalIndex{Int}(i)
 # cartesian indexing
 @inline to_index(x, i::CartesianIndices{0}) = i
-@inline to_index(x, i::CartesianIndices) = axes(i)
+@inline to_index(x, i::CartesianIndices) = getfield(i, :indices)
 @inline to_index(x, i::CartesianIndex) = Tuple(i)
 @inline to_index(x, i::NDIndex) = Tuple(i)
 @inline to_index(x, i::AbstractArray{<:AbstractCartesianIndex}) = i
@@ -251,10 +253,10 @@ indices calling [`to_axis`](@ref).
     end
 end
 # drop this dimension
-to_axes(A, a::Tuple, i::Tuple{<:CanonicalInt,Vararg{Any}}) = to_axes(A, tail(a), tail(i))
+to_axes(A, a::Tuple, i::Tuple{<:CanonicalInt,Vararg{Any}}) = to_axes(A, _maybe_tail(a), tail(i))
 to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}}) where {I} = _to_axes(StaticInt(ndims_index(I)), A, a, i)
 function _to_axes(::StaticInt{1}, A, axs::Tuple, inds::Tuple)
-    return (to_axis(first(axs), first(inds)), to_axes(A, tail(axs), tail(inds))...)
+    return (to_axis(_maybe_first(axs), first(inds)), to_axes(A, _maybe_tail(axs), tail(inds))...)
 end
 @propagate_inbounds function _to_axes(::StaticInt{N}, A, axs::Tuple, inds::Tuple) where {N}
     axes_front, axes_tail = Base.IteratorsMD.split(axs, Val(N))
@@ -267,6 +269,11 @@ end
 end
 to_axes(A, ::Tuple{Ax,Vararg{Any}}, ::Tuple{}) where {Ax} = ()
 to_axes(A, ::Tuple{}, ::Tuple{}) = ()
+
+_maybe_first(::Tuple{}) = static(1):static(1)
+_maybe_first(t::Tuple) = first(t)
+_maybe_tail(::Tuple{}) = ()
+_maybe_tail(t::Tuple) = tail(t)
 
 """
     to_axis(old_axis, index) -> new_axis
@@ -349,7 +356,9 @@ unsafe_getindex(A::Array, i::CanonicalInt) = Base.arrayref(false, A, Int(i))
 end
 
 unsafe_getindex(A::LinearIndices, i::CanonicalInt) = Int(i)
-unsafe_getindex(A::CartesianIndices, i::CanonicalInt, ii::Vararg{CanonicalInt}) = CartesianIndex(i, ii...)
+unsafe_getindex(A::CartesianIndices{N}, ii::Vararg{CanonicalInt,N}) where {N} = CartesianIndex(ii...)
+unsafe_getindex(A::CartesianIndices, ii::Vararg{CanonicalInt}) =
+    unsafe_getindex(A, Base.front(ii)...)
 unsafe_getindex(A::CartesianIndices, i::CanonicalInt) = @inbounds(A[i])
 
 unsafe_getindex(A::ReshapedArray, i::CanonicalInt) = @inbounds(parent(A)[i])
@@ -378,18 +387,37 @@ function unsafe_get_collection(A, inds)
 end
 _ints2range(x::CanonicalInt) = x:x
 _ints2range(x::AbstractRange) = x
+# apply _ints2range to front N elements
+_ints2range_front(::Val{N}, ind, inds...) where {N} =
+    (_ints2range(ind), _ints2range_front(Val(N - 1), inds...)...)
+_ints2range_front(::Val{0}, ind, inds...) = ()
+_ints2range_front(::Val{0}) = ()
+# get output shape with given indices
+_output_shape(::CanonicalInt, inds...) = _output_shape(inds...)
+_output_shape(ind::AbstractRange, inds...) = (length(ind), _output_shape(inds...)...)
+_output_shape(::CanonicalInt) = ()
+_output_shape(x::AbstractRange) = (length(x),)
 @inline function unsafe_get_collection(A::CartesianIndices{N}, inds) where {N}
     if (Base.length(inds) === 1 && N > 1) || stride_preserving_index(typeof(inds)) === False()
         return Base._getindex(IndexStyle(A), A, inds...)
     else
-        return CartesianIndices(to_axes(A, _ints2range.(inds)))
+        return reshape(
+            CartesianIndices(_ints2range_front(Val(N), inds...)),
+            _output_shape(inds...)
+        )
     end
 end
+_known_first_isone(ind) = known_first(ind) !== nothing && isone(known_first(ind))
 @inline function unsafe_get_collection(A::LinearIndices{N}, inds) where {N}
     if Base.length(inds) === 1 && isone(_ndims_index(typeof(inds), static(1)))
         return @inbounds(eachindex(A)[first(inds)])
-    elseif stride_preserving_index(typeof(inds)) === True()
-        return LinearIndices(to_axes(A, _ints2range.(inds)))
+    elseif stride_preserving_index(typeof(inds)) === True() &&
+            reduce_tup(&, map(_known_first_isone, inds))
+        # create a LinearIndices when first(ind) != 1 is imposable
+        return reshape(
+            LinearIndices(_ints2range_front(Val(N), inds...)),
+            _output_shape(inds...)
+        )
     else
         return Base._getindex(IndexStyle(A), A, inds...)
     end

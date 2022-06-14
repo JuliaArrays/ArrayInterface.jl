@@ -108,6 +108,11 @@ end
     @test @inferred(ArrayInterface.strides(Ac2t)) === (StaticInt(1), 5)
     Ac2t_static = reinterpret(reshape, Tuple{Float64,Float64}, view(MArray(rand(ComplexF64, 5, 7)), 2:4, 3:6));
     @test @inferred(ArrayInterface.strides(Ac2t_static)) === (StaticInt(1), StaticInt(5))
+
+    a = rand(Float32, 100, 2);
+    b = reinterpret(Float64, view(a,:,1));
+    @test @inferred(ArrayInterface.contiguous_axis(a)) === StaticInt(1)
+    @test @inferred(ArrayInterface.stride_rank(b)) === (StaticInt(1),)
 end
 
 @testset "Memory Layout" begin
@@ -155,6 +160,7 @@ end
     @test @inferred(ArrayInterface.contiguous_axis((3,4))) === StaticInt(1)
     @test @inferred(ArrayInterface.contiguous_axis(rand(4)')) === StaticInt(2)
     @test @inferred(ArrayInterface.contiguous_axis(view(@view(PermutedDimsArray(A,(3,1,2))[2:3,2,:])', :, 1)')) === StaticInt(-1)
+    @test @inferred(ArrayInterface.contiguous_axis(reshape(DummyZeros(3,4), (4, 3)))) === nothing
     @test @inferred(ArrayInterface.contiguous_axis(DummyZeros(3,4))) === nothing
     @test @inferred(ArrayInterface.contiguous_axis(PermutedDimsArray(DummyZeros(3,4), (2, 1)))) === nothing
     @test @inferred(ArrayInterface.contiguous_axis(view(DummyZeros(3,4), 1, :))) === nothing
@@ -254,6 +260,7 @@ end
     @test @inferred(ArrayInterface.dense_dims(@view(PermutedDimsArray(A,(3,1,2))[:,1:2,1])')) == (true,false)
     @test @inferred(ArrayInterface.dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,:,[1,2]]))) == (false,true,false)
     @test @inferred(ArrayInterface.dense_dims(@view(PermutedDimsArray(A,(3,1,2))[2:3,[1,2,3],:]))) == (false,false,false)
+    @test @inferred(ArrayInterface.dense_dims(reshape(view(randn(10, 10, 10), 3, :, :), 1, 100))) == (false, false)
     # TODO Currently Wrapper can't function the same as Array because Array can change
     # the dimensions on reshape. We should be rewrapping the result in `Wrapper` but we
     # first need to develop a standard method for reconstructing arrays

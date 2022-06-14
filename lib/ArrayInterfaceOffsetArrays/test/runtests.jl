@@ -11,6 +11,9 @@ Op = PermutedDimsArray(O,(3,1,2));
 @test @inferred(ArrayInterface.offsets(O)) === (4, 8, 11)
 @test @inferred(ArrayInterface.offsets(Op)) === (11, 4, 8)
 
+@test @inferred(ArrayInterface.to_indices(O, (:, :, :))) == (4:6, 8:11, 11:15)
+@test @inferred(ArrayInterface.to_indices(Op, (:, :, :))) == (11:15, 4:6, 8:11)
+
 @test @inferred(ArrayInterface.offsets((1,2,3))) === (StaticInt(1),)
 o = OffsetArray(vec(A), 8);
 @test @inferred(ArrayInterface.offset1(o)) === 9
@@ -29,3 +32,5 @@ o = OffsetArray(vec(A), 8);
 offset_view = @view OffsetArrays.centered(zeros(eltype(A), 5, 5))[:, begin]; # SubArray of OffsetArray
 @test @inferred(ArrayInterface.offsets(offset_view)) == (-2,)
 
+B = OffsetArray(PermutedDimsArray(rand(2,3,4), (2,3,1)));
+@test @inferred(ArrayInterface.StrideIndex(B)) === ArrayInterface.StrideIndex{3, (2, 3, 1), 3}((2, 6, static(1)), (1, 1, 1))
