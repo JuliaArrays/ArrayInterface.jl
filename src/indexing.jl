@@ -394,9 +394,9 @@ _ints2range_front(::Val{0}, ind, inds...) = ()
 _ints2range_front(::Val{0}) = ()
 # get output shape with given indices
 _output_shape(::CanonicalInt, inds...) = _output_shape(inds...)
-_output_shape(ind::AbstractRange, inds...) = (length(ind), _output_shape(inds...)...)
+_output_shape(ind::AbstractRange, inds...) = (Base.length(ind), _output_shape(inds...)...)
 _output_shape(::CanonicalInt) = ()
-_output_shape(x::AbstractRange) = (length(x),)
+_output_shape(x::AbstractRange) = (Base.length(x),)
 @inline function unsafe_get_collection(A::CartesianIndices{N}, inds) where {N}
     if (Base.length(inds) === 1 && N > 1) || stride_preserving_index(typeof(inds)) === False()
         return Base._getindex(IndexStyle(A), A, inds...)
