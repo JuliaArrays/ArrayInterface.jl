@@ -5,11 +5,6 @@ using LinearAlgebra: AbstractTriangular
 using SparseArrays
 using SuiteSparse
 
-@static if isdefined(Base, :ReshapedReinterpretArray)
-    _is_reshaped(::Type{<:Base.ReshapedReinterpretArray}) = true
-end
-_is_reshaped(::Type{<:Base.ReinterpretArray}) = false
-
 @static if isdefined(Base, Symbol("@assume_effects"))
     using Base: @assume_effects
 else
