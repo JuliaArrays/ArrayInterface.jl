@@ -294,8 +294,8 @@ function Base.iterate(::SOneTo{n}, s::Int) where {n}
     end
 end
 
-Base.to_shape(x::OptionallyStaticRange) = length(x)
-Base.to_shape(x::Slice{T}) where {T<:OptionallyStaticRange} = length(x)
+Base.to_shape(x::OptionallyStaticRange) = Base.length(x)
+Base.to_shape(x::Slice{T}) where {T<:OptionallyStaticRange} = Base.length(x)
 Base.axes(S::Slice{<:OptionallyStaticUnitRange{One}}) = (S.indices,)
 Base.axes(S::Slice{<:OptionallyStaticRange}) = (Base.IdentityUnitRange(S.indices),)
 

@@ -243,7 +243,7 @@ Base.axes(x::Slice{<:LazyAxis}) = (Base.axes1(x),)
 # assuming that lazy loaded params like dynamic length from `size(::Array, dim)` are going
 # be used again later with `Slice{LazyAxis}`, we quickly load indices
 Base.axes1(x::Slice{<:LazyAxis}) = indices(parent(x.indices))
-Base.to_shape(x::LazyAxis) = length(x)
+Base.to_shape(x::LazyAxis) = Base.length(x)
 
 @propagate_inbounds function Base.getindex(x::LazyAxis, i::CanonicalInt)
     @boundscheck checkindex(Bool, x, i) || throw(BoundsError(x, i))

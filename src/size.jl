@@ -123,7 +123,7 @@ end
 #   trailing dimensions (which must be of size 1), to `static(1)`. We want to stick to
 #   `Nothing` and `Int` types, so we do one last pass to ensure everything is dynamic
 @inline function known_size(::Type{<:Iterators.Zip{T}}) where {T}
-    dynamic(reduce_tup(_promote_shape, eachop(_unzip_size, nstatic(Val(known_length(T))), T)))
+    dynamic(reduce_tup(Static._promote_shape, eachop(_unzip_size, nstatic(Val(known_length(T))), T)))
 end
 _unzip_size(::Type{T}, n::StaticInt{N}) where {T,N} = known_size(field_type(T, n))
 _known_size(::Type{T}, dim::StaticInt) where {T} = known_length(field_type(T, dim))
