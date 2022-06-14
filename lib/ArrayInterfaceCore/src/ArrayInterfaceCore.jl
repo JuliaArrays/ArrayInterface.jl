@@ -557,6 +557,13 @@ ndims_shape(@nospecialize T::Type{<:Number}) = 0
 ndims_shape(@nospecialize T::Type{<:AbstractArray}) = ndims(T)
 ndims_shape(x) = ndims_shape(typeof(x))
 
+"""
+    IndicesInfo(T::Type{<:Tuple}) -> IndicesInfo{NI,NS,IS}()
+
+Provides basic trait information for each index type in in the tuple `T`. `NI`, `NS`, and
+`IS` are tuples of [`ndims_index`](@ref), [`ndims_shape`](@ref), and
+[`is_splat_index`](@ref) (respectively) for each field of `T`.
+"""
 struct IndicesInfo{NI,NS,IS} end
 IndicesInfo(@nospecialize x::Tuple) = IndicesInfo(typeof(x))
 @generated function IndicesInfo(::Type{T}) where {T<:Tuple}
