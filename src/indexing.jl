@@ -136,33 +136,20 @@ function _to_indices_expr(S::DataType, N::Int, ni, ns, is)
         dim = 0
         nndi = length(ndi)
         for i in 1:nndi
-            if dim == N
-                # at this point each dimension has an index assigned to it and remaining indices
-                # are we set the ndims_index argument corresponding to it to zero so that it's
-                # clear that this doesn't actually map to a dimension of the indexed array `a`.
-                # If this maps to an element then nds[i] == 0 and it will be dropped after
-                # bounds checking. If it's a slice/range (1:1) then it will be propagated in the
-                # returned array but we don't bother with it when accessing `a`.
-                ndi[i] = 0
-                indsexpr.args[i] = :(to_index($(CartesianIndices(())), $(indsexpr.args[i])))
+            ndi_i = ndi[i]
+            if ndi_i == 1
+                dim += 1
+                indsexpr.args[i] = :(to_index($(_axis_expr(N, dim)), $(indsexpr.args[i])))
             else
-                ndi_i = ndi[i]
-                if ndi_i == 1
+                subaxs = Expr(:tuple)
+                for _ in 1:ndi_i
                     dim += 1
-                    indsexpr.args[i] = :(to_index(getfield(axs, $dim), $(indsexpr.args[i])))
+                    push!(subaxs.args, _axis_expr(N, dim))
+                end
+                if i == nndi && S <: IndexLinear
+                    indsexpr.args[i] = :(to_index(LinearIndices($(subaxs)), $(indsexpr.args[i])))
                 else
-                    subaxs = Expr(:tuple)
-                    for _ in 1:ndi_i
-                        if dim < N
-                            dim += 1
-                            push!(subaxs.args, :(getfield(axs, $dim)))
-                        end
-                    end
-                    if i == nndi && S <: IndexLinear
-                        indsexpr.args[i] = :(to_index(LinearIndices($(subaxs)), $(indsexpr.args[i])))
-                    else
-                        indsexpr.args[i] = :(to_index(CartesianIndices($(subaxs)), $(indsexpr.args[i])))
-                    end
+                    indsexpr.args[i] = :(to_index(CartesianIndices($(subaxs)), $(indsexpr.args[i])))
                 end
             end
         end
@@ -170,6 +157,14 @@ function _to_indices_expr(S::DataType, N::Int, ni, ns, is)
         push!(blk.args, :(_flatten_tuples($(indsexpr))))
     end
     return blk
+end
+
+function _axis_expr(N::Int, d::Int)
+    if d <= N
+        :(getfield(axs, $d))
+    else  # ndims(a)+ can only have indices 1:1
+        :($(SOneTo(1)))
+    end
 end
 
 @generated function _flatten_tuples(inds::I) where {I}

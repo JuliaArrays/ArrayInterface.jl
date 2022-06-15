@@ -576,9 +576,8 @@ IndicesInfo(@nospecialize x::Tuple) = IndicesInfo(typeof(x))
         push!(NS.args, :(ndims_shape($(T_i))))
         push!(IS.args, :(is_splat_index($(T_i))))
     end
-    :(IndicesInfo{$(NI),$(NS),$(IS)}())
+    Expr(:block, Expr(:meta, :inline), :(IndicesInfo{$(NI),$(NS),$(IS)}()))
 end
-
 
 """
     instances_do_not_alias(::Type{T}) -> Bool
