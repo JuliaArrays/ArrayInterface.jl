@@ -22,16 +22,6 @@ function Base.last(x::AbstractVector, n::StaticInt)
     @inbounds x[max(offset1(x), (stop + one(stop)) - n):stop]
 end
 
-function _is_splat(::Type{I}, i::StaticInt) where {I}
-    if dynamic(is_splat_index(field_type(I, i)))
-        True()
-    else
-        False()
-    end
-end
-
-_ndims_index(::Type{I}, i::StaticInt) where {I} = StaticInt(ndims_index(field_type(I, i)))
-
 """
     to_indices(A, I::Tuple) -> Tuple
 
@@ -91,69 +81,92 @@ This implementation differs from that of `Base.to_indices` in the following ways
 """
 to_indices(A, ::Tuple{}) = ()
 @inline function to_indices(a::A, inds::I) where {A,I}
-    _to_indices(
-        a,
-        inds,
-        IndexStyle(A),
-        static(ndims(A)),
-        eachop(_ndims_index, ntuple(static, StaticInt(known_length(I))), I),
-        eachop(_is_splat, ntuple(static, StaticInt(known_length(I))), I)
-    )
+    _to_indices(a, inds, IndexStyle(A), static(ndims(A)), IndicesInfo(I))
 end
-@generated function _to_indices(A, inds::I, ::S, ::StaticInt{N}, ::NDI, ::IS) where {I,S,N,NDI,IS}
-    cnt = zeros(Int, known_length(NDI))
-    splat_position = 0
-    remaining = N
-    for i in 1:known_length(NDI)
-        ndi = known(NDI.parameters[i])
-        splat = known(IS.parameters[i])
-        if splat && splat_position === 0
-            splat_position = i
-        else
-            remaining -= ndi
-            cnt[i] = ndi
-        end
-    end
-    if splat_position !== 0
-        cnt[splat_position] = max(0, remaining)
+@generated function _to_indices(a, inds, ::S, ::StaticInt{N}, ::IndicesInfo{NI,NS,IS}) where {S,N,NI,NS,IS}
+    _to_indices_expr(S, N, NI, NS, IS)
+end
+function _to_indices_expr(S::DataType, N::Int, ni, ns, is)
+    blk = Expr(:block, Expr(:meta, :inline))
+    # check to see if we are dealing with linear indexing over a multidimensional array
+    if length(ni) == 1 && ni[1] === 1
+        push!(blk.args, :((to_index(LazyAxis{:}(a), getfield(inds, 1)),)))
     else
-        # if there are additional trailing dimensions not consumed by the index then we have
-        # to assume it's linear indexing or that these are trailing dimensions.
-        cnt[end] += max(0, remaining)
-    end
-
-    t = Expr(:tuple)
-    dim = 0
-    for i in 1:known_length(NDI)
-        if i === known_length(NDI) && S <: IndexLinear
-            ICall = :LinearIndices
-        else
-            ICall = :CartesianIndices
+        indsexpr = Expr(:tuple)
+        ndi = Int[]
+        nds = Int[]
+        isi = Bool[]
+        # 1. unwrap AbstractCartesianIndex, CartesianIndices, Indices
+        for i in 1:length(ns)
+            ns_i = ns[i]
+            if ns_i isa Tuple
+                for j in 1:length(ns_i)
+                    push!(ndi, 1)
+                    push!(nds, ns_i[j])
+                    push!(isi, false)
+                    push!(indsexpr.args, :(getfield(getfield(getfield(inds, $i), 1), $j)))
+                end
+            else
+                push!(indsexpr.args, :(getfield(inds, $i)))
+                push!(ndi, ni[i])
+                push!(nds, ns_i)
+                push!(isi, is[i])
+            end
         end
-        c = cnt[i]
-        iexpr = :(@inbounds(getfield(inds, $i))::$(I.parameters[i]))
-        if dim === N
-            push!(t.args, :(to_index($(ICall)(()), $iexpr)))
-        elseif c === 1
-            dim += 1
-            push!(t.args, :(to_index(@inbounds(getfield(axs, $dim)), $iexpr)))
-        else
-            subaxs = Expr(:tuple)
-            for _ in 1:c
-                if dim < N
+
+        # 2. find splat indices
+        splat_position = 0
+        remaining = N
+        for i in eachindex(ndi, nds, isi)
+            if isi[i] && splat_position == 0
+                splat_position = i
+            else
+                remaining -= ndi[i]
+            end
+        end
+        if splat_position !== 0
+            for _ in 2:remaining
+                insert!(ndi, splat_position, 1)
+                insert!(nds, splat_position, 1)
+                insert!(indsexpr.args, splat_position, indsexpr.args[splat_position])
+            end
+        end
+
+        # 3. insert `to_index` calls
+        dim = 0
+        nndi = length(ndi)
+        for i in 1:nndi
+            ndi_i = ndi[i]
+            if ndi_i == 1
+                dim += 1
+                indsexpr.args[i] = :(to_index($(_axis_expr(N, dim)), $(indsexpr.args[i])))
+            else
+                subaxs = Expr(:tuple)
+                for _ in 1:ndi_i
                     dim += 1
-                    push!(subaxs.args, :(@inbounds(getfield(axs, $dim))))
+                    push!(subaxs.args, _axis_expr(N, dim))
+                end
+                if i == nndi && S <: IndexLinear
+                    indsexpr.args[i] = :(to_index(LinearIndices($(subaxs)), $(indsexpr.args[i])))
+                else
+                    indsexpr.args[i] = :(to_index(CartesianIndices($(subaxs)), $(indsexpr.args[i])))
                 end
             end
-            push!(t.args, :(to_index($(ICall)($subaxs), $iexpr)))
         end
+        push!(blk.args, Expr(:(=), :axs, :(lazy_axes(a))))
+        push!(blk.args, :(_flatten_tuples($(indsexpr))))
     end
-    Expr(:block,
-        Expr(:meta, :inline),
-        Expr(:(=), :axs, :(lazy_axes(A))),
-        :(_flatten_tuples($t))
-    )
+    return blk
 end
+
+function _axis_expr(N::Int, d::Int)
+    if d <= N
+        :(getfield(axs, $d))
+    else  # ndims(a)+ can only have indices 1:1
+        :($(SOneTo(1)))
+    end
+end
+
 @generated function _flatten_tuples(inds::I) where {I}
     t = Expr(:tuple)
     for i in 1:known_length(I)
@@ -409,7 +422,7 @@ _output_shape(x::AbstractRange) = (Base.length(x),)
 end
 _known_first_isone(ind) = known_first(ind) !== nothing && isone(known_first(ind))
 @inline function unsafe_get_collection(A::LinearIndices{N}, inds) where {N}
-    if Base.length(inds) === 1 && isone(_ndims_index(typeof(inds), static(1)))
+    if Base.length(inds) === 1 && ndims_index(typeof(first(inds))) === 1
         return @inbounds(eachindex(A)[first(inds)])
     elseif stride_preserving_index(typeof(inds)) === True() &&
             reduce_tup(&, map(_known_first_isone, inds))
@@ -463,7 +476,6 @@ function unsafe_setindex!(a::A, v, i::CanonicalInt, ii::Vararg{CanonicalInt}) wh
         return unsafe_setindex!(parent(a), v, i, ii...)
     end
 end
-
 
 function unsafe_setindex!(A::Array{T}, v) where {T}
     Base.arrayset(false, A, convert(T, v)::T, 1)
