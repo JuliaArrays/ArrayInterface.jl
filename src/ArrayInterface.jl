@@ -36,6 +36,9 @@ import Compat
 
 n_of_x(::StaticInt{N}, x::X) where {N,X} = ntuple(Compat.Returns(x), Val{N}())
 
+_add1(@nospecialize x) = x + oneunit(x)
+_sub1(@nospecialize x) = x - oneunit(x)
+
 @generated function merge_tuple_type(::Type{X}, ::Type{Y}) where {X<:Tuple,Y<:Tuple}
     Tuple{X.parameters...,Y.parameters...}
 end
