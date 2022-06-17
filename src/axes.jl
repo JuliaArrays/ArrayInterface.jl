@@ -65,7 +65,7 @@ end
 end
 
 function axes_types(::Type{T}) where {T<:ReinterpretArray}
-    eachop_tuple(_non_reshaped_axis_type, nstatic(Val(ndims(T))), T)
+    eachop_tuple(_non_reshaped_axis_type, ntuple(static, StaticInt(ndims(T))), T)
 end
 
 function _non_reshaped_axis_type(::Type{A}, d::StaticInt{D}) where {A,D}
@@ -146,7 +146,7 @@ function axes_types(::Type{A}) where {T,N,S,A<:Base.ReshapedReinterpretArray{T,N
         return merge_tuple_type(Tuple{SOneTo{div(sizeof(S), sizeof(T))}}, axes_types(parent_type(A)))
     elseif sizeof(S) < sizeof(T)
         P = parent_type(A)
-        return eachop_tuple(field_type, tail(nstatic(Val(ndims(P)))), axes_types(P))
+        return eachop_tuple(field_type, tail(ntuple(static, StaticInt(ndims(P)))), axes_types(P))
     else
         return axes_types(parent_type(A))
     end

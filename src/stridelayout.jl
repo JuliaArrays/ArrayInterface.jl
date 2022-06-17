@@ -25,7 +25,7 @@ stride_preserving_index(::Type{T}) where {T<:AbstractRange} = True()
 stride_preserving_index(::Type{T}) where {T<:Int} = True()
 stride_preserving_index(::Type{T}) where {T} = False()
 function stride_preserving_index(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
-    if all(eachop(_stride_preserving_index, nstatic(Val(N)), T))
+    if all(eachop(_stride_preserving_index, ntuple(static, StaticInt(N)), T))
         return True()
     else
         return False()
@@ -54,7 +54,7 @@ end
 
 known_offsets(x) = known_offsets(typeof(x))
 function known_offsets(::Type{T}) where {T}
-    return eachop(_known_offsets, nstatic(Val(ndims(T))), axes_types(T))
+    return eachop(_known_offsets, ntuple(static, StaticInt(ndims(T))), axes_types(T))
 end
 _known_offsets(::Type{T}, dim::StaticInt) where {T} = known_first(field_type(T, dim))
 
@@ -71,7 +71,7 @@ For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1)
 @inline offsets(x, i) = static_first(indices(x, i))
 offsets(::Tuple) = (One(),)
 offsets(x::StrideIndex) = getfield(x, :offsets)
-offsets(x) = eachop(_offsets, nstatic(Val(ndims(x))), x)
+offsets(x) = eachop(_offsets, ntuple(static, StaticInt(ndims(x))), x)
 function _offsets(x::X, dim::StaticInt{D}) where {X,D}
     start = known_first(axes_types(X, dim))
     if start === nothing
@@ -216,7 +216,7 @@ end
 contiguous_axis_indicator(::A) where {A<:AbstractArray} = contiguous_axis_indicator(A)
 contiguous_axis_indicator(::Nothing, ::Val) = nothing
 function contiguous_axis_indicator(c::StaticInt{N}, dim::Val{D}) where {N,D}
-    return map(i -> eq(c, i), nstatic(dim))
+    map(i -> eq(c, i), ntuple(static, dim))
 end
 
 function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
@@ -233,8 +233,8 @@ stride_rank(x) = stride_rank(typeof(x))
 function stride_rank(::Type{T}) where {T}
     is_forwarding_wrapper(T) ? stride_rank(parent_type(T)) : nothing
 end
-stride_rank(::Type{<:DenseArray{T,N}}) where {T,N} = nstatic(Val(N))
-stride_rank(::Type{BitArray{N}}) where {N} = nstatic(Val(N))
+stride_rank(::Type{<:DenseArray{T,N}}) where {T,N} = ntuple(static, StaticInt(N))
+stride_rank(::Type{BitArray{N}}) where {N} = ntuple(static, StaticInt(N))
 stride_rank(::Type{<:AbstractRange}) = (One(),)
 stride_rank(::Type{<:Tuple}) = (One(),)
 
@@ -257,7 +257,7 @@ _stride_rank(::Type{T}, r::Tuple) where {T<:SubArray} = permute(r, to_parent_dim
 
 stride_rank(x, i) = stride_rank(x)[i]
 function stride_rank(::Type{R}) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}}
-    return nstatic(Val(N))
+    return ntuple(static, StaticInt(N))
 end
 @inline function stride_rank(::Type{A}) where {NB,NA,B<:AbstractArray{<:Any,NB},A<:Base.ReinterpretArray{<:Any,NA,<:Any,B,true}}
     NA == NB ? stride_rank(B) : _stride_rank_reinterpret(stride_rank(B), gt(StaticInt{NB}(), StaticInt{NA}()))
@@ -304,7 +304,7 @@ function stride_rank(::Type{Base.ReshapedArray{T, 1, LinearAlgebra.Transpose{T, 
     IfElse.ifelse(is_dense(A), (static(1),), nothing)
 end
 
-_reshaped_striderank(::True, ::Val{N}, ::Val{0}) where {N} = nstatic(Val(N))
+_reshaped_striderank(::True, ::Val{N}, ::Val{0}) where {N} = ntuple(static, StaticInt(N))
 _reshaped_striderank(_, __, ___) = nothing
 
 """
@@ -466,7 +466,7 @@ function dense_dims(T::Type{<:Base.ReshapedArray})
         return n_of_x(StaticInt(ndims(T)), False())
     end
 end
-                
+
 is_dense(A) = is_dense(typeof(A))
 is_dense(::Type{A}) where {A} = _is_dense(dense_dims(A))
 _is_dense(::Tuple{False,Vararg}) = False()

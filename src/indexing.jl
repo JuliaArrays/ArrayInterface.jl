@@ -96,8 +96,8 @@ to_indices(A, ::Tuple{}) = ()
         inds,
         IndexStyle(A),
         static(ndims(A)),
-        eachop(_ndims_index, nstatic(Val(known_length(I))), I),
-        eachop(_is_splat, nstatic(Val(known_length(I))), I)
+        eachop(_ndims_index, ntuple(static, StaticInt(known_length(I))), I),
+        eachop(_is_splat, ntuple(static, StaticInt(known_length(I))), I)
     )
 end
 @generated function _to_indices(A, inds::I, ::S, ::StaticInt{N}, ::NDI, ::IS) where {I,S,N,NDI,IS}

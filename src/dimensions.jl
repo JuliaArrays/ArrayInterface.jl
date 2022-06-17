@@ -3,9 +3,6 @@ function throw_dim_error(@nospecialize(x), @nospecialize(dim))
     throw(DimensionMismatch("$x does not have dimension corresponding to $dim"))
 end
 
-#julia> @btime ArrayInterfaceCore.is_increasing(ArrayInterfaceCore.nstatic(Val(10)))
-#  0.045 ns (0 allocations: 0 bytes)
-#ArrayInterfaceCore.True()
 function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y},Vararg}) where {X, Y}
     if X <= Y
         return is_increasing(tail(perm))
@@ -30,7 +27,7 @@ is_increasing(::Tuple{}) = True()
 Returns the mapping from parent dimensions to child dimensions.
 """
 from_parent_dims(x) = from_parent_dims(typeof(x))
-from_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
+from_parent_dims(::Type{T}) where {T} = ntuple(static, StaticInt(ndims(T)))
 from_parent_dims(::Type{T}) where {T<:VecAdjTrans} = (StaticInt(2),)
 from_parent_dims(::Type{T}) where {T<:MatAdjTrans} = (StaticInt(2), One())
 from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(I)
@@ -51,11 +48,11 @@ end
 from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I} = static(Val(I))
 function from_parent_dims(::Type{<:ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
     if !IsReshaped || sizeof(S) === sizeof(T)
-        return nstatic(Val(ndims(A)))
+        return ntuple(static, StaticInt(ndims(A)))
     elseif sizeof(S) > sizeof(T)
-        return tail(nstatic(Val(ndims(A) + 1)))
+        return tail(ntuple(static, StaticInt(ndims(A) + 1)))
     else  # sizeof(S) < sizeof(T)
-        return (Zero(), nstatic(Val(N))...)
+        return (Zero(), ntuple(static, StaticInt(N))...)
     end
 end
 
@@ -86,7 +83,7 @@ end
 Returns the mapping from child dimensions to parent dimensions.
 """
 to_parent_dims(x) = to_parent_dims(typeof(x))
-to_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
+to_parent_dims(::Type{T}) where {T} = ntuple(static, StaticInt(ndims(T)))
 to_parent_dims(::Type{T}) where {T<:Union{Transpose,Adjoint}} = (StaticInt(2), One())
 to_parent_dims(::Type{<:PermutedDimsArray{T,N,I}}) where {T,N,I} = static(Val(I))
 to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(I)
@@ -103,7 +100,7 @@ to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(I)
     out
 end
 function to_parent_dims(::Type{<:ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
-    pdims = nstatic(Val(ndims(A)))
+    pdims = ntuple(static, StaticInt(ndims(A)))
     if !IsReshaped || sizeof(S) === sizeof(T)
         return pdims
     elseif sizeof(S) > sizeof(T)
@@ -266,7 +263,7 @@ to_dims(x, @nospecialize(dim::CanonicalInt)) = dim
 to_dims(x, dim::Integer) = Int(dim)
 to_dims(x, dim::Union{StaticSymbol,Symbol}) = _to_dim(dimnames(x), dim)
 function to_dims(x, dims::Tuple{Vararg{Any,N}}) where {N}
-    eachop(_to_dims, nstatic(Val(N)), dimnames(x), dims)
+    eachop(_to_dims, ntuple(static, StaticInt(N)), dimnames(x), dims)
 end
 @inline _to_dims(x::Tuple, d::Tuple, n::StaticInt{N}) where {N} = _to_dim(x, getfield(d, N))
 @inline function _to_dim(x::Tuple, d::Union{Symbol,StaticSymbol})
