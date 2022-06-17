@@ -671,7 +671,7 @@ end
 @inline function _reinterp_strides(stp::Tuple, els::StaticInt, elp::StaticInt)
     if elp % els == 0
         N = elp ÷ els
-        return map(i -> N * i, stp)
+        return map(Base.Fix2(*, N), stp)
     else
         return map(stp) do i
             d, r = divrem(elp * i, els)

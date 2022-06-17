@@ -374,7 +374,7 @@ end
 Returns valid indices for each array in `x` along dimension `dim`
 """
 @propagate_inbounds function indices(x::Tuple, dim)
-    inds = map(x_i -> indices(x_i, dim), x)
+    inds = map(Base.Fix2(indices, dim), x)
     return reduce_tup(_pick_range, inds)
 end
 
