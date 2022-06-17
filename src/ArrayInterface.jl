@@ -4,8 +4,8 @@ using ArrayInterfaceCore
 import ArrayInterfaceCore: allowed_getindex, allowed_setindex!, aos_to_soa, buffer,
     parent_type, fast_matrix_colors, findstructralnz, has_sparsestruct,
     issingular, isstructured, matrix_colors, restructure, lu_instance,
-    safevec, zeromatrix, ColoringAlgorithm,
-    fast_scalar_indexing, parameterless_type, ndims_index, is_splat_index, is_forwarding_wrapper
+    safevec, zeromatrix, ColoringAlgorithm, fast_scalar_indexing, parameterless_type,
+    ndims_index, ndims_shape, is_splat_index, is_forwarding_wrapper, IndicesInfo
 
 # ArrayIndex subtypes and methods
 import ArrayInterfaceCore: ArrayIndex, MatrixIndex, VectorIndex, BidiagonalIndex, TridiagonalIndex
