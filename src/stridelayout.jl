@@ -216,7 +216,7 @@ end
 contiguous_axis_indicator(::A) where {A<:AbstractArray} = contiguous_axis_indicator(A)
 contiguous_axis_indicator(::Nothing, ::Val) = nothing
 function contiguous_axis_indicator(c::StaticInt{N}, dim::Val{D}) where {N,D}
-    map(i -> eq(c, i), ntuple(static, dim))
+    map(eq(c), ntuple(static, dim))
 end
 
 function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
