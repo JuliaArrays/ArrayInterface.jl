@@ -66,7 +66,7 @@ This implementation differs from that of `Base.to_indices` in the following ways
 * Recursing through `to_indices(A, axes, I::Tuple{I1,Vararg{Any}})` is intended to provide
   context for processing `I1`. However, this doesn't tell use how many dimensions are
   consumed by what is in `Vararg{Any}`. Using `ndims_index` to directly align the axes of
-  `A` with each value in `I` ensures that a `CartesiaIndex{3}` at the tail of `I` isn't
+  `A` with each value in `I` ensures that a `CartesianIndex{3}` at the tail of `I` isn't
   incorrectly assumed to only consume one dimension.
 * `Base.to_indices` may fail to infer the returned type. This is the case for `inds2` and
   `inds3` in the first bullet on Julia 1.6.4.
@@ -303,9 +303,9 @@ Construct new axes given the corresponding `inds` constructed after
 indices calling [`to_axis`](@ref).
 """
 @inline function to_axes(A, inds::Tuple)
-    if ndims(A) === 1
+    if ndims(A) === 1 && Base.length(inds) === 1
         return (to_axis(axes(A, 1), first(inds)),)
-    elseif Base.length(inds) === 1
+    elseif Base.length(inds) === 1 && _ndims_shape(inds[1]) === 1
         return (to_axis(eachindex(IndexLinear(), A), first(inds)),)
     else
         return to_axes(A, axes(A), inds)
@@ -428,6 +428,165 @@ end
 unsafe_getindex(A::SubArray, i::CanonicalInt) = @inbounds(A[i])
 unsafe_getindex(A::SubArray, i::CanonicalInt, ii::Vararg{CanonicalInt}) = @inbounds(A[i, ii...])
 
+"""
+    NDIndices{N,M,R,I,T}
+
+A alternative to `CartesianIndices`, whose element type is `NDIndex` instead of `CartesianIndex`.
+"""
+struct NDIndices{N,M,R,I,T} <: AbstractArray{NDIndex{M,T},N}
+    indices::I
+    #=
+    N: number of dimension of array;
+    M: number of dimension of element NDIndex;
+    R: number of dimension represented trailing axes who is always 1:1
+
+    if N = M and R = 0, NDIndices is the same as CartesianIndices;
+    unlike CartesianIndex, element of indices can be a abstract vector or a CanonicalInt;
+    where CanonicalInt donates a hidden dimension, which shows in index but will be skip in getindex;
+    =#
+    NDIndices{N,M,R}(inds::NTuple{M,Any}) where {N,M,R} =
+        new{N,M,R,typeof(inds),NTuple{M,Int}}(inds)
+end
+function NDIndices(inds::Tuple)
+    N = Base.length(inds)
+    return NDIndices{N,N,0}(inds)
+end
+NDIndices(A::AbstractArray) = NDIndices(axes(A))
+
+function unsafe_subindices(parent::NDIndices, inds)
+    M = Base.length(eltype(parent))
+    shapes = map(_ndims_shape, inds)
+    shapes_L, shapes_R = Base.IteratorsMD.split(shapes, Val(M))
+    R = _sum_tup(shapes_R)
+    N = _sum_tup(shapes_L) + R
+    indices = _map_unsafe_getindex(parent.indices, inds)::NTuple{M,Any}
+    return NDIndices{N,M,R}(indices)
+end
+
+_ndims_shape(x) = _sum_tup(ndims_shape(x))
+
+function _sum_tup(t::Tuple{Vararg{Integer}})
+    s = reduce_tup(+, t)
+    return isnothing(s) ? 0 : Int(s)
+end
+_sum_tup(n::Integer) = Int(n)
+
+function _map_unsafe_getindex(x::Tuple, y::Tuple)
+    x1 = first(x)
+    if ndims_shape(x1) == 0
+        return x1, _map_unsafe_getindex(tail(x), y)...
+    else # ndims_shape(x1) == 1
+        return static_unsafe_getindex(x1, first(y)),
+            _map_unsafe_getindex(tail(x), tail(y))...
+    end
+end
+_map_unsafe_getindex(::Tuple{}, ::Tuple) = ()
+
+@inline Base.size(A::NDIndices) = map(length, axes(A))
+@inline axes(I::NDIndices{N}) where {N} = _indices_sub(Val(N), I.indices...)
+@inline _indices_sub(::Val{N}, ::CanonicalInt, I...) where {N} =
+    _indices_sub(Val(N), I...)
+@inline _indices_sub(::Val{N} ,i1, I...) where {N} =
+    (axes(i1)..., _indices_sub(Val(N-1), I...)...)
+@inline _indices_sub(::Val{N}) where {N} = ntuple(_ -> SOneTo(1), Val(N))
+
+ArrayInterfaceCore.ndims_index(::Type{<:NDIndices{N,M}}) where {N,M} = M
+ArrayInterfaceCore.ndims_shape(::Type{<:NDIndices{N}}) where {N} = N
+function to_index(x, i::NDIndices{N,M,R}) where {N,M,R}
+    if N !== 0 && N === M && R === 0 # like CartesianIndices
+        inds = getfield(i, :indices)
+        if M === 1
+            return first(inds)
+        else
+            return inds
+        end
+    else
+        # TODO: this might be not an efficient way, for better performance
+        # we might need to implement unsafe_get_collection for NDIndices
+        return i
+    end
+end
+@inline function to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}}) where {N,I<:NDIndices{N}}
+    axes_front, axes_tail = Base.IteratorsMD.split(a, Val(N))
+    return (to_axes(A, axes_front, axes(first(i)))..., to_axes(A, axes_tail, tail(i))...)
+end
+
+@inline function Base.checkbounds(::Type{Bool}, A::AbstractArray, i::NDIndices)
+    Base.checkbounds_indices(Bool, axes(A), (i,))
+end
+# this is a modification of checkbounds for AbstractArray{CartesianIndex{N}}
+# which might should be implemented in Static
+@inline function Base.checkbounds_indices(::Type{Bool}, ::Tuple{},
+    I::Tuple{NDIndices{N,M},Vararg{Any}}) where {N,M}
+    checkindex(Bool, (), I[1]) & Base.checkbounds_indices(Bool, (), tail(I))
+end
+@inline function Base.checkbounds_indices(::Type{Bool}, IA::Tuple{Any},
+    I::Tuple{NDIndices{0},Vararg{Any}})
+    Base.checkbounds_indices(Bool, IA, tail(I))
+end
+@inline function Base.checkbounds_indices(::Type{Bool}, IA::Tuple{Any},
+    I::Tuple{NDIndices{N,M},Vararg{Any}}) where {N,M}
+    checkindex(Bool, IA, I[1]) & Base.checkbounds_indices(Bool, (), tail(I))
+end
+@inline function Base.checkbounds_indices(::Type{Bool}, IA::Tuple,
+    I::Tuple{NDIndices{N,M},Vararg{Any}}) where {N,M}
+    IA1, IArest = Base.IteratorsMD.split(IA, Val(M))
+    checkindex(Bool, IA1, I[1]) & Base.checkbounds_indices(Bool, IArest, tail(I))
+end
+Base.checkindex(::Type{Bool}, inds::Tuple, I::NDIndices) =
+    Base.checkbounds_indices(Bool, inds, getfield(I, :indices))
+
+@propagate_inbounds Base.getindex(I::NDIndices{N}, ii::Vararg{CanonicalInt,N}) where {N} =
+    (@boundscheck checkbounds(I, ii...); NDIndex(_unsafe_getindex_sub(I.indices, ii)))
+
+function unsafe_getindex(I::NDIndices, i::CanonicalInt)
+    if ndims(I) == 1
+        return NDIndex(_unsafe_getindex_sub(I.indices, (i,)))
+    else
+        return unsafe_getindex(I, _to_cartesian(I, i)...)
+    end
+end
+unsafe_getindex(I::NDIndices, i::CanonicalInt, ii::Vararg{CanonicalInt}) =
+    NDIndex(_unsafe_getindex_sub(I.indices, (i, ii...)))
+
+function _unsafe_getindex_sub(indices::Tuple, ii::Tuple)
+    ind = first(indices)
+    if ndims_shape(ind) == 0
+        if length(ii) == 0
+            return ind, _unsafe_getindex_sub(tail(indices), ())...
+        else
+            return ind, _unsafe_getindex_sub(tail(indices), ii)...
+        end
+    else # if ndims_shape(ind) > 0, then length(ii) > 0
+        return static_unsafe_getindex(ind, first(ii)),
+            _unsafe_getindex_sub(tail(indices), tail(ii))...
+    end
+end
+_unsafe_getindex_sub(::Tuple{}, ::Tuple) = ()
+_unsafe_getindex_sub(::Tuple{}, ::Tuple{}) = ()
+
+is_staticrange(ind) = false
+is_staticrange(ind::OrdinalRange{Int,Int}) = known_first(ind) !== nothing &&
+    known_last(ind) !== nothing && known_step(ind) !== nothing
+
+function static_unsafe_getindex(r, i)
+    if is_staticrange(r)
+        if is_staticrange(i)
+            f = static_first(r) + (static_first(i) - static(1)) * static_step(r)
+            s = static_step(r) * static_step(i)
+            l = f + s * (static_length(i) - static(1))
+            if s === static(1)
+                return f:l
+            else
+                return f:s:l
+            end
+        elseif is_static(i) === True()
+            return static_first(r) + (static_first(i) - static(1)) * static_step(r)
+        end
+    end
+    return @inbounds r[i]
+end
+
 # This is based on Base._unsafe_getindex from https://github.com/JuliaLang/julia/blob/c5ede45829bf8eb09f2145bfd6f089459d77b2b1/base/multidimensional.jl#L755.
 #=
     unsafe_get_collection(A, inds)
@@ -464,6 +623,22 @@ _output_shape(x::AbstractRange) = (length(x),)
             CartesianIndices(_ints2range_front(Val(N), inds...)),
             _output_shape(inds...)
         )
+    end
+end
+# check how many axes have length static(1) which can be dropped safely
+_n_size_one_axes(sz1, szs...) = (sz1 === static(1)) + _n_size_one_axes(szs...)
+_n_size_one_axes() = 0
+@inline function unsafe_get_collection(A::NDIndices{N}, inds) where {N}
+    if (Base.length(inds) === 1 && N > 1)
+        sz = size(A)
+        if (N - _n_size_one_axes(sz...)) > 1
+            return Base._getindex(IndexStyle(A), A, inds...)
+        else
+            inds′ = map(x -> x === static(1) ? static(1) : first(inds), sz)
+            return unsafe_subindices(A, inds′)
+        end
+    else
+        return unsafe_subindices(A, inds)
     end
 end
 _known_first_isone(ind) = known_first(ind) !== nothing && isone(known_first(ind))
