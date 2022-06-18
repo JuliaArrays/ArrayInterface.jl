@@ -209,11 +209,6 @@ julia> ArrayInterface.to_index(static(1):static(10), >(5))
 julia> ArrayInterface.to_index(static(1):static(10), >=(5))
 5:static(10)
 
-julia> ArrayInterface.to_index(static(1):static(10), firstindex)
-static(1)
-
-julia> ArrayInterface.to_index(static(1):static(10), lastindex)
-static(10)
 ```
 
 Use of a function-index helps ensure that indices are inbounds
@@ -225,7 +220,6 @@ static(1):10
 julia> ArrayInterface.to_index(static(1):static(10), >(-1))
 1:static(10)
 ```
-
 
 New axis types with unique behavior should use an `IndexStyle` trait:
 ```julia
