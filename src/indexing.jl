@@ -23,7 +23,7 @@ function Base.last(x::AbstractVector, n::StaticInt)
 end
 
 """
-    to_indices(A, I::Tuple) -> Tuple
+    ArrayInterface.to_indices(A, I::Tuple) -> Tuple
 
 Converts the tuple of indexing arguments, `I`, into an appropriate form for indexing into `A`.
 Typically, each index should be an `Int`, `StaticInt`, a collection with values of `Int`, or a collection with values of `CartesianIndex`
@@ -183,16 +183,56 @@ end
 end
 
 """
-    to_index([::IndexStyle, ]axis, arg) -> index
+    ArrayInterface.to_index([::IndexStyle, ]axis, arg) -> index
 
-Convert the argument `arg` that was originally passed to `getindex` for the dimension
-corresponding to `axis` into a form for native indexing (`Int`, Vector{Int}, etc.). New
-axis types with unique behavior should use an `IndexStyle` trait:
+Convert the argument `arg` that was originally passed to `ArrayInterface.getindex` for the
+dimension corresponding to `axis` into a form for native indexing (`Int`, Vector{Int}, etc.).
 
+`ArrayInterface.to_index` supports passing a function as an index. This function-index is
+transformed into a proper index.
+
+```julia
+julia> using ArrayInterface, Static
+
+julia> ArrayInterface.to_index(static(1):static(10), 5)
+5
+
+julia> ArrayInterface.to_index(static(1):static(10), <(5))
+static(1):4
+
+julia> ArrayInterface.to_index(static(1):static(10), <=(5))
+static(1):5
+
+julia> ArrayInterface.to_index(static(1):static(10), >(5))
+6:static(10)
+
+julia> ArrayInterface.to_index(static(1):static(10), >=(5))
+5:static(10)
+
+julia> ArrayInterface.to_index(static(1):static(10), firstindex)
+static(1)
+
+julia> ArrayInterface.to_index(static(1):static(10), lastindex)
+static(10)
+```
+
+Use of a function-index helps ensure that indices are inbounds
+
+```julia
+julia> ArrayInterface.to_index(static(1):static(10), <(12))
+static(1):10
+
+julia> ArrayInterface.to_index(static(1):static(10), >(-1))
+1:static(10)
+```
+
+
+New axis types with unique behavior should use an `IndexStyle` trait:
 ```julia
 to_index(axis::MyAxisType, arg) = to_index(IndexStyle(axis), axis, arg)
 to_index(::MyIndexStyle, axis, arg) = ...
 ```
+
 """
 to_index(x, i::Slice) = i
 to_index(x, ::Colon) = indices(x)
