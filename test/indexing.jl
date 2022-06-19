@@ -202,6 +202,8 @@ end
     @test @inferred(ArrayInterface.getindex(cartesian, vec(cartesian))) == vec(cartesian)
     @test @inferred(ArrayInterface.getindex(linear, 2:3)) === 2:3
     @test @inferred(ArrayInterface.getindex(linear, 3:-1:1)) === 3:-1:1
+    @test @inferred(ArrayInterface.getindex(linear, >(1), <(3))) == linear[(begin+1):end, 1:(end-1)]
+    @test @inferred(ArrayInterface.getindex(linear, >=(1), <=(3))) == linear[begin:end, 1:end]
     @test_throws BoundsError ArrayInterface.getindex(linear, 4:13)
 end
 
