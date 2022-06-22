@@ -40,7 +40,9 @@ ArrayInterface.device(::Type{<:StaticArrays.MArray}) = ArrayInterface.CPUPointer
 ArrayInterface.device(::Type{<:StaticArrays.SArray}) = ArrayInterface.CPUTuple()
 ArrayInterface.contiguous_axis(::Type{<:StaticArrays.StaticArray}) = StaticInt{1}()
 ArrayInterface.contiguous_batch_size(::Type{<:StaticArrays.StaticArray}) = StaticInt{0}()
-ArrayInterface.stride_rank(::Type{T}) where {N,T<:StaticArray{<:Any,<:Any,N}} = Static.nstatic(Val(N))
+function ArrayInterface.stride_rank(::Type{T}) where {N,T<:StaticArray{<:Any,<:Any,N}}
+    ntuple(static, StaticInt(N))
+end
 function ArrayInterface.dense_dims(::Type{<:StaticArray{S,T,N}}) where {S,T,N}
     ArrayInterface._all_dense(Val(N))
 end

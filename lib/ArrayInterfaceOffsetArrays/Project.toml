@@ -1,6 +1,6 @@
 name = "ArrayInterfaceOffsetArrays"
 uuid = "015c0d05-e682-4f19-8f0a-679ce4c54826"
-version = "0.1.5"
+version = "0.1.6"
 
 [deps]
 ArrayInterface = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
@@ -10,7 +10,7 @@ Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
 [compat]
 ArrayInterface = "5, 6"
 OffsetArrays = "1.11"
-Static = "0.6"
+Static = "0.7"
 julia = "1.6"
 
 [extras]

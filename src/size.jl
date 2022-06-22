@@ -56,7 +56,7 @@ size(x::Iterators.Enumerate) = size(getfield(x, :itr))
 size(x::Iterators.Accumulate) = size(getfield(x, :itr))
 size(x::Iterators.Pairs) = size(getfield(x, :itr))
 @inline function size(x::Iterators.ProductIterator)
-    eachop(_sub_size, nstatic(Val(ndims(x))), getfield(x, :iterators))
+    eachop(_sub_size, ntuple(static, StaticInt(ndims(x))), getfield(x, :iterators))
 end
 
 size(a, dim) = size(a, to_dims(a, dim))
@@ -100,7 +100,7 @@ known_size(x) = known_size(typeof(x))
     end
 end
 function _maybe_known_size(::Base.HasShape{N}, ::Type{T}) where {N,T}
-    eachop(_known_size, nstatic(Val(N)), axes_types(T))
+    eachop(_known_size, ntuple(static, StaticInt(N)), axes_types(T))
 end
 _maybe_known_size(::Base.IteratorSize, ::Type{T}) where {T} = (known_length(T),)
 function known_size(::Type{T}) where {T<:AbstractRange}
@@ -113,7 +113,7 @@ known_size(::Type{<:Iterators.Enumerate{I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Accumulate{<:Any,I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Pairs{<:Any,<:Any,I}}) where {I} = known_size(I)
 @inline function known_size(::Type{<:Iterators.ProductIterator{T}}) where {T}
-    eachop(_known_size, nstatic(Val(known_length(T))), T)
+    eachop(_known_size, ntuple(static, StaticInt(known_length(T))), T)
 end
 
 # 1. `Zip` doesn't check that its collections are compatible (same size) at construction,
@@ -123,7 +123,7 @@ end
 #   trailing dimensions (which must be of size 1), to `static(1)`. We want to stick to
 #   `Nothing` and `Int` types, so we do one last pass to ensure everything is dynamic
 @inline function known_size(::Type{<:Iterators.Zip{T}}) where {T}
-    dynamic(reduce_tup(_promote_shape, eachop(_unzip_size, nstatic(Val(known_length(T))), T)))
+    dynamic(reduce_tup(Static._promote_shape, eachop(_unzip_size, ntuple(static, StaticInt(known_length(T))), T)))
 end
 _unzip_size(::Type{T}, n::StaticInt{N}) where {T,N} = known_size(field_type(T, n))
 _known_size(::Type{T}, dim::StaticInt) where {T} = known_length(field_type(T, dim))
