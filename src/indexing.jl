@@ -242,16 +242,16 @@ to_index(x::LinearIndices, i::AbstractArray{Bool}) = LogicalIndex{Int}(i)
 @inline to_index(x, i::NDIndex) = Tuple(i)
 @inline to_index(x, i::AbstractArray{<:AbstractCartesianIndex}) = i
 @inline function to_index(x, i::Base.Fix2{<:Union{typeof(<),typeof(isless)},<:Union{Base.BitInteger,StaticInt}})
-    offset1(x):min(_sub1(canonicalize(i.x)), static_lastindex(x))
+    static_first(x):min(_sub1(canonicalize(i.x)), static_last(x))
 end
 @inline function to_index(x, i::Base.Fix2{typeof(<=),<:Union{Base.BitInteger,StaticInt}})
-    offset1(x):min(canonicalize(i.x), static_lastindex(x))
+    static_first(x):min(canonicalize(i.x), static_last(x))
 end
 @inline function to_index(x, i::Base.Fix2{typeof(>=),<:Union{Base.BitInteger,StaticInt}})
-    max(canonicalize(i.x), offset1(x)):static_lastindex(x)
+    max(canonicalize(i.x), static_first(x)):static_last(x)
 end
 @inline function to_index(x, i::Base.Fix2{typeof(>),<:Union{Base.BitInteger,StaticInt}})
-    max(_add1(canonicalize(i.x)), offset1(x)):static_lastindex(x)
+    max(_add1(canonicalize(i.x)), static_first(x)):static_last(x)
 end
 # integer indexing
 to_index(x, i::AbstractArray{<:Integer}) = i
