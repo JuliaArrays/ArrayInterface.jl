@@ -1,4 +1,4 @@
-module ArrayInterfaceGPUArraysCore
+module ArrayInterfaceGPUArrays
 
 using Adapt
 using ArrayInterfaceCore
