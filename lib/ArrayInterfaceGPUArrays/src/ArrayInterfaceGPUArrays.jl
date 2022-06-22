@@ -1,28 +1,28 @@
-module ArrayInterfaceGPUArrays
+module ArrayInterfaceGPUArraysCore
 
 using Adapt
 using ArrayInterfaceCore
-using GPUArrays
+using GPUArraysCore
 
-ArrayInterfaceCore.fast_scalar_indexing(::Type{<:GPUArrays.AbstractGPUArray}) = false
-@inline ArrayInterfaceCore.allowed_getindex(x::GPUArrays.AbstractGPUArray, i...) = GPUArrays.@allowscalar(x[i...])
-@inline ArrayInterfaceCore.allowed_setindex!(x::GPUArrays.AbstractGPUArray, v, i...) = (GPUArrays.@allowscalar(x[i...] = v))
+ArrayInterfaceCore.fast_scalar_indexing(::Type{<:GPUArraysCore.AbstractGPUArray}) = false
+@inline ArrayInterfaceCore.allowed_getindex(x::GPUArraysCore.AbstractGPUArray, i...) = GPUArraysCore.@allowscalar(x[i...])
+@inline ArrayInterfaceCore.allowed_setindex!(x::GPUArraysCore.AbstractGPUArray, v, i...) = (GPUArraysCore.@allowscalar(x[i...] = v))
 
-function Base.setindex(x::GPUArrays.AbstractGPUArray, v, i::Int)
+function Base.setindex(x::GPUArraysCore.AbstractGPUArray, v, i::Int)
     _x = copy(x)
     ArrayInterfaceCore.allowed_setindex!(_x, v, i)
     return _x
 end
 
-function ArrayInterfaceCore.restructure(x::GPUArrays.AbstractGPUArray, y)
+function ArrayInterfaceCore.restructure(x::GPUArraysCore.AbstractGPUArray, y)
     reshape(Adapt.adapt(ArrayInterfaceCore.parameterless_type(x), y), Base.size(x)...)
 end
 
-function ArrayInterfaceCore.lu_instance(A::GPUArrays.AbstractGPUMatrix{T}) where {T}
+function ArrayInterfaceCore.lu_instance(A::GPUArraysCore.AbstractGPUMatrix{T}) where {T}
     qr(similar(A, 1, 1))
 end
 
 # Doesn't do much, but makes a gigantic change to the dependency chain.
-# ArrayInterface.device(::Type{<:GPUArrays.AbstractGPUArray}) = ArrayInterface.GPU()
+# ArrayInterface.device(::Type{<:GPUArraysCore.AbstractGPUArray}) = ArrayInterface.GPU()
 
 end
