@@ -154,7 +154,7 @@ function _to_indices_expr(S::DataType, N::Int, ni, ns, is)
             end
         end
         push!(blk.args, Expr(:(=), :axs, :(lazy_axes(a))))
-        push!(blk.args, :(_flatten_tuples($(indsexpr))))
+        push!(blk.args, :(flatten_tuples($(indsexpr))))
     end
     return blk
 end
@@ -167,19 +167,27 @@ function _axis_expr(N::Int, d::Int)
     end
 end
 
-@generated function _flatten_tuples(inds::I) where {I}
-    t = Expr(:tuple)
-    for i in 1:known_length(I)
-        p = I.parameters[i]
-        if p <: Tuple
-            for j in 1:known_length(p)
-                push!(t.args, :(@inbounds(getfield(getfield(inds, $i), $j))))
+@inline function flatten_tuples(inds::I) where {I}
+    if @generated
+        t = Expr(:tuple)
+        for i in 1:fieldcount(I)
+            p = fieldtype(I, i)
+            if p <: Tuple
+                for j in 1:fieldcount(p)
+                    push!(t.args, :(@inbounds(getfield(getfield(inds, $i), $j))))
+                end
+            else
+                push!(t.args, :(@inbounds(getfield(inds, $i))))
             end
-        else
-            push!(t.args, :(@inbounds(getfield(inds, $i))))
         end
+        Expr(:block, Expr(:meta, :inline), t)
+    else
+        out = ()
+        for i in inds
+            out = i isa Tuple ? (out..., i...) : (out..., i)
+        end
+        out
     end
-    t
 end
 
 """
