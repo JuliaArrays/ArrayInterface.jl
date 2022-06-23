@@ -11,6 +11,7 @@
 @test @inferred(ArrayInterface.size(A2)) === (4, 3, 5)
 @test @inferred(ArrayInterface.size(A2r)) === (2, 3, 5)
 
+@test @inferred(ArrayInterface.size(view(rand(4), reshape(1:4, 2, 2)))) == (2, 2)
 @test @inferred(ArrayInterface.size(irev)) === (StaticInt(2), StaticInt(3), StaticInt(4))
 @test @inferred(ArrayInterface.size(iprod)) === (StaticInt(2), StaticInt(3), StaticInt(4))
 @test @inferred(ArrayInterface.size(iflat)) === (static(72),)
@@ -38,6 +39,8 @@
 @test @inferred(ArrayInterface.size(Mp)) == size(Mp)
 @test @inferred(ArrayInterface.size(Mp2)) == size(Mp2)
 
+@test @inferred(ArrayInterface.known_size(1)) === ()
+@test @inferred(ArrayInterface.known_size(view(rand(4), reshape(1:4, 2, 2)))) == (nothing, nothing)
 @test @inferred(ArrayInterface.known_size(A)) === (nothing, nothing, nothing)
 @test @inferred(ArrayInterface.known_size(Ap)) === (nothing, nothing)
 @test @inferred(ArrayInterface.known_size(Wrapper(Ap))) === (nothing, nothing)
