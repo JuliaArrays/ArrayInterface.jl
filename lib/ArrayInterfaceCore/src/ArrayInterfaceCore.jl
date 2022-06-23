@@ -22,6 +22,18 @@ const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
 const UpTri{T,M} = Union{UpperTriangular{T,M},UnitUpperTriangular{T,M}}
 const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
 
+function map_tuple_type(f::F, ::Type{T}) where {F,T<:Tuple}
+    if @generated
+        t = Expr(:tuple)
+        for i in 1:fieldcount(T)
+            push!(t.args, :(f($(fieldtype(T, i)))))
+        end
+        Expr(:block, Expr(:meta, :inline), t)
+    else
+        Tuple(f(fieldtype(T, i)) for i in 1:fieldcount(T))
+    end
+end
+
 """
     parent_type(::Type{T}) -> Type
 
@@ -101,16 +113,6 @@ buffer(g::GetIndex) = getfield(g, :buffer)
 
 Base.@propagate_inbounds @inline (g::GetIndex{true})(inds...) = buffer(g)[inds...]
 @inline (g::GetIndex{false})(inds...) = @inbounds(buffer(g)[inds...])
-
-# TODO doc FieldIndex
-struct FieldIndex{field} <: Function
-    FieldIndex{field}() where {field} = new{field::Union{Int,Symbol}}()
-    FieldIndex(x::Union{Symbol,Int}) = new{x}()
-    FieldIndex(x::Number) = FieldIndex(Int(x))
-    FieldIndex(Symbol(x)) = FieldIndex(Symbol(x))
-end
-(::FieldIndex{field})(x) where {field} = getfield(x, field)
-(::FieldIndex{field})(T::Type) where {field} = fieldtype(T, field)
 
 """
     can_change_size(::Type{T}) -> Bool
@@ -635,7 +637,7 @@ end
 
 ndims_index(::Type{<:IndexInfo{NI}}) where {NI} = NI
 ndims_shape(::Type{<:IndexInfo{<:Any,NS}}) where {NS} = NS
-ndims_shape(::Type{<:IndexInfo{<:Any,<:Any,IS}}) where {IS} = IS
+is_splat_index(::Type{<:IndexInfo{<:Any,<:Any,IS}}) where {IS} = IS
 
 """
     IndicesInfo(T::Type{<:Tuple}) -> IndicesInfo{NI,NS,IS}()
@@ -644,22 +646,15 @@ Provides basic trait information for each index type in in the tuple `T`. `NI`, 
 `IS` are tuples of [`ndims_index`](@ref), [`ndims_shape`](@ref), and
 [`is_splat_index`](@ref) (respectively) for each field of `T`.
 """
-struct IndicesInfo{NI,NS,IS} end
-
-IndicesInfo(@nospecialize x::Tuple) = IndicesInfo(typeof(x))
-@generated function IndicesInfo(::Type{T}) where {T<:Tuple}
-    NI = Expr(:tuple)
-    NS = Expr(:tuple)
-    IS = Expr(:tuple)
-    for i in 1:fieldcount(T)
-        T_i = fieldtype(T, i)
-        push!(NI.args, :(ndims_index($(T_i))))
-        push!(NS.args, :(ndims_shape($(T_i))))
-        push!(IS.args, :(is_splat_index($(T_i))))
+struct IndicesInfo{NI,NS,IS}
+    IndicesInfo(@nospecialize x::Tuple) = IndicesInfo(typeof(x))
+    function IndicesInfo(@nospecialize T::Type{<:Tuple})
+        new{map_tuple_type(ndims_index, T),
+            map_tuple_type(ndims_shape, T),
+            map_tuple_type(is_splat_index, T)
+        }()
     end
-    Expr(:block, Expr(:meta, :inline), :(IndicesInfo{$(NI),$(NS),$(IS)}()))
 end
-
 @inline function Base.getindex(::IndicesInfo{NI,NS,IS}, i::Int) where {NI,NS,IS}
     IndexInfo{getfield(NI, i),getfield(NS, i),getfield(IS, i)}()
 end
