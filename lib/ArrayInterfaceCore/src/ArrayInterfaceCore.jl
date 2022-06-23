@@ -645,6 +645,7 @@ Provides basic trait information for each index type in in the tuple `T`. `NI`, 
 [`is_splat_index`](@ref) (respectively) for each field of `T`.
 """
 struct IndicesInfo{NI,NS,IS} end
+
 IndicesInfo(@nospecialize x::Tuple) = IndicesInfo(typeof(x))
 @generated function IndicesInfo(::Type{T}) where {T<:Tuple}
     NI = Expr(:tuple)
@@ -657,6 +658,10 @@ IndicesInfo(@nospecialize x::Tuple) = IndicesInfo(typeof(x))
         push!(IS.args, :(is_splat_index($(T_i))))
     end
     Expr(:block, Expr(:meta, :inline), :(IndicesInfo{$(NI),$(NS),$(IS)}()))
+end
+
+@inline function Base.getindex(::IndicesInfo{NI,NS,IS}, i::Int) where {NI,NS,IS}
+    IndexInfo{getfield(NI, i),getfield(NS, i),getfield(IS, i)}()
 end
 
 """
