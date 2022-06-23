@@ -63,6 +63,46 @@ is_forwarding_wrapper(@nospecialize T::Type{<:Base.Slice}) = true
 is_forwarding_wrapper(@nospecialize x) = is_forwarding_wrapper(typeof(x))
 
 """
+    GetIndex(buffer) = GetIndex{true}(buffer)
+    GetIndex{check}(buffer) -> g
+
+Wraps an indexable buffer in a function type that is indexed when called, so that `g(inds..)`
+is equivalent to `buffer[inds...]`. If `check` is `false`, then all indexing arguments are
+considered in-bounds. The default value for `check` is `true`, requiring bounds checking for
+each index.
+
+!!! Warning
+    Passing `false` as `check` may result in incorrect results/crashes/corruption for
+    out-of-bounds indices, similar to inappropriate use of `@inbounds`. The user is
+    responsible for ensuring this is correctly used.
+
+# Examples
+
+```julia
+julia> ArrayInterfaceCore.GetIndex(1:10)[3]
+3
+
+julia> ArrayInterfaceCore.GetIndex{false}(1:10)[11]  # shouldn't be in-bounds
+11
+
+```
+
+"""
+struct GetIndex{CB,B} <: Function
+    buffer::B
+
+    GetIndex{true,B}(b) where {B} = new{true,B}(b)
+    GetIndex{false,B}(b) where {B} = new{false,B}(b)
+    GetIndex{check}(b::B) where {check,B} = GetIndex{check,B}(b)
+    GetIndex(b) = GetIndex{true}(b)
+end
+
+buffer(g::GetIndex) = getfield(g, :buffer)
+
+Base.@propagate_inbounds @inline (g::GetIndex{true})(inds...) = buffer(g)[inds...]
+@inline (g::GetIndex{false})(inds...) = @inbounds(buffer(g)[inds...])
+
+"""
     can_change_size(::Type{T}) -> Bool
 
 Returns `true` if the Base.size of `T` can change, in which case operations
