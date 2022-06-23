@@ -102,6 +102,16 @@ buffer(g::GetIndex) = getfield(g, :buffer)
 Base.@propagate_inbounds @inline (g::GetIndex{true})(inds...) = buffer(g)[inds...]
 @inline (g::GetIndex{false})(inds...) = @inbounds(buffer(g)[inds...])
 
+# TODO doc FieldIndex
+struct FieldIndex{field} <: Function
+    FieldIndex{field}() where {field} = new{field::Union{Int,Symbol}}()
+    FieldIndex(x::Union{Symbol,Int}) = new{x}()
+    FieldIndex(x::Number) = FieldIndex(Int(x))
+    FieldIndex(Symbol(x)) = FieldIndex(Symbol(x))
+end
+(::FieldIndex{field})(x) where {field} = getfield(x, field)
+(::FieldIndex{field})(T::Type) where {field} = fieldtype(T, field)
+
 """
     can_change_size(::Type{T}) -> Bool
 
@@ -596,6 +606,36 @@ ndims_shape(@nospecialize T::Type{<:CartesianIndices}) = ntuple(one, Val{ndims(T
 ndims_shape(@nospecialize T::Type{<:Number}) = 0
 ndims_shape(@nospecialize T::Type{<:AbstractArray}) = ndims(T)
 ndims_shape(x) = ndims_shape(typeof(x))
+
+"""
+    IndexInfo(index)
+
+Provides basic trait information for a single index type.
+
+This is used to construct
+[`ArrayInterfaceCore.IndicesInfo`](@ref).
+
+```julia
+julia> ArrayInterfaceCore.ndims_index(ArrayInterfaceCore.IndexInfo(Int))
+1
+
+julia> ArrayInterfaceCore.ndims_shape(ArrayInterfaceCore.IndexInfo(Int))
+0
+
+julia> ArrayInterfaceCore.ndims_shape(ArrayInterfaceCore.IndexInfo(Int))
+false
+
+```
+"""
+struct IndexInfo{NI,NS,IS}
+    IndexInfo(@nospecialize info::IndexInfo) = info
+    IndexInfo(@nospecialize T::Type{<:IndexInfo}) = T()
+    @inline IndexInfo(@nospecialize i) = new{ndims_index(i),ndims_shape(i),is_splat_index(i)}()
+end
+
+ndims_index(::Type{<:IndexInfo{NI}}) where {NI} = NI
+ndims_shape(::Type{<:IndexInfo{<:Any,NS}}) where {NS} = NS
+ndims_shape(::Type{<:IndexInfo{<:Any,<:Any,IS}}) where {IS} = IS
 
 """
     IndicesInfo(T::Type{<:Tuple}) -> IndicesInfo{NI,NS,IS}()
