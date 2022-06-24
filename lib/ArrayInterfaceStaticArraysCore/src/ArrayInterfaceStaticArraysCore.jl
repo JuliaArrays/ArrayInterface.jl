@@ -1,6 +1,6 @@
 module ArrayInterfaceStaticArraysCore
 
-import StaticArraysCore, ArrayInterfaceCore
+import StaticArraysCore, ArrayInterfaceCore, Adapt
 using LinearAlgebra
 
 ArrayInterfaceCore.ismutable(::Type{<:StaticArraysCore.StaticArray}) = false
@@ -19,6 +19,6 @@ function ArrayInterfaceCore.restructure(x::StaticArraysCore.SArray{S,T,N}, y::St
 end
 ArrayInterfaceCore.restructure(x::StaticArraysCore.SArray{S}, y) where {S} = StaticArraysCore.SArray{S}(y)
 
-Adapt.adapt_storage(::Type{<:StaticArrays.SArray{S}}, xs::Array) where {S} = SArray{S}(xs)
+Adapt.adapt_storage(::Type{<:StaticArraysCore.SArray{S}}, xs::Array) where {S} = SArray{S}(xs)
 
 end
