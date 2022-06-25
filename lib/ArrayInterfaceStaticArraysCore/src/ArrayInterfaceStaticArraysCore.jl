@@ -15,7 +15,7 @@ function ArrayInterfaceCore.lu_instance(_A::StaticArraysCore.StaticMatrix{N,N}) 
 end
 
 function ArrayInterfaceCore.restructure(x::StaticArraysCore.SArray{S,T,N}, y::StaticArraysCore.SArray) where {S,T,N}
-    reshape(y, StaticArraysCore.size_to_tuple(S))
+    StaticArraysCore.SArray{S,T,N}(y)
 end
 ArrayInterfaceCore.restructure(x::StaticArraysCore.SArray{S}, y) where {S} = StaticArraysCore.SArray{S}(y)
 
