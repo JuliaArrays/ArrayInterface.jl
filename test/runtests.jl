@@ -19,6 +19,10 @@ if GROUP == "ArrayInterfaceBlockBandedMatrices"
     dev_subpkg("ArrayInterfaceBandedMatrices")
 end
 
+if GROUP == "ArrayInterfaceStaticArrays"
+    dev_subpkg("ArrayInterfaceStaticArraysCore")
+end
+
 groups = if GROUP == "All"
     ["ArrayInterfaceCore", "ArrayInterface", "ArrayInterfaceBandedMatrices", "ArrayInterfaceBlockBandedMatrices",
      "ArrayInterfaceOffsetArrays", "ArrayInterfaceStaticArrays",]
