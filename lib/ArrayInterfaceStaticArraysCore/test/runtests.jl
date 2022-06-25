@@ -1,4 +1,5 @@
 using StaticArrays, ArrayInterfaceCore, ArrayInterfaceStaticArraysCore, Test
+using LinearAlgebra
 
 x = @SVector [1,2,3]
 @test ArrayInterfaceCore.ismutable(x) == false

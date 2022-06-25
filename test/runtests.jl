@@ -25,7 +25,7 @@ end
 
 groups = if GROUP == "All"
     ["ArrayInterfaceCore", "ArrayInterface", "ArrayInterfaceBandedMatrices", "ArrayInterfaceBlockBandedMatrices",
-     "ArrayInterfaceOffsetArrays", "ArrayInterfaceStaticArrays",]
+     "ArrayInterfaceOffsetArrays", "ArrayInterfaceStaticArrays", "ArrayInterfaceStaticArraysCore"]
 else
     [GROUP]
 end
