@@ -11,6 +11,7 @@ StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
 [compat]
 Adapt = "3"
 ArrayInterfaceCore = "0.1.13"
+StaticArraysCore = "1"
 julia = "1.6"
 
 [extras]
