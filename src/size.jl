@@ -27,7 +27,14 @@ size(a::Base.Broadcast.Broadcasted) = map(length, axes(a))
 
 _maybe_size(::Base.HasShape{N}, a::A) where {N,A} = map(length, axes(a))
 _maybe_size(::Base.HasLength, a::A) where {A} = (length(a),)
-@inline size(x::SubArray) = flatten_tuples(map(size, x.indices))
+@inline size(x::SubArray) = flatten_tuples(map(Base.Fix1(_sub_size, x), ArrayInterfaceCore.dimsmap(x)))
+_sub_size(x, @nospecialize(mi::MappedIndex{<:DroppedDimension})) = ()
+@inline _sub_size(x, ::MappedIndex{<:Union{Dimension,Tuple},<:Any,Dimension{index}}) where {index} = size(getfield(x.indices, index))
+@inline function _sub_size(x, ::MappedIndex{<:Dimension,Dimension{pdim},Dimension{index}}) where {pdim,index}
+    i = getfield(x.indices, index)
+    i isa Base.Slice{Base.OneTo{Int}} ? size(parent(x), StaticInt(pdim)) : length(i)
+end
+
 @inline size(B::VecAdjTrans) = (One(), length(parent(B)))
 @inline size(B::MatAdjTrans) = permute(size(parent(B)), to_parent_dims(B))
 @inline function size(B::PermutedDimsArray{T,N,I1}) where {T,N,I1}
@@ -151,10 +158,15 @@ end
     ntuple(i -> known_length(I.parameters[i]), Val(ndims(T)))
 end
 @inline function known_size(@nospecialize T::Type{<:SubArray})
-    _known_sub_sizes(fieldtype(T, :indices))
+    flatten_tuples(map(Base.Fix1(_sub_known_size, T), ArrayInterfaceCore.dimsmap(T)))
 end
-@inline function _known_sub_sizes(T::Type{<:Tuple})
-    flatten_tuples(ntuple(i -> known_size(T.parameters[i]), Val(known_length(T))))
+_sub_known_size(@nospecialize(T::Type{<:SubArray}), @nospecialize(mi::MappedIndex{<:DroppedDimension})) = ()
+@inline function _sub_known_size(@nospecialize(T::Type{<:SubArray}), ::MappedIndex{<:Union{Dimension,Tuple},<:Any,Dimension{index}}) where {index}
+    known_size(fieldtype(fieldtype(T, :indices), index))
+end
+@inline function _sub_known_size(@nospecialize(T::Type{<:SubArray}), ::MappedIndex{<:Dimension,Dimension{pdim},Dimension{index}}) where {pdim,index}
+    i = fieldtype(fieldtype(T, :indices), index)
+    i <: Base.Slice{Base.OneTo{Int}} ? known_size(parent_type(T), pdim) : known_length(i)
 end
 
 # 1. `Zip` doesn't check that its collections are compatible (same size) at construction,

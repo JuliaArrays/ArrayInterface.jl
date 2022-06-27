@@ -9,31 +9,19 @@ defines_strides(x) = defines_strides(typeof(x))
 _defines_strides(::Type{T}, ::Type{T}) where {T} = false
 _defines_strides(::Type{P}, ::Type{T}) where {P,T} = defines_strides(P)
 defines_strides(::Type{T}) where {T} = _defines_strides(parent_type(T), T)
-defines_strides(::Type{<:StridedArray}) = true
-function defines_strides(::Type{<:SubArray{T,N,P,I}}) where {T,N,P,I}
-    stride_preserving_index(I) === True()
-end
-defines_strides(::Type{<:BitArray}) = true
-
+defines_strides(@nospecialize T::Type{<:StridedArray}) = true
+defines_strides(@nospecialize T::Type{<:BitArray}) = true
+@inline defines_strides(@nospecialize T::Type{<:SubArray}) = stride_preserving_index(fieldtype(T, :indices))
 #=
     stride_preserving_index(::Type{T}) -> StaticBool
 
 Returns `True` if strides between each element can still be derived when indexing with an
 instance of type `T`.
 =#
-stride_preserving_index(::Type{T}) where {T<:AbstractRange} = True()
-stride_preserving_index(::Type{T}) where {T<:Int} = True()
-stride_preserving_index(::Type{T}) where {T} = False()
-function stride_preserving_index(::Type{T}) where {N,T<:Tuple{Vararg{Any,N}}}
-    if all(eachop(_stride_preserving_index, ntuple(static, StaticInt(N)), T))
-        return True()
-    else
-        return False()
-    end
-end
-function _stride_preserving_index(::Type{T}, i::StaticInt) where {T}
-    return stride_preserving_index(field_type(T, i))
-end
+stride_preserving_index(@nospecialize T::Type{<:AbstractRange}) = true
+stride_preserving_index(@nospecialize T::Type{<:Number}) = true
+stride_preserving_index(@nospecialize T::Type{<:Tuple}) = all(map_tuple_type(stride_preserving_index, T))
+stride_preserving_index(@nospecialize T::Type) = false
 
 """
     known_offsets(::Type{T}) -> Tuple
@@ -44,6 +32,10 @@ not known at compile time `nothing` is returned its position.
 """
 known_offsets(x, dim) = known_offsets(typeof(x), dim)
 known_offsets(::Type{T}, dim) where {T} = known_offsets(T, to_dims(T, dim))
+known_offsets(@nospecialize T::Type{<:Number}) = ()  # Int has no dimensions
+@inline function known_offsets(@nospecialize T::Type{<:SubArray})
+    flatten_tuples(map_tuple_type(known_offsets, fieldtype(T, :indices)))
+end
 function known_offsets(::Type{T}, dim::CanonicalInt) where {T}
     if ndims(T) < dim
         return 1
@@ -54,10 +46,9 @@ end
 
 known_offsets(x) = known_offsets(typeof(x))
 function known_offsets(::Type{T}) where {T}
-    return eachop(_known_offsets, ntuple(static, StaticInt(ndims(T))), axes_types(T))
+    eachop(_known_offsets, ntuple(static, StaticInt(ndims(T))), axes_types(T))
 end
 _known_offsets(::Type{T}, dim::StaticInt) where {T} = known_first(field_type(T, dim))
-
 known_offsets(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(O)
 
 """
@@ -71,6 +62,7 @@ For example, if `A isa Base.Matrix`, `offsets(A) === (StaticInt(1), StaticInt(1)
 @inline offsets(x, i) = static_first(indices(x, i))
 offsets(::Tuple) = (One(),)
 offsets(x::StrideIndex) = getfield(x, :offsets)
+@inline offsets(x::SubArray) = flatten_tuples(map(offsets, x.indices))
 offsets(x) = eachop(_offsets, ntuple(static, StaticInt(ndims(x))), x)
 function _offsets(x::X, dim::StaticInt{D}) where {X,D}
     start = known_first(axes_types(X, dim))

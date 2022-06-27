@@ -151,9 +151,17 @@ known_dimnames(x) = known_dimnames(typeof(x))
 function known_dimnames(@nospecialize T::Type{<:VecAdjTrans})
     (:_, getfield(known_dimnames(parent_type(T)), 1))
 end
-function known_dimnames(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsArray,SubArray}})
+function known_dimnames(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsArray}})
     eachop(_inbounds_known_dimname, to_parent_dims(T), known_dimnames(parent_type(T)))
 end
+
+known_dimnames(@nospecialize T::Type{<:SubArray}) = flatten_tuples(map(Base.Fix1(_sub_known_dimnames, known_dimnames(parent_type(T))), ArrayInterfaceCore.dimsmap(T)))
+_sub_known_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:DroppedDimension})) = ()
+_sub_known_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:Tuple})) = ntuple(Compat.Returns(:_), Val{nfields(getfield(mi, :dimsin))}())
+_sub_known_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:Dimension})) = __sub_known_dimnames(dnames, getfield(mi, :dimsout))
+__sub_known_dimnames(@nospecialize(dnames::Tuple), @nospecialize(dimsout::Tuple)) = :_
+__sub_known_dimnames(dnames::Tuple, ::Dimension{dimout}) where {dimout} = getfield(dnames, dimout)
+
 function known_dimnames(::Type{<:ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
     pnames = known_dimnames(A)
     if IsReshaped
@@ -210,9 +218,17 @@ Return the names of the dimensions for `x`. `:_` is used to indicate a dimension
 have a name.
 """
 @inline dimnames(x, dim) = _dimname(dimnames(x), canonicalize(dim))
-@inline function dimnames(x::Union{MatAdjTrans,PermutedDimsArray,SubArray})
+@inline function dimnames(x::Union{MatAdjTrans,PermutedDimsArray})
     eachop(_inbounds_known_dimname, to_parent_dims(x), dimnames(parent(x)))
 end
+
+dimnames(x::SubArray) = flatten_tuples(map(Base.Fix1(_sub_dimnames, dimnames(parent(x))), ArrayInterfaceCore.dimsmap(x)))
+_sub_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{DroppedDimension})) = ()
+_sub_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:Tuple})) = ntuple(Compat.Returns(static(:_)), Val{nfields(getfield(mi, :dimsin))}())
+_sub_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:Dimension})) = __sub_dimnames(dnames, getfield(mi, :dimsout))
+__sub_dimnames(@nospecialize(dnames::Tuple), @nospecialize(dimsout::Tuple)) = static(:_)
+__sub_dimnames(dnames::Tuple, ::Dimension{dimout}) where {dimout} = getfield(dnames, dimout)
+
 dimnames(x::VecAdjTrans) = (static(:_), getfield(dimnames(parent(x)), 1))
 @inline function dimnames(x::ReinterpretArray{T,N,S,A,IsReshaped}) where {T,N,S,A,IsReshaped}
     pnames = dimnames(parent(x))

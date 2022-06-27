@@ -18,12 +18,10 @@ import ArrayInterfaceCore: AbstractDevice, AbstractCPU, CPUPointer, CPUTuple, Ch
     CPUIndex, GPU, can_avx
 
 # mapping between array layers
-using ArrayInterfaceCore: Dimension, IndexedDimension, ReshapedDimension, TrailingDimension,
-    DroppedDimension, IndicesInfo, indices_to_dimensions, ndims_index, ndims_shape,
-    is_splat_index, is_forwarding_wrapper
+using ArrayInterfaceCore:  IndicesInfo, indices_to_dimensions, ndims_index, ndims_shape,
+    is_splat_index, is_forwarding_wrapper, Dimension, DroppedDimension, MappedIndex
 
-using ArrayInterfaceCore: ReinterpretDropDimension, ReinterpretAddDimension,
-    ReinterpretOneToOne, ReinterpretResizeDimension
+#using ArrayInterfaceCore: ReinterpretDropDimension, ReinterpretAddDimension, ReinterpretOneToOne, ReinterpretResizeDimension
 
 import ArrayInterfaceCore: known_first, known_step, known_last
 

@@ -60,14 +60,12 @@ function _sub_axis_type(::Type{PA}, ::Type{I}, dim::StaticInt{D}) where {I<:Tupl
         axes_types(IT, static(1))
     end
 end
-@inline function axes_types(::Type{T}) where {N,P,I,T<:SubArray{<:Any,N,P,I}}
-    return eachop_tuple(_sub_axis_type, to_parent_dims(T), axes_types(P), I)
+@inline function axes_types(@nospecialize T::Type{<:SubArray})
+    return eachop_tuple(_sub_axis_type, to_parent_dims(T), axes_types(parent_type(T)), fieldtype(T, :indices))
 end
-
 function axes_types(::Type{T}) where {T<:ReinterpretArray}
     eachop_tuple(_non_reshaped_axis_type, ntuple(static, StaticInt(ndims(T))), T)
 end
-
 function _non_reshaped_axis_type(::Type{A}, d::StaticInt{D}) where {A,D}
     paxis = axes_types(parent_type(A), d)
     if D === 1
@@ -103,27 +101,12 @@ axes(A::ReshapedArray) = Base.axes(A)
 axes(A::PermutedDimsArray) = permute(axes(parent(A)), to_parent_dims(A))
 axes(A::MatAdjTrans) = permute(axes(parent(A)), to_parent_dims(A))
 axes(A::VecAdjTrans) = (SOneTo{1}(), axes(parent(A), 1))
-axes(A::SubArray) = _sub_axes(parent(A), A.indices)
-@generated function _sub_axes(A, inds::I) where {N,P,I}
-    out = Expr(:block, Expr(:meta, :inline))
-    t = Expr(:tuple)
-    for i in 1:fieldcount(I)
-        I_i = fieldtype(I, i)
-        if I_i <: Base.Slice{Base.OneTo{Int}}
-            push!(t.args, :(axes(A, $i)))
-        elseif ndims(I_i) === 1
-            push!(t.args, :(getfield(axes(getfield(inds, $i)), 1)))
-        else
-            axsi = Symbol(:axes_, i)
-            push!(out.args, :(axes(getfield(inds, $i))))
-            for j in 1:ndims(I_i)
-                push!(t.args, :(getfield($(axsi), $j)))
-            end
-            push!(out.args, Expr(:(=), axsi, :(axes(getfield(inds, $i)))))
-        end
-    end
-    push!(out.args, t)
-    out
+@inline axes(x::SubArray) = flatten_tuples(map(Base.Fix1(_sub_axis, x), ArrayInterfaceCore.dimsmap(x)))
+_sub_axis(x, @nospecialize(mi::MappedIndex{<:DroppedDimension})) = ()
+@inline _sub_axis(x, ::MappedIndex{<:Union{Dimension,Tuple},<:Any,Dimension{index}}) where {index} = axes(getfield(x.indices, index))
+@inline function _sub_axis(x, ::MappedIndex{<:Dimension,Dimension{pdim},Dimension{index}}) where {pdim,index}
+    i = getfield(x.indices, index)
+    i isa Base.Slice{Base.OneTo{Int}} ? axes(parent(x), StaticInt(pdim)) : axes(i)
 end
 
 @inline axes(A, dim) = _axes(A, to_dims(A, dim))
