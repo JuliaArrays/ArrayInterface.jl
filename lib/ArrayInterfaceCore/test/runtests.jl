@@ -271,8 +271,8 @@ end
 @testset "ndims_shape" begin
     @test @inferred(ArrayInterfaceCore.ndims_shape(1)) === 0
     @test @inferred(ArrayInterfaceCore.ndims_shape(:)) === 1
-    @test @inferred(ArrayInterfaceCore.ndims_shape(CartesianIndex(1, 2))) === (0, 0)
-    @test @inferred(ArrayInterfaceCore.ndims_shape(CartesianIndices((2,2)))) === (1, 1)
+    @test @inferred(ArrayInterfaceCore.ndims_shape(CartesianIndex(1, 2))) === 0
+    @test @inferred(ArrayInterfaceCore.ndims_shape(CartesianIndices((2,2)))) === 2
     @test @inferred(ArrayInterfaceCore.ndims_shape([1 1])) === 2
 end
 

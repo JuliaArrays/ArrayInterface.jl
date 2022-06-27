@@ -44,7 +44,7 @@ end
         end
     end
 
-    @test @inferred(ArrayInterface.to_indices(a, (CartesianIndices(()),))) == (CartesianIndices(()),)
+    #@test @inferred(ArrayInterface.to_indices(a, (CartesianIndices(()),))) == (CartesianIndices(()),)
     inds = @inferred(ArrayInterface.to_indices(a, (:,)))
     @test @inferred(ArrayInterface.to_indices(a, inds)) == inds == (ArrayInterface.indices(a),)
     @test @inferred(ArrayInterface.to_indices(ones(2, 2, 2), ([true, true], CartesianIndex(1, 1)))) == ([1, 2], 1, 1)
@@ -73,8 +73,8 @@ end
     struct SplatFirst end
 
     ArrayInterface.to_index(x, ::SplatFirst) = map(first, axes(x))
-    ArrayInterface.is_splat_index(::Type{SplatFirst}) = static(true)
-    x = rand(4, 4, 4, 4, 4, 4, 4, 4, 4, 4)
+    ArrayInterface.is_splat_index(::Type{SplatFirst}) = true
+    x = rand(4, 4, 4, 4, 4, 4, 4, 4, 4, 4);
     i = (1, SplatFirst(), 2, SplatFirst(), CartesianIndex(1, 1))
 
     @test @inferred(ArrayInterface.to_indices(x, i)) == (1, 1, 1, 1, 1, 1, 2, 1, 1, 1)

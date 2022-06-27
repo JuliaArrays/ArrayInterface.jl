@@ -157,8 +157,8 @@ end
 
 known_dimnames(@nospecialize T::Type{<:SubArray}) = flatten_tuples(map(Base.Fix1(_sub_known_dimnames, known_dimnames(parent_type(T))), ArrayInterfaceCore.dimsmap(T)))
 _sub_known_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:DroppedDimension})) = ()
-_sub_known_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:Tuple})) = ntuple(Compat.Returns(:_), Val{nfields(getfield(mi, :dimsin))}())
-_sub_known_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:Dimension})) = __sub_known_dimnames(dnames, getfield(mi, :dimsout))
+_sub_known_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:Tuple})) = ntuple(Compat.Returns(:_), Val{nfields(dimsin(mi))}())
+_sub_known_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:Dimension})) = __sub_known_dimnames(dnames, dimsout(mi))
 __sub_known_dimnames(@nospecialize(dnames::Tuple), @nospecialize(dimsout::Tuple)) = :_
 __sub_known_dimnames(dnames::Tuple, ::Dimension{dimout}) where {dimout} = getfield(dnames, dimout)
 
@@ -224,8 +224,8 @@ end
 
 dimnames(x::SubArray) = flatten_tuples(map(Base.Fix1(_sub_dimnames, dimnames(parent(x))), ArrayInterfaceCore.dimsmap(x)))
 _sub_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{DroppedDimension})) = ()
-_sub_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:Tuple})) = ntuple(Compat.Returns(static(:_)), Val{nfields(getfield(mi, :dimsin))}())
-_sub_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:Dimension})) = __sub_dimnames(dnames, getfield(mi, :dimsout))
+_sub_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:Tuple})) = ntuple(Compat.Returns(static(:_)), Val{nfields(dimsin(mi))}())
+_sub_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:Dimension})) = __sub_dimnames(dnames, dimsout(mi))
 __sub_dimnames(@nospecialize(dnames::Tuple), @nospecialize(dimsout::Tuple)) = static(:_)
 __sub_dimnames(dnames::Tuple, ::Dimension{dimout}) where {dimout} = getfield(dnames, dimout)
 

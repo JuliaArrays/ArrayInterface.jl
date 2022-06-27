@@ -627,6 +627,35 @@ known_step(x) = known_step(typeof(x))
 known_step(T::Type) = is_forwarding_wrapper(T) ? known_step(parent_type(T)) : nothing
 known_step(@nospecialize T::Type{<:AbstractUnitRange}) = 1
 
+# TODO document dimension
+struct Dimension{dim}
+    Dimension(dim::Int) = new{dim}()
+end
+
+struct DroppedDimension end
+
+struct TrailingDimension end
+
+# dimsin: the dimensions that go through this index
+# dimsout: the dimensions that this index iterates over
+struct MappedIndex{DI,DO,I}
+    dimsin::DI
+    dimsout::DO
+    index::I
+end
+
+dimsout(@nospecialize mi::MappedIndex) = getfield(mi, :dimsout)
+
+dimsin(@nospecialize mi::MappedIndex) = getfield(mi, :dimsin)
+
+Base.show(io::IO, @nospecialize(x::Union{Dimension,MappedIndex})) = show(io, MIME"text/plain"(), x)
+function Base.show(io::IO, ::MIME"text/plain", @nospecialize(dim::Dimension))
+    print(io, "Dimension(", typeof(dim).parameters[1], ")")
+end
+function Base.show(io::IO, m::MIME"text/plain", @nospecialize(mi::MappedIndex))
+    print(io, "MappedIndex(", dimsin(mi), ", ", dimsout(mi), ", ", getfield(mi, :index), ")")
+end
+
 """
     is_splat_index(::Type{T}) -> Bool
 Returns `static(true)` if `T` is a type that splats across multiple dimensions.
@@ -658,26 +687,11 @@ indexing with an instance of `I`.
 """
 ndims_shape(T::DataType) = ndims_index(T)
 ndims_shape(::Type{Colon}) = 1
-ndims_shape(T::Type{<:Base.AbstractCartesianIndex{N}}) where {N} = ntuple(zero, Val{N}())
-ndims_shape(@nospecialize T::Type{<:CartesianIndices}) = ntuple(one, Val{ndims(T)}())
-ndims_shape(@nospecialize T::Type{<:Number}) = 0
+ndims_shape(@nospecialize T::Type{<:CartesianIndices}) = ndims(T)
+ndims_shape(@nospecialize T::Type{<:Union{Number,Base.AbstractCartesianIndex}}) = 0
+ndims_shape(@nospecialize T::Type{<:AbstractArray{Bool}}) = 1
 ndims_shape(@nospecialize T::Type{<:AbstractArray}) = ndims(T)
 ndims_shape(x) = ndims_shape(typeof(x))
-
-struct Dimension{dim}
-    Dimension(dim::Int) = new{dim}()
-end
-struct DroppedDimension end
-
-# dimsin: the dimensions that go through this index
-# dimsout: the dimensions that this index iterates over
-struct MappedIndex{DI,DO,I}
-    dimsin::DI
-    dimsout::DO
-    index::I
-end
-
-const TrailingDimension{dimin} = MappedIndex{Dimension{dimin},Dimension{0}}
 
 """
     IndicesInfo(T::Type{<:Tuple}) -> IndicesInfo{NI,NS,IS}()
@@ -692,29 +706,39 @@ function IndicesInfo(@nospecialize T::Type{<:Tuple})
     IndicesInfo{
         map_tuple_type(ndims_index, T),
         map_tuple_type(ndims_shape, T),
-        map_tuple_type(==(1) ∘ is_splat_index, T)
+        findfirst(==(1), map_tuple_type(is_splat_index, T))
     }()
 end
 
-@inline function indices_to_dimensions(::IndicesInfo{NI,NS,IS}, n::Dimension{N}) where {NI,NS,IS,N}
-    # replace all
-    NIndices = length(NI)
-    splat_map = ntuple(Base.Fix2(_replace_splat, max(0, N - sum(NI))) ∘ ==(findfirst(IS)), Val{NIndices}())
-    ndi = _accum_dims(map(_maybe_ntimes, NI, splat_map))
-    nds = _accum_dims(map(_maybe_ntimes, NS, splat_map))
-    ntrailing = _lastdim(ndi) - N
-    diminds = ntuple(Dimension, NIndices)
-    if ntrailing === 0
-        return map(MappedIndex, nds, ndi, diminds)
-    elseif ntrailing < 0  # explicitely mark dimensions greater than the `N`
-        return map(MappedIndex, nds, _replace_trailing(n, ndi), diminds)
-    else  # add on missing dimensions and mark them as dropped
-        number_of_indices = length(NI)
-        return flatten_tuples((map(MappedIndex, nds, ndi, diminds), ntuple(MappedIndex(Dimension(0),Dimension(0), Dimension(0)), number_of_indices + ntrailing)))
-   end
+# linear index into linear collection
+function indices_to_dimensions(::IndicesInfo{(1,),NS,IS}, ::Dimension{1}) where {NS,IS}
+    (MappedIndex(_add_dims(1, getfield(NS, 1)), Dimension(1), Dimension(1)),)
 end
+
+# linear indexing into non-linear collection
+function indices_to_dimensions(::IndicesInfo{(1,),NS,IS}, n::Dimension{N}) where {NS,IS,N}
+    (MappedIndex(_add_dims(1, getfield(NS, 1)), :, Dimension(1)),)
+end
+
+# multidimensional indexing
+@inline function indices_to_dimensions(::IndicesInfo{NI,NS,IS}, n::Dimension{N}) where {NI,NS,IS,N}
+    NIndices = length(NI)
+    ndims_indices = sum(NI)
+    if IS === nothing
+        ndi = ndims_indices > N ? _replace_trailing(n, _accum_dims(NI)) : _accum_dims(NI)
+        return map(MappedIndex, _accum_dims(NS), ndi, ntuple(Dimension,NIndices))
+    else
+        if ndims_indices === N
+            return map(MappedIndex, _accum_dims(NS), _accum_dims(NI), ntuple(Dimension, NIndices))
+        else
+            splat_map = ntuple(Base.Fix2(_replace_splat, max(0, N - ndims_indices + 1)) ∘ ==(IS), Val{NIndices}())
+            return map(MappedIndex, _accum_dims(map(*, NS, splat_map)), _accum_dims(map(*, NI, splat_map)), ntuple(Dimension, NIndices))
+       end
+    end
+end
+
 _replace_splat(is_splat::Bool, n::Int) = is_splat ? n : 1
-_replace_trailing(::Dimension{N}, dim::Dimension{D}) where {N,D} = N < D ? Dimension(0) : dim
+_replace_trailing(::Dimension{N}, dim::Dimension{D}) where {N,D} = N < D ? TrailingDimension() : dim
 @inline function _replace_trailing(n::Dimension{N}, dims::Tuple) where {N}
     map(Base.Fix1(_replace_trailing, n), dims)
 end
@@ -728,31 +752,10 @@ _accum_dims(dims::Tuple) = map(_add_dims, cumsum(dims), dims)
         return ntuple(Dimension ∘ Base.Fix1(+, dim - n), n)
     end
 end
-_maybe_ntimes(x::Int, ::Nothing) = x
-_maybe_ntimes(x::Int, n::Int) = x * n
-_lastdim(::Dimension{N}) where {N} = N
-_lastdim(dims::Tuple{Vararg{Any,N}}) where {N} = _lastdim(getfield(dims, N))
 
 function _permdims(::Type{<:PermutedDimsArray{T,N,I1,I2}}) where {T,N,I1,I2}
     (map(Dimension, I1), map(Dimension, I2))
 end
-
-#=
-to_parent_dims(x) = to_parent_dims(typeof(x))
-to_parent_dims(@nospecialize T::Type{<:VecAdjTrans}) = (TrailingDimension(), Dimension(1))
-to_parent_dims(@nospecialize T::Type{<:MatAdjTrans}) = (Dimension(2), Dimension(1))
-to_parent_dims(@nospecialize T::Type{<:PermutedDimsArray}) = getfield(_permdims(T), 1)
-@inline function to_parent_dims(@nospecialize T::Type{<:SubArray})
-    pdims, cdims = dimsmap(T)
-    flatten_tuples(map(_to_subdim, cdims, pdims, ntuple(Dimension, length(pdims))))
-end
-_to_subdim(::DroppedDimension, pdims::PD, ::Dimension) where {PD} = ()
-_to_subdim(::Dimension, pdims::PD, ::Dimension{I}) where {PD,I} = IndexedDimension{I,:}() => pdims
-function _to_subdim(::Tuple{Vararg{Any,N}}, pdims::PD, ::Dimension{index}) where {N,PD,index}
-    map(Base.Fix2(=>, pdims), ntuple(IndexedDimension{index}, Val{N}()))
-end
-=#
-
 dimsmap(x) = dimsmap(typeof(x))
 function dimsmap(@nospecialize T::Type{<:SubArray})
     indices_to_dimensions(IndicesInfo(fieldtype(T, :indices)), Dimension(ndims(parent_type(T))))

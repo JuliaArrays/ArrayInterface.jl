@@ -19,7 +19,8 @@ import ArrayInterfaceCore: AbstractDevice, AbstractCPU, CPUPointer, CPUTuple, Ch
 
 # mapping between array layers
 using ArrayInterfaceCore:  IndicesInfo, indices_to_dimensions, ndims_index, ndims_shape,
-    is_splat_index, is_forwarding_wrapper, Dimension, DroppedDimension, MappedIndex
+    is_splat_index, is_forwarding_wrapper, Dimension, DroppedDimension, TrailingDimension,
+    MappedIndex, dimsout, dimsin
 
 #using ArrayInterfaceCore: ReinterpretDropDimension, ReinterpretAddDimension, ReinterpretOneToOne, ReinterpretResizeDimension
 
