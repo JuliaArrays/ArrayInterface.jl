@@ -103,6 +103,10 @@ end
     @test @inferred(ArrayInterface.dimnames(view(x, :, 1)')) === (static(:_), static(:x))
     @test @inferred(ArrayInterface.dimnames(view(x, :, :, :))) === (static(:x), static(:y), static(:_))
     @test @inferred(ArrayInterface.dimnames(view(x, :, 1, :))) === (static(:x), static(:_))
+    # multidmensional indices
+    @test @inferred(ArrayInterface.dimnames(view(x, ones(Int, 2, 2), 1))) === (static(:_), static(:_))
+    @test @inferred(ArrayInterface.dimnames(view(x, [CartesianIndex(1,1), CartesianIndex(1,1)]))) === (static(:_),)
+
     @test @inferred(ArrayInterface.dimnames(x, ArrayInterface.One())) === static(:x)
     @test @inferred(ArrayInterface.dimnames(parent(x), ArrayInterface.One())) === static(:_)
     @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10))) === (:_,)

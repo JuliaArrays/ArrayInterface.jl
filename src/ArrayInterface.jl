@@ -5,7 +5,7 @@ import ArrayInterfaceCore: allowed_getindex, allowed_setindex!, aos_to_soa, buff
     parent_type, fast_matrix_colors, findstructralnz, has_sparsestruct,
     issingular, isstructured, matrix_colors, restructure, lu_instance,
     safevec, zeromatrix, ColoringAlgorithm, fast_scalar_indexing, parameterless_type,
-    ndims_index, ndims_shape, is_splat_index, is_forwarding_wrapper, IndicesInfo
+    map_tuple_type, flatten_tuples
 
 # ArrayIndex subtypes and methods
 import ArrayInterfaceCore: ArrayIndex, MatrixIndex, VectorIndex, BidiagonalIndex, TridiagonalIndex
@@ -16,6 +16,14 @@ import ArrayInterfaceCore: MatAdjTrans, VecAdjTrans, UpTri, LoTri
 # device pieces
 import ArrayInterfaceCore: AbstractDevice, AbstractCPU, CPUPointer, CPUTuple, CheckParent,
     CPUIndex, GPU, can_avx
+
+# mapping between array layers
+using ArrayInterfaceCore: Dimension, IndexedDimension, ReshapedDimension, TrailingDimension,
+    DroppedDimension, IndicesInfo, indices_to_dimensions, ndims_index, ndims_shape,
+    is_splat_index, is_forwarding_wrapper
+
+using ArrayInterfaceCore: ReinterpretDropDimension, ReinterpretAddDimension,
+    ReinterpretOneToOne, ReinterpretResizeDimension
 
 import ArrayInterfaceCore: known_first, known_step, known_last
 

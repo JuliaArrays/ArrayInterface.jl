@@ -167,29 +167,6 @@ function _axis_expr(N::Int, d::Int)
     end
 end
 
-@inline function flatten_tuples(inds::I) where {I}
-    if @generated
-        t = Expr(:tuple)
-        for i in 1:fieldcount(I)
-            p = fieldtype(I, i)
-            if p <: Tuple
-                for j in 1:fieldcount(p)
-                    push!(t.args, :(@inbounds(getfield(getfield(inds, $i), $j))))
-                end
-            else
-                push!(t.args, :(@inbounds(getfield(inds, $i))))
-            end
-        end
-        Expr(:block, Expr(:meta, :inline), t)
-    else
-        out = ()
-        for i in inds
-            out = i isa Tuple ? (out..., i...) : (out..., i)
-        end
-        out
-    end
-end
-
 """
     ArrayInterface.to_index([::IndexStyle, ]axis, arg) -> index
 

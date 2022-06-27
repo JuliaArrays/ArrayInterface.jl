@@ -23,6 +23,73 @@ const UpTri{T,M} = Union{UpperTriangular{T,M},UnitUpperTriangular{T,M}}
 const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
 
 """
+    ArrayInterfaceCore.map_tuple_type(f, T::Type{<:Tuple})
+
+Returns tuple where each field corresponds to the field type of `T` modified by the function `f`.
+
+# Examples
+
+```julia
+julia> ArrayInterfaceCore.map_tuple_type(sqrt, Tuple{1,4,16})
+(1.0, 2.0, 4.0)
+
+```
+"""
+function map_tuple_type(f::F, ::Type{T}) where {F,T<:Tuple}
+    if @generated
+        t = Expr(:tuple)
+        for i in 1:fieldcount(T)
+            push!(t.args, :(f($(fieldtype(T, i)))))
+        end
+        Expr(:block, Expr(:meta, :inline), t)
+    else
+        Tuple(f(fieldtype(T, i)) for i in 1:fieldcount(T))
+    end
+end
+
+"""
+    ArrayInterfaceCore.flatten_tuples(t::Tuple) -> Tuple
+
+Flattens any field of `t` that is a tuple. Only direct fields of `t` may be flattened.
+
+# Examples
+
+```julia
+julia> ArrayInterfaceCore.flatten_tuples((1, ()))
+(1,)
+
+julia> ArrayInterfaceCore.flatten_tuples((1, (2, 3)))
+(1, 2, 3)
+
+julia> ArrayInterfaceCore.flatten_tuples((1, (2, (3,))))
+(1, 2, (3,))
+
+```
+"""
+@inline function flatten_tuples(t::Tuple)
+    if @generated
+        texpr = Expr(:tuple)
+        for i in 1:fieldcount(t)
+            p = fieldtype(t, i)
+            if p <: Tuple
+                for j in 1:fieldcount(p)
+                    push!(texpr.args, :(@inbounds(getfield(getfield(t, $i), $j))))
+                end
+            else
+                push!(texpr.args, :(@inbounds(getfield(t, $i))))
+            end
+        end
+        Expr(:block, Expr(:meta, :inline), texpr)
+    else
+        _flatten(t)
+    end
+end
+_flatten(::Tuple{}) = ()
+_flatten(t::Tuple{Any,Vararg{Any}}) = (getfield(t, 1), _flatten(Base.tail(t))...)
+_flatten(t::Tuple{Tuple,Vararg{Any}}) = (getfield(t, 1)..., _flatten(Base.tail(t))...)
+
+
+"""
     parent_type(::Type{T}) -> Type
 
 Returns the parent array that type `T` wraps.
@@ -591,11 +658,27 @@ indexing with an instance of `I`.
 """
 ndims_shape(T::DataType) = ndims_index(T)
 ndims_shape(::Type{Colon}) = 1
-ndims_shape(T::Type{<:Base.AbstractCartesianIndex{N}}) where {N} = ntuple(zero, Val{N}())
-ndims_shape(@nospecialize T::Type{<:CartesianIndices}) = ntuple(one, Val{ndims(T)}())
-ndims_shape(@nospecialize T::Type{<:Number}) = 0
+ndims_shape(@nospecialize T::Type{<:CartesianIndices}) = ndims(T)
+ndims_shape(@nospecialize T::Type{<:Union{Number,Base.AbstractCartesianIndex}}) = 0
 ndims_shape(@nospecialize T::Type{<:AbstractArray}) = ndims(T)
 ndims_shape(x) = ndims_shape(typeof(x))
+
+struct Dimension{dim}
+    Dimension(dim::Int) = new{dim}()
+end
+
+struct TrailingDimension end
+
+struct DroppedDimension end
+
+struct ReinterpretedDimension{T,S} end
+
+struct ReshapedDimension end
+
+struct IndexedDimension{index,dim}
+    IndexedDimension{index,dim}() where {index,dim} = new{index,dim}()
+    IndexedDimension{index}(dim::Int) where {index} = IndexedDimension{index,dim}()
+end
 
 """
     IndicesInfo(T::Type{<:Tuple}) -> IndicesInfo{NI,NS,IS}()
@@ -605,18 +688,76 @@ Provides basic trait information for each index type in in the tuple `T`. `NI`, 
 [`is_splat_index`](@ref) (respectively) for each field of `T`.
 """
 struct IndicesInfo{NI,NS,IS} end
-IndicesInfo(@nospecialize x::Tuple) = IndicesInfo(typeof(x))
-@generated function IndicesInfo(::Type{T}) where {T<:Tuple}
-    NI = Expr(:tuple)
-    NS = Expr(:tuple)
-    IS = Expr(:tuple)
-    for i in 1:fieldcount(T)
-        T_i = fieldtype(T, i)
-        push!(NI.args, :(ndims_index($(T_i))))
-        push!(NS.args, :(ndims_shape($(T_i))))
-        push!(IS.args, :(is_splat_index($(T_i))))
+IndicesInfo(x::Tuple) = IndicesInfo(typeof(x))
+function IndicesInfo(@nospecialize T::Type{<:Tuple})
+    IndicesInfo{
+        map_tuple_type(ndims_index, T),
+        map_tuple_type(ndims_shape, T),
+        map_tuple_type(==(1) ∘ is_splat_index, T)
+    }()
+end
+
+@inline function indices_to_dimensions(::IndicesInfo{NI,NS,IS}, n::Dimension{N}) where {NI,NS,IS,N}
+    # replace all
+    NIndices = length(NI)
+    splat_map = ntuple(Base.Fix2(_replace_splat, max(0, N - sum(NI))) ∘ ==(findfirst(IS)), Val{NIndices}())
+    ndi = _accum_dims(map(_maybe_ntimes, NI, splat_map))
+    nds = _accum_dims(map(_maybe_ntimes, NS, splat_map))
+    ntrailing = _lastdim(ndi) - N
+    if ntrailing === 0
+        return ndi, nds
+    elseif ntrailing < 0  # explicitely mark dimensions greater than the `N`
+        return _replace_trailing(n, ndi)
+    else  # add on missing dimensions and mark them as dropped
+        number_of_indices = length(NI)
+        new_number_of_indices = number_of_indices + ntrailing
+        return (
+            ntuple(i -> i > number_of_indices ? DroppedDimension() : getfield(ndi, i), new_number_of_indices),
+            ntuple(i -> i > number_of_indices ? DroppedDimension() : getfield(nds, i), new_number_of_indices)
+        )
     end
-    Expr(:block, Expr(:meta, :inline), :(IndicesInfo{$(NI),$(NS),$(IS)}()))
+end
+_replace_splat(is_splat::Bool, n::Int) = is_splat ? n : 1
+_replace_trailing(::Dimension{N}, dim::Dimension{D}) where {N,D} = N < D ? TrailingDimension() : dim
+@inline function _replace_trailing(n::Dimension{N}, dims::Tuple) where {N}
+    map(Base.Fix1(_replace_trailing, n), dims)
+end
+_accum_dims(dims::Tuple) = map(_add_dims, cumsum(dims), dims)
+@inline function _add_dims(dim::Int, n::Int)
+    if n === 0
+        return DroppedDimension()
+    elseif n === 1
+        return Dimension(dim)
+    else
+        return ntuple(Dimension ∘ Base.Fix1(+, dim - n), n)
+    end
+end
+_maybe_ntimes(x::Int, ::Nothing) = x
+_maybe_ntimes(x::Int, n::Int) = x * n
+_lastdim(::Dimension{N}) where {N} = N
+_lastdim(dims::Tuple{Vararg{Any,N}}) where {N} = _lastdim(getfield(dims, N))
+
+function _permdims(::Type{<:PermutedDimsArray{T,N,I1,I2}}) where {T,N,I1,I2}
+    (map(Dimension, I1), map(Dimension, I2))
+end
+
+to_parent_dims(x) = to_parent_dims(typeof(x))
+to_parent_dims(@nospecialize T::Type{<:VecAdjTrans}) = (TrailingDimension(), Dimension(1))
+to_parent_dims(@nospecialize T::Type{<:MatAdjTrans}) = (Dimension(2), Dimension(1))
+to_parent_dims(@nospecialize T::Type{<:PermutedDimsArray}) = getfield(_permdims(T), 1)
+@inline function to_parent_dims(@nospecialize T::Type{<:SubArray})
+    pdims, cdims = dimsmap(T)
+    flatten_tuples(map(_to_subdim, cdims, pdims, ntuple(Dimension, length(pdims))))
+end
+_to_subdim(::DroppedDimension, pdims::PD, ::Dimension) where {PD} = ()
+_to_subdim(::Dimension, pdims::PD, ::Dimension{I}) where {PD,I} = IndexedDimension{I,:}() => pdims
+function _to_subdim(::Tuple{Vararg{Any,N}}, pdims::PD, ::Dimension{index}) where {N,PD,index}
+    map(Base.Fix2(=>, pdims), ntuple(IndexedDimension{index}, Val{N}()))
+end
+
+dimsmap(x) = dimsmap(typeof(x))
+function dimsmap(@nospecialize T::Type{<:SubArray})
+    indices_to_dimensions(IndicesInfo(fieldtype(T, :indices)), Dimension(ndims(parent_type(T))))
 end
 
 """
