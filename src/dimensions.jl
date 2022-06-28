@@ -63,16 +63,16 @@ Now let's assume these indices were produced within the operation `parent[inds..
 
 # linear index into linear collection
 @inline function indices_to_dimensions(::IndicesInfo{(1,),NS,nothing}, ::StaticInt{1}) where {NS}
-    (_add_dims(1, getfield(NS, 1)),), (StaticInt(1),)
+    (_add_dims(static(1), static(getfield(NS, 1))),), (StaticInt(1),)
 end
 @inline function indices_to_dimensions(::IndicesInfo{(1,),NS,IS}, ::StaticInt{1}) where {NS,IS}
-    (_add_dims(1, getfield(NS, 1)),), (StaticInt(1),)
+    (_add_dims(static(1), static(getfield(NS, 1))),), (StaticInt(1),)
 end
 @inline function indices_to_dimensions(::IndicesInfo{(1,),NS,nothing}, n::StaticInt{N}) where {NS,N}
-    (_add_dims(1, getfield(NS, 1)),), (:,)
+    (_add_dims(static(1), static(getfield(NS, 1))),), (:,)
 end
 @inline function indices_to_dimensions(::IndicesInfo{(1,),NS,IS}, n::StaticInt{N}) where {NS,N,IS}
-    (_add_dims(1, getfield(NS, 1)),), ntuple(static, n)
+    (_add_dims(static(1), static(getfield(NS, 1))),), ntuple(static, n)
 end
 @inline function indices_to_dimensions(::IndicesInfo{NI,NS,nothing}, n::StaticInt{N}) where {NI,NS,N}
     _accum_dims(NS), sum(NI) > N ? _replace_trailing(n, _accum_dims(NI)) : _accum_dims(NI)
@@ -90,16 +90,11 @@ end
 _replace_splat(is_splat::Bool, n::Int) = is_splat ? n : 1
 _replace_trailing(::StaticInt{N}, dim::StaticInt{D}) where {N,D} = N < D ? StaticInt(0) : dim
 _replace_trailing(n::StaticInt{N}, dims::Tuple) where {N} = map(Base.Fix1(_replace_trailing, n), dims)
-_accum_dims(dims::Tuple) = map(_add_dims, cumsum(dims), dims)
-@inline function _add_dims(dim::Int, n::Int)
-    if n === 0
-        return StaticInt(0)
-    elseif n === 1
-        return StaticInt(dim)
-    else
-        return ntuple(static ∘ Base.Fix1(+, dim - n), n)
-    end
-end
+_accum_dims(dims::Tuple) = __accum_dims(map(static, dims))
+__accum_dims(dims::Tuple) = map(_add_dims, cumsum(dims), dims)
+_add_dims(::StaticInt{D}, n::StaticInt{0}) where {D} = n
+_add_dims(d::StaticInt{D}, ::StaticInt{1}) where {D} = d
+_add_dims(d::StaticInt{D}, n::StaticInt{N}) where {D,N} = ntuple(static ∘ Base.Fix1(+, d - n), n)
 
 dimsmap(x) = dimsmap(typeof(x))
 function dimsmap(@nospecialize T::Type{<:SubArray})

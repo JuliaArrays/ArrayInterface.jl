@@ -85,9 +85,8 @@ julia> ArrayInterfaceCore.flatten_tuples((1, (2, (3,))))
     end
 end
 _flatten(::Tuple{}) = ()
-_flatten(t::Tuple{Any,Vararg{Any}}) = (getfield(t, 1), _flatten(Base.tail(t))...)
-_flatten(t::Tuple{Tuple,Vararg{Any}}) = (getfield(t, 1)..., _flatten(Base.tail(t))...)
-
+@inline _flatten(t::Tuple{Any,Vararg{Any}}) = (getfield(t, 1), _flatten(Base.tail(t))...)
+@inline _flatten(t::Tuple{Tuple,Vararg{Any}}) = (getfield(t, 1)..., _flatten(Base.tail(t))...)
 
 """
     parent_type(::Type{T}) -> Type
