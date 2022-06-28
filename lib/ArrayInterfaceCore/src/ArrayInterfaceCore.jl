@@ -9,7 +9,7 @@ using SuiteSparse
     using Base: @assume_effects
 else
     macro assume_effects(_, ex)
-        Base.@pure ex
+        :(Base.@pure $(ex))
     end
 end
 
@@ -664,6 +664,13 @@ ndims_shape(@nospecialize T::Type{<:AbstractArray{Bool}}) = 1
 ndims_shape(@nospecialize T::Type{<:AbstractArray}) = ndims(T)
 ndims_shape(x) = ndims_shape(typeof(x))
 
+@assume_effects :total function _find_first_true(isi::Tuple{Vararg{Bool,N}}) where {N}
+    for i in 1:N
+        getfield(isi, i) && return i
+    end
+    return nothing
+end
+
 """
     IndicesInfo(T::Type{<:Tuple}) -> IndicesInfo{NI,NS,IS}()
 
@@ -677,7 +684,8 @@ function IndicesInfo(@nospecialize T::Type{<:Tuple})
     IndicesInfo{
         map_tuple_type(ndims_index, T),
         map_tuple_type(ndims_shape, T),
-        findfirst(==(1), map_tuple_type(is_splat_index, T))
+        _find_first_true(map_tuple_type(is_splat_index, T))
+        #findfirst(==(1), map_tuple_type(is_splat_index, T))
     }()
 end
 
