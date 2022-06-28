@@ -27,13 +27,17 @@ size(a::Base.Broadcast.Broadcasted) = map(length, axes(a))
 
 _maybe_size(::Base.HasShape{N}, a::A) where {N,A} = map(length, axes(a))
 _maybe_size(::Base.HasLength, a::A) where {A} = (length(a),)
-@inline size(x::SubArray) = flatten_tuples(map(Base.Fix1(_sub_size, x), dimsmap(x)))
-_sub_size(x, mi::MappedIndex{StaticInt{0}}) = ()
-function _sub_size(x, mi::MappedIndex{StaticInt{cdim}}) where {cdim}
-    i = x.indices[getfield(mi, :index)]
-    i isa Base.Slice{Base.OneTo{Int}} ? size(parent(x), dimsout(mi)) : length(i)
+
+@inline function size(x::SubArray)
+    flatten_tuples(map((i, d) -> _sub_size(parent(x), i, d), x.indices, dimsmap(x)))
 end
-_sub_size(x, mi::MappedIndex{<:Tuple}) = size(x.indices[getfield(mi, :index)])
+_sub_size(x, idx, ::Tuple{StaticInt{0},Any}) = ()
+function _sub_size(x, idx::Base.Slice{Base.OneTo{Int}}, dm::Tuple{StaticInt,Any})
+    sz = known_size(x, getfield(dm, 2))
+    sz === nothing ? length(idx) : StaticInt(sz)
+end
+_sub_size(x, idx, ::Tuple{StaticInt,Any}) = length(idx)
+_sub_size(x, idx, ::Tuple{Tuple,Any}) = size(idx)
 
 @inline size(B::VecAdjTrans) = (One(), length(parent(B)))
 @inline function size(x::Union{PermutedDimsArray,MatAdjTrans})
@@ -152,15 +156,21 @@ end
     ntuple(i -> known_length(I.parameters[i]), Val(ndims(T)))
 end
 @inline function known_size(@nospecialize T::Type{<:SubArray})
-    flatten_tuples(map(Base.Fix1(_known_sub_size, T), dimsmap(T)))
+    flatten_tuples(map(
+        Base.Fix1(_known_sub_size, T),
+        map(=>, ntuple(static, StaticInt(known_length(fieldtype(T, :indices)))), dimsmap(T))
+    ))
 end
-_known_sub_size(@nospecialize(T::Type{<:SubArray}), mi::MappedIndex{StaticInt{0}}) = ()
-function _known_sub_size(@nospecialize(T::Type{<:SubArray}), mi::MappedIndex{StaticInt{cdim}}) where {cdim}
-    i = field_type(fieldtype(T, :indices), getfield(mi, :index))
-    i <: Base.Slice{Base.OneTo{Int}} ? known_size(parent_type(T), dimsout(mi)) : known_length(i)
+_known_sub_size(@nospecialize(T::Type{<:SubArray}), ::Pair{StaticInt{index},Tuple{StaticInt{0},Any}}) where {index} = ()
+function _known_sub_size(@nospecialize(T::Type{<:SubArray}), dm::Pair{StaticInt{index},Tuple{StaticInt{cdim},Any}}) where {index,cdim}
+    if fieldtype(fieldtype(T, :indices), :index) <: Base.Slice{Base.OneTo{Int}}
+        return known_size(parent_type(T), getfield(dm.second, 2))
+    else
+        return nothing
+    end
 end
-function _known_sub_size(@nospecialize(T::Type{<:SubArray}), mi::MappedIndex{<:Tuple})
-    known_size(field_type(fieldtype(T, :indices), getfield(mi, :index)))
+function _known_sub_size(@nospecialize(T::Type{<:SubArray}), ::Pair{StaticInt{index}}) where {index}
+    known_size(fieldtype(fieldtype(T, :indices), index))
 end
 
 # 1. `Zip` doesn't check that its collections are compatible (same size) at construction,
@@ -176,13 +186,7 @@ _unzip_size(::Type{T}, n::StaticInt{N}) where {T,N} = known_size(field_type(T, n
 _known_size(::Type{T}, dim::StaticInt) where {T} = known_length(field_type(T, dim))
 @inline known_size(x, dim) = known_size(typeof(x), dim)
 @inline known_size(::Type{T}, dim) where {T} = known_size(T, to_dims(T, dim))
-@inline function known_size(::Type{T}, dim::CanonicalInt) where {T}
-    if ndims(T) < dim
-        return 1
-    else
-        return known_size(T)[dim]
-    end
-end
+known_size(T::Type, dim::CanonicalInt) = ndims(T) < dim ? 1 : known_size(T)[dim]
 
 """
     length(A) -> Union{Int,StaticInt}

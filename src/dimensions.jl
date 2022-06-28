@@ -43,7 +43,7 @@ end
 dimsmap(x) = dimsmap(typeof(x))
 function dimsmap(@nospecialize T::Type{<:SubArray})
     dimsin, dimsout = indices_to_dimensions(IndicesInfo(fieldtype(T, :indices)), StaticInt(ndims(parent_type(T))))
-    map(MappedIndex, dimsin, dimsout, ntuple(static, length(dimsin)))
+    map(tuple, dimsin, dimsout)
 end
 @inline function to_parent_dims(@nospecialize T::Type{<:SubArray})
     dimsin, dimsout = indices_to_dimensions(IndicesInfo(fieldtype(T, :indices)), StaticInt(ndims(parent_type(T))))
@@ -100,12 +100,13 @@ function known_dimnames(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsAr
     map(GetIndex{false}(known_dimnames(parent_type(T))), dimperm(T))
 end
 
-known_dimnames(@nospecialize T::Type{<:SubArray}) = flatten_tuples(map(Base.Fix1(_sub_known_dimnames, known_dimnames(parent_type(T))), dimsmap(T)))
-_sub_known_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{StaticInt{0}})) = ()
-_sub_known_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:Tuple})) = ntuple(Compat.Returns(:_), Val{nfields(dimsin(mi))}())
-_sub_known_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:StaticInt})) = __sub_known_dimnames(dnames, dimsout(mi))
-__sub_known_dimnames(@nospecialize(dnames::Tuple), @nospecialize(dimsout::Tuple)) = :_
-__sub_known_dimnames(dnames::Tuple, ::StaticInt{dimout}) where {dimout} = getfield(dnames, dimout)
+function known_dimnames(@nospecialize T::Type{<:SubArray})
+    flatten_tuples(map(Base.Fix1(_known_sub_dimnames, known_dimnames(parent_type(T))), dimsmap(T)))
+end
+_known_sub_dimnames(::Tuple, ::Tuple{StaticInt{0},StaticInt}) = ()
+_known_sub_dimnames(::Tuple, dm::Tuple{Tuple,StaticInt}) = ntuple(Compat.Returns(:_), length(getfield(dm, 1)))
+_known_sub_dimnames(dnames::Tuple, ::Tuple{StaticInt,StaticInt{dimout}}) where {dimout} = getfield(dnames, dimout)
+_known_sub_dimnames(::Tuple, ::Tuple{StaticInt,Tuple}) = :_
 
 function known_dimnames(::Type{<:ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
     pnames = known_dimnames(A)
@@ -161,12 +162,13 @@ have a name.
     map(GetIndex{false}(dimnames(parent(x))), dimperm(x))
 end
 
-dimnames(x::SubArray) = flatten_tuples(map(Base.Fix1(_sub_dimnames, dimnames(parent(x))), dimsmap(x)))
-_sub_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{StaticInt{0}})) = ()
-_sub_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:Tuple})) = ntuple(Compat.Returns(static(:_)), Val{nfields(dimsin(mi))}())
-_sub_dimnames(@nospecialize(dnames::Tuple), @nospecialize(mi::MappedIndex{<:StaticInt})) = __sub_dimnames(dnames, dimsout(mi))
-__sub_dimnames(@nospecialize(dnames::Tuple), @nospecialize(dimsout::Tuple)) = static(:_)
-__sub_dimnames(dnames::Tuple, ::StaticInt{dimout}) where {dimout} = getfield(dnames, dimout)
+function dimnames(x::SubArray)
+    flatten_tuples(map(Base.Fix1(_sub_dimnames, dimnames(parent(x))), dimsmap(x)))
+end
+_sub_dimnames(::Tuple, ::Tuple{StaticInt{0},StaticInt}) = ()
+_sub_dimnames(::Tuple, dm::Tuple{Tuple,StaticInt}) = ntuple(Compat.Returns(static(:_)), length(getfield(dm, 1)))
+_sub_dimnames(dnames::Tuple, ::Tuple{StaticInt,StaticInt{dimout}}) where {dimout} = getfield(dnames, dimout)
+_sub_dimnames(::Tuple, ::Tuple{StaticInt,Tuple}) = static(:_)
 
 dimnames(x::VecAdjTrans) = (static(:_), getfield(dimnames(parent(x)), 1))
 @inline function dimnames(x::ReinterpretArray{T,N,S,A,IsReshaped}) where {T,N,S,A,IsReshaped}

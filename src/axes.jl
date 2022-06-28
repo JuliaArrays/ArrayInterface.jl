@@ -114,13 +114,17 @@ axes(A::ReshapedArray) = Base.axes(A)
     map(GetIndex{false}(axes(parent(x))), dimperm(x))
 end
 axes(A::VecAdjTrans) = (SOneTo{1}(), axes(parent(A), 1))
-@inline axes(x::SubArray) = flatten_tuples(map(Base.Fix1(_sub_axis, x), dimsmap(x)))
-_sub_axis(x, @nospecialize(mi::MappedIndex{StaticInt{0}})) = ()
-@inline _sub_axis(x, ::MappedIndex{<:Union{StaticInt,Tuple},<:Any,StaticInt{index}}) where {index} = axes(getfield(x.indices, index))
-@inline function _sub_axis(x, ::MappedIndex{<:StaticInt,StaticInt{pdim},StaticInt{index}}) where {pdim,index}
-    i = getfield(x.indices, index)
-    i isa Base.Slice{Base.OneTo{Int}} ? axes(parent(x), StaticInt(pdim)) : axes(i)
+@inline function axes(x::SubArray)
+    flatten_tuples(map((i, d) -> _sub_axis(parent(x), i, d), x.indices, dimsmap(x)))
 end
+_sub_axis(x, idx, ::Tuple{StaticInt{0}}) = ()
+function _sub_axis(x, idx::Base.Slice{Base.OneTo{Int}}, dm::Tuple{StaticInt,Any})
+    sz = known_size(x, getfield(dm, 2))
+    sz === nothing ? axes(idx) : StaticInt(1):StaticInt(sz)
+end
+_sub_axis(x, idx, ::Tuple{Any,Any}) = axes(idx)
+
+
 @inline axes(A, dim) = _axes(A, to_dims(A, dim))
 @inline _axes(A, dim::Int) = dim > ndims(A) ? OneTo(1) : getfield(axes(A), dim)
 @inline function _axes(A, ::StaticInt{dim}) where {dim}

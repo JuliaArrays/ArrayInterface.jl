@@ -280,16 +280,6 @@ end
     end
 end
 
-struct MappedIndex{DI,DO,I}
-    dimsin::DI
-    dimsout::DO
-    index::I
-end
-
-dimsout(@nospecialize mi::MappedIndex) = getfield(mi, :dimsout)
-
-dimsin(@nospecialize mi::MappedIndex) = getfield(mi, :dimsin)
-
 include("array_index.jl")
 include("ranges.jl")
 include("axes.jl")
