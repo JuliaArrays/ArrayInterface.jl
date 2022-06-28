@@ -74,7 +74,6 @@ ArrayInterface.axes_types
 ArrayInterface.broadcast_axis
 ArrayInterface.deleteat
 ArrayInterface.dense_dims
-ArrayInterface.from_parent_dims
 ArrayInterface.getindex
 ArrayInterface.indices
 ArrayInterface.insert
@@ -89,7 +88,6 @@ ArrayInterface.to_axis
 ArrayInterface.to_dims
 ArrayInterface.to_index
 ArrayInterface.to_indices
-ArrayInterface.to_parent_dims
 ArrayInterface.unsafe_reconstruct
 ```
 

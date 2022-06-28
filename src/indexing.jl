@@ -81,29 +81,29 @@ This implementation differs from that of `Base.to_indices` in the following ways
 """
 to_indices(A, ::Tuple{}) = ()
 @inline function to_indices(a::A, inds::I) where {A,I}
+    dimsin, dimsout = indices_to_dimensions(IndicesInfo(I), StaticInt(ndims(A)))
     flatten_tuples(map(
         Base.Fix1(_map_to_index, (a, inds)),
-        indices_to_dimensions(IndicesInfo(I), Dimension(ndims(A)))
+        map(MappedIndex, dimsin, dimsout, ntuple(static, length(dimsin)))
     ))
 end
-
-@inline function _map_to_index((a, inds), mi::MappedIndex{<:Any,TrailingDimension,Dimension{index}}) where {index}
+@inline function _map_to_index((a, inds), mi::MappedIndex{<:Any,StaticInt{0},StaticInt{index}}) where {index}
     to_index(StaticInt(1):StaticInt(1), getfield(inds, index))
 end
-@inline function _map_to_index((a, inds), mi::MappedIndex{<:Any,Colon,Dimension{index}}) where {index}
+@inline function _map_to_index((a, inds), mi::MappedIndex{<:Any,Colon,StaticInt{index}}) where {index}
     to_index(LazyAxis{:}(a), getfield(inds, index))
 end
-@inline function _map_to_index((a, inds), mi::MappedIndex{<:Any,Dimension{dim},Dimension{index}}) where {dim,index}
+@inline function _map_to_index((a, inds), mi::MappedIndex{<:Any,StaticInt{dim},StaticInt{index}}) where {dim,index}
     to_index(LazyAxis{dim}(a), getfield(inds, index))
 end
-@inline function _map_to_index((a, inds), mi::MappedIndex{<:Any,<:Tuple,Dimension{index}}) where {index}
+@inline function _map_to_index((a, inds), mi::MappedIndex{<:Any,<:Tuple,StaticInt{index}}) where {index}
     if (Base.length(inds) === index) && (IndexStyle(a) isa IndexLinear)
         return to_index(LinearIndices(map(Base.Fix1(_to_lazy_axes, a), dimsout(mi))), getfield(inds, index))
     else
         return to_index(CartesianIndices(map(Base.Fix1(_to_lazy_axes, a), dimsout(mi))), getfield(inds, index))
     end
 end
-@inline _to_lazy_axes(A, ::Dimension{dim}) where {dim} = LazyAxis{dim}(A)
+@inline _to_lazy_axes(A, ::StaticInt{dim}) where {dim} = LazyAxis{dim}(A)
 
 """
     ArrayInterface.to_index([::IndexStyle, ]axis, arg) -> index

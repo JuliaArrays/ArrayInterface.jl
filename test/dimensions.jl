@@ -2,56 +2,6 @@
 ###
 ### define wrapper with ArrayInterface.dimnames
 ###
-@testset "dimension permutations" begin
-    a = ones(2, 2, 2)
-    perm = PermutedDimsArray(a, (3, 1, 2))
-    mview = view(perm, :, 1, :)
-    madj = mview'
-    vview = view(madj, 1, :)
-    vadj = vview'
-
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(a))) == (1, 2, 3)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(perm))) == (3, 1, 2)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(mview))) == (1, 3)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(madj))) == (2, 1)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(vview))) == (2,)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj))) == (2, 1)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj), static(1))) == 2
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj), 1)) == 2
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj), static(3))) == 2
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj), 3)) == 2
-
-    @test @inferred(ArrayInterface.from_parent_dims(a)) == (1, 2, 3)
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(perm))) == (2, 3, 1)
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(mview))) == (1, 0, 2)
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(madj))) == (2, 1)
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(vview))) == (0, 1)
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(vadj))) == (2,)
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(vadj), static(1))) == 2
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(vadj), 1)) == 2
-
-    @test_throws DimensionMismatch ArrayInterface.to_parent_dims(typeof(vadj), 0)
-    @test_throws DimensionMismatch ArrayInterface.to_parent_dims(typeof(vadj), static(0))
-
-    @test_throws DimensionMismatch ArrayInterface.from_parent_dims(typeof(vadj), 0)
-    @test_throws DimensionMismatch ArrayInterface.from_parent_dims(typeof(vadj), static(0))
-
-    colormat = reinterpret(reshape, Float64, [(R=rand(), G=rand(), B=rand()) for i ∈ 1:100])
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(colormat))) === (static(2),)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(colormat))) === (static(0), static(1),)
-
-    Rr = reinterpret(reshape, Int32, ones(4))
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(Rr))) === (static(2),)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(Rr))) === (static(0), static(1),)
-
-    Rr = reinterpret(reshape, Int64, ones(4))
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(Rr))) === (static(1),)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(Rr))) === (static(1),)
-
-    Sr = reinterpret(reshape, Complex{Int64}, zeros(2, 3, 4))
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(Sr))) === (static(0), static(1), static(2))
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(Sr))) === (static(2), static(3))
-end
 
 @testset "order_named_inds" begin
     n1 = (static(:x),)

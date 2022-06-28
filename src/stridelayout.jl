@@ -11,7 +11,9 @@ _defines_strides(::Type{P}, ::Type{T}) where {P,T} = defines_strides(P)
 defines_strides(::Type{T}) where {T} = _defines_strides(parent_type(T), T)
 defines_strides(@nospecialize T::Type{<:StridedArray}) = true
 defines_strides(@nospecialize T::Type{<:BitArray}) = true
-@inline defines_strides(@nospecialize T::Type{<:SubArray}) = stride_preserving_index(fieldtype(T, :indices))
+@inline function defines_strides(@nospecialize T::Type{<:SubArray})
+    stride_preserving_index(fieldtype(T, :indices))
+end
 #=
     stride_preserving_index(::Type{T}) -> StaticBool
 
@@ -20,7 +22,9 @@ instance of type `T`.
 =#
 stride_preserving_index(@nospecialize T::Type{<:AbstractRange}) = true
 stride_preserving_index(@nospecialize T::Type{<:Number}) = true
-stride_preserving_index(@nospecialize T::Type{<:Tuple}) = all(map_tuple_type(stride_preserving_index, T))
+@inline function stride_preserving_index(@nospecialize T::Type{<:Tuple})
+    all(map_tuple_type(stride_preserving_index, T))
+end
 stride_preserving_index(@nospecialize T::Type) = false
 
 """
@@ -152,7 +156,7 @@ function contiguous_axis(::Type{T}) where {T<:PermutedDimsArray}
     elseif isone(-c)
         return c
     else
-        return from_parent_dims(T, c)
+        return invdimperm(T)[c]
     end
 end
 function contiguous_axis(::Type{<:Base.ReshapedArray{T, N, A, Tuple{}}}) where {T, N, A}
@@ -169,26 +173,24 @@ end
 function contiguous_axis(::Type{<:Base.ReshapedArray{T, 1, A, Tuple{}}}) where {T, A <: VecAdjTrans}
     contiguous_axis(parent_type(A))
 end
-function contiguous_axis(::Type{T}) where {T<:SubArray}
-    _contiguous_axis(T, contiguous_axis(parent_type(T)))
-end
-
-_contiguous_axis(::Type{A}, ::Nothing) where {T,N,P,I,A<:SubArray{T,N,P,I}} = nothing
-_contiguous_axis(::Type{A}, c::StaticInt{-1}) where {T,N,P,I,A<:SubArray{T,N,P,I}} = c
-function _contiguous_axis(::Type{A}, c::StaticInt{C}) where {T,N,P,I,A<:SubArray{T,N,P,I},C}
-    if field_type(I, c) <: AbstractUnitRange
-        return from_parent_dims(A)[C]
-    elseif field_type(I, c) <: AbstractArray
-        return -One()
-    elseif field_type(I, c) <: CanonicalInt
-        return -One()
-    else
+@inline function contiguous_axis(@nospecialize T::Type{<:SubArray})
+    c = contiguous_axis(parent_type(T))
+    if c === nothing
         return nothing
+    elseif c == -1
+        return c
+    else
+        I = field_type(fieldtype(T, :indices), c)
+        if I <: AbstractUnitRange
+            return from_parent_dims(T)[c]  # FIXME get rid of from_parent_dims
+        elseif I <: AbstractArray || I <: CanonicalInt
+            return StaticInt(-1)
+        else
+            return nothing
+        end
     end
 end
 
-# contiguous_if_one(::StaticInt{1}) = StaticInt{1}()
-# contiguous_if_one(::Any) = StaticInt{-1}()
 function contiguous_axis(::Type{R}) where {T,N,S,A<:Array{S},R<:ReinterpretArray{T,N,S,A}}
     if isbitstype(S)
         return One()
@@ -225,27 +227,28 @@ stride_rank(x) = stride_rank(typeof(x))
 function stride_rank(::Type{T}) where {T}
     is_forwarding_wrapper(T) ? stride_rank(parent_type(T)) : nothing
 end
-stride_rank(::Type{<:DenseArray{T,N}}) where {T,N} = ntuple(static, StaticInt(N))
 stride_rank(::Type{BitArray{N}}) where {N} = ntuple(static, StaticInt(N))
-stride_rank(::Type{<:AbstractRange}) = (One(),)
-stride_rank(::Type{<:Tuple}) = (One(),)
+stride_rank(@nospecialize T::Type{<:DenseArray}) = ntuple(static, StaticInt(ndims(T)))
+stride_rank(@nospecialize T::Type{<:AbstractRange}) = (One(),)
+stride_rank(@nospecialize T::Type{<:Tuple}) = (One(),)
+stride_rank(@nospecialize T::Type{<:VecAdjTrans}) = (StaticInt(2), StaticInt(1))
+@inline function stride_rank(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsArray}})
+    rank = stride_rank(parent_type(T))
+    if rank === nothing
+        return nothing
+    else
+        return map(GetIndex{false}(rank), dimperm(T))
+    end
+ end
 
-stride_rank(::Type{T}) where {T<:VecAdjTrans} = (StaticInt(2), StaticInt(1))
-stride_rank(::Type{T}) where {T<:MatAdjTrans} = _stride_rank(T, stride_rank(parent_type(T)))
-_stride_rank(::Type{T}, ::Nothing) where {T<:MatAdjTrans} = nothing
-function _stride_rank(::Type{T}, rank) where {T<:MatAdjTrans}
-    return (getfield(rank, 2), getfield(rank, 1))
+function stride_rank(@nospecialize T::Type{<:SubArray})
+    rank = stride_rank(parent_type(T))
+    if rank === nothing
+        return nothing
+    else
+        return map(GetIndex{false}(rank), to_parent_dims(T))
+    end
 end
-
-function stride_rank(::Type{T},) where {T<:PermutedDimsArray}
-    return _stride_rank(T, stride_rank(parent_type(T)))
-end
-_stride_rank(::Type{T}, ::Nothing) where {T<:PermutedDimsArray} = nothing
-_stride_rank(::Type{T}, r) where {T<:PermutedDimsArray} = permute(r, to_parent_dims(T))
-
-stride_rank(::Type{T}) where {T<:SubArray} = _stride_rank(T, stride_rank(parent_type(T)))
-_stride_rank(::Any, ::Any) = nothing
-_stride_rank(::Type{T}, r::Tuple) where {T<:SubArray} = permute(r, to_parent_dims(T))
 
 stride_rank(x, i) = stride_rank(x)[i]
 function stride_rank(::Type{R}) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}}
@@ -323,11 +326,8 @@ contiguous_batch_size(::Type{Array{T,N}}) where {T,N} = Zero()
 contiguous_batch_size(::Type{BitArray{N}}) where {N} = Zero()
 contiguous_batch_size(::Type{<:AbstractRange}) = Zero()
 contiguous_batch_size(::Type{<:Tuple}) = Zero()
-function contiguous_batch_size(::Type{T}) where {T<:Union{Transpose,Adjoint}}
-    return contiguous_batch_size(parent_type(T))
-end
-function contiguous_batch_size(::Type{T}) where {T<:PermutedDimsArray}
-    return contiguous_batch_size(parent_type(T))
+@inline function contiguous_batch_size(@nospecialize T::Type{<:Union{PermutedDimsArray,Transpose,Adjoint}})
+    contiguous_batch_size(parent_type(T))
 end
 function contiguous_batch_size(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
     return _contiguous_batch_size(S, contiguous_batch_size(A), contiguous_axis(A))
@@ -356,6 +356,12 @@ is_column_major(::AbstractRange) = False()
 _is_column_major(sr::R, cbs::StaticInt) where {R} = False()
 # cbs <= 0
 _is_column_major(sr::R, cbs::Union{StaticInt{0},StaticInt{-1}}) where {R} = is_increasing(sr)
+function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y},Vararg}) where {X, Y}
+    X <= Y ? is_increasing(tail(perm)) : False()
+end
+is_increasing(::Tuple{StaticInt{X},StaticInt{Y}}) where {X, Y} = X <= Y ? True() : False()
+is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
+is_increasing(::Tuple{}) = True()
 
 """
     dense_dims(::Type{<:AbstractArray{N}}) -> Tuple{Vararg{StaticBool,N}}
@@ -370,11 +376,13 @@ function dense_dims(::Type{T}) where {T}
 end
 _all_dense(::Val{N}) where {N} = ntuple(_ -> True(), Val{N}())
 
-dense_dims(::Type{<:DenseArray{T,N}}) where {T,N} = _all_dense(Val{N}())
-dense_dims(::Type{BitArray{N}}) where {N} = _all_dense(Val{N}())
-dense_dims(::Type{<:AbstractRange}) = (True(),)
-dense_dims(::Type{<:Tuple}) = (True(),)
-function dense_dims(::Type{T}) where {T<:VecAdjTrans}
+function dense_dims(@nospecialize T::Type{<:DenseArray})
+    ntuple(Compat.Returns(True()), StaticInt(ndims(T)))
+end
+dense_dims(::Type{BitArray{N}}) where {N} = ntuple(Compat.Returns(True()), StaticInt(N))
+dense_dims(@nospecialize T::Type{<:AbstractRange}) = (True(),)
+dense_dims(@nospecialize T::Type{<:Tuple}) = (True(),)
+function dense_dims(@nospecialize T::Type{<:VecAdjTrans})
     dense = dense_dims(parent_type(T))
     if dense === nothing
         return nothing
@@ -382,34 +390,29 @@ function dense_dims(::Type{T}) where {T<:VecAdjTrans}
         return (True(), first(dense))
     end
 end
-function dense_dims(::Type{T}) where {T<:MatAdjTrans}
+@inline function dense_dims(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsArray}})
     dense = dense_dims(parent_type(T))
     if dense === nothing
         return nothing
     else
-        return (last(dense), first(dense))
+        return map(GetIndex{false}(dense), dimperm(T))
     end
-end
-function dense_dims(::Type{T}) where {T<:PermutedDimsArray}
-    dense = dense_dims(parent_type(T))
-    if dense === nothing
-        return nothing
-    else
-        return permute(dense, to_parent_dims(T))
-    end
-end
-function dense_dims(::Type{S}) where {N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}}
-    return _dense_dims(S, dense_dims(A), Val(stride_rank(A)))
-end
-@inline function dense_dims(::Type{A}) where {NB, NA, B <: AbstractArray{<:Any,NB},A<: Base.ReinterpretArray{<:Any, NA, <:Any, B, true}}
-    ddb = dense_dims(B)
-    IfElse.ifelse(Static.le(StaticInt(NB), StaticInt(NA)), (True(), ddb...), Base.tail(ddb))
-end
-@inline function dense_dims(::Type{A}) where {NB, NA, B <: AbstractArray{<:Any,NB},A<: Base.ReinterpretArray{<:Any, NA, <:Any, B, false}}
-    dense_dims(B)
 end
 
-_dense_dims(::Type{S}, ::Nothing, ::Val{R}) where {R,N,NP,T,A<:AbstractArray{T,NP},I,S<:SubArray{T,N,A,I}} = nothing
+@inline function dense_dims(@nospecialize T::Type{<:Base.ReshapedReinterpretArray})
+    ddb = dense_dims(parent_type(T))
+    IfElse.ifelse(Static.le(StaticInt(ndims(parent_type(T))), StaticInt(ndims(T))), (True(), ddb...), Base.tail(ddb))
+end
+@inline dense_dims(@nospecialize T::Type{<:Base.NonReshapedReinterpretArray}) = dense_dims(parent_type(T))
+
+@inline function dense_dims(@nospecialize T::Type{<:SubArray})
+    dd = dense_dims(parent_type(T))
+    if dd === nothing
+        return nothing
+    else
+        return _dense_dims(T, dd, Val(stride_rank(parent_type(T))))
+    end
+end
 @generated function _dense_dims(
     ::Type{S},
     ::D,
@@ -448,24 +451,18 @@ _dense_dims(::Type{S}, ::Nothing, ::Val{R}) where {R,N,NP,T,A<:AbstractArray{T,N
     end
 end
 
-function dense_dims(T::Type{<:Base.ReshapedArray})
+function dense_dims(@nospecialize T::Type{<:Base.ReshapedArray})
     d = dense_dims(parent_type(T))
     if d === nothing
         return nothing
     elseif all(d)
-        return n_of_x(StaticInt(ndims(T)), True())
+        return ntuple(Compat.Returns(True()), StaticInt(ndims(T)))
     else
-        return n_of_x(StaticInt(ndims(T)), False())
+        return ntuple(Compat.Returns(False()), StaticInt(ndims(T)))
     end
 end
 
-is_dense(A) = is_dense(typeof(A))
-is_dense(::Type{A}) where {A} = _is_dense(dense_dims(A))
-_is_dense(::Tuple{False,Vararg}) = False()
-_is_dense(t::Tuple{True,Vararg}) = _is_dense(Base.tail(t))
-_is_dense(t::Tuple{True}) = True()
-_is_dense(t::Tuple{}) = True()
-_is_dense(::Nothing) = False()
+is_dense(A) = all(dense_dims(A)) ? True() : False()
 
 """
     known_strides(::Type{T}) -> Tuple
@@ -488,18 +485,15 @@ known_strides(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(S)
 
 known_strides(x) = known_strides(typeof(x))
 known_strides(::Type{T}) where {T<:Vector} = (1,)
-function known_strides(::Type{T}) where {T<:MatAdjTrans}
-    permute(known_strides(parent_type(T)), to_parent_dims(T))
-end
 @inline function known_strides(::Type{T}) where {T<:VecAdjTrans}
     strd = first(known_strides(parent_type(T)))
     return (strd, strd)
 end
-@inline function known_strides(::Type{T}) where {T<:PermutedDimsArray}
-    permute(known_strides(parent_type(T)), to_parent_dims(T))
+@inline function known_strides(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsArray}})
+    map(GetIndex{false}(known_strides(parent_type(T))), dimperm(T))
 end
 @inline function known_strides(::Type{T}) where {T<:SubArray}
-    permute(known_strides(parent_type(T)), to_parent_dims(T))
+    map(GetIndex{false}(known_strides(parent_type(T))), to_parent_dims(T))
 end
 function known_strides(::Type{T}) where {T}
     if ndims(T) === 1
@@ -673,17 +667,18 @@ end
     end
 end
 
-strides(::AbstractRange) = (One(),)
+strides(@nospecialize x::AbstractRange) = (One(),)
 function strides(x::VecAdjTrans)
     st = first(strides(parent(x)))
     return (st, st)
 end
-@inline strides(B::MatAdjTrans) = permute(strides(parent(B)), to_parent_dims(B))
-@inline strides(B::PermutedDimsArray) = permute(strides(parent(B)), to_parent_dims(B))
+@inline function strides(x::Union{MatAdjTrans,PermutedDimsArray})
+    map(GetIndex{false}(strides(parent(x))), dimperm(x))
+end
 
 getmul(x::Tuple, y::Tuple, ::StaticInt{i}) where {i} = getfield(x, i) * getfield(y, i)
 function strides(A::SubArray)
-    return eachop(getmul, to_parent_dims(A), map(maybe_static_step, A.indices), strides(parent(A)))
+    eachop(getmul, to_parent_dims(typeof(A)), map(maybe_static_step, A.indices), strides(parent(A)))
 end
 
 maybe_static_step(x::AbstractRange) = static_step(x)
@@ -712,7 +707,7 @@ end
 strides(a, dim) = strides(a, to_dims(a, dim))
 function strides(a::A, dim::CanonicalInt) where {A}
     if is_forwarding_wrapper(A)
-        return strides(parent(a), to_parent_dims(A, dim))
+        return strides(parent(a), dim)
     else
         return Base.stride(a, Int(dim))
     end
