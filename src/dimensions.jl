@@ -75,26 +75,50 @@ end
     (_add_dims(static(1), static(getfield(NS, 1))),), ntuple(static, n)
 end
 @inline function indices_to_dimensions(::IndicesInfo{NI,NS,nothing}, n::StaticInt{N}) where {NI,NS,N}
-    _accum_dims(NS), sum(NI) > N ? _replace_trailing(n, _accum_dims(NI)) : _accum_dims(NI)
+    _accum_dims(map(static, NS)), sum(NI) > N ? _replace_trailing(n, _accum_dims(map(static, NI))) : _accum_dims(map(static, NI))
 end
+
+#=
+function _indices_to_dimensions(
+    ndi::Tuple{Vararg{StaticInt,NI}},
+    nds::Tuple{Vararg{StaticInt,NI}},
+    splat_index::StaticInt{SI},
+    n::StaticInt{N}
+) where {NI,SI,N}
+
+    ndims_indices = sum(ndi)
+    if ndims_indices === n
+        return _accum_dims(NS), _accum_dims(NS)
+    else
+    end
+end
+=#
 @inline function indices_to_dimensions(::IndicesInfo{NI,NS,IS}, n::StaticInt{N}) where {NI,NS,IS,N}
     ndims_indices = sum(NI)
+    index_positions = ntuple(static, length(NI))
     if ndims_indices === N
-        return _accum_dims(NS), _accum_dims(NI)
+        return _accum_dims(map(static, NS)), _accum_dims(map(static, NI))
     else
-        splat_map = ntuple(Base.Fix2(_replace_splat, max(0, N - ndims_indices + 1)) ∘ ==(IS), length(NI))
-        return _accum_dims(map(*, NS, splat_map)), _accum_dims(map(*, NI, splat_map))
+        splat_map = map(
+            Base.Fix2(_init_splat_map, StaticInt(max(0, N - ndims_indices + 1))),
+            map(eq(StaticInt(IS)), index_positions)
+        )
+        return _accum_dims(map(*, map(static, NS), splat_map)), _accum_dims(map(*, map(static, NS), splat_map))
     end
 end
 
+_init_splat_map(::True, n::StaticInt{N}) where {N} = n
+_init_splat_map(::False, n::StaticInt{N}) where {N} = StaticInt(1)
+
 _replace_splat(is_splat::Bool, n::Int) = is_splat ? n : 1
 _replace_trailing(::StaticInt{N}, dim::StaticInt{D}) where {N,D} = N < D ? StaticInt(0) : dim
-_replace_trailing(n::StaticInt{N}, dims::Tuple) where {N} = map(Base.Fix1(_replace_trailing, n), dims)
-_accum_dims(dims::Tuple) = __accum_dims(map(static, dims))
-__accum_dims(dims::Tuple) = map(_add_dims, cumsum(dims), dims)
+@inline _replace_trailing(n::StaticInt{N}, dims::Tuple) where {N} = map(Base.Fix1(_replace_trailing, n), dims)
+@inline _accum_dims(dims::Tuple) = map(_add_dims, cumsum(dims), dims)
 _add_dims(::StaticInt{D}, n::StaticInt{0}) where {D} = n
 _add_dims(d::StaticInt{D}, ::StaticInt{1}) where {D} = d
-_add_dims(d::StaticInt{D}, n::StaticInt{N}) where {D,N} = ntuple(static ∘ Base.Fix1(+, d - n), n)
+@inline function _add_dims(d::StaticInt{D}, n::StaticInt{N}) where {D,N}
+    ntuple(static ∘ Base.Fix1(+, d - n), n)
+end
 
 dimsmap(x) = dimsmap(typeof(x))
 function dimsmap(@nospecialize T::Type{<:SubArray})
