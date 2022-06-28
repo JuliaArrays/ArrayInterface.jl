@@ -1,29 +1,28 @@
 
 
 # linear index into linear collection
-function indices_to_dimensions(::IndicesInfo{(1,),NS,IS}, ::StaticInt{1}) where {NS,IS}
+@inline function indices_to_dimensions(::IndicesInfo{(1,),NS,nothing}, ::StaticInt{1}) where {NS}
     (_add_dims(1, getfield(NS, 1)),), (StaticInt(1),)
 end
-
-# linear indexing into non-linear collection
-function indices_to_dimensions(::IndicesInfo{(1,),NS,IS}, n::StaticInt{N}) where {NS,IS,N}
+@inline function indices_to_dimensions(::IndicesInfo{(1,),NS,IS}, ::StaticInt{1}) where {NS,IS}
+    (_add_dims(1, getfield(NS, 1)),), (StaticInt(1),)
+end
+@inline function indices_to_dimensions(::IndicesInfo{(1,),NS,nothing}, n::StaticInt{N}) where {NS,N}
     (_add_dims(1, getfield(NS, 1)),), (:,)
 end
-
-# multidimensional indexing
+@inline function indices_to_dimensions(::IndicesInfo{(1,),NS,IS}, n::StaticInt{N}) where {NS,N,IS}
+    (_add_dims(1, getfield(NS, 1)),), ntuple(static, n)
+end
+@inline function indices_to_dimensions(::IndicesInfo{NI,NS,nothing}, n::StaticInt{N}) where {NI,NS,N}
+    _accum_dims(NS), sum(NI) > N ? _replace_trailing(n, _accum_dims(NI)) : _accum_dims(NI)
+end
 @inline function indices_to_dimensions(::IndicesInfo{NI,NS,IS}, n::StaticInt{N}) where {NI,NS,IS,N}
-    NIndices = length(NI)
     ndims_indices = sum(NI)
-    if IS === nothing
-        ndi = ndims_indices > N ? _replace_trailing(n, _accum_dims(NI)) : _accum_dims(NI)
-        return _accum_dims(NS), ndi
+    if ndims_indices === N
+        return _accum_dims(NS), _accum_dims(NI)
     else
-        if ndims_indices === N
-            return _accum_dims(NS), _accum_dims(NI)
-        else
-            splat_map = ntuple(Base.Fix2(_replace_splat, max(0, N - ndims_indices + 1)) ∘ ==(IS), NIndices)
-            return _accum_dims(map(*, NS, splat_map)), _accum_dims(map(*, NI, splat_map))
-       end
+        splat_map = ntuple(Base.Fix2(_replace_splat, max(0, N - ndims_indices + 1)) ∘ ==(IS), length(NI))
+        return _accum_dims(map(*, NS, splat_map)), _accum_dims(map(*, NI, splat_map))
     end
 end
 

@@ -81,29 +81,40 @@ This implementation differs from that of `Base.to_indices` in the following ways
 """
 to_indices(A, ::Tuple{}) = ()
 @inline function to_indices(a::A, inds::I) where {A,I}
-    dimsin, dimsout = indices_to_dimensions(IndicesInfo(I), StaticInt(ndims(A)))
-    flatten_tuples(map(
-        Base.Fix1(_map_to_index, (a, inds)),
-        map(MappedIndex, dimsin, dimsout, ntuple(static, length(dimsin)))
-    ))
+    flatten_tuples(map(IndexedMappedArray(a), inds, getfield(indices_to_dimensions(IndicesInfo(I), StaticInt(ndims(A))), 2)))
 end
-@inline function _map_to_index((a, inds), mi::MappedIndex{<:Any,StaticInt{0},StaticInt{index}}) where {index}
-    to_index(StaticInt(1):StaticInt(1), getfield(inds, index))
+
+struct IndexedMappedArray{A}
+    a::A
 end
-@inline function _map_to_index((a, inds), mi::MappedIndex{<:Any,Colon,StaticInt{index}}) where {index}
-    to_index(LazyAxis{:}(a), getfield(inds, index))
-end
-@inline function _map_to_index((a, inds), mi::MappedIndex{<:Any,StaticInt{dim},StaticInt{index}}) where {dim,index}
-    to_index(LazyAxis{dim}(a), getfield(inds, index))
-end
-@inline function _map_to_index((a, inds), mi::MappedIndex{<:Any,<:Tuple,StaticInt{index}}) where {index}
-    if (Base.length(inds) === index) && (IndexStyle(a) isa IndexLinear)
-        return to_index(LinearIndices(map(Base.Fix1(_to_lazy_axes, a), dimsout(mi))), getfield(inds, index))
+(ima::IndexedMappedArray{A})(idx::I, ::StaticInt{0}) where {A,I} = to_index(StaticInt(1):StaticInt(1), idx)
+(ima::IndexedMappedArray{A})(idx::I, ::Colon) where {A,I} = to_index(LazyAxis{:}(ima.a), idx)
+(ima::IndexedMappedArray{A})(idx::I, ::StaticInt{dim}) where {A,I,dim} = to_index(LazyAxis{dim}(ima.a), idx)
+@inline function (ima::IndexedMappedArray{A})(idx::AbstractArray{Bool}, dims::Tuple) where {A}
+    if (last(dims) == ndims(A)) && (IndexStyle(A) isa IndexLinear)
+        return LogicalIndex{Int}(idx)
     else
-        return to_index(CartesianIndices(map(Base.Fix1(_to_lazy_axes, a), dimsout(mi))), getfield(inds, index))
+        return LogicalIndex(idx)
     end
 end
-@inline _to_lazy_axes(A, ::StaticInt{dim}) where {dim} = LazyAxis{dim}(A)
+@inline function (ima::IndexedMappedArray{A})(idx::I, dims::Tuple) where {A,I}
+    to_index(CartesianIndices(map(Base.Fix1(_to_lazy_axes, ima.a), dims)), idx)
+end
+@inline _to_lazy_axes(a::A, ::StaticInt{dim}) where {A,dim} = LazyAxis{dim}(a)
+
+#@inline _map_to_index(a, idx, ::StaticInt{0}) = to_index(StaticInt(1):StaticInt(1), idx)
+#@inline _map_to_index(a, idx, ::Colon) = to_index(LazyAxis{:}(a), idx)
+#@inline _map_to_index(a, idx, ::StaticInt{dim}) where {dim} = to_index(LazyAxis{dim}(a), idx)
+#@inline function _map_to_index(a, idx, dims::Tuple)
+#    to_index(CartesianIndices(map(Base.Fix1(_to_lazy_axes, a), dims)), idx)
+#end
+#@inline function _map_to_index(a, idx::AbstractArray{Bool}, dims::Tuple)
+#    if (last(dims) == ndims(a)) && (IndexStyle(a) isa IndexLinear)
+#        to_index(LinearIndices(map(Base.Fix1(_to_lazy_axes, a), dims)), idx)
+#    else
+#        to_index(CartesianIndices(map(Base.Fix1(_to_lazy_axes, a), dims)), idx)
+#    end
+#end
 
 """
     ArrayInterface.to_index([::IndexStyle, ]axis, arg) -> index
