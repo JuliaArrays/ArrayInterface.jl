@@ -1,4 +1,65 @@
 
+#=
+    indices_to_dimensions(::IndicesInfo{NI,NS,IS}, ::StaticInt{N}) -> dimsin, dimsout
+
+This is used to map type level information about a set of indices to indexing an array of `N`
+dimensions. This is used in `ArrayInterface.ArrayInterface.to_indices(A, inds)` through the
+call `indices_to_dimensions(IndicesInfo(inds), StaticInt(ndims(A))` and it's used on
+`SubArrays` with `indices_to_dimensions(IndicesInfo(A.indices), StaticInt(ndims(parent(A)))`
+
+In both cases it produces two tuples (`dimsin, `dimsout`) where each value maps to the
+corresponding index in the same position.
+`dimsin` corresponds to the dimension that is indexed into that goes through a given index.
+`dimsout` corresponds to the the the parent dimensions that each index goes to.
+The dimension number is represented as a `StaticInt`.
+If a single index maps to multiple dimensions then this value is a tuple of `StaticInt`s.
+
+# Example
+
+
+```julia
+julia> inds = (:,[CartesianIndex(1,1),CartesianIndex(1,1)], 1, ones(Int, 2, 2), :, 1);
+
+julia> dimsin, dimsout = ArrayInterface.indices_to_dimensions(ArrayInterface.IndicesInfo(inds), StaticInt(5));
+
+```
+
+Now let's break down how this provides dimension mapping across all dimensions
+
+Now let's assume these indices were produced within the operation `parent[inds...] -> child`
+
+* Position 1: `Colon()`
+    * `dimsin[1]`:  'static(1)'
+    * `dimsout[1]`: 'static(1)'
+    * description: there's a one-to-one mapping between dimension 1 of `parent` and 1 of `child`
+* Position 2: `CartesianIndex{2}[CartesianIndex(1, 1), CartesianIndex(1, 1)]`
+    * `dimsin[2]`:  'static(2)'
+    * `dimsout[2]`: '(static(2), static(3))'
+    * description: Each value of `inds[2]` goes through dimension 1 and 2 of `parent`, producing dimension 2 of `child`
+* Position 3: `1`
+    * `dimsin[3]`:  'static(0)'
+    * `dimsout[3]`: 'static(4)'
+    * description: `inds[3]` maps to dimension `4` of `parent` but ends up being dropped and has no corresponding dimension in `child`.
+* Position 4: `[1 1; 1 1]`
+    * `dimsin[4]`:  '(static(3), static(4))'
+    * `dimsout[4]`: 'static(5)'
+    * description: Each value of `inds[4]` goes through dimension 5 of `parent`.
+        The first dimension of `inds[4]` produces dimension 3 of `child`.
+        The second dimension of `inds[4]` produces dimension 4 of `child`.
+* Position 5: `Colon()`
+    * `dimsin[5]`:  'static(5)'
+    * `dimsout[5]`: 'static(0)'
+    * description: `inds[4]` maps to a dimension greater than the number of dimensions in `parent`.
+        These trailing dimensions aren't explicitly part of the `parent` array and have no corresponding information dynamically stored there.
+        We usually just assume this dimension has an axis of 1:1.
+        Since, this the index has one dimension it sticks around, producing dimension 5 of `child`
+* Position 6: `1`
+    * `dimsin[6]`:  'static(0)'
+    * `dimsout[6]`: 'static(0)'
+    * description: This is similar to the previous index except that it has no dimensions.
+        It will often undergo bounds-checking to ensure `in(inds[6], 1:1)`, but it is not represented in either array.
+=#
+
 
 # linear index into linear collection
 @inline function indices_to_dimensions(::IndicesInfo{(1,),NS,nothing}, ::StaticInt{1}) where {NS}

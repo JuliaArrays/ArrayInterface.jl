@@ -102,20 +102,6 @@ end
 end
 @inline _to_lazy_axes(a::A, ::StaticInt{dim}) where {A,dim} = LazyAxis{dim}(a)
 
-#@inline _map_to_index(a, idx, ::StaticInt{0}) = to_index(StaticInt(1):StaticInt(1), idx)
-#@inline _map_to_index(a, idx, ::Colon) = to_index(LazyAxis{:}(a), idx)
-#@inline _map_to_index(a, idx, ::StaticInt{dim}) where {dim} = to_index(LazyAxis{dim}(a), idx)
-#@inline function _map_to_index(a, idx, dims::Tuple)
-#    to_index(CartesianIndices(map(Base.Fix1(_to_lazy_axes, a), dims)), idx)
-#end
-#@inline function _map_to_index(a, idx::AbstractArray{Bool}, dims::Tuple)
-#    if (last(dims) == ndims(a)) && (IndexStyle(a) isa IndexLinear)
-#        to_index(LinearIndices(map(Base.Fix1(_to_lazy_axes, a), dims)), idx)
-#    else
-#        to_index(CartesianIndices(map(Base.Fix1(_to_lazy_axes, a), dims)), idx)
-#    end
-#end
-
 """
     ArrayInterface.to_index([::IndexStyle, ]axis, arg) -> index
 
