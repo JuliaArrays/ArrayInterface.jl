@@ -81,7 +81,7 @@ This implementation differs from that of `Base.to_indices` in the following ways
 """
 to_indices(A, ::Tuple{}) = ()
 @inline function to_indices(a::A, inds::I) where {A,I}
-    flatten_tuples(map(IndexedMappedArray(a), inds, getfield(indices_to_dimensions(IndicesInfo(I), StaticInt(ndims(A))), 2)))
+    flatten_tuples(map(IndexedMappedArray(a), inds, getfield(_init_dimsmap(I, A), 1)))
 end
 
 struct IndexedMappedArray{A}
@@ -98,7 +98,6 @@ end
     end
 end
 @inline (ima::IndexedMappedArray{A})(idx::CartesianIndex, ::Tuple) where {A} = getfield(idx, 1)
-
 @inline function (ima::IndexedMappedArray{A})(idx::I, dims::Tuple) where {A,I}
     to_index(CartesianIndices(map(Base.Fix1(_to_lazy_axes, ima.a), dims)), idx)
 end

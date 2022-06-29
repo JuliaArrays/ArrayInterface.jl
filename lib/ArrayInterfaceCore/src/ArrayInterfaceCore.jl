@@ -678,14 +678,75 @@ Provides basic trait information for each index type in in the tuple `T`. `NI`, 
 [`is_splat_index`](@ref) (respectively) for each field of `T`.
 """
 struct IndicesInfo{NI,NS,IS} end
-IndicesInfo(x::Tuple) = IndicesInfo(typeof(x))
+IndicesInfo(x::Union{Tuple,SubArray}) = IndicesInfo(typeof(x))
 function IndicesInfo(@nospecialize T::Type{<:Tuple})
     IndicesInfo{
         map_tuple_type(ndims_index, T),
         map_tuple_type(ndims_shape, T),
         _find_first_true(map_tuple_type(is_splat_index, T))
-        #findfirst(==(1), map_tuple_type(is_splat_index, T))
     }()
+end
+function IndicesInfo(@nospecialize T::Type{<:SubArray})
+    indices_to_dims(IndicesInfo(fieldtype(T, :indices)), parent_type(T))
+end
+
+@inline function indices_to_dims(@nospecialize(I::Type{<:Tuple}), @nospecialize(T::Type))
+    indices_to_dims(IndicesInfo(I), T)
+end
+@inline function indices_to_dims(::IndicesInfo{(1,),NS,nothing}, @nospecialize(T::Type)) where {NS}
+    ns1 = getfield(NS, 1)
+    nsd = ns1 > 1 ? ntuple(identity, ns1) : ns1
+    if ndims(T) === 1
+        IndicesInfo{(1,), (nsd,), nothing}()
+    else
+        IndicesInfo{(:,), (nsd,), nothing}()
+    end
+end
+@inline function indices_to_dims(::IndicesInfo{NI,NS,nothing}, @nospecialize(T::Type)) where {NI,NS}
+    if sum(NI) > ndims(T)
+        IndicesInfo{_replace_trailing(ndims(T), _accum_dims(cumsum(NI), NI)), _accum_dims(cumsum(NS), NS), nothing}()
+    else
+        IndicesInfo{_accum_dims(cumsum(NI), NI), _accum_dims(cumsum(NS), NS), nothing}()
+    end
+end
+@inline function indices_to_dims(::IndicesInfo{NI,NS,SI}, @nospecialize(T::Type)) where {NI,NS,SI}
+    nsplat = ndims(T) - sum(NI)
+    if nsplat === 0
+        indices_to_dims(IndicesInfo{NI,NS,nothing}(), T)
+    else
+        splatmul = max(0, nsplat + 1)
+        indices_to_dims(IndicesInfo{_map_splats(splatmul, SI, NI),_map_splats(splatmul, SI, NS),nothing}(), T)
+    end
+end
+@inline function _map_splats(nsplat::Int, splat_index::Int, dims::Tuple{Vararg{Int}})
+    ntuple(length(dims)) do i
+        i === splat_index ? (nsplat * getfield(dims, i)) : getfield(dims, i)
+    end
+end
+@inline function _replace_trailing(n::Int, dims::Tuple{Vararg{Any,N}}) where {N}
+    ntuple(N) do i
+        dim_i = getfield(dims, i)
+        if dim_i isa Tuple
+            ntuple(length(dim_i)) do j
+                dim_i_j = getfield(dim_i, j)
+                dim_i_j > n ? 0 : dim_i_j
+            end
+        else
+            dim_i > n ? 0 : dim_i
+        end
+    end
+end
+@inline function _accum_dims(csdims::NTuple{N,Int}, nd::NTuple{N,Int}) where {N}
+    ntuple(N) do i
+        nd_i = getfield(nd, i)
+        if nd_i === 0
+            0
+        elseif nd_i === 1
+            getfield(csdims, i)
+        else
+            ntuple(Base.Fix1(+, getfield(csdims, i) - nd_i), nd_i)
+        end
+    end
 end
 
 """

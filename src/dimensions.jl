@@ -1,118 +1,14 @@
 
-function throw_dim_error(@nospecialize(x), @nospecialize(dim))
-    throw(DimensionMismatch("$x does not have dimension corresponding to $dim"))
+
+_init_dimsmap(::Type{I}, ::Type{P}) where {I,P} = _init_dimsmap(indices_to_dims(I, P))
+_init_dimsmap(x) = _init_dimsmap(IndicesInfo(x))
+function _init_dimsmap(::IndicesInfo{pdims,cdims,nothing}) where {pdims,cdims}
+    ntuple(i -> static(getfield(pdims, i)), length(pdims)),
+    ntuple(i -> static(getfield(cdims, i)), length(pdims))
 end
-
-#=
-    indices_to_dimensions(::IndicesInfo{NI,NS,IS}, ::StaticInt{N}) -> dimsin, dimsout
-
-This is used to map type level information about a set of indices to indexing an array of `N`
-dimensions. This is used in `ArrayInterface.ArrayInterface.to_indices(A, inds)` through the
-call `indices_to_dimensions(IndicesInfo(inds), StaticInt(ndims(A))` and it's used on
-`SubArrays` with `indices_to_dimensions(IndicesInfo(A.indices), StaticInt(ndims(parent(A)))`
-
-In both cases it produces two tuples (`dimsin, `dimsout`) where each value maps to the
-corresponding index in the same position.
-`dimsin` corresponds to the dimension that is indexed into that goes through a given index.
-`dimsout` corresponds to the the the parent dimensions that each index goes to.
-The dimension number is represented as a `StaticInt`.
-If a single index maps to multiple dimensions then this value is a tuple of `StaticInt`s.
-
-# Example
-
-
-```julia
-julia> inds = (:,[CartesianIndex(1,1),CartesianIndex(1,1)], 1, ones(Int, 2, 2), :, 1);
-
-julia> dimsin, dimsout = ArrayInterface.indices_to_dimensions(ArrayInterface.IndicesInfo(inds), StaticInt(5));
-
-```
-
-Now let's break down how this provides dimension mapping across all dimensions
-
-Now let's assume these indices were produced within the operation `parent[inds...] -> child`
-
-* Position 1: `Colon()`
-    * `dimsin[1]`:  'static(1)'
-    * `dimsout[1]`: 'static(1)'
-    * description: there's a one-to-one mapping between dimension 1 of `parent` and 1 of `child`
-* Position 2: `CartesianIndex{2}[CartesianIndex(1, 1), CartesianIndex(1, 1)]`
-    * `dimsin[2]`:  'static(2)'
-    * `dimsout[2]`: '(static(2), static(3))'
-    * description: Each value of `inds[2]` goes through dimension 1 and 2 of `parent`, producing dimension 2 of `child`
-* Position 3: `1`
-    * `dimsin[3]`:  'static(0)'
-    * `dimsout[3]`: 'static(4)'
-    * description: `inds[3]` maps to dimension `4` of `parent` but ends up being dropped and has no corresponding dimension in `child`.
-* Position 4: `[1 1; 1 1]`
-    * `dimsin[4]`:  '(static(3), static(4))'
-    * `dimsout[4]`: 'static(5)'
-    * description: Each value of `inds[4]` goes through dimension 5 of `parent`.
-        The first dimension of `inds[4]` produces dimension 3 of `child`.
-        The second dimension of `inds[4]` produces dimension 4 of `child`.
-* Position 5: `Colon()`
-    * `dimsin[5]`:  'static(5)'
-    * `dimsout[5]`: 'static(0)'
-    * description: `inds[4]` maps to a dimension greater than the number of dimensions in `parent`.
-        These trailing dimensions aren't explicitly part of the `parent` array and have no corresponding information dynamically stored there.
-        We usually just assume this dimension has an axis of 1:1.
-        Since, this the index has one dimension it sticks around, producing dimension 5 of `child`
-* Position 6: `1`
-    * `dimsin[6]`:  'static(0)'
-    * `dimsout[6]`: 'static(0)'
-    * description: This is similar to the previous index except that it has no dimensions.
-        It will often undergo bounds-checking to ensure `in(inds[6], 1:1)`, but it is not represented in either array.
-=#
-
-
-# linear index into linear collection
-@inline function indices_to_dimensions(::IndicesInfo{(1,),NS,nothing}, ::StaticInt{1}) where {NS}
-    (_add_dims(static(1), static(getfield(NS, 1))),), (StaticInt(1),)
-end
-@inline function indices_to_dimensions(::IndicesInfo{(1,),NS,IS}, ::StaticInt{1}) where {NS,IS}
-    (_add_dims(static(1), static(getfield(NS, 1))),), (StaticInt(1),)
-end
-@inline function indices_to_dimensions(::IndicesInfo{(1,),NS,nothing}, n::StaticInt{N}) where {NS,N}
-    (_add_dims(static(1), static(getfield(NS, 1))),), (:,)
-end
-@inline function indices_to_dimensions(::IndicesInfo{(1,),NS,IS}, n::StaticInt{N}) where {NS,N,IS}
-    (_add_dims(static(1), static(getfield(NS, 1))),), ntuple(static, n)
-end
-@inline function indices_to_dimensions(::IndicesInfo{NI,NS,nothing}, n::StaticInt{N}) where {NI,NS,N}
-    _accum_dims(map(static, NS)), sum(NI) > N ? _replace_trailing(n, _accum_dims(map(static, NI))) : _accum_dims(map(static, NI))
-end
-@inline function indices_to_dimensions(::IndicesInfo{NI,NS,IS}, n::StaticInt{N}) where {NI,NS,IS,N}
-    ndims_indices = sum(NI)
-    index_positions = ntuple(static, length(NI))
-    if ndims_indices === N
-        return _accum_dims(map(static, NS)), _accum_dims(map(static, NI))
-    else
-        splat_map = map(
-            Base.Fix2(_init_splat_map, StaticInt(max(0, N - ndims_indices + 1))),
-            map(eq(StaticInt(IS)), index_positions)
-        )
-        return _accum_dims(map(*, map(static, NS), splat_map)), _accum_dims(map(*, map(static, NS), splat_map))
-    end
-end
-
-_init_splat_map(::True, n::StaticInt{N}) where {N} = n
-_init_splat_map(::False, n::StaticInt{N}) where {N} = StaticInt(1)
-
-_replace_splat(is_splat::Bool, n::Int) = is_splat ? n : 1
-_replace_trailing(::StaticInt{N}, dim::StaticInt{D}) where {N,D} = N < D ? StaticInt(0) : dim
-@inline _replace_trailing(n::StaticInt{N}, dims::Tuple) where {N} = map(Base.Fix1(_replace_trailing, n), dims)
-@inline _accum_dims(dims::Tuple) = map(_add_dims, cumsum(dims), dims)
-_add_dims(::StaticInt{D}, n::StaticInt{0}) where {D} = n
-_add_dims(d::StaticInt{D}, ::StaticInt{1}) where {D} = d
-@inline function _add_dims(d::StaticInt{D}, n::StaticInt{N}) where {D,N}
-    ntuple(static ∘ Base.Fix1(+, d - n), n)
-end
-
-dimsmap(x) = dimsmap(typeof(x))
-function dimsmap(@nospecialize T::Type{<:SubArray})
-    dimsin, dimsout = indices_to_dimensions(IndicesInfo(fieldtype(T, :indices)), StaticInt(ndims(parent_type(T))))
-    map(tuple, dimsin, dimsout)
-end
+# TODO move these
+Static.static(::Colon) = (:)
+Static.static(::Nothing) = nothing
 
 """
     to_parent_dims(::Type{T}) -> Tuple{Vararg{Union{StaticInt,Tuple{Vararg{StaticInt}}}}}
@@ -125,17 +21,57 @@ Returns the mapping from child dimensions to parent dimensions.
 """
 to_parent_dims(@nospecialize x) = to_parent_dims(typeof(x))
 @inline function to_parent_dims(@nospecialize T::Type{<:SubArray})
-    dimsin, dimsout = indices_to_dimensions(IndicesInfo(fieldtype(T, :indices)), StaticInt(ndims(parent_type(T))))
-    flatten_tuples(map(_to_parent_dim, dimsin, dimsout))
+    to_parent_dims(indices_to_dims(fieldtype(T, :indices), parent_type(T)))
 end
-_to_parent_dim(::StaticInt{0}, pdim) = ()
-_to_parent_dim(::StaticInt{cdim}, pdim) where {cdim} = (pdim,)
-_to_parent_dim(cdims::Tuple, pdim) = ntuple(Compat.Returns(pdim), length(cdims))
+function to_parent_dims(::IndicesInfo{pdims,cdims,nothing}) where {pdims,cdims}
+    flatten_tuples(ntuple(length(cdims)) do i
+        cdim_i = getfield(cdims, i)
+        if cdim_i isa Tuple
+            pdim_i = static(getfield(pdims, i))
+            ntuple(Compat.Returns(pdim_i), length(cdim_i))
+        else
+            cdim_i === 0 ? () : (static(getfield(pdims, i)),)
+        end
+    end)
+end
 to_parent_dims(@nospecialize T::Type{<:MatAdjTrans}) = (StaticInt(2), StaticInt(1))
 to_parent_dims(@nospecialize T::Type{<:PermutedDimsArray}) = getfield(_permdims(T), 1)
 
 function _permdims(::Type{<:PermutedDimsArray{<:Any,<:Any,I1,I2}}) where {I1,I2}
     (map(static, I1), map(static, I2))
+end
+
+function throw_dim_error(@nospecialize(x), @nospecialize(dim))
+    throw(DimensionMismatch("$x does not have dimension corresponding to $dim"))
+end
+
+# Base will sometomes demote statically known slices in `SubArray` to `OneTo{Int}` so we
+# provide the parent mapping to check for static size info
+sub_axes_map(@nospecialize(T::Type{<:SubArray})) = _sub_axes_map(T, IndicesInfo(T))
+function _sub_axes_map(@nospecialize(T::Type{<:SubArray}), ::IndicesInfo{pdims}) where {pdims}
+    ntuple(length(pdims)) do i
+        if fieldtype(fieldtype(T, :indices), i) <: Base.Slice{OneTo{Int}}
+            sz = known_size(parent_type(T), getfield(pdims, i))
+            sz === nothing ? StaticInt(i) : StaticSymbol(:parent) => StaticInt(sz)
+        else
+            StaticInt(i)
+        end
+    end
+end
+
+sub_dimnames_map(@nospecialize T::Type{<:SubArray}) = _sub_dimnames_map(IndicesInfo(T))
+function _sub_dimnames_map(::IndicesInfo{pdims,cdims}) where {pdims,cdims}
+    ntuple(length(pdims)) do i
+        cdim_i = getfield(cdims, i)
+        pdim_i = getfield(pdims, i)
+        if cdim_i === 0
+            StaticSymbol(:underscore) => StaticInt(0)
+        elseif pdim_i isa Int && cdim_i isa Int
+            StaticInt(pdim_i)
+        else
+            StaticSymbol(:underscore) => length(cdim_i)
+        end
+    end
 end
 
 """
@@ -151,11 +87,16 @@ from_parent_dims(@nospecialize x) = from_parent_dims(typeof(x))
 from_parent_dims(@nospecialize T::Type{<:PermutedDimsArray}) = getfield(_permdims(T), 2)
 from_parent_dims(@nospecialize T::Type{<:MatAdjTrans}) = (StaticInt(2), StaticInt(1))
 @inline function from_parent_dims(@nospecialize T::Type{<:SubArray})
-    dimsin, dimsout = indices_to_dimensions(IndicesInfo(fieldtype(T, :indices)), StaticInt(ndims(parent_type(T))))
-    flatten_tuples(map(_from_parent_dim, dimsin, dimsout))
+    from_parent_dims(indices_to_dims(fieldtype(T, :indices), parent_type(T)))
 end
-_from_parent_dim(cdim, ::StaticInt) = (cdim,)
-_from_parent_dim(cdim, pdims::Tuple) = ntuple(Compat.Returns(cdim), length(pdims))
+# TODO do I need to flatten_tuples here?
+function from_parent_dims(::IndicesInfo{pdims,cdims,nothing}) where {pdims,cdims}
+    ntuple(length(cdims)) do i
+        pdim_i = getfield(pdims, i)
+        cdim_i = static(getfield(cdims, i))
+        pdim_i isa Int ? cdim_i : ntuple(Compat.Returns(cdim_i), length(pdim_i))
+    end
+end
 
 """
     has_dimnames(::Type{T}) -> Bool
@@ -182,12 +123,13 @@ function known_dimnames(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsAr
 end
 
 function known_dimnames(@nospecialize T::Type{<:SubArray})
-    flatten_tuples(map(Base.Fix1(_known_sub_dimnames, known_dimnames(parent_type(T))), dimsmap(T)))
+    flatten_tuples(map(Base.Fix1(_known_sub_dimname, known_dimnames(parent_type(T))), sub_dimnames_map(T)))
 end
-_known_sub_dimnames(::Tuple, ::Tuple{StaticInt{0},StaticInt}) = ()
-_known_sub_dimnames(::Tuple, dm::Tuple{Tuple,StaticInt}) = ntuple(Compat.Returns(:_), length(getfield(dm, 1)))
-_known_sub_dimnames(dnames::Tuple, ::Tuple{StaticInt,StaticInt{dimout}}) where {dimout} = getfield(dnames, dimout)
-_known_sub_dimnames(::Tuple, ::Tuple{StaticInt,Tuple}) = :_
+_known_sub_dimname(dn::Tuple, ::StaticInt{dim}) where {dim} = getfield(dn, dim)
+function _known_sub_dimname(::Tuple, ::Pair{StaticSymbol{:underscore},StaticInt{N}}) where {N}
+    ntuple(Compat.Returns(:_), StaticInt(N))
+end
+
 
 function known_dimnames(::Type{<:ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
     pnames = known_dimnames(A)
@@ -244,12 +186,12 @@ have a name.
 end
 
 function dimnames(x::SubArray)
-    flatten_tuples(map(Base.Fix1(_sub_dimnames, dimnames(parent(x))), dimsmap(x)))
+    flatten_tuples(map(Base.Fix1(_sub_dimname, dimnames(parent(x))), sub_dimnames_map(typeof(x))))
 end
-_sub_dimnames(::Tuple, ::Tuple{StaticInt{0},StaticInt}) = ()
-_sub_dimnames(::Tuple, dm::Tuple{Tuple,StaticInt}) = ntuple(Compat.Returns(static(:_)), length(getfield(dm, 1)))
-_sub_dimnames(dnames::Tuple, ::Tuple{StaticInt,StaticInt{dimout}}) where {dimout} = getfield(dnames, dimout)
-_sub_dimnames(::Tuple, ::Tuple{StaticInt,Tuple}) = static(:_)
+_sub_dimname(dn::Tuple, ::StaticInt{dim}) where {dim} = getfield(dn, dim)
+function _sub_dimname(::Tuple, ::Pair{StaticSymbol{:underscore},StaticInt{N}}) where {N}
+    ntuple(Compat.Returns(static(:_)), StaticInt(N))
+end
 
 dimnames(x::VecAdjTrans) = (static(:_), getfield(dimnames(parent(x)), 1))
 @inline function dimnames(x::ReinterpretArray{T,N,S,A,IsReshaped}) where {T,N,S,A,IsReshaped}
