@@ -41,7 +41,7 @@ _sub_size(x, idx, ::Tuple{Tuple,Any}) = size(idx)
 
 @inline size(B::VecAdjTrans) = (One(), length(parent(B)))
 @inline function size(x::Union{PermutedDimsArray,MatAdjTrans})
-    map(GetIndex{false}(size(parent(x))), dimperm(x))
+    map(GetIndex{false}(size(parent(x))), to_parent_dims(x))
 end
 function size(a::ReinterpretArray{T,N,S,A,IsReshaped}) where {T,N,S,A,IsReshaped}
     psize = size(parent(a))
@@ -98,7 +98,7 @@ known_size(x) = known_size(typeof(x))
 @inline known_size(@nospecialize T::Type{<:Number}) = ()
 @inline known_size(@nospecialize T::Type{<:VecAdjTrans}) = (1, known_length(parent_type(T)))
 @inline function known_size(@nospecialize T::Type{<:Union{PermutedDimsArray,MatAdjTrans}})
-    map(GetIndex{false}(known_size(parent_type(T))), dimperm(T))
+    map(GetIndex{false}(known_size(parent_type(T))), to_parent_dims(T))
 end
 function known_size(@nospecialize T::Type{<:Diagonal})
     s = known_length(parent_type(T))

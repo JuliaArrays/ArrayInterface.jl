@@ -1,4 +1,8 @@
 
+function throw_dim_error(@nospecialize(x), @nospecialize(dim))
+    throw(DimensionMismatch("$x does not have dimension corresponding to $dim"))
+end
+
 #=
     indices_to_dimensions(::IndicesInfo{NI,NS,IS}, ::StaticInt{N}) -> dimsin, dimsout
 
@@ -77,22 +81,6 @@ end
 @inline function indices_to_dimensions(::IndicesInfo{NI,NS,nothing}, n::StaticInt{N}) where {NI,NS,N}
     _accum_dims(map(static, NS)), sum(NI) > N ? _replace_trailing(n, _accum_dims(map(static, NI))) : _accum_dims(map(static, NI))
 end
-
-#=
-function _indices_to_dimensions(
-    ndi::Tuple{Vararg{StaticInt,NI}},
-    nds::Tuple{Vararg{StaticInt,NI}},
-    splat_index::StaticInt{SI},
-    n::StaticInt{N}
-) where {NI,SI,N}
-
-    ndims_indices = sum(ndi)
-    if ndims_indices === n
-        return _accum_dims(NS), _accum_dims(NS)
-    else
-    end
-end
-=#
 @inline function indices_to_dimensions(::IndicesInfo{NI,NS,IS}, n::StaticInt{N}) where {NI,NS,IS,N}
     ndims_indices = sum(NI)
     index_positions = ntuple(static, length(NI))
@@ -125,6 +113,17 @@ function dimsmap(@nospecialize T::Type{<:SubArray})
     dimsin, dimsout = indices_to_dimensions(IndicesInfo(fieldtype(T, :indices)), StaticInt(ndims(parent_type(T))))
     map(tuple, dimsin, dimsout)
 end
+
+"""
+    to_parent_dims(::Type{T}) -> Tuple{Vararg{Union{StaticInt,Tuple{Vararg{StaticInt}}}}}
+
+Returns the mapping from child dimensions to parent dimensions.
+
+!!! Warning
+    This method is still experimental and may change without notice.
+
+"""
+to_parent_dims(@nospecialize x) = to_parent_dims(typeof(x))
 @inline function to_parent_dims(@nospecialize T::Type{<:SubArray})
     dimsin, dimsout = indices_to_dimensions(IndicesInfo(fieldtype(T, :indices)), StaticInt(ndims(parent_type(T))))
     flatten_tuples(map(_to_parent_dim, dimsin, dimsout))
@@ -132,29 +131,31 @@ end
 _to_parent_dim(::StaticInt{0}, pdim) = ()
 _to_parent_dim(::StaticInt{cdim}, pdim) where {cdim} = (pdim,)
 _to_parent_dim(cdims::Tuple, pdim) = ntuple(Compat.Returns(pdim), length(cdims))
+to_parent_dims(@nospecialize T::Type{<:MatAdjTrans}) = (StaticInt(2), StaticInt(1))
+to_parent_dims(@nospecialize T::Type{<:PermutedDimsArray}) = getfield(_permdims(T), 1)
 
+function _permdims(::Type{<:PermutedDimsArray{<:Any,<:Any,I1,I2}}) where {I1,I2}
+    (map(static, I1), map(static, I2))
+end
+
+"""
+    from_parent_dims(::Type{T}) -> Tuple{Vararg{Union{StaticInt,Tuple{Vararg{StaticInt}}}}}
+
+Returns the mapping from parent dimensions to child dimensions.
+
+!!! Warning
+    This method is still experimental and may change without notice.
+
+"""
+from_parent_dims(@nospecialize x) = from_parent_dims(typeof(x))
+from_parent_dims(@nospecialize T::Type{<:PermutedDimsArray}) = getfield(_permdims(T), 2)
+from_parent_dims(@nospecialize T::Type{<:MatAdjTrans}) = (StaticInt(2), StaticInt(1))
 @inline function from_parent_dims(@nospecialize T::Type{<:SubArray})
     dimsin, dimsout = indices_to_dimensions(IndicesInfo(fieldtype(T, :indices)), StaticInt(ndims(parent_type(T))))
     flatten_tuples(map(_from_parent_dim, dimsin, dimsout))
 end
 _from_parent_dim(cdim, ::StaticInt) = (cdim,)
 _from_parent_dim(cdim, pdims::Tuple) = ntuple(Compat.Returns(cdim), length(pdims))
-
-function throw_dim_error(@nospecialize(x), @nospecialize(dim))
-    throw(DimensionMismatch("$x does not have dimension corresponding to $dim"))
-end
-
-function _permdims(::Type{<:PermutedDimsArray{<:Any,<:Any,I1,I2}}) where {I1,I2}
-    (map(static, I1), map(static, I2))
-end
-#### TODO maybe document
-dimperm(@nospecialize x) = dimperm(typeof(x))
-dimperm(@nospecialize T::Type{<:MatAdjTrans}) = (StaticInt(2), StaticInt(1))
-dimperm(@nospecialize T::Type{<:PermutedDimsArray}) = getfield(_permdims(T), 1)
-
-invdimperm(@nospecialize x) = invdimperm(typeof(x))
-invdimperm(@nospecialize T::Type{<:PermutedDimsArray}) = getfield(_permdims(T), 2)
-invdimperm(@nospecialize T::Type{<:MatAdjTrans}) = (StaticInt(2), StaticInt(1))
 
 """
     has_dimnames(::Type{T}) -> Bool
@@ -177,7 +178,7 @@ function known_dimnames(@nospecialize T::Type{<:VecAdjTrans})
     (:_, getfield(known_dimnames(parent_type(T)), 1))
 end
 function known_dimnames(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsArray}})
-    map(GetIndex{false}(known_dimnames(parent_type(T))), dimperm(T))
+    map(GetIndex{false}(known_dimnames(parent_type(T))), to_parent_dims(T))
 end
 
 function known_dimnames(@nospecialize T::Type{<:SubArray})
@@ -239,7 +240,7 @@ have a name.
 """
 @inline dimnames(x, dim) = _dimname(dimnames(x), canonicalize(dim))
 @inline function dimnames(x::Union{PermutedDimsArray,MatAdjTrans})
-    map(GetIndex{false}(dimnames(parent(x))), dimperm(x))
+    map(GetIndex{false}(dimnames(parent(x))), to_parent_dims(x))
 end
 
 function dimnames(x::SubArray)

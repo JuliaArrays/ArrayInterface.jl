@@ -39,7 +39,7 @@ function axes_types(@nospecialize T::Type{<:MatAdjTrans})
     Tuple{fieldtype(Ax, 2), fieldtype(Ax, 1)}
 end
 function axes_types(::Type{T}) where {T<:PermutedDimsArray}
-    eachop_tuple(field_type, dimperm(T), axes_types(parent_type(T)))
+    eachop_tuple(field_type, to_parent_dims(T), axes_types(parent_type(T)))
 end
 axes_types(T::Type{<:Base.IdentityUnitRange}) = Tuple{T}
 axes_types(::Type{<:Base.Slice{I}}) where {I} = Tuple{Base.IdentityUnitRange{I}}
@@ -111,7 +111,7 @@ example, the axis along the first dimension of `Transpose{T,<:AbstractVector{T}}
 @inline axes(A) = Base.axes(A)
 axes(A::ReshapedArray) = Base.axes(A)
 @inline function axes(x::Union{MatAdjTrans,PermutedDimsArray})
-    map(GetIndex{false}(axes(parent(x))), dimperm(x))
+    map(GetIndex{false}(axes(parent(x))), to_parent_dims(x))
 end
 axes(A::VecAdjTrans) = (SOneTo{1}(), axes(parent(A), 1))
 @inline function axes(x::SubArray)
@@ -249,5 +249,5 @@ end
 lazy_axes(x::Union{LinearIndices,CartesianIndices,AbstractRange}) = axes(x)
 @inline lazy_axes(x::VecAdjTrans) = (SOneTo{1}(), first(lazy_axes(parent(x))))
 @inline function lazy_axes(x::Union{PermutedDimsArray,MatAdjTrans})
-    map(GetIndex{false}(lazy_axes(parent(x))), dimperm(x))
+    map(GetIndex{false}(lazy_axes(parent(x))), to_parent_dims(x))
 end

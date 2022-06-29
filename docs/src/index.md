@@ -142,6 +142,10 @@ ArrayInterface.dimnames(x::DynamicDimnames) = getfield(x, :dimnames)
 Notice that `DynamicDimnames` returns `nothing` instead of a symbol for each dimension.
 This indicates dimension names are present for `DynamicDimnames` but that information is nothing at compile time.
 
+Dimension names should be appropriately propagated between nested arrays using `ArrayInterface.to_parent_dims`. 
+This allows types such as `SubArray` and `PermutedDimsArray` to work with named dimensions.
+Similarly, other methods that return information corresponding to dimensions (e.g., `ArrayInterfce.size`, `ArrayInterface.axes`) use `to_parent_dims` to appropriately propagate parent information.
+
 ## Axes
 
 Where Julia's currently documented [array interface]( https://docs.julialang.org/en/v1/manual/interfaces/#man-interface-array) requires defining `Base.size`, ArrayInterface instead requires defining [`ArrayInterface.axes`](@ref) and [`ArrayInterface.axes_types`](@ref).

@@ -156,7 +156,7 @@ function contiguous_axis(::Type{T}) where {T<:PermutedDimsArray}
     elseif isone(-c)
         return c
     else
-        return invdimperm(T)[c]
+        return from_parent_dims(T)[c]
     end
 end
 function contiguous_axis(::Type{<:Base.ReshapedArray{T, N, A, Tuple{}}}) where {T, N, A}
@@ -237,7 +237,7 @@ stride_rank(@nospecialize T::Type{<:VecAdjTrans}) = (StaticInt(2), StaticInt(1))
     if rank === nothing
         return nothing
     else
-        return map(GetIndex{false}(rank), dimperm(T))
+        return map(GetIndex{false}(rank), to_parent_dims(T))
     end
  end
 
@@ -395,7 +395,7 @@ end
     if dense === nothing
         return nothing
     else
-        return map(GetIndex{false}(dense), dimperm(T))
+        return map(GetIndex{false}(dense), to_parent_dims(T))
     end
 end
 
@@ -490,7 +490,7 @@ known_strides(::Type{T}) where {T<:Vector} = (1,)
     return (strd, strd)
 end
 @inline function known_strides(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsArray}})
-    map(GetIndex{false}(known_strides(parent_type(T))), dimperm(T))
+    map(GetIndex{false}(known_strides(parent_type(T))), to_parent_dims(T))
 end
 @inline function known_strides(::Type{T}) where {T<:SubArray}
     map(GetIndex{false}(known_strides(parent_type(T))), to_parent_dims(T))
@@ -673,7 +673,7 @@ function strides(x::VecAdjTrans)
     return (st, st)
 end
 @inline function strides(x::Union{MatAdjTrans,PermutedDimsArray})
-    map(GetIndex{false}(strides(parent(x))), dimperm(x))
+    map(GetIndex{false}(strides(parent(x))), to_parent_dims(x))
 end
 
 getmul(x::Tuple, y::Tuple, ::StaticInt{i}) where {i} = getfield(x, i) * getfield(y, i)
