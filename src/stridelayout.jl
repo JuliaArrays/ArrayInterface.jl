@@ -125,11 +125,11 @@ contiguous_axis(::Type{<:StrideIndex{N,R,nothing}}) where {N,R} = nothing
 function contiguous_axis(::Type{T}) where {T}
     is_forwarding_wrapper(T) ? contiguous_axis(parent_type(T)) : nothing
 end
-contiguous_axis(::Type{<:DenseArray}) = One()
+contiguous_axis(@nospecialize T::Type{<:DenseArray}) = One()
 contiguous_axis(::Type{<:BitArray}) = One()
-contiguous_axis(::Type{<:AbstractRange}) = One()
-contiguous_axis(::Type{<:Tuple}) = One()
-function contiguous_axis(::Type{T}) where {T<:VecAdjTrans}
+contiguous_axis(@nospecialize T::Type{<:AbstractRange}) = One()
+contiguous_axis(@nospecialize T::Type{<:Tuple}) = One()
+function contiguous_axis(@nospecialize T::Type{<:VecAdjTrans})
     c = contiguous_axis(parent_type(T))
     if c === nothing
         return nothing
@@ -139,7 +139,7 @@ function contiguous_axis(::Type{T}) where {T<:VecAdjTrans}
         return -One()
     end
 end
-function contiguous_axis(::Type{T}) where {T<:MatAdjTrans}
+function contiguous_axis(@nospecialize T::Type{<:MatAdjTrans})
     c = contiguous_axis(parent_type(T))
     if c === nothing
         return nothing
@@ -149,7 +149,7 @@ function contiguous_axis(::Type{T}) where {T<:MatAdjTrans}
         return StaticInt(3) - c
     end
 end
-function contiguous_axis(::Type{T}) where {T<:PermutedDimsArray}
+function contiguous_axis(@nospecialize T::Type{<:PermutedDimsArray})
     c = contiguous_axis(parent_type(T))
     if c === nothing
         return nothing

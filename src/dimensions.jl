@@ -1,8 +1,7 @@
 
 
-_init_dimsmap(::Type{I}, ::Type{P}) where {I,P} = _init_dimsmap(indices_to_dims(I, P))
 _init_dimsmap(x) = _init_dimsmap(IndicesInfo(x))
-function _init_dimsmap(::IndicesInfo{pdims,cdims,nothing}) where {pdims,cdims}
+function _init_dimsmap(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
     ntuple(i -> static(getfield(pdims, i)), length(pdims)),
     ntuple(i -> static(getfield(cdims, i)), length(pdims))
 end
@@ -21,9 +20,9 @@ Returns the mapping from child dimensions to parent dimensions.
 """
 to_parent_dims(@nospecialize x) = to_parent_dims(typeof(x))
 @inline function to_parent_dims(@nospecialize T::Type{<:SubArray})
-    to_parent_dims(indices_to_dims(fieldtype(T, :indices), parent_type(T)))
+    to_parent_dims(IndicesInfo{ndims(parent_type(T))}(fieldtype(T, :indices)))
 end
-function to_parent_dims(::IndicesInfo{pdims,cdims,nothing}) where {pdims,cdims}
+function to_parent_dims(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
     flatten_tuples(ntuple(length(cdims)) do i
         cdim_i = getfield(cdims, i)
         if cdim_i isa Tuple
@@ -48,7 +47,7 @@ end
 # Base will sometomes demote statically known slices in `SubArray` to `OneTo{Int}` so we
 # provide the parent mapping to check for static size info
 sub_axes_map(@nospecialize(T::Type{<:SubArray})) = _sub_axes_map(T, IndicesInfo(T))
-function _sub_axes_map(@nospecialize(T::Type{<:SubArray}), ::IndicesInfo{pdims}) where {pdims}
+function _sub_axes_map(@nospecialize(T::Type{<:SubArray}), ::IndicesInfo{N,pdims}) where {N,pdims}
     ntuple(length(pdims)) do i
         if fieldtype(fieldtype(T, :indices), i) <: Base.Slice{OneTo{Int}}
             sz = known_size(parent_type(T), getfield(pdims, i))
@@ -60,7 +59,7 @@ function _sub_axes_map(@nospecialize(T::Type{<:SubArray}), ::IndicesInfo{pdims})
 end
 
 sub_dimnames_map(@nospecialize T::Type{<:SubArray}) = _sub_dimnames_map(IndicesInfo(T))
-function _sub_dimnames_map(::IndicesInfo{pdims,cdims}) where {pdims,cdims}
+function _sub_dimnames_map(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
     ntuple(length(pdims)) do i
         cdim_i = getfield(cdims, i)
         pdim_i = getfield(pdims, i)
@@ -87,10 +86,10 @@ from_parent_dims(@nospecialize x) = from_parent_dims(typeof(x))
 from_parent_dims(@nospecialize T::Type{<:PermutedDimsArray}) = getfield(_permdims(T), 2)
 from_parent_dims(@nospecialize T::Type{<:MatAdjTrans}) = (StaticInt(2), StaticInt(1))
 @inline function from_parent_dims(@nospecialize T::Type{<:SubArray})
-    from_parent_dims(indices_to_dims(fieldtype(T, :indices), parent_type(T)))
+    from_parent_dims(IndicesInfo{ndims(parent_type(T))}(fieldtype(T, :indices)))
 end
 # TODO do I need to flatten_tuples here?
-function from_parent_dims(::IndicesInfo{pdims,cdims,nothing}) where {pdims,cdims}
+function from_parent_dims(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
     ntuple(length(cdims)) do i
         pdim_i = getfield(pdims, i)
         cdim_i = static(getfield(cdims, i))
@@ -129,7 +128,6 @@ _known_sub_dimname(dn::Tuple, ::StaticInt{dim}) where {dim} = getfield(dn, dim)
 function _known_sub_dimname(::Tuple, ::Pair{StaticSymbol{:underscore},StaticInt{N}}) where {N}
     ntuple(Compat.Returns(:_), StaticInt(N))
 end
-
 
 function known_dimnames(::Type{<:ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
     pnames = known_dimnames(A)

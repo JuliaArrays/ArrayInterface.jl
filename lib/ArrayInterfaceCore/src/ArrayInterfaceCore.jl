@@ -671,51 +671,55 @@ ndims_shape(x) = ndims_shape(typeof(x))
 end
 
 """
-    IndicesInfo(T::Type{<:Tuple}) -> IndicesInfo{NI,NS,IS}()
+    IndicesInfo{N}(T::Type{<:Tuple}) -> IndicesInfo{N,NI,NS}()
 
 Provides basic trait information for each index type in in the tuple `T`. `NI`, `NS`, and
 `IS` are tuples of [`ndims_index`](@ref), [`ndims_shape`](@ref), and
 [`is_splat_index`](@ref) (respectively) for each field of `T`.
-"""
-struct IndicesInfo{NI,NS,IS} end
-IndicesInfo(x::Union{Tuple,SubArray}) = IndicesInfo(typeof(x))
-function IndicesInfo(@nospecialize T::Type{<:Tuple})
-    IndicesInfo{
-        map_tuple_type(ndims_index, T),
-        map_tuple_type(ndims_shape, T),
-        _find_first_true(map_tuple_type(is_splat_index, T))
-    }()
-end
-function IndicesInfo(@nospecialize T::Type{<:SubArray})
-    indices_to_dims(IndicesInfo(fieldtype(T, :indices)), parent_type(T))
-end
 
-@inline function indices_to_dims(@nospecialize(I::Type{<:Tuple}), @nospecialize(T::Type))
-    indices_to_dims(IndicesInfo(I), T)
+# Examples
+
+```julia
+julia> using ArrayInterfaceCore: IndicesInfo
+
+julia> IndicesInfo{5}(typeof((:,[CartesianIndex(1,1),CartesianIndex(1,1)], 1, ones(Int, 2, 2), :, 1)))
+IndicesInfo{5, (1, (2, 3), 4, 5, 0, 0), (1, 2, 0, (3, 4), 5, 0)}()
+
+```
+"""
+struct IndicesInfo{N,NI,NS} end
+IndicesInfo(x::SubArray) = IndicesInfo{ndims(parent(x))}(typeof(x.indices))
+@inline function IndicesInfo(@nospecialize T::Type{<:SubArray})
+    IndicesInfo{ndims(parent_type(T))}(fieldtype(T, :indices))
 end
-@inline function indices_to_dims(::IndicesInfo{(1,),NS,nothing}, @nospecialize(T::Type)) where {NS}
+function IndicesInfo{N}(@nospecialize(T::Type{<:Tuple})) where {N}
+    _indices_info(
+        Val{_find_first_true(map_tuple_type(is_splat_index, T))}(),
+        IndicesInfo{N,map_tuple_type(ndims_index, T),map_tuple_type(ndims_shape, T)}()
+    )
+end
+function _indices_info(::Val{nothing}, ::IndicesInfo{1,(1,),NS}) where {NS}
     ns1 = getfield(NS, 1)
-    nsd = ns1 > 1 ? ntuple(identity, ns1) : ns1
-    if ndims(T) === 1
-        IndicesInfo{(1,), (nsd,), nothing}()
+    IndicesInfo{1,(1,), (ns1 > 1 ? ntuple(identity, ns1) : ns1,)}()
+end
+function _indices_info(::Val{nothing}, ::IndicesInfo{N,(1,),NS}) where {N,NS}
+    ns1 = getfield(NS, 1)
+    IndicesInfo{N,(:,),(ns1 > 1 ? ntuple(identity, ns1) : ns1,)}()
+end
+@inline function _indices_info(::Val{nothing}, ::IndicesInfo{N,NI,NS}) where {N,NI,NS}
+    if sum(NI) > N
+        IndicesInfo{N,_replace_trailing(N, _accum_dims(cumsum(NI), NI)), _accum_dims(cumsum(NS), NS)}()
     else
-        IndicesInfo{(:,), (nsd,), nothing}()
+        IndicesInfo{N,_accum_dims(cumsum(NI), NI), _accum_dims(cumsum(NS), NS)}()
     end
 end
-@inline function indices_to_dims(::IndicesInfo{NI,NS,nothing}, @nospecialize(T::Type)) where {NI,NS}
-    if sum(NI) > ndims(T)
-        IndicesInfo{_replace_trailing(ndims(T), _accum_dims(cumsum(NI), NI)), _accum_dims(cumsum(NS), NS), nothing}()
-    else
-        IndicesInfo{_accum_dims(cumsum(NI), NI), _accum_dims(cumsum(NS), NS), nothing}()
-    end
-end
-@inline function indices_to_dims(::IndicesInfo{NI,NS,SI}, @nospecialize(T::Type)) where {NI,NS,SI}
-    nsplat = ndims(T) - sum(NI)
+@inline function _indices_info(::Val{SI}, ::IndicesInfo{N,NI,NS}) where {N,NI,NS,SI}
+    nsplat = N - sum(NI)
     if nsplat === 0
-        indices_to_dims(IndicesInfo{NI,NS,nothing}(), T)
+        _indices_info(Val{nothing}(), IndicesInfo{N,NI,NS}())
     else
         splatmul = max(0, nsplat + 1)
-        indices_to_dims(IndicesInfo{_map_splats(splatmul, SI, NI),_map_splats(splatmul, SI, NS),nothing}(), T)
+        _indices_info(Val{nothing}(), IndicesInfo{N,_map_splats(splatmul, SI, NI),_map_splats(splatmul, SI, NS)}())
     end
 end
 @inline function _map_splats(nsplat::Int, splat_index::Int, dims::Tuple{Vararg{Int}})

@@ -81,7 +81,7 @@ This implementation differs from that of `Base.to_indices` in the following ways
 """
 to_indices(A, ::Tuple{}) = ()
 @inline function to_indices(a::A, inds::I) where {A,I}
-    flatten_tuples(map(IndexedMappedArray(a), inds, getfield(_init_dimsmap(I, A), 1)))
+    flatten_tuples(map(IndexedMappedArray(a), inds, getfield(_init_dimsmap(IndicesInfo{ndims(A)}(I)), 1)))
 end
 
 struct IndexedMappedArray{A}
