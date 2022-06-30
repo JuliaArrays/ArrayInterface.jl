@@ -2,56 +2,6 @@
 ###
 ### define wrapper with ArrayInterface.dimnames
 ###
-@testset "dimension permutations" begin
-    a = ones(2, 2, 2)
-    perm = PermutedDimsArray(a, (3, 1, 2))
-    mview = view(perm, :, 1, :)
-    madj = mview'
-    vview = view(madj, 1, :)
-    vadj = vview'
-
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(a))) == (1, 2, 3)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(perm))) == (3, 1, 2)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(mview))) == (1, 3)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(madj))) == (2, 1)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(vview))) == (2,)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj))) == (2, 1)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj), static(1))) == 2
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj), 1)) == 2
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj), static(3))) == 2
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(vadj), 3)) == 2
-
-    @test @inferred(ArrayInterface.from_parent_dims(a)) == (1, 2, 3)
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(perm))) == (2, 3, 1)
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(mview))) == (1, 0, 2)
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(madj))) == (2, 1)
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(vview))) == (0, 1)
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(vadj))) == (2,)
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(vadj), static(1))) == 2
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(vadj), 1)) == 2
-
-    @test_throws DimensionMismatch ArrayInterface.to_parent_dims(typeof(vadj), 0)
-    @test_throws DimensionMismatch ArrayInterface.to_parent_dims(typeof(vadj), static(0))
-
-    @test_throws DimensionMismatch ArrayInterface.from_parent_dims(typeof(vadj), 0)
-    @test_throws DimensionMismatch ArrayInterface.from_parent_dims(typeof(vadj), static(0))
-
-    colormat = reinterpret(reshape, Float64, [(R=rand(), G=rand(), B=rand()) for i ∈ 1:100])
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(colormat))) === (static(2),)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(colormat))) === (static(0), static(1),)
-
-    Rr = reinterpret(reshape, Int32, ones(4))
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(Rr))) === (static(2),)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(Rr))) === (static(0), static(1),)
-
-    Rr = reinterpret(reshape, Int64, ones(4))
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(Rr))) === (static(1),)
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(Rr))) === (static(1),)
-
-    Sr = reinterpret(reshape, Complex{Int64}, zeros(2, 3, 4))
-    @test @inferred(ArrayInterface.from_parent_dims(typeof(Sr))) === (static(0), static(1), static(2))
-    @test @inferred(ArrayInterface.to_parent_dims(typeof(Sr))) === (static(2), static(3))
-end
 
 @testset "order_named_inds" begin
     n1 = (static(:x),)
@@ -103,17 +53,25 @@ end
     @test @inferred(ArrayInterface.dimnames(view(x, :, 1)')) === (static(:_), static(:x))
     @test @inferred(ArrayInterface.dimnames(view(x, :, :, :))) === (static(:x), static(:y), static(:_))
     @test @inferred(ArrayInterface.dimnames(view(x, :, 1, :))) === (static(:x), static(:_))
+    # multidmensional indices
+    @test @inferred(ArrayInterface.dimnames(view(x, ones(Int, 2, 2), 1))) === (static(:_), static(:_))
+    @test @inferred(ArrayInterface.dimnames(view(x, [CartesianIndex(1,1), CartesianIndex(1,1)]))) === (static(:_),)
+
     @test @inferred(ArrayInterface.dimnames(x, ArrayInterface.One())) === static(:x)
     @test @inferred(ArrayInterface.dimnames(parent(x), ArrayInterface.One())) === static(:_)
     @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10))) === (:_,)
     @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10), static(1))) === :_
+    # multidmensional indices
+    @test @inferred(ArrayInterface.known_dimnames(view(x, ones(Int, 2, 2), 1))) === (:_, :_)
+    @test @inferred(ArrayInterface.known_dimnames(view(x, [CartesianIndex(1,1), CartesianIndex(1,1)]))) === (:_,)
+
     @test @inferred(ArrayInterface.known_dimnames(z)) === (nothing, :y)
-    @test @inferred(ArrayInterface.known_dimnames(reshape(x, (1, 4)))) == d
-    @test @inferred(ArrayInterface.known_dimnames(r1)) == d
-    @test @inferred(ArrayInterface.known_dimnames(r2)) == (:_, d...)
-    @test @inferred(ArrayInterface.known_dimnames(r3)) == Base.tail(d)
-    @test @inferred(ArrayInterface.known_dimnames(r4)) == d
-    @test @inferred(ArrayInterface.known_dimnames(w)) == d
+    @test @inferred(ArrayInterface.known_dimnames(reshape(x, (1, 4)))) === (:x, :y)
+    @test @inferred(ArrayInterface.known_dimnames(r1)) === (:x, :y)
+    @test @inferred(ArrayInterface.known_dimnames(r2)) === (:_, :x, :y)
+    @test @inferred(ArrayInterface.known_dimnames(r3)) === (:y,)
+    @test @inferred(ArrayInterface.known_dimnames(r4)) === (:x, :y)
+    @test @inferred(ArrayInterface.known_dimnames(w)) === (:x, :y)
     @test @inferred(ArrayInterface.known_dimnames(reshape(x, :))) === (:_,)
     @test @inferred(ArrayInterface.known_dimnames(view(x, :, 1)')) === (:_, :x)
 end

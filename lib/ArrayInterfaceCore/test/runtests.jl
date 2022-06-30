@@ -1,7 +1,7 @@
 using ArrayInterfaceCore
 using ArrayInterfaceCore: zeromatrix
 import ArrayInterfaceCore: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance,
-        parent_type, zeromatrix
+        parent_type, zeromatrix, IndicesInfo
 using Base: setindex
 using LinearAlgebra
 using Random
@@ -271,8 +271,8 @@ end
 @testset "ndims_shape" begin
     @test @inferred(ArrayInterfaceCore.ndims_shape(1)) === 0
     @test @inferred(ArrayInterfaceCore.ndims_shape(:)) === 1
-    @test @inferred(ArrayInterfaceCore.ndims_shape(CartesianIndex(1, 2))) === (0, 0)
-    @test @inferred(ArrayInterfaceCore.ndims_shape(CartesianIndices((2,2)))) === (1, 1)
+    @test @inferred(ArrayInterfaceCore.ndims_shape(CartesianIndex(1, 2))) === 0
+    @test @inferred(ArrayInterfaceCore.ndims_shape(CartesianIndices((2,2)))) === 2
     @test @inferred(ArrayInterfaceCore.ndims_shape([1 1])) === 2
 end
 
@@ -292,4 +292,37 @@ end
   @test !ArrayInterfaceCore.indices_do_not_alias(Transpose{Matrix{Float64},Matrix{Matrix{Float64}}})
   @test !ArrayInterfaceCore.indices_do_not_alias(typeof(view(fill(rand(4,4),4,4)', 2:3, 1:2)))
   @test !ArrayInterfaceCore.indices_do_not_alias(typeof(view(rand(4,4)', StepRangeLen(1,0,5), 1:2)))
+end
+
+@testset "IndicesInfo" begin
+
+    struct SplatFirst end
+
+    ArrayInterfaceCore.is_splat_index(::Type{SplatFirst}) = true
+
+    @test @inferred(IndicesInfo(SubArray{Float64, 2, Vector{Float64}, Tuple{Base.ReshapedArray{Int64, 2, UnitRange{Int64}, Tuple{}}}, true})) ==
+        IndicesInfo{1,(1,),((1,2),)}()
+
+    @test @inferred(IndicesInfo{1}((Tuple{Vector{Int}}))) == IndicesInfo{1, (1,), (1,)}()
+
+    @test @inferred(IndicesInfo{2}(Tuple{Vector{Int}})) == IndicesInfo{2, (:,), (1,)}()
+
+    @test @inferred(IndicesInfo{1}(Tuple{SplatFirst})) == IndicesInfo{1, (1,), (1,)}()
+
+    @test @inferred(IndicesInfo{2}(Tuple{SplatFirst})) == IndicesInfo{2, ((1,2),), ((1, 2),)}()
+
+    @test @inferred(IndicesInfo{5}(typeof((:,[CartesianIndex(1,1),CartesianIndex(1,1)], 1, ones(Int, 2, 2), :, 1)))) ==
+        IndicesInfo{5, (1, (2, 3), 4, 5, 0, 0), (1, 2, 0, (3, 4), 5, 0)}()
+
+    @test @inferred(IndicesInfo{10}(Tuple{Vararg{Int,10}})) ==
+        IndicesInfo{10, (1, 2, 3, 4, 5, 6, 7, 8, 9, 10), (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)}()
+
+    @test @inferred(IndicesInfo{10}(typeof((1, CartesianIndex(2, 1), 2, CartesianIndex(1, 2), 1, CartesianIndex(2, 1), 2)))) ==
+        IndicesInfo{10, (1, (2, 3), 4, (5, 6), 7, (8, 9), 10), (0, 0, 0, 0, 0, 0, 0)}()
+
+    @test @inferred(IndicesInfo{10}(typeof((fill(true, 4, 4), 2, fill(true, 4, 4), 2, 1, fill(true, 4, 4), 1)))) ==
+        IndicesInfo{10, ((1, 2), 3, (4, 5), 6, 7, (8, 9), 10), (1, 0, 2, 0, 0, 3, 0)}()
+
+    @test @inferred(IndicesInfo{10}(typeof((1, SplatFirst(), 2, SplatFirst(), CartesianIndex(1, 1))))) ==
+        IndicesInfo{10, (1, (2, 3, 4, 5, 6), 7, 8, (9, 10)), (0, (1, 2, 3, 4, 5), 0, 6, 0)}()
 end

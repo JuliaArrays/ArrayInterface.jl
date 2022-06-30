@@ -5,28 +5,9 @@ using ArrayInterface
 using LinearAlgebra
 using StaticArrays
 using Static
+import ArrayInterfaceStaticArraysCore
 
 const CanonicalInt = Union{Int,StaticInt}
-
-ArrayInterface.ismutable(::Type{<:StaticArrays.StaticArray}) = false
-ArrayInterface.ismutable(::Type{<:StaticArrays.MArray}) = true
-ArrayInterface.ismutable(::Type{<:StaticArrays.SizedArray}) = true
-
-ArrayInterface.can_setindex(::Type{<:StaticArrays.StaticArray}) = false
-ArrayInterface.buffer(A::Union{StaticArrays.SArray,StaticArrays.MArray}) = getfield(A, :data)
-
-function ArrayInterface.lu_instance(_A::StaticArrays.StaticMatrix{N,N}) where {N}
-    A = StaticArrays.SArray(_A)
-    L = LowerTriangular(A)
-    U = UpperTriangular(A)
-    p = StaticArrays.SVector{N,Int}(1:N)
-    return StaticArrays.LU(L, U, p)
-end
-
-function ArrayInterface.restructure(x::StaticArrays.SArray, y::StaticArrays.SArray)
-    reshape(y, StaticArrays.Size(x))
-end
-ArrayInterface.restructure(x::StaticArrays.SArray{S}, y) where {S} = StaticArrays.SArray{S}(y)
 
 ArrayInterface.known_first(::Type{<:StaticArrays.SOneTo}) = 1
 ArrayInterface.known_last(::Type{StaticArrays.SOneTo{N}}) where {N} = N
@@ -40,7 +21,9 @@ ArrayInterface.device(::Type{<:StaticArrays.MArray}) = ArrayInterface.CPUPointer
 ArrayInterface.device(::Type{<:StaticArrays.SArray}) = ArrayInterface.CPUTuple()
 ArrayInterface.contiguous_axis(::Type{<:StaticArrays.StaticArray}) = StaticInt{1}()
 ArrayInterface.contiguous_batch_size(::Type{<:StaticArrays.StaticArray}) = StaticInt{0}()
-ArrayInterface.stride_rank(::Type{T}) where {N,T<:StaticArray{<:Any,<:Any,N}} = Static.nstatic(Val(N))
+function ArrayInterface.stride_rank(::Type{T}) where {N,T<:StaticArray{<:Any,<:Any,N}}
+    ntuple(static, StaticInt(N))
+end
 function ArrayInterface.dense_dims(::Type{<:StaticArray{S,T,N}}) where {S,T,N}
     ArrayInterface._all_dense(Val(N))
 end
@@ -73,7 +56,5 @@ if StaticArrays.SizedArray{Tuple{8,8},Float64,2,2} isa UnionAll
 else
     ArrayInterface.parent_type(::Type{<:StaticArrays.SizedArray{S,T,M,N}}) where {S,T,M,N} = Array{T,N}
 end
-
-Adapt.adapt_storage(::Type{<:StaticArrays.SArray{S}}, xs::Array) where {S} = SArray{S}(xs)
 
 end # module

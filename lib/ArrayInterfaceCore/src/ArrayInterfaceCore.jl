@@ -9,7 +9,7 @@ using SuiteSparse
     using Base: @assume_effects
 else
     macro assume_effects(_, ex)
-        Base.@pure ex
+        :(Base.@pure $(ex))
     end
 end
 
@@ -21,6 +21,72 @@ const VecAdjTrans{T,V<:AbstractVector{T}} = Union{Transpose{T,V},Adjoint{T,V}}
 const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
 const UpTri{T,M} = Union{UpperTriangular{T,M},UnitUpperTriangular{T,M}}
 const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
+
+"""
+    ArrayInterfaceCore.map_tuple_type(f, T::Type{<:Tuple})
+
+Returns tuple where each field corresponds to the field type of `T` modified by the function `f`.
+
+# Examples
+
+```julia
+julia> ArrayInterfaceCore.map_tuple_type(sqrt, Tuple{1,4,16})
+(1.0, 2.0, 4.0)
+
+```
+"""
+function map_tuple_type(f::F, ::Type{T}) where {F,T<:Tuple}
+    if @generated
+        t = Expr(:tuple)
+        for i in 1:fieldcount(T)
+            push!(t.args, :(f($(fieldtype(T, i)))))
+        end
+        Expr(:block, Expr(:meta, :inline), t)
+    else
+        Tuple(f(fieldtype(T, i)) for i in 1:fieldcount(T))
+    end
+end
+
+"""
+    ArrayInterfaceCore.flatten_tuples(t::Tuple) -> Tuple
+
+Flattens any field of `t` that is a tuple. Only direct fields of `t` may be flattened.
+
+# Examples
+
+```julia
+julia> ArrayInterfaceCore.flatten_tuples((1, ()))
+(1,)
+
+julia> ArrayInterfaceCore.flatten_tuples((1, (2, 3)))
+(1, 2, 3)
+
+julia> ArrayInterfaceCore.flatten_tuples((1, (2, (3,))))
+(1, 2, (3,))
+
+```
+"""
+@inline function flatten_tuples(t::Tuple)
+    if @generated
+        texpr = Expr(:tuple)
+        for i in 1:fieldcount(t)
+            p = fieldtype(t, i)
+            if p <: Tuple
+                for j in 1:fieldcount(p)
+                    push!(texpr.args, :(@inbounds(getfield(getfield(t, $i), $j))))
+                end
+            else
+                push!(texpr.args, :(@inbounds(getfield(t, $i))))
+            end
+        end
+        Expr(:block, Expr(:meta, :inline), texpr)
+    else
+        _flatten(t)
+    end
+end
+_flatten(::Tuple{}) = ()
+@inline _flatten(t::Tuple{Any,Vararg{Any}}) = (getfield(t, 1), _flatten(Base.tail(t))...)
+@inline _flatten(t::Tuple{Tuple,Vararg{Any}}) = (getfield(t, 1)..., _flatten(Base.tail(t))...)
 
 """
     parent_type(::Type{T}) -> Type
@@ -61,6 +127,46 @@ would all be equivalent to its wrapped data.
 is_forwarding_wrapper(T::Type) = false
 is_forwarding_wrapper(@nospecialize T::Type{<:Base.Slice}) = true
 is_forwarding_wrapper(@nospecialize x) = is_forwarding_wrapper(typeof(x))
+
+"""
+    GetIndex(buffer) = GetIndex{true}(buffer)
+    GetIndex{check}(buffer) -> g
+
+Wraps an indexable buffer in a function type that is indexed when called, so that `g(inds..)`
+is equivalent to `buffer[inds...]`. If `check` is `false`, then all indexing arguments are
+considered in-bounds. The default value for `check` is `true`, requiring bounds checking for
+each index.
+
+!!! Warning
+    Passing `false` as `check` may result in incorrect results/crashes/corruption for
+    out-of-bounds indices, similar to inappropriate use of `@inbounds`. The user is
+    responsible for ensuring this is correctly used.
+
+# Examples
+
+```julia
+julia> ArrayInterfaceCore.GetIndex(1:10)[3]
+3
+
+julia> ArrayInterfaceCore.GetIndex{false}(1:10)[11]  # shouldn't be in-bounds
+11
+
+```
+
+"""
+struct GetIndex{CB,B} <: Function
+    buffer::B
+
+    GetIndex{true,B}(b) where {B} = new{true,B}(b)
+    GetIndex{false,B}(b) where {B} = new{false,B}(b)
+    GetIndex{check}(b::B) where {check,B} = GetIndex{check,B}(b)
+    GetIndex(b) = GetIndex{true}(b)
+end
+
+buffer(g::GetIndex) = getfield(g, :buffer)
+
+Base.@propagate_inbounds @inline (g::GetIndex{true})(inds...) = buffer(g)[inds...]
+@inline (g::GetIndex{false})(inds...) = @inbounds(buffer(g)[inds...])
 
 """
     can_change_size(::Type{T}) -> Bool
@@ -660,34 +766,100 @@ indexing with an instance of `I`.
 """
 ndims_shape(T::DataType) = ndims_index(T)
 ndims_shape(::Type{Colon}) = 1
-ndims_shape(T::Type{<:Base.AbstractCartesianIndex{N}}) where {N} = ntuple(zero, Val{N}())
-ndims_shape(@nospecialize T::Type{<:CartesianIndices}) = ntuple(one, Val{ndims(T)}())
-ndims_shape(@nospecialize T::Type{<:Number}) = 0
+ndims_shape(@nospecialize T::Type{<:CartesianIndices}) = ndims(T)
+ndims_shape(@nospecialize T::Type{<:Union{Number,Base.AbstractCartesianIndex}}) = 0
+ndims_shape(@nospecialize T::Type{<:AbstractArray{Bool}}) = 1
 ndims_shape(@nospecialize T::Type{<:AbstractArray}) = ndims(T)
 ndims_shape(x) = ndims_shape(typeof(x))
 
+@assume_effects :total function _find_first_true(isi::Tuple{Vararg{Bool,N}}) where {N}
+    for i in 1:N
+        getfield(isi, i) && return i
+    end
+    return nothing
+end
+
 """
-    IndicesInfo(T::Type{<:Tuple}) -> IndicesInfo{NI,NS,IS}()
+    IndicesInfo{N}(T::Type{<:Tuple}) -> IndicesInfo{N,NI,NS}()
 
 Provides basic trait information for each index type in in the tuple `T`. `NI`, `NS`, and
 `IS` are tuples of [`ndims_index`](@ref), [`ndims_shape`](@ref), and
 [`is_splat_index`](@ref) (respectively) for each field of `T`.
+
+# Examples
+
+```julia
+julia> using ArrayInterfaceCore: IndicesInfo
+
+julia> IndicesInfo{5}(typeof((:,[CartesianIndex(1,1),CartesianIndex(1,1)], 1, ones(Int, 2, 2), :, 1)))
+IndicesInfo{5, (1, (2, 3), 4, 5, 0, 0), (1, 2, 0, (3, 4), 5, 0)}()
+
+```
 """
-struct IndicesInfo{NI,NS,IS,CI} end
-IndicesInfo(@nospecialize x::Tuple) = IndicesInfo(typeof(x))
-@generated function IndicesInfo(::Type{T}) where {T<:Tuple}
-    NI = Expr(:tuple)
-    NS = Expr(:tuple)
-    IS = Expr(:tuple)
-    CI = Expr(:tuple)
-    for i in 1:fieldcount(T)
-        T_i = fieldtype(T, i)
-        push!(NI.args, :(ndims_index($(T_i))))
-        push!(NS.args, :(ndims_shape($(T_i))))
-        push!(IS.args, :(is_splat_index($(T_i))))
-        push!(CI.args, :(CheckIndexStyle($(T_i))))
+struct IndicesInfo{N,NI,NS} end
+IndicesInfo(x::SubArray) = IndicesInfo{ndims(parent(x))}(typeof(x.indices))
+@inline function IndicesInfo(@nospecialize T::Type{<:SubArray})
+    IndicesInfo{ndims(parent_type(T))}(fieldtype(T, :indices))
+end
+function IndicesInfo{N}(@nospecialize(T::Type{<:Tuple})) where {N}
+    _indices_info(
+        Val{_find_first_true(map_tuple_type(is_splat_index, T))}(),
+        IndicesInfo{N,map_tuple_type(ndims_index, T),map_tuple_type(ndims_shape, T)}()
+    )
+end
+function _indices_info(::Val{nothing}, ::IndicesInfo{1,(1,),NS}) where {NS}
+    ns1 = getfield(NS, 1)
+    IndicesInfo{1,(1,), (ns1 > 1 ? ntuple(identity, ns1) : ns1,)}()
+end
+function _indices_info(::Val{nothing}, ::IndicesInfo{N,(1,),NS}) where {N,NS}
+    ns1 = getfield(NS, 1)
+    IndicesInfo{N,(:,),(ns1 > 1 ? ntuple(identity, ns1) : ns1,)}()
+end
+@inline function _indices_info(::Val{nothing}, ::IndicesInfo{N,NI,NS}) where {N,NI,NS}
+    if sum(NI) > N
+        IndicesInfo{N,_replace_trailing(N, _accum_dims(cumsum(NI), NI)), _accum_dims(cumsum(NS), NS)}()
+    else
+        IndicesInfo{N,_accum_dims(cumsum(NI), NI), _accum_dims(cumsum(NS), NS)}()
     end
-    Expr(:block, Expr(:meta, :inline), :(IndicesInfo{$(NI),$(NS),$(IS),$(CI)}()))
+end
+@inline function _indices_info(::Val{SI}, ::IndicesInfo{N,NI,NS}) where {N,NI,NS,SI}
+    nsplat = N - sum(NI)
+    if nsplat === 0
+        _indices_info(Val{nothing}(), IndicesInfo{N,NI,NS}())
+    else
+        splatmul = max(0, nsplat + 1)
+        _indices_info(Val{nothing}(), IndicesInfo{N,_map_splats(splatmul, SI, NI),_map_splats(splatmul, SI, NS)}())
+    end
+end
+@inline function _map_splats(nsplat::Int, splat_index::Int, dims::Tuple{Vararg{Int}})
+    ntuple(length(dims)) do i
+        i === splat_index ? (nsplat * getfield(dims, i)) : getfield(dims, i)
+    end
+end
+@inline function _replace_trailing(n::Int, dims::Tuple{Vararg{Any,N}}) where {N}
+    ntuple(N) do i
+        dim_i = getfield(dims, i)
+        if dim_i isa Tuple
+            ntuple(length(dim_i)) do j
+                dim_i_j = getfield(dim_i, j)
+                dim_i_j > n ? 0 : dim_i_j
+            end
+        else
+            dim_i > n ? 0 : dim_i
+        end
+    end
+end
+@inline function _accum_dims(csdims::NTuple{N,Int}, nd::NTuple{N,Int}) where {N}
+    ntuple(N) do i
+        nd_i = getfield(nd, i)
+        if nd_i === 0
+            0
+        elseif nd_i === 1
+            getfield(csdims, i)
+        else
+            ntuple(Base.Fix1(+, getfield(csdims, i) - nd_i), nd_i)
+        end
+    end
 end
 
 """

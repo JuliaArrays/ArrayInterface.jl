@@ -1,150 +1,92 @@
 
+
+_init_dimsmap(x) = _init_dimsmap(IndicesInfo(x))
+function _init_dimsmap(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
+    ntuple(i -> static(getfield(pdims, i)), length(pdims)),
+    ntuple(i -> static(getfield(cdims, i)), length(pdims))
+end
+
+"""
+    to_parent_dims(::Type{T}) -> Tuple{Vararg{Union{StaticInt,Tuple{Vararg{StaticInt}}}}}
+
+Returns the mapping from child dimensions to parent dimensions.
+
+!!! Warning
+    This method is still experimental and may change without notice.
+
+"""
+to_parent_dims(@nospecialize x) = to_parent_dims(typeof(x))
+@inline function to_parent_dims(@nospecialize T::Type{<:SubArray})
+    to_parent_dims(IndicesInfo{ndims(parent_type(T))}(fieldtype(T, :indices)))
+end
+to_parent_dims(info::IndicesInfo) = flatten_tuples(map(_to_pdim, map_indices_info(info)))
+_to_pdim(::Tuple{StaticInt,Any,StaticInt{0}}) = ()
+_to_pdim(x::Tuple{StaticInt,Any,StaticInt{cdim}}) where {cdim} = getfield(x, 2)
+_to_pdim(x::Tuple{StaticInt,Any,Tuple}) = (ntuple(Compat.Returns(getfield(x, 2)), length(getfield(x, 3))),)
+to_parent_dims(@nospecialize T::Type{<:MatAdjTrans}) = (StaticInt(2), StaticInt(1))
+to_parent_dims(@nospecialize T::Type{<:PermutedDimsArray}) = getfield(_permdims(T), 1)
+
+function _permdims(::Type{<:PermutedDimsArray{<:Any,<:Any,I1,I2}}) where {I1,I2}
+    (map(static, I1), map(static, I2))
+end
+
 function throw_dim_error(@nospecialize(x), @nospecialize(dim))
     throw(DimensionMismatch("$x does not have dimension corresponding to $dim"))
 end
 
-@propagate_inbounds function _promote_shape(a::Tuple{A,Vararg{Any}}, b::Tuple{B,Vararg{Any}}) where {A,B}
-    (_try_static(getfield(a, 1), getfield(b, 1)), _promote_shape(tail(a), tail(b))...)
+# Base will sometomes demote statically known slices in `SubArray` to `OneTo{Int}` so we
+# provide the parent mapping to check for static size info
+function sub_axes_map(@nospecialize(T::Type{<:SubArray}))
+    map(Base.Fix1(_sub_axis_map, T), map_indices_info(IndicesInfo(T)))
 end
-_promote_shape(::Tuple{}, ::Tuple{}) = ()
-@propagate_inbounds function _promote_shape(::Tuple{}, b::Tuple{B}) where {B}
-    (_try_static(static(1), getfield(b, 1)),)
-end
-@propagate_inbounds function _promote_shape(a::Tuple{A}, ::Tuple{}) where {A}
-    (_try_static(static(1), getfield(a, 1)),)
-end
-@propagate_inbounds function Base.promote_shape(a::Tuple{Vararg{CanonicalInt}}, b::Tuple{Vararg{CanonicalInt}})
-    _promote_shape(a, b)
+function _sub_axis_map(@nospecialize(T::Type{<:SubArray}), x::Tuple{StaticInt{index},Any,Any}) where {index}
+    if fieldtype(fieldtype(T, :indices), index) <: Base.Slice{OneTo{Int}}
+        sz = known_size(parent_type(T), getfield(x, 2))
+        return sz === nothing ? StaticInt(index) : StaticInt(1):StaticInt(sz)
+    else
+        return StaticInt(index)
+    end
 end
 
-#julia> @btime ArrayInterfaceCore.is_increasing(ArrayInterfaceCore.nstatic(Val(10)))
-#  0.045 ns (0 allocations: 0 bytes)
-#ArrayInterfaceCore.True()
-function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y},Vararg}) where {X, Y}
-    if X <= Y
-        return is_increasing(tail(perm))
+function map_indices_info(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
+    ntuple(i -> (static(i), static(getfield(pdims, i)), static(getfield(cdims, i))), length(pdims))
+end
+function sub_dimnames_map(dnames::Tuple, imap::Tuple)
+    flatten_tuples(map(Base.Fix1(_to_dimname, dnames), imap))
+end
+@inline function _to_dimname(dnames::Tuple, x::Tuple{StaticInt,PD,CD}) where {PD,CD}
+    if CD <: StaticInt{0}
+        return ()
+    elseif CD <: Tuple
+        return ntuple(Compat.Returns(static(:_)), StaticInt(known_length(CD)))
+    elseif PD <: StaticInt{0} || PD <: Tuple
+        return static(:_)
     else
-        return False()
+        return getfield(dnames, known(PD))
     end
 end
-function is_increasing(perm::Tuple{StaticInt{X},StaticInt{Y}}) where {X, Y}
-    if X <= Y
-        return True()
-    else
-        return False()
-    end
-end
-is_increasing(::Tuple{StaticInt{X}}) where {X} = True()
-is_increasing(::Tuple{}) = True()
 
 """
-    from_parent_dims(::Type{T}) -> Tuple{Vararg{Union{Int,StaticInt}}}
-    from_parent_dims(::Type{T}, dim) -> Union{Int,StaticInt}
+    from_parent_dims(::Type{T}) -> Tuple{Vararg{Union{StaticInt,Tuple{Vararg{StaticInt}}}}}
 
 Returns the mapping from parent dimensions to child dimensions.
-"""
-from_parent_dims(x) = from_parent_dims(typeof(x))
-from_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
-from_parent_dims(::Type{T}) where {T<:VecAdjTrans} = (StaticInt(2),)
-from_parent_dims(::Type{T}) where {T<:MatAdjTrans} = (StaticInt(2), One())
-from_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _from_sub_dims(I)
-@generated function _from_sub_dims(::Type{I}) where {I<:Tuple}
-    out = Expr(:tuple)
-    dim_i = 1
-    for i in 1:fieldcount(I)
-        p = fieldtype(I, i)
-        if p <: CanonicalInt
-            push!(out.args, :(StaticInt(0)))
-        else
-            push!(out.args, :(StaticInt($dim_i)))
-            dim_i += 1
-        end
-    end
-    out
-end
-from_parent_dims(::Type{<:PermutedDimsArray{T,N,<:Any,I}}) where {T,N,I} = static(Val(I))
-function from_parent_dims(::Type{<:ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
-    if !IsReshaped || sizeof(S) === sizeof(T)
-        return nstatic(Val(ndims(A)))
-    elseif sizeof(S) > sizeof(T)
-        return tail(nstatic(Val(ndims(A) + 1)))
-    else  # sizeof(S) < sizeof(T)
-        return (Zero(), nstatic(Val(N))...)
-    end
-end
 
-from_parent_dims(x, dim) = from_parent_dims(typeof(x), dim)
-Compat.@constprop :aggressive function from_parent_dims(::Type{T}, dim::Int)::Int where {T}
-    if dim > ndims(T)
-        return static(ndims(parent_type(T)) + dim - ndims(T))
-    elseif dim > 0
-        return @inbounds(getfield(from_parent_dims(T), dim))
-    else
-        throw_dim_error(T, dim)
-    end
-end
-function from_parent_dims(::Type{T}, ::StaticInt{dim}) where {T,dim}
-    if dim > ndims(T)
-        return static(ndims(parent_type(T)) + dim - ndims(T))
-    elseif dim > 0
-        return @inbounds(getfield(from_parent_dims(T), dim))
-    else
-        throw_dim_error(T, dim)
-    end
-end
+!!! Warning
+    This method is still experimental and may change without notice.
 
 """
-    to_parent_dims(::Type{T}) -> Tuple{Vararg{Union{Int,StaticInt}}}
-    to_parent_dims(::Type{T}, dim) -> Union{Int,StaticInt}
-
-Returns the mapping from child dimensions to parent dimensions.
-"""
-to_parent_dims(x) = to_parent_dims(typeof(x))
-to_parent_dims(::Type{T}) where {T} = nstatic(Val(ndims(T)))
-to_parent_dims(::Type{T}) where {T<:Union{Transpose,Adjoint}} = (StaticInt(2), One())
-to_parent_dims(::Type{<:PermutedDimsArray{T,N,I}}) where {T,N,I} = static(Val(I))
-to_parent_dims(::Type{<:SubArray{T,N,A,I}}) where {T,N,A,I} = _to_sub_dims(I)
-@generated function _to_sub_dims(::Type{I}) where {I<:Tuple}
-    out = Expr(:tuple)
-    n = 1
-    for i in 1:fieldcount(I)
-        p = fieldtype(I, i)
-        if !(p <: CanonicalInt)
-            push!(out.args, :(StaticInt($n)))
-        end
-        n += 1
-    end
-    out
+from_parent_dims(@nospecialize x) = from_parent_dims(typeof(x))
+from_parent_dims(@nospecialize T::Type{<:PermutedDimsArray}) = getfield(_permdims(T), 2)
+from_parent_dims(@nospecialize T::Type{<:MatAdjTrans}) = (StaticInt(2), StaticInt(1))
+@inline function from_parent_dims(@nospecialize T::Type{<:SubArray})
+    from_parent_dims(IndicesInfo{ndims(parent_type(T))}(fieldtype(T, :indices)))
 end
-function to_parent_dims(::Type{<:ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
-    pdims = nstatic(Val(ndims(A)))
-    if !IsReshaped || sizeof(S) === sizeof(T)
-        return pdims
-    elseif sizeof(S) > sizeof(T)
-        return (Zero(), pdims...,)
-    else
-        return tail(pdims)
-    end
-end
-
-to_parent_dims(x, dim) = to_parent_dims(typeof(x), dim)
-Compat.@constprop :aggressive function to_parent_dims(::Type{T}, dim::Int)::Int where {T}
-    if dim > ndims(T)
-        return static(ndims(parent_type(T)) + dim - ndims(T))
-    elseif dim > 0
-        return @inbounds(getfield(to_parent_dims(T), dim))
-    else
-        throw_dim_error(T, dim)
-    end
-end
-
-function to_parent_dims(::Type{T}, ::StaticInt{dim}) where {T,dim}
-    if dim > ndims(T)
-        return static(ndims(parent_type(T)) + dim - ndims(T))
-    elseif dim > 0
-        return @inbounds(getfield(to_parent_dims(T), dim))
-    else
-        throw_dim_error(T, dim)
+# TODO do I need to flatten_tuples here?
+function from_parent_dims(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
+    ntuple(length(cdims)) do i
+        pdim_i = getfield(pdims, i)
+        cdim_i = static(getfield(cdims, i))
+        pdim_i isa Int ? cdim_i : ntuple(Compat.Returns(cdim_i), length(pdim_i))
     end
 end
 
@@ -168,9 +110,14 @@ known_dimnames(x) = known_dimnames(typeof(x))
 function known_dimnames(@nospecialize T::Type{<:VecAdjTrans})
     (:_, getfield(known_dimnames(parent_type(T)), 1))
 end
-function known_dimnames(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsArray,SubArray}})
-    eachop(_inbounds_known_dimname, to_parent_dims(T), known_dimnames(parent_type(T)))
+function known_dimnames(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsArray}})
+    map(GetIndex{false}(known_dimnames(parent_type(T))), to_parent_dims(T))
 end
+
+function known_dimnames(@nospecialize T::Type{<:SubArray})
+    dynamic(sub_dimnames_map(known_dimnames(parent_type(T)), map_indices_info(IndicesInfo(T))))
+end
+
 function known_dimnames(::Type{<:ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
     pnames = known_dimnames(A)
     if IsReshaped
@@ -190,9 +137,9 @@ end
     if ndims(T) === ndims(parent_type(T))
         return known_dimnames(parent_type(T))
     elseif ndims(T) > ndims(parent_type(T))
-        return (known_dimnames(parent_type(T))..., n_of_x(StaticInt(ndims(T) - ndims(parent_type(T))), :_)...)
+        return flatten_tuples((known_dimnames(parent_type(T)), ntuple(Compat.Returns(:_), StaticInt(ndims(T) - ndims(parent_type(T))))))
     else
-        return n_of_x(StaticInt(ndims(T)), :_)
+        return ntuple(Compat.Returns(:_), StaticInt(ndims(T)))
     end
 end
 @inline function known_dimnames(::Type{T}) where {T}
@@ -203,15 +150,9 @@ end
     end
 end
 
-_unknown_dimnames(::Base.HasShape{N}) where {N} = n_of_x(StaticInt(N), :_)
+_unknown_dimnames(::Base.HasShape{N}) where {N} = ntuple(Compat.Returns(:_), StaticInt(N))
 _unknown_dimnames(::Any) = (:_,)
 
-#=
-_known_dimnames(::Type{T}, ::Type{T}) where {T} = _unknown_dimnames(Base.IteratorSize(T))
-function _known_dimnames(::Type{C}, ::Type{P}) where {C,P}
-    eachop(_inbounds_known_dimname, to_parent_dims(C), known_dimnames(P))
-end
-=#
 @inline function _known_dimname(x::Tuple{Vararg{Any,N}}, dim::CanonicalInt) where {N}
     # we cannot have `@boundscheck`, else this will depend on bounds checking being enabled
     (dim > N || dim < 1) && return :_
@@ -227,9 +168,14 @@ Return the names of the dimensions for `x`. `:_` is used to indicate a dimension
 have a name.
 """
 @inline dimnames(x, dim) = _dimname(dimnames(x), canonicalize(dim))
-@inline function dimnames(x::Union{MatAdjTrans,PermutedDimsArray,SubArray})
-    eachop(_inbounds_known_dimname, to_parent_dims(x), dimnames(parent(x)))
+@inline function dimnames(x::Union{PermutedDimsArray,MatAdjTrans})
+    map(GetIndex{false}(dimnames(parent(x))), to_parent_dims(x))
 end
+
+function dimnames(x::SubArray)
+    sub_dimnames_map(dimnames(parent(x)), map_indices_info(IndicesInfo(typeof(x))))
+end
+
 dimnames(x::VecAdjTrans) = (static(:_), getfield(dimnames(parent(x)), 1))
 @inline function dimnames(x::ReinterpretArray{T,N,S,A,IsReshaped}) where {T,N,S,A,IsReshaped}
     pnames = dimnames(parent(x))
@@ -237,7 +183,7 @@ dimnames(x::VecAdjTrans) = (static(:_), getfield(dimnames(parent(x)), 1))
         if sizeof(S) === sizeof(T)
             return pnames
         elseif sizeof(S) > sizeof(T)
-            return (static(:_), pnames...)
+            return flatten_tuples((static(:_), pnames))
         else
             return tail(pnames)
         end
@@ -250,16 +196,16 @@ end
     if ndims(x) === ndims(p)
         return dimnames(p)
     elseif ndims(x) > ndims(p)
-        return (dimnames(p)..., n_of_x(StaticInt(ndims(x) - ndims(p)), static(:_))...)
+        return flatten_tuples((dimnames(p), ntuple(Compat.Returns(static(:_)), StaticInt(ndims(x) - ndims(p)))))
     else
-        return n_of_x(StaticInt(ndims(x)), static(:_))
+        return ntuple(Compat.Returns(static(:_)), StaticInt(ndims(x)))
     end
 end
 @inline function dimnames(x::X) where {X}
     if is_forwarding_wrapper(X)
         return dimnames(parent(x))
     else
-        return n_of_x(StaticInt(ndims(x)), static(:_))
+        return ntuple(Compat.Returns(static(:_)), StaticInt(ndims(x)))
     end
 end
 @inline function _dimname(x::Tuple{Vararg{Any,N}}, dim::CanonicalInt) where {N}
@@ -280,7 +226,7 @@ to_dims(x, @nospecialize(dim::CanonicalInt)) = dim
 to_dims(x, dim::Integer) = Int(dim)
 to_dims(x, dim::Union{StaticSymbol,Symbol}) = _to_dim(dimnames(x), dim)
 function to_dims(x, dims::Tuple{Vararg{Any,N}}) where {N}
-    eachop(_to_dims, nstatic(Val(N)), dimnames(x), dims)
+    eachop(_to_dims, ntuple(static, StaticInt(N)), dimnames(x), dims)
 end
 @inline _to_dims(x::Tuple, d::Tuple, n::StaticInt{N}) where {N} = _to_dim(x, getfield(d, N))
 @inline function _to_dim(x::Tuple, d::Union{Symbol,StaticSymbol})

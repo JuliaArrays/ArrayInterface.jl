@@ -27,12 +27,14 @@ size(a::Base.Broadcast.Broadcasted) = map(length, axes(a))
 
 _maybe_size(::Base.HasShape{N}, a::A) where {N,A} = map(length, axes(a))
 _maybe_size(::Base.HasLength, a::A) where {A} = (length(a),)
-size(x::SubArray) = eachop(_sub_size, to_parent_dims(x), x.indices)
-_sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = length(getfield(x, dim))
+
+@inline size(x::SubArray) = flatten_tuples(map(Base.Fix1(_sub_size, x), sub_axes_map(typeof(x))))
+@inline _sub_size(::SubArray, ::SOneTo{S}) where {S} = StaticInt(S)
+_sub_size(x::SubArray, ::StaticInt{index}) where {index} = size(getfield(x.indices, index))
+
 @inline size(B::VecAdjTrans) = (One(), length(parent(B)))
-@inline size(B::MatAdjTrans) = permute(size(parent(B)), to_parent_dims(B))
-@inline function size(B::PermutedDimsArray{T,N,I1}) where {T,N,I1}
-    permute(size(parent(B)), static(I1))
+@inline function size(x::Union{PermutedDimsArray,MatAdjTrans})
+    map(GetIndex{false}(size(parent(x))), to_parent_dims(x))
 end
 function size(a::ReinterpretArray{T,N,S,A,IsReshaped}) where {T,N,S,A,IsReshaped}
     psize = size(parent(a))
@@ -40,12 +42,12 @@ function size(a::ReinterpretArray{T,N,S,A,IsReshaped}) where {T,N,S,A,IsReshaped
         if sizeof(S) === sizeof(T)
             return psize
         elseif sizeof(S) > sizeof(T)
-            return (static(div(sizeof(S), sizeof(T))), psize...)
+            return flatten_tuples((static(div(sizeof(S), sizeof(T))), psize))
         else
             return tail(psize)
         end
     else
-        return (div(first(psize) * static(sizeof(S)), static(sizeof(T))), tail(psize)...,)
+        return flatten_tuples((div(first(psize) * static(sizeof(S)), static(sizeof(T))), tail(psize)))
     end
 end
 size(A::ReshapedArray) = Base.size(A)
@@ -55,9 +57,11 @@ size(x::Iterators.Reverse) = size(getfield(x, :itr))
 size(x::Iterators.Enumerate) = size(getfield(x, :itr))
 size(x::Iterators.Accumulate) = size(getfield(x, :itr))
 size(x::Iterators.Pairs) = size(getfield(x, :itr))
+# TODO couldn't this just be map(length, getfield(x, :iterators))
 @inline function size(x::Iterators.ProductIterator)
-    eachop(_sub_size, nstatic(Val(ndims(x))), getfield(x, :iterators))
+    eachop(_sub_size, ntuple(static, StaticInt(ndims(x))), getfield(x, :iterators))
 end
+_sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = length(getfield(x, dim))
 
 size(a, dim) = size(a, to_dims(a, dim))
 size(a::Array, dim::CanonicalInt) = Base.arraysize(a, convert(Int, dim))
@@ -73,14 +77,6 @@ function size(a::A, dim::CanonicalInt) where {A}
         end
     end
 end
-function size(A::SubArray, dim::CanonicalInt)
-    pdim = to_parent_dims(A, dim)
-    if pdim > ndims(parent_type(A))
-        return size(parent(A), pdim)
-    else
-        return length(A.indices[pdim])
-    end
-end
 size(x::Iterators.Zip) = Static.reduce_tup(promote_shape, map(size, getfield(x, :is)))
 
 """
@@ -92,6 +88,35 @@ compile time. If a dimension does not have a known size along a dimension then `
 returned in its position.
 """
 known_size(x) = known_size(typeof(x))
+@inline known_size(@nospecialize T::Type{<:Number}) = ()
+@inline known_size(@nospecialize T::Type{<:VecAdjTrans}) = (1, known_length(parent_type(T)))
+@inline function known_size(@nospecialize T::Type{<:Union{PermutedDimsArray,MatAdjTrans}})
+    map(GetIndex{false}(known_size(parent_type(T))), to_parent_dims(T))
+end
+function known_size(@nospecialize T::Type{<:Diagonal})
+    s = known_length(parent_type(T))
+    (s, s)
+end
+known_size(@nospecialize T::Type{<:Union{Symmetric,Hermitian}}) = known_size(parent_type(T))
+@inline function known_size(::Type{<:Base.ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
+    psize = known_size(A)
+    if IsReshaped
+        if sizeof(S) > sizeof(T)
+            return (div(sizeof(S), sizeof(T)), psize...)
+        elseif sizeof(S) < sizeof(T)
+            return Base.tail(psize)
+        else
+            return psize
+        end
+    else
+        if Base.issingletontype(T) || first(psize) === nothing
+            return psize
+        else
+            return (div(first(psize) * sizeof(S), sizeof(T)), Base.tail(psize)...)
+        end
+    end
+end
+
 @inline function known_size(::Type{T}) where {T}
     if is_forwarding_wrapper(T)
         return known_size(parent_type(T))
@@ -100,12 +125,9 @@ known_size(x) = known_size(typeof(x))
     end
 end
 function _maybe_known_size(::Base.HasShape{N}, ::Type{T}) where {N,T}
-    eachop(_known_size, nstatic(Val(N)), axes_types(T))
+    eachop(_known_size, ntuple(static, StaticInt(N)), axes_types(T))
 end
 _maybe_known_size(::Base.IteratorSize, ::Type{T}) where {T} = (known_length(T),)
-function known_size(::Type{T}) where {T<:AbstractRange}
-    (_range_length(known_first(T), known_step(T), known_last(T)),)
-end
 known_size(::Type{<:Base.IdentityUnitRange{I}}) where {I} = known_size(I)
 known_size(::Type{<:Base.Generator{I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Reverse{I}}) where {I} = known_size(I)
@@ -113,7 +135,27 @@ known_size(::Type{<:Iterators.Enumerate{I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Accumulate{<:Any,I}}) where {I} = known_size(I)
 known_size(::Type{<:Iterators.Pairs{<:Any,<:Any,I}}) where {I} = known_size(I)
 @inline function known_size(::Type{<:Iterators.ProductIterator{T}}) where {T}
-    eachop(_known_size, nstatic(Val(known_length(T))), T)
+    ntuple(i -> known_length(T.parameters[i]), Val(known_length(T)))
+end
+@inline function known_size(@nospecialize T::Type{<:AbstractRange})
+    if is_forwarding_wrapper(T)
+        return known_size(parent_type(T))
+    else
+        return (_range_length(known_first(T), known_step(T), known_last(T)),)
+    end
+end
+
+@inline function known_size(@nospecialize T::Type{<:Union{LinearIndices,CartesianIndices}})
+    I = fieldtype(T, :indices)
+    ntuple(i -> known_length(I.parameters[i]), Val(ndims(T)))
+end
+
+@inline function known_size(@nospecialize T::Type{<:SubArray})
+    flatten_tuples(map(Base.Fix1(_known_sub_size, T), sub_axes_map(T)))
+end
+_known_sub_size(@nospecialize(T::Type{<:SubArray}), ::SOneTo{S}) where {S} = S
+function _known_sub_size(@nospecialize(T::Type{<:SubArray}), ::StaticInt{index}) where {index}
+    known_size(fieldtype(fieldtype(T, :indices), index))
 end
 
 # 1. `Zip` doesn't check that its collections are compatible (same size) at construction,
@@ -123,19 +165,13 @@ end
 #   trailing dimensions (which must be of size 1), to `static(1)`. We want to stick to
 #   `Nothing` and `Int` types, so we do one last pass to ensure everything is dynamic
 @inline function known_size(::Type{<:Iterators.Zip{T}}) where {T}
-    dynamic(reduce_tup(_promote_shape, eachop(_unzip_size, nstatic(Val(known_length(T))), T)))
+    dynamic(reduce_tup(Static._promote_shape, eachop(_unzip_size, ntuple(static, StaticInt(known_length(T))), T)))
 end
 _unzip_size(::Type{T}, n::StaticInt{N}) where {T,N} = known_size(field_type(T, n))
 _known_size(::Type{T}, dim::StaticInt) where {T} = known_length(field_type(T, dim))
 @inline known_size(x, dim) = known_size(typeof(x), dim)
 @inline known_size(::Type{T}, dim) where {T} = known_size(T, to_dims(T, dim))
-@inline function known_size(::Type{T}, dim::CanonicalInt) where {T}
-    if ndims(T) < dim
-        return 1
-    else
-        return known_size(T)[dim]
-    end
-end
+known_size(T::Type, dim::CanonicalInt) = ndims(T) < dim ? 1 : known_size(T)[dim]
 
 """
     length(A) -> Union{Int,StaticInt}
