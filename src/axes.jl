@@ -245,9 +245,6 @@ lazy_axes(x::Union{LinearIndices,CartesianIndices,AbstractRange}) = axes(x)
     map(GetIndex{false}(lazy_axes(parent(x))), to_parent_dims(x))
 end
 
-# TODO wait for response on https://github.com/JuliaLang/julia/issues/45872
-# struct IndexKeys <: IndexStyle end
-
 """
     axes_keys(x)
     axes_keys(x, dim)
@@ -299,7 +296,7 @@ axes_keys(x::LazyAxis{N,P}) where {N,P} = (axes_keys(getfield(x, :parent), stati
         if isstructtype(S) && div(sizeof(S), sizeof(T)) === fieldcount(S)
             return flatten_tuples(((fieldnames(S),), axes_keys(parent(x))))
         else
-            return flatten_tuples((keys(SOneTo{}()), axes_keys(parent(x))))
+            return flatten_tuples((keys(SOneTo{div(sizeof(S), sizeof(T))}()), axes_keys(parent(x))))
         end
     elseif sizeof(S) < sizeof(T)
         return Base.tail(axes_keys(parent(x)))
@@ -308,7 +305,11 @@ axes_keys(x::LazyAxis{N,P}) where {N,P} = (axes_keys(getfield(x, :parent), stati
     end
 end
 @inline @inline function axes_keys(x::Base.NonReshapedReinterpretArray{T,N,S}) where {T,N,S}
-    ak = axes_keys(parent(x))
-    ak1 = keys(StaticInt(1):div(static_length(first(ak)) * static(sizeof(S)), static(sizeof(T))))
-    flatten_tuples((ak1, Base.tail(ak)))
+    Ss = sizeof(S)
+    Ts = sizeof(T)
+    if Ss === Ts
+        return axes_keys(parent(x))
+    else
+        return flatten_tuples((keys(StaticInt(1):size(x, 1)), Base.tail(axes_keys(parent(x)))))
+    end
 end

@@ -130,4 +130,9 @@ end
     @test @inferred(ArrayInterface.getindex(cmat_view1, :R)) == cmat_view1[1]
     @test @inferred(ArrayInterface.getindex(colormat, :,ArrayInterface.Key(-9.595959595959595))) == colormat[:, 3]
     @test @inferred(ArrayInterface.getindex(colormat, :,<=(ArrayInterface.Key(-9.595959595959595)))) == colormat[:, 1:3]
+    @test @inferred(ArrayInterface.axes_keys(reinterpret(Int8, KeyedArray(randn(2,2), ([:a, :b], ["a", "b"]))))) == (keys(Base.OneTo(16)), ["a", "b"])
+    @test @inferred(ArrayInterface.axes_keys(reinterpret(reshape, Int8, KeyedArray(randn(2,2), ([:a, :b], ["a", "b"]))))) == (keys(static(1):static(8)), [:a, :b], ["a", "b"])
+    @test @inferred(ArrayInterface.axes_keys(reinterpret(reshape, Int64, KeyedArray(rand(Int32, 2,2), ([:a, :b], ["a", "b"],))))) == (["a", "b"],)
+    @test @inferred(ArrayInterface.axes_keys(reinterpret(reshape, Float64, KeyedArray(rand(Int64, 2,2), ([:a, :b], ["a", "b"],))))) == ([:a, :b], ["a", "b"],)
+    @test @inferred(ArrayInterface.axes_keys(reinterpret(Float64, KeyedArray(rand(Int64, 2,2), ([:a, :b], ["a", "b"],))))) == ([:a, :b], ["a", "b"],)
 end
