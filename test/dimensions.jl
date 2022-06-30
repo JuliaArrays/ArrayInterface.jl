@@ -29,6 +29,9 @@ end
     r4 = reinterpret(reshape, Float64, x)
     w = Wrapper(x)
     dnums = ntuple(+, length(d))
+    lz2 = ArrayInterface.lazy_axes(x)[2]
+    lzslice = ArrayInterface.LazyAxis{:}(x)
+
     @test @inferred(ArrayInterface.has_dimnames(x)) == true
     @test @inferred(ArrayInterface.has_dimnames(z)) == true
     @test @inferred(ArrayInterface.has_dimnames(ones(2, 2))) == false
@@ -36,6 +39,8 @@ end
     @test @inferred(ArrayInterface.has_dimnames(typeof(x))) == true
     @test @inferred(ArrayInterface.has_dimnames(typeof(view(x, :, 1, :)))) == true
     @test @inferred(ArrayInterface.dimnames(x)) === d
+    @test @inferred(ArrayInterface.dimnames(lz2)) === (static(:y),)
+    @test @inferred(ArrayInterface.dimnames(lzslice)) === (static(:x),)
     @test @inferred(ArrayInterface.dimnames(w)) === d
     @test @inferred(ArrayInterface.dimnames(r1)) === d
     @test @inferred(ArrayInterface.dimnames(r2)) === (static(:_), d...)
@@ -64,6 +69,8 @@ end
     # multidmensional indices
     @test @inferred(ArrayInterface.known_dimnames(view(x, ones(Int, 2, 2), 1))) === (:_, :_)
     @test @inferred(ArrayInterface.known_dimnames(view(x, [CartesianIndex(1,1), CartesianIndex(1,1)]))) === (:_,)
+    @test @inferred(ArrayInterface.known_dimnames(lz2)) === (:y,)
+    @test @inferred(ArrayInterface.known_dimnames(lzslice)) === (:x,)
 
     @test @inferred(ArrayInterface.known_dimnames(z)) === (nothing, :y)
     @test @inferred(ArrayInterface.known_dimnames(reshape(x, (1, 4)))) === (:x, :y)

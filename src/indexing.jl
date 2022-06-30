@@ -177,6 +177,11 @@ end
 @inline function to_index(x, i::Base.Fix2{typeof(>),<:Union{Base.BitInteger,StaticInt}})
     max(_add1(canonicalize(i.x)), static_first(x)):static_last(x)
 end
+to_index(x, i::AbstractArray{<:Union{Base.BitInteger,StaticInt}}) = i
+to_index(x, @nospecialize(i::StaticInt)) = i
+to_index(x, i::Integer) = Int(i)
+@inline to_index(x, i) = to_index(IndexStyle(x), x, i)
+# key indexing
 function to_index(x, k::Key)
     index = findfirst(==(k.key), first(axes_keys(x)))
     # delay throwing bounds-error if we didn't find key
@@ -189,10 +194,6 @@ end
 # TODO there's probably a more efficient way of doing this
 to_index(x, ks::AbstractArray{<:Key}) = [to_index(x, k) for k in ks]
 # integer indexing
-to_index(x, i::AbstractArray{<:Integer}) = i
-to_index(x, @nospecialize(i::StaticInt)) = i
-to_index(x, i::Integer) = Int(i)
-@inline to_index(x, i) = to_index(IndexStyle(x), x, i)
 function to_index(S::IndexStyle, x, i)
     throw(ArgumentError(
         "invalid index: $S does not support indices of type $(typeof(i)) for instances of type $(typeof(x))."

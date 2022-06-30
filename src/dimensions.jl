@@ -142,6 +142,9 @@ end
         return ntuple(Compat.Returns(:_), StaticInt(ndims(T)))
     end
 end
+known_dimnames(::Type{<:LazyAxis{:,P}}) where {P} = (first(known_dimnames(P)),)
+known_dimnames(::Type{<:LazyAxis{N,P}}) where {N,P} = (getfield(known_dimnames(P), N),)
+
 @inline function known_dimnames(::Type{T}) where {T}
     if is_forwarding_wrapper(T)
         return known_dimnames(parent_type(T))
@@ -201,8 +204,8 @@ end
         return ntuple(Compat.Returns(static(:_)), StaticInt(ndims(x)))
     end
 end
-dimnames(x::LazyAxis{:,P}) where {P} = first(dimnames(getfield(x, :parent)))
-dimnames(x::LazyAxis{N,P}) where {N,P} = getfield(dimnames(getfield(x, :parent)), N)
+dimnames(x::LazyAxis{:,P}) where {P} = (first(dimnames(getfield(x, :parent))),)
+dimnames(x::LazyAxis{N,P}) where {N,P} = (getfield(dimnames(getfield(x, :parent)), N),)
 @inline function dimnames(x::X) where {X}
     if is_forwarding_wrapper(X)
         return dimnames(parent(x))

@@ -261,7 +261,7 @@ axes_keys(x, dim)  = axes_keys(x, to_dims(x, dim))
 function axes_keys(x::Union{MatAdjTrans,PermutedDimsArray})
     map(GetIndex{false}(axes_keys(parent(x))), to_parent_dims(x))
 end
-axes_keys(A::VecAdjTrans) = (SOneTo{1}(), getfield(axes_keys(parent(A)), 1))
+axes_keys(x::VecAdjTrans) = (keys(SOneTo{1}()), getfield(axes_keys(parent(x)), 1))
 
 # TODO ReshapedArray - is there any approach for appropriately propagating keys?
 function axes_keys(x::SubArray)
