@@ -729,14 +729,13 @@ CheckIndexStyle(::Type) = CheckIndexAll()
 CheckIndexStyle(@nospecialize T::Type{<:AbstractArray}) = eltype(T) === Bool ? CheckIndexAxes() : CheckIndexAll()
 CheckIndexStyle(@nospecialize T::Type{<:AbstractRange}) = eltype(T) === Bool ? CheckIndexAxes() : CheckIndexFirstLast()
 CheckIndexStyle(@nospecialize T::Type{<:Base.FastContiguousSubArray}) = CheckIndexStyle(parent_type(T))
-CheckIndexStyle(::Type{Colon}) = CheckIndexNone()
-CheckIndexStyle(@nospecialize T::Type{<:Base.Slice}) = CheckIndexNone()
+CheckIndexStyle(@nospecialize T::Type{<:Union{Base.Slice,Colon}}) = CheckIndexNone()
 CheckIndexStyle(@nospecialize T::Type{<:Base.Fix2{<:Union{typeof(<),typeof(isless),typeof(>=),typeof(>),typeof(isless)},<:Number}}) = CheckIndexNone()
 CheckIndexStyle(@nospecialize T::Type{<:Number}) = CheckIndexFirstLast()
 
-
 """
     is_splat_index(::Type{T}) -> Bool
+
 Returns `static(true)` if `T` is a type that splats across multiple dimensions.
 """
 is_splat_index(T::Type) = false
