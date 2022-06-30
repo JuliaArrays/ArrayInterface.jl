@@ -81,114 +81,27 @@ This implementation differs from that of `Base.to_indices` in the following ways
 """
 to_indices(A, ::Tuple{}) = ()
 @inline function to_indices(a::A, inds::I) where {A,I}
-    _to_indices(a, inds, IndexStyle(A), static(ndims(A)), IndicesInfo(I))
+    flatten_tuples(map(IndexedMappedArray(a), inds, getfield(_init_dimsmap(IndicesInfo{ndims(A)}(I)), 1)))
 end
-@generated function _to_indices(a, inds, ::S, ::StaticInt{N}, ::IndicesInfo{NI,NS,IS}) where {S,N,NI,NS,IS}
-    _to_indices_expr(S, N, NI, NS, IS)
+
+struct IndexedMappedArray{A}
+    a::A
 end
-function _to_indices_expr(S::DataType, N::Int, ni, ns, is)
-    blk = Expr(:block, Expr(:meta, :inline))
-    # check to see if we are dealing with linear indexing over a multidimensional array
-    if length(ni) == 1 && ni[1] === 1
-        push!(blk.args, :((to_index(LazyAxis{:}(a), getfield(inds, 1)),)))
+@inline (ima::IndexedMappedArray{A})(idx::I, ::StaticInt{0}) where {A,I} = to_index(StaticInt(1):StaticInt(1), idx)
+@inline (ima::IndexedMappedArray{A})(idx::I, ::Colon) where {A,I} = to_index(LazyAxis{:}(ima.a), idx)
+@inline (ima::IndexedMappedArray{A})(idx::I, ::StaticInt{dim}) where {A,I,dim} = to_index(LazyAxis{dim}(ima.a), idx)
+@inline function (ima::IndexedMappedArray{A})(idx::AbstractArray{Bool}, dims::Tuple) where {A}
+    if (last(dims) == ndims(A)) && (IndexStyle(A) isa IndexLinear)
+        return LogicalIndex{Int}(idx)
     else
-        indsexpr = Expr(:tuple)
-        ndi = Int[]
-        nds = Int[]
-        isi = Bool[]
-        # 1. unwrap AbstractCartesianIndex, CartesianIndices, Indices
-        for i in 1:length(ns)
-            ns_i = ns[i]
-            if ns_i isa Tuple
-                for j in 1:length(ns_i)
-                    push!(ndi, 1)
-                    push!(nds, ns_i[j])
-                    push!(isi, false)
-                    push!(indsexpr.args, :(getfield(getfield(getfield(inds, $i), 1), $j)))
-                end
-            else
-                push!(indsexpr.args, :(getfield(inds, $i)))
-                push!(ndi, ni[i])
-                push!(nds, ns_i)
-                push!(isi, is[i])
-            end
-        end
-
-        # 2. find splat indices
-        splat_position = 0
-        remaining = N
-        for i in eachindex(ndi, nds, isi)
-            if isi[i] && splat_position == 0
-                splat_position = i
-            else
-                remaining -= ndi[i]
-            end
-        end
-        if splat_position !== 0
-            for _ in 2:remaining
-                insert!(ndi, splat_position, 1)
-                insert!(nds, splat_position, 1)
-                insert!(indsexpr.args, splat_position, indsexpr.args[splat_position])
-            end
-        end
-
-        # 3. insert `to_index` calls
-        dim = 0
-        nndi = length(ndi)
-        for i in 1:nndi
-            ndi_i = ndi[i]
-            if ndi_i == 1
-                dim += 1
-                indsexpr.args[i] = :(to_index($(_axis_expr(N, dim)), $(indsexpr.args[i])))
-            else
-                subaxs = Expr(:tuple)
-                for _ in 1:ndi_i
-                    dim += 1
-                    push!(subaxs.args, _axis_expr(N, dim))
-                end
-                if i == nndi && S <: IndexLinear
-                    indsexpr.args[i] = :(to_index(LinearIndices($(subaxs)), $(indsexpr.args[i])))
-                else
-                    indsexpr.args[i] = :(to_index(CartesianIndices($(subaxs)), $(indsexpr.args[i])))
-                end
-            end
-        end
-        push!(blk.args, Expr(:(=), :axs, :(lazy_axes(a))))
-        push!(blk.args, :(flatten_tuples($(indsexpr))))
-    end
-    return blk
-end
-
-function _axis_expr(N::Int, d::Int)
-    if d <= N
-        :(getfield(axs, $d))
-    else  # ndims(a)+ can only have indices 1:1
-        :($(SOneTo(1)))
+        return LogicalIndex(idx)
     end
 end
-
-@inline function flatten_tuples(inds::I) where {I}
-    if @generated
-        t = Expr(:tuple)
-        for i in 1:fieldcount(I)
-            p = fieldtype(I, i)
-            if p <: Tuple
-                for j in 1:fieldcount(p)
-                    push!(t.args, :(@inbounds(getfield(getfield(inds, $i), $j))))
-                end
-            else
-                push!(t.args, :(@inbounds(getfield(inds, $i))))
-            end
-        end
-        Expr(:block, Expr(:meta, :inline), t)
-    else
-        out = ()
-        for i in inds
-            out = i isa Tuple ? (out..., i...) : (out..., i)
-        end
-        out
-    end
+@inline (ima::IndexedMappedArray{A})(idx::CartesianIndex, ::Tuple) where {A} = getfield(idx, 1)
+@inline function (ima::IndexedMappedArray{A})(idx::I, dims::Tuple) where {A,I}
+    to_index(CartesianIndices(map(Base.Fix1(_to_lazy_axes, ima.a), dims)), idx)
 end
+@inline _to_lazy_axes(a::A, ::StaticInt{dim}) where {A,dim} = LazyAxis{dim}(a)
 
 """
     ArrayInterface.to_index([::IndexStyle, ]axis, arg) -> index
@@ -242,12 +155,12 @@ to_index(::LinearIndices{0,Tuple{}}, ::Colon) = Slice(static(1):static(1))
 to_index(::CartesianIndices{0,Tuple{}}, ::Colon) = Slice(static(1):static(1))
 # logical indexing
 to_index(x, i::AbstractArray{Bool}) = LogicalIndex(i)
-to_index(x::LinearIndices, i::AbstractArray{Bool}) = LogicalIndex{Int}(i)
+to_index(::LinearIndices, i::AbstractArray{Bool}) = LogicalIndex{Int}(i)
 # cartesian indexing
 @inline to_index(x, i::CartesianIndices{0}) = i
 @inline to_index(x, i::CartesianIndices) = getfield(i, :indices)
-@inline to_index(x, i::CartesianIndex) = Tuple(i)
-@inline to_index(x, i::NDIndex) = Tuple(i)
+@inline to_index(x, i::CartesianIndex) = getfield(i, 1)
+@inline to_index(x, i::NDIndex) = getfield(i, 1)
 @inline to_index(x, i::AbstractArray{<:AbstractCartesianIndex}) = i
 @inline function to_index(x, i::Base.Fix2{<:Union{typeof(<),typeof(isless)},<:Union{Base.BitInteger,StaticInt}})
     static_first(x):min(_sub1(canonicalize(i.x)), static_last(x))

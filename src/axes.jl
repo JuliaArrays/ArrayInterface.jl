@@ -31,11 +31,12 @@ axes_types(::Type{T}) where {T<:Array} = NTuple{ndims(T),OneTo{Int}}
 end
 axes_types(::Type{<:LinearIndices{N,R}}) where {N,R} = R
 axes_types(::Type{<:CartesianIndices{N,R}}) where {N,R} = R
-function axes_types(::Type{T}) where {T<:VecAdjTrans}
-    Tuple{SOneTo{1},axes_types(parent_type(T), static(1))}
+function axes_types(@nospecialize T::Type{<:VecAdjTrans})
+    Tuple{SOneTo{1}, fieldtype(axes_types(parent_type(T)), 1)}
 end
-function axes_types(::Type{T}) where {T<:MatAdjTrans}
-    Tuple{axes_types(parent_type(T), static(2)),axes_types(parent_type(T), static(1))}
+function axes_types(@nospecialize T::Type{<:MatAdjTrans})
+    Ax = axes_types(parent_type(T))
+    Tuple{fieldtype(Ax, 2), fieldtype(Ax, 1)}
 end
 function axes_types(::Type{T}) where {T<:PermutedDimsArray}
     eachop_tuple(field_type, to_parent_dims(T), axes_types(parent_type(T)))
@@ -60,14 +61,12 @@ function _sub_axis_type(::Type{PA}, ::Type{I}, dim::StaticInt{D}) where {I<:Tupl
         axes_types(IT, static(1))
     end
 end
-@inline function axes_types(::Type{T}) where {N,P,I,T<:SubArray{<:Any,N,P,I}}
-    return eachop_tuple(_sub_axis_type, to_parent_dims(T), axes_types(P), I)
+@inline function axes_types(@nospecialize T::Type{<:SubArray})
+    return eachop_tuple(_sub_axis_type, to_parent_dims(T), axes_types(parent_type(T)), fieldtype(T, :indices))
 end
-
 function axes_types(::Type{T}) where {T<:ReinterpretArray}
     eachop_tuple(_non_reshaped_axis_type, ntuple(static, StaticInt(ndims(T))), T)
 end
-
 function _non_reshaped_axis_type(::Type{A}, d::StaticInt{D}) where {A,D}
     paxis = axes_types(parent_type(A), d)
     if D === 1
@@ -80,6 +79,17 @@ function _non_reshaped_axis_type(::Type{A}, d::StaticInt{D}) where {A,D}
         return paxis
     end
 end
+function axes_types(::Type{A}) where {T,N,S,A<:Base.ReshapedReinterpretArray{T,N,S}}
+    if sizeof(S) > sizeof(T)
+        return merge_tuple_type(Tuple{SOneTo{div(sizeof(S), sizeof(T))}}, axes_types(parent_type(A)))
+    elseif sizeof(S) < sizeof(T)
+        P = parent_type(A)
+        return eachop_tuple(field_type, tail(ntuple(static, StaticInt(ndims(P)))), axes_types(P))
+    else
+        return axes_types(parent_type(A))
+    end
+end
+
 
 # FUTURE NOTE: we avoid  `SOneTo(1)` when `axis(A, dim::Int)``. This is inended to decreases
 # breaking changes for this adopting this method to situations where they clearly benefit
@@ -100,56 +110,19 @@ example, the axis along the first dimension of `Transpose{T,<:AbstractVector{T}}
 """
 @inline axes(A) = Base.axes(A)
 axes(A::ReshapedArray) = Base.axes(A)
-axes(A::PermutedDimsArray) = permute(axes(parent(A)), to_parent_dims(A))
-axes(A::MatAdjTrans) = permute(axes(parent(A)), to_parent_dims(A))
-axes(A::VecAdjTrans) = (SOneTo{1}(), axes(parent(A), 1))
-axes(A::SubArray) = _sub_axes(parent(A), A.indices)
-@generated function _sub_axes(A, inds::I) where {N,P,I}
-    out = Expr(:block, Expr(:meta, :inline))
-    t = Expr(:tuple)
-    for i in 1:fieldcount(I)
-        I_i = fieldtype(I, i)
-        if I_i <: Base.Slice{Base.OneTo{Int}}
-            push!(t.args, :(axes(A, $i)))
-        elseif ndims(I_i) === 1
-            push!(t.args, :(getfield(axes(getfield(inds, $i)), 1)))
-        else
-            axsi = Symbol(:axes_, i)
-            push!(out.args, :(axes(getfield(inds, $i))))
-            for j in 1:ndims(I_i)
-                push!(t.args, :(getfield($(axsi), $j)))
-            end
-            push!(out.args, Expr(:(=), axsi, :(axes(getfield(inds, $i)))))
-        end
-    end
-    push!(out.args, t)
-    out
+@inline function axes(x::Union{MatAdjTrans,PermutedDimsArray})
+    map(GetIndex{false}(axes(parent(x))), to_parent_dims(x))
 end
+axes(A::VecAdjTrans) = (SOneTo{1}(), axes(parent(A), 1))
+
+@inline axes(x::SubArray) = flatten_tuples(map(Base.Fix1(_sub_axes, x), sub_axes_map(typeof(x))))
+@inline _sub_axes(x::SubArray, axis::SOneTo) = axis
+_sub_axes(x::SubArray, ::StaticInt{index}) where {index} = axes(getfield(x.indices, index))
 
 @inline axes(A, dim) = _axes(A, to_dims(A, dim))
-@inline function _axes(A, dim::Int)
-    if dim > ndims(A)
-        return OneTo(1)
-    else
-        return getfield(axes(A), Int(dim))
-    end
-end
+@inline _axes(A, dim::Int) = dim > ndims(A) ? OneTo(1) : getfield(axes(A), dim)
 @inline function _axes(A, ::StaticInt{dim}) where {dim}
-    if dim > ndims(A)
-        return SOneTo{1}()
-    else
-        return getfield(axes(A), Int(dim))
-    end
-end
-function axes_types(::Type{A}) where {T,N,S,A<:Base.ReshapedReinterpretArray{T,N,S}}
-    if sizeof(S) > sizeof(T)
-        return merge_tuple_type(Tuple{SOneTo{div(sizeof(S), sizeof(T))}}, axes_types(parent_type(A)))
-    elseif sizeof(S) < sizeof(T)
-        P = parent_type(A)
-        return eachop_tuple(field_type, tail(ntuple(static, StaticInt(ndims(P)))), axes_types(P))
-    else
-        return axes_types(parent_type(A))
-    end
+    dim > ndims(A) ? SOneTo{1}() : getfield(axes(A), dim)
 end
 @inline function axes(A::Base.ReshapedReinterpretArray{T,N,S}) where {T,N,S}
     if sizeof(S) > sizeof(T)
@@ -268,6 +241,7 @@ constructed or it is simply retrieved.
     Expr(:block, Expr(:meta, :inline), Expr(:tuple, [:(LazyAxis{$dim}(x)) for dim in 1:ndims(X)]...))
 end
 lazy_axes(x::Union{LinearIndices,CartesianIndices,AbstractRange}) = axes(x)
-@inline lazy_axes(x::MatAdjTrans) = reverse(lazy_axes(parent(x)))
 @inline lazy_axes(x::VecAdjTrans) = (SOneTo{1}(), first(lazy_axes(parent(x))))
-@inline lazy_axes(x::PermutedDimsArray) = permute(lazy_axes(parent(x)), to_parent_dims(x))
+@inline function lazy_axes(x::Union{PermutedDimsArray,MatAdjTrans})
+    map(GetIndex{false}(lazy_axes(parent(x))), to_parent_dims(x))
+end

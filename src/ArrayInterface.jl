@@ -5,7 +5,8 @@ import ArrayInterfaceCore: allowed_getindex, allowed_setindex!, aos_to_soa, buff
     parent_type, fast_matrix_colors, findstructralnz, has_sparsestruct,
     issingular, isstructured, matrix_colors, restructure, lu_instance,
     safevec, zeromatrix, ColoringAlgorithm, fast_scalar_indexing, parameterless_type,
-    ndims_index, ndims_shape, is_splat_index, is_forwarding_wrapper, IndicesInfo
+    ndims_index, ndims_shape, is_splat_index, is_forwarding_wrapper, IndicesInfo,
+    map_tuple_type, flatten_tuples, GetIndex
 
 # ArrayIndex subtypes and methods
 import ArrayInterfaceCore: ArrayIndex, MatrixIndex, VectorIndex, BidiagonalIndex, TridiagonalIndex
@@ -33,8 +34,6 @@ using Base.Iterators: Pairs
 using LinearAlgebra
 
 import Compat
-
-n_of_x(::StaticInt{N}, x::X) where {N,X} = ntuple(Compat.Returns(x), Val{N}())
 
 _add1(@nospecialize x) = x + oneunit(x)
 _sub1(@nospecialize x) = x - oneunit(x)
