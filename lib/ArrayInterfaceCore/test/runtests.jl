@@ -1,7 +1,7 @@
 using ArrayInterfaceCore
 using ArrayInterfaceCore: zeromatrix
 import ArrayInterfaceCore: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance,
-        parent_type, zeromatrix, IndicesInfo, indices_to_dims
+        parent_type, zeromatrix, IndicesInfo
 using Base: setindex
 using LinearAlgebra
 using Random

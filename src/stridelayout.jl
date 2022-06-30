@@ -324,8 +324,8 @@ _contiguous_batch_size(::StaticInt{-1}, ::R) where {R<:Tuple} = -One()
 
 contiguous_batch_size(::Type{Array{T,N}}) where {T,N} = Zero()
 contiguous_batch_size(::Type{BitArray{N}}) where {N} = Zero()
-contiguous_batch_size(::Type{<:AbstractRange}) = Zero()
-contiguous_batch_size(::Type{<:Tuple}) = Zero()
+contiguous_batch_size(@nospecialize T::Type{<:AbstractRange}) = Zero()
+contiguous_batch_size(@nospecialize T::Type{<:Tuple}) = Zero()
 @inline function contiguous_batch_size(@nospecialize T::Type{<:Union{PermutedDimsArray,Transpose,Adjoint}})
     contiguous_batch_size(parent_type(T))
 end
@@ -413,6 +413,7 @@ end
         return _dense_dims(T, dd, Val(stride_rank(parent_type(T))))
     end
 end
+
 @generated function _dense_dims(
     ::Type{S},
     ::D,

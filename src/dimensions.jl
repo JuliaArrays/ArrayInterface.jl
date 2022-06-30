@@ -5,9 +5,6 @@ function _init_dimsmap(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
     ntuple(i -> static(getfield(pdims, i)), length(pdims)),
     ntuple(i -> static(getfield(cdims, i)), length(pdims))
 end
-# TODO move these
-Static.static(::Colon) = (:)
-Static.static(::Nothing) = nothing
 
 """
     to_parent_dims(::Type{T}) -> Tuple{Vararg{Union{StaticInt,Tuple{Vararg{StaticInt}}}}}
@@ -22,17 +19,10 @@ to_parent_dims(@nospecialize x) = to_parent_dims(typeof(x))
 @inline function to_parent_dims(@nospecialize T::Type{<:SubArray})
     to_parent_dims(IndicesInfo{ndims(parent_type(T))}(fieldtype(T, :indices)))
 end
-function to_parent_dims(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
-    flatten_tuples(ntuple(length(cdims)) do i
-        cdim_i = getfield(cdims, i)
-        if cdim_i isa Tuple
-            pdim_i = static(getfield(pdims, i))
-            ntuple(Compat.Returns(pdim_i), length(cdim_i))
-        else
-            cdim_i === 0 ? () : (static(getfield(pdims, i)),)
-        end
-    end)
-end
+to_parent_dims(info::IndicesInfo) = flatten_tuples(map(_to_pdim, map_indices_info(info)))
+_to_pdim(::Tuple{StaticInt,Any,StaticInt{0}}) = ()
+_to_pdim(x::Tuple{StaticInt,Any,StaticInt{cdim}}) where {cdim} = getfield(x, 2)
+_to_pdim(x::Tuple{StaticInt,Any,Tuple}) = (ntuple(Compat.Returns(getfield(x, 2)), length(getfield(x, 3))),)
 to_parent_dims(@nospecialize T::Type{<:MatAdjTrans}) = (StaticInt(2), StaticInt(1))
 to_parent_dims(@nospecialize T::Type{<:PermutedDimsArray}) = getfield(_permdims(T), 1)
 
@@ -46,30 +36,33 @@ end
 
 # Base will sometomes demote statically known slices in `SubArray` to `OneTo{Int}` so we
 # provide the parent mapping to check for static size info
-sub_axes_map(@nospecialize(T::Type{<:SubArray})) = _sub_axes_map(T, IndicesInfo(T))
-function _sub_axes_map(@nospecialize(T::Type{<:SubArray}), ::IndicesInfo{N,pdims}) where {N,pdims}
-    ntuple(length(pdims)) do i
-        if fieldtype(fieldtype(T, :indices), i) <: Base.Slice{OneTo{Int}}
-            sz = known_size(parent_type(T), getfield(pdims, i))
-            sz === nothing ? StaticInt(i) : StaticSymbol(:parent) => StaticInt(sz)
-        else
-            StaticInt(i)
-        end
+function sub_axes_map(@nospecialize(T::Type{<:SubArray}))
+    map(Base.Fix1(_sub_axis_map, T), map_indices_info(IndicesInfo(T)))
+end
+function _sub_axis_map(@nospecialize(T::Type{<:SubArray}), x::Tuple{StaticInt{index},Any,Any}) where {index}
+    if fieldtype(fieldtype(T, :indices), index) <: Base.Slice{OneTo{Int}}
+        sz = known_size(parent_type(T), getfield(x, 2))
+        return sz === nothing ? StaticInt(index) : StaticInt(1):StaticInt(sz)
+    else
+        return StaticInt(index)
     end
 end
 
-sub_dimnames_map(@nospecialize T::Type{<:SubArray}) = _sub_dimnames_map(IndicesInfo(T))
-function _sub_dimnames_map(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
-    ntuple(length(pdims)) do i
-        cdim_i = getfield(cdims, i)
-        pdim_i = getfield(pdims, i)
-        if cdim_i === 0
-            StaticSymbol(:underscore) => StaticInt(0)
-        elseif pdim_i isa Int && cdim_i isa Int
-            StaticInt(pdim_i)
-        else
-            StaticSymbol(:underscore) => length(cdim_i)
-        end
+function map_indices_info(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
+    ntuple(i -> (static(i), static(getfield(pdims, i)), static(getfield(cdims, i))), length(pdims))
+end
+function sub_dimnames_map(dnames::Tuple, imap::Tuple)
+    flatten_tuples(map(Base.Fix1(_to_dimname, dnames), imap))
+end
+@inline function _to_dimname(dnames::Tuple, x::Tuple{StaticInt,PD,CD}) where {PD,CD}
+    if CD <: StaticInt{0}
+        return ()
+    elseif CD <: Tuple
+        return ntuple(Compat.Returns(static(:_)), StaticInt(known_length(CD)))
+    elseif PD <: StaticInt{0} || PD <: Tuple
+        return static(:_)
+    else
+        return getfield(dnames, known(PD))
     end
 end
 
@@ -122,11 +115,7 @@ function known_dimnames(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsAr
 end
 
 function known_dimnames(@nospecialize T::Type{<:SubArray})
-    flatten_tuples(map(Base.Fix1(_known_sub_dimname, known_dimnames(parent_type(T))), sub_dimnames_map(T)))
-end
-_known_sub_dimname(dn::Tuple, ::StaticInt{dim}) where {dim} = getfield(dn, dim)
-function _known_sub_dimname(::Tuple, ::Pair{StaticSymbol{:underscore},StaticInt{N}}) where {N}
-    ntuple(Compat.Returns(:_), StaticInt(N))
+    dynamic(sub_dimnames_map(known_dimnames(parent_type(T)), map_indices_info(IndicesInfo(T))))
 end
 
 function known_dimnames(::Type{<:ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
@@ -184,11 +173,7 @@ have a name.
 end
 
 function dimnames(x::SubArray)
-    flatten_tuples(map(Base.Fix1(_sub_dimname, dimnames(parent(x))), sub_dimnames_map(typeof(x))))
-end
-_sub_dimname(dn::Tuple, ::StaticInt{dim}) where {dim} = getfield(dn, dim)
-function _sub_dimname(::Tuple, ::Pair{StaticSymbol{:underscore},StaticInt{N}}) where {N}
-    ntuple(Compat.Returns(static(:_)), StaticInt(N))
+    sub_dimnames_map(dimnames(parent(x)), map_indices_info(IndicesInfo(typeof(x))))
 end
 
 dimnames(x::VecAdjTrans) = (static(:_), getfield(dimnames(parent(x)), 1))

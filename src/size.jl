@@ -29,7 +29,7 @@ _maybe_size(::Base.HasShape{N}, a::A) where {N,A} = map(length, axes(a))
 _maybe_size(::Base.HasLength, a::A) where {A} = (length(a),)
 
 @inline size(x::SubArray) = flatten_tuples(map(Base.Fix1(_sub_size, x), sub_axes_map(typeof(x))))
-@inline _sub_size(::SubArray, ::Pair{StaticSymbol{:parent},StaticInt{s}}) where {s} = StaticInt(s)
+@inline _sub_size(::SubArray, ::SOneTo{S}) where {S} = StaticInt(S)
 _sub_size(x::SubArray, ::StaticInt{index}) where {index} = size(getfield(x.indices, index))
 
 @inline size(B::VecAdjTrans) = (One(), length(parent(B)))
@@ -150,9 +150,13 @@ end
     ntuple(i -> known_length(I.parameters[i]), Val(ndims(T)))
 end
 
-@inline known_size(@nospecialize T::Type{<:SubArray}) = flatten_tuples(map(Base.Fix1(_known_sub_size, T), sub_axes_map(T)))
-_known_sub_size(@nospecialize(T::Type{<:SubArray}), ::Pair{StaticSymbol{:parent},StaticInt{s}}) where {s} = s
-_known_sub_size(@nospecialize(T::Type{<:SubArray}), ::StaticInt{index}) where {index}= known_size(fieldtype(fieldtype(T, :indices), index))
+@inline function known_size(@nospecialize T::Type{<:SubArray})
+    flatten_tuples(map(Base.Fix1(_known_sub_size, T), sub_axes_map(T)))
+end
+_known_sub_size(@nospecialize(T::Type{<:SubArray}), ::SOneTo{S}) where {S} = S
+function _known_sub_size(@nospecialize(T::Type{<:SubArray}), ::StaticInt{index}) where {index}
+    known_size(fieldtype(fieldtype(T, :indices), index))
+end
 
 # 1. `Zip` doesn't check that its collections are compatible (same size) at construction,
 #   but we assume as much b/c otherwise it will error while iterating. So we promote to the

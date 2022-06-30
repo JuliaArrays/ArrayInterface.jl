@@ -116,7 +116,7 @@ end
 axes(A::VecAdjTrans) = (SOneTo{1}(), axes(parent(A), 1))
 
 @inline axes(x::SubArray) = flatten_tuples(map(Base.Fix1(_sub_axes, x), sub_axes_map(typeof(x))))
-@inline _sub_axes(x::SubArray, ::Pair{StaticSymbol{:parent},StaticInt{s}}) where {s} = StaticInt(1):StaticInt(s)
+@inline _sub_axes(x::SubArray, axis::SOneTo) = axis
 _sub_axes(x::SubArray, ::StaticInt{index}) where {index} = axes(getfield(x.indices, index))
 
 @inline axes(A, dim) = _axes(A, to_dims(A, dim))
