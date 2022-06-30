@@ -94,7 +94,7 @@ _flatten(::Tuple{}) = ()
 Returns the parent array that type `T` wraps.
 """
 parent_type(x) = parent_type(typeof(x))
-parent_type(::Type{Symmetric{T,S}}) where {T,S} = S
+parent_type(@nospecialize T::Type{<:Union{Symmetric,Hermitian}}) = fieldtype(T, :data)
 parent_type(::Type{<:AbstractTriangular{T,S}}) where {T,S} = S
 parent_type(@nospecialize T::Type{<:PermutedDimsArray}) = fieldtype(T, :parent)
 parent_type(@nospecialize T::Type{<:Adjoint}) = fieldtype(T, :parent)
@@ -560,6 +560,15 @@ Base.@propagate_inbounds function Base.getindex(ind::TridiagonalIndex, i::Int)
     end
 end
 
+"""
+    Key(key)
+
+A type that clearly communicates that `key` refers to a key-index mapping.
+"""
+struct Key{K} <: ArrayIndex{0}
+    key::K
+end
+
 _cartesian_index(i::Tuple{Vararg{Int}}) = CartesianIndex(i)
 _cartesian_index(::Any) = nothing
 
@@ -643,6 +652,7 @@ is returned.
 ndims_index(::Type{<:Base.AbstractCartesianIndex{N}}) where {N} = N
 # preserve CartesianIndices{0} as they consume a dimension.
 ndims_index(::Type{CartesianIndices{0,Tuple{}}}) = 1
+ndims_index(@nospecialize T::Type{<:Union{Number,Key}}) = 1
 ndims_index(@nospecialize T::Type{<:AbstractArray{Bool}}) = ndims(T)
 ndims_index(@nospecialize T::Type{<:AbstractArray}) = ndims_index(eltype(T))
 ndims_index(@nospecialize T::Type{<:Base.LogicalIndex}) = ndims(fieldtype(T, :mask))
@@ -658,7 +668,7 @@ indexing with an instance of `I`.
 ndims_shape(T::DataType) = ndims_index(T)
 ndims_shape(::Type{Colon}) = 1
 ndims_shape(@nospecialize T::Type{<:CartesianIndices}) = ndims(T)
-ndims_shape(@nospecialize T::Type{<:Union{Number,Base.AbstractCartesianIndex}}) = 0
+ndims_shape(@nospecialize T::Type{<:Union{Number,Base.AbstractCartesianIndex,Key}}) = 0
 ndims_shape(@nospecialize T::Type{<:AbstractArray{Bool}}) = 1
 ndims_shape(@nospecialize T::Type{<:AbstractArray}) = ndims(T)
 ndims_shape(x) = ndims_shape(typeof(x))

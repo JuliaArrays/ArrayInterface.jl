@@ -245,3 +245,67 @@ lazy_axes(x::Union{LinearIndices,CartesianIndices,AbstractRange}) = axes(x)
 @inline function lazy_axes(x::Union{PermutedDimsArray,MatAdjTrans})
     map(GetIndex{false}(lazy_axes(parent(x))), to_parent_dims(x))
 end
+
+
+# TODO wait for response on https://github.com/JuliaLang/julia/issues/45872
+# struct IndexKeys <: IndexStyle end
+
+"""
+    axes_keys(x)
+    axes_keys(x, dim)
+
+Returns a tuple of keys assigned to each axis or the axis at dimension `dim` for `x`.
+Default is to simply return `map(keys, axes(x))`.
+"""
+axes_keys(x, dim)  = axes_keys(x, to_dims(x, dim))
+@inline axes_keys(x, d::CanonicalInt) = d > ndims(x) ? keys(axes(x, d)) : axes_keys(x)[d]
+@inline axes_keys(x) = is_forwarding_wrapper(x) ? axes_keys(parent(x)) : map(keys, axes(x))
+function axes_keys(x::Union{MatAdjTrans,PermutedDimsArray})
+    map(GetIndex{false}(axes_keys(parent(x))), to_parent_dims(x))
+end
+axes_keys(A::VecAdjTrans) = (SOneTo{1}(), getfield(axes_keys(parent(A)), 1))
+
+# TODO ReshapedArray - is there any approach for appropriately propagating keys?
+function axes_keys(x::SubArray)
+    flatten_tuples(map(
+        Base.Fix1(_axis_key_view, (x.indices, axes_keys(parent(x)))),
+        map_indices_info(map_indices_info(IndicesInfo(x)))
+    ))
+end
+# TODO should we be taking views of keys instead of directly indexing them? views may be
+# problematic if the keys aren't array types (e.g., tuple)
+function _axis_key_view((inds, ks), ::Tuple{StaticInt{index},StaticInt{pdim},StaticInt{cdim}}) where {index,pdim,cdim}
+    if pdim === 0  # trailing dimension
+        return keys(SOneTo{1}())
+    elseif cdim === 0  # dropped dimension
+        return ()
+    else
+        i = getfield(inds, index)
+        if idx isa Base.Slice
+            return getfield(ks, pdim)
+        else
+            return @inbounds getfield(ks, pdim)[i]  # TODO can we assume this is safe?
+        end
+    end
+end
+# if the index creates multiple dimension in the SubArray or maps to multiple dimension of
+# the parent array, then we just get the keys from the index (similar to how we manage axes).
+function _axis_key_view((inds, ks), x::Tuple{StaticInt{index},Any,Any}) where {index}
+    axes_keys(getfield(inds, index))
+end
+axes_keys(x::Union{Symmetric,Hermitian}) = axes_keys(parent(x))
+axes_keys(x::LazyAxis{N,P}) where {N,P} = axes_keys(getfield(x, :parent), static(N))
+@inline function axes_keys(x::Base.ReshapedReinterpretArray{T,N,S}) where {T,N,S}
+    if sizeof(S) > sizeof(T)  # TODO should we check if we can cleanly convert each field name of `S` to a key?
+        return flatten_tuples((keys(SOneTo{div(sizeof(S), sizeof(T))}()), axes_keys(parent(x))))
+    elseif sizeof(S) < sizeof(T)
+        return Base.tail(axes_keys(parent(x)))
+    else
+        return axes_keys(parent(x))
+    end
+end
+@inline @inline function axes_keys(x::Base.NonReshapedReinterpretArray{T,N,S}) where {T,N,S}
+    ak = axes_keys(parent(x))
+    ak1 = keys(StaticInt(1):div(static_length(first(ak)) * static(sizeof(S)), static(sizeof(T))))
+    flatten_tuples((ak1, Base.tail(ak)))
+end

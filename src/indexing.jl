@@ -174,6 +174,13 @@ end
 @inline function to_index(x, i::Base.Fix2{typeof(>),<:Union{Base.BitInteger,StaticInt}})
     max(_add1(canonicalize(i.x)), static_first(x)):static_last(x)
 end
+function to_index(x, k::Key)
+    index = findfirst(==(k.key), first(axes_keys(x)))
+    # delay throwing bounds-error if we didn't find key
+    index === nothing ? offset1(x) - 1: index
+end
+# TODO there's probably a more efficient way of doing this
+to_index(x, ks::AbstractArray{<:Key}) = [to_index(x, k) for k in ks]
 # integer indexing
 to_index(x, i::AbstractArray{<:Integer}) = i
 to_index(x, @nospecialize(i::StaticInt)) = i
