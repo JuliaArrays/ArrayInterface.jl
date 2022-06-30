@@ -171,12 +171,19 @@ end
 @inline function to_index(x, i::Base.Fix2{typeof(>=),<:Union{Base.BitInteger,StaticInt}})
     max(canonicalize(i.x), static_first(x)):static_last(x)
 end
+@inline function to_index(x, i::Base.Fix2{<:Union{typeof(>),typeof(>=),typeof(<=),typeof(<),typeof(isless)},<:Key})
+    findall(i.f(i.x.key), first(axes_keys(x)))
+end
 @inline function to_index(x, i::Base.Fix2{typeof(>),<:Union{Base.BitInteger,StaticInt}})
     max(_add1(canonicalize(i.x)), static_first(x)):static_last(x)
 end
 function to_index(x, k::Key)
     index = findfirst(==(k.key), first(axes_keys(x)))
     # delay throwing bounds-error if we didn't find key
+    index === nothing ? offset1(x) - 1 : index
+end
+function to_index(x, k::Union{Symbol,AbstractString})
+    index = findfirst(==(k), first(axes_keys(x)))
     index === nothing ? offset1(x) - 1 : index
 end
 # TODO there's probably a more efficient way of doing this

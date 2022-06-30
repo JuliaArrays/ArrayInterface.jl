@@ -201,6 +201,8 @@ end
         return ntuple(Compat.Returns(static(:_)), StaticInt(ndims(x)))
     end
 end
+dimnames(x::LazyAxis{:,P}) where {P} = first(dimnames(getfield(x, :parent)))
+dimnames(x::LazyAxis{N,P}) where {N,P} = getfield(dimnames(getfield(x, :parent)), N)
 @inline function dimnames(x::X) where {X}
     if is_forwarding_wrapper(X)
         return dimnames(parent(x))

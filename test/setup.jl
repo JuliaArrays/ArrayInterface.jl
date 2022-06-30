@@ -34,7 +34,16 @@ function ArrayInterface.known_dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L
     ArrayInterface.Static.known(L)
 end
 
-Base.parent(x::NamedDimsWrapper) = x.parent
+struct KeyedArray{T,N,P<:AbstractArray{T,N},K} <: ArrayInterface.AbstractArray2{T,N}
+    parent::P
+    keys::K
+
+    KeyedArray(p::P, k::K) where {P,K} = new{eltype(P),ndims(p),P,K}(p, k)
+end
+ArrayInterface.is_forwarding_wrapper(::Type{<:KeyedArray}) = true
+Base.parent(x::KeyedArray) = getfield(x, :parent)
+ArrayInterface.parent_type(::Type{T}) where {P,T<:KeyedArray{<:Any,<:Any,P}} = P
+ArrayInterface.axes_keys(x::KeyedArray) = getfield(x, :keys)
 
 # Dummy array type with undetermined contiguity properties
 struct DummyZeros{T,N} <: AbstractArray{T,N}

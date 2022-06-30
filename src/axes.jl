@@ -90,7 +90,6 @@ function axes_types(::Type{A}) where {T,N,S,A<:Base.ReshapedReinterpretArray{T,N
     end
 end
 
-
 # FUTURE NOTE: we avoid  `SOneTo(1)` when `axis(A, dim::Int)``. This is inended to decreases
 # breaking changes for this adopting this method to situations where they clearly benefit
 # from the propagation of static axes. This creates the somewhat awkward situation of
@@ -246,7 +245,6 @@ lazy_axes(x::Union{LinearIndices,CartesianIndices,AbstractRange}) = axes(x)
     map(GetIndex{false}(lazy_axes(parent(x))), to_parent_dims(x))
 end
 
-
 # TODO wait for response on https://github.com/JuliaLang/julia/issues/45872
 # struct IndexKeys <: IndexStyle end
 
@@ -269,7 +267,7 @@ axes_keys(A::VecAdjTrans) = (SOneTo{1}(), getfield(axes_keys(parent(A)), 1))
 function axes_keys(x::SubArray)
     flatten_tuples(map(
         Base.Fix1(_axis_key_view, (x.indices, axes_keys(parent(x)))),
-        map_indices_info(map_indices_info(IndicesInfo(x)))
+        map_indices_info(IndicesInfo(x))
     ))
 end
 # TODO should we be taking views of keys instead of directly indexing them? views may be
@@ -281,23 +279,28 @@ function _axis_key_view((inds, ks), ::Tuple{StaticInt{index},StaticInt{pdim},Sta
         return ()
     else
         i = getfield(inds, index)
-        if idx isa Base.Slice
-            return getfield(ks, pdim)
+        if i isa Base.Slice
+            return (getfield(ks, pdim),)
         else
-            return @inbounds getfield(ks, pdim)[i]  # TODO can we assume this is safe?
+            return (@inbounds(getfield(ks, pdim)[i]),)  # TODO can we assume this is safe?
         end
     end
 end
+axes_keys(x::Union{LinearIndices,CartesianIndices}) = map(first ∘ axes_keys, axes(x))
 # if the index creates multiple dimension in the SubArray or maps to multiple dimension of
 # the parent array, then we just get the keys from the index (similar to how we manage axes).
 function _axis_key_view((inds, ks), x::Tuple{StaticInt{index},Any,Any}) where {index}
     axes_keys(getfield(inds, index))
 end
 axes_keys(x::Union{Symmetric,Hermitian}) = axes_keys(parent(x))
-axes_keys(x::LazyAxis{N,P}) where {N,P} = axes_keys(getfield(x, :parent), static(N))
+axes_keys(x::LazyAxis{N,P}) where {N,P} = (axes_keys(getfield(x, :parent), static(N)),)
 @inline function axes_keys(x::Base.ReshapedReinterpretArray{T,N,S}) where {T,N,S}
-    if sizeof(S) > sizeof(T)  # TODO should we check if we can cleanly convert each field name of `S` to a key?
-        return flatten_tuples((keys(SOneTo{div(sizeof(S), sizeof(T))}()), axes_keys(parent(x))))
+    if sizeof(S) > sizeof(T)
+        if isstructtype(S) && div(sizeof(S), sizeof(T)) === fieldcount(S)
+            return flatten_tuples(((fieldnames(S),), axes_keys(parent(x))))
+        else
+            return flatten_tuples((keys(SOneTo{}()), axes_keys(parent(x))))
+        end
     elseif sizeof(S) < sizeof(T)
         return Base.tail(axes_keys(parent(x)))
     else

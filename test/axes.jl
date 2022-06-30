@@ -104,3 +104,21 @@ if isdefined(Base, :ReshapedReinterpretArray)
     @inferred(ArrayInterface.axes(fa)) isa ArrayInterface.axes_types(fa)
   end
 end
+
+@testset "axes_keys" begin
+    colors = KeyedArray([(R = rand(), G = rand(), B = rand()) for i ∈ 1:100], (range(-10, 10, length=100),))
+    colormat = reinterpret(reshape, Float64, colors);
+    cmat_view1 = view(colormat, :, 4);
+    cmat_view2 = view(colormat, :, 4:7);
+    cmat_view3 = view(colormat, 2:3,:);
+
+    @test @inferred(ArrayInterface.axes_keys(colors)) == (range(-10, 10, length=100),)
+    @test @inferred(ArrayInterface.axes_keys(colormat)) == ((:R, :G, :B), range(-10, 10, length=100))
+    @test @inferred(ArrayInterface.axes_keys(cmat_view1)) == ((:R, :G, :B),)
+    @test @inferred((ArrayInterface.axes_keys(cmat_view2))) == ((:R, :G, :B), -9.393939393939394:0.20202020202020202:-8.787878787878787)
+    # can't infer this b/c tuple is being indexed by range
+    @test ArrayInterface.axes_keys(cmat_view3) == ((:G, :B), -10.0:0.20202020202020202:10.0)
+
+    @test @inferred(ArrayInterface.getindex(colormat, :R, :)) == colormat[1, :]
+    @test @inferred(ArrayInterface.getindex(cmat_view1, :R)) == cmat_view1[1]
+end
