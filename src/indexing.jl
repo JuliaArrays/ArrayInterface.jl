@@ -177,7 +177,7 @@ end
 function to_index(x, k::Key)
     index = findfirst(==(k.key), first(axes_keys(x)))
     # delay throwing bounds-error if we didn't find key
-    index === nothing ? offset1(x) - 1: index
+    index === nothing ? offset1(x) - 1 : index
 end
 # TODO there's probably a more efficient way of doing this
 to_index(x, ks::AbstractArray{<:Key}) = [to_index(x, k) for k in ks]
