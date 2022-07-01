@@ -291,19 +291,29 @@ function _axis_key_view((inds, ks), x::Tuple{StaticInt{index},Any,Any}) where {i
 end
 axes_keys(x::Union{Symmetric,Hermitian}) = axes_keys(parent(x))
 axes_keys(x::LazyAxis{N,P}) where {N,P} = (axes_keys(getfield(x, :parent), static(N)),)
-@inline function axes_keys(x::Base.ReshapedReinterpretArray{T,N,S}) where {T,N,S}
-    if sizeof(S) > sizeof(T)
-        if isstructtype(S) && div(sizeof(S), sizeof(T)) === fieldcount(S)
-            return flatten_tuples(((fieldnames(S),), axes_keys(parent(x))))
-        else
-            return flatten_tuples((keys(SOneTo{div(sizeof(S), sizeof(T))}()), axes_keys(parent(x))))
-        end
-    elseif sizeof(S) < sizeof(T)
-        return Base.tail(axes_keys(parent(x)))
+function axes_keys(x::Base.ReshapedReinterpretArray{T,N,S}) where {T,N,S}
+    _reinterpret_axes_keys(div(StaticInt(sizeof(S)), StaticInt(sizeof(T))), x)
+end
+@inline function _reinterpreted_fieldnames(@nospecialize T::Type{<:Base.ReshapedReinterpretArray})
+    S = eltype(parent_type(T))
+    if isstructtype(S)
+        return fieldnames(S)
     else
-        return axes_keys(parent(x))
+        return ()
     end
 end
+function _reinterpret_axes_keys(s::StaticInt{N}, x::Base.ReshapedReinterpretArray) where {N}
+    __reinterpret_axes_keys(s, _reinterpreted_fieldnames(typeof(x)), axes_keys(parent(x)))
+end
+@inline function __reinterpret_axes_keys(::StaticInt{N}, fields::NTuple{M,Symbol}, ks::Tuple) where {N,M}
+    if N === M
+        return flatten_tuples(((fields,), ks))
+    else
+        return flatten_tuples((LinearIndices((SOneTo{N}(),)), ks))
+    end
+end
+_reinterpret_axes_keys(::StaticInt{1}, x::Base.ReshapedReinterpretArray) = axes_keys(parent(x))
+_reinterpret_axes_keys(::StaticInt{0}, x::Base.ReshapedReinterpretArray) = tail(axes_keys(parent(x)))
 @inline @inline function axes_keys(x::Base.NonReshapedReinterpretArray{T,N,S}) where {T,N,S}
     Ss = sizeof(S)
     Ts = sizeof(T)

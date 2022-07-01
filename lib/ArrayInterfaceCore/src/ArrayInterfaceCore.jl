@@ -652,7 +652,7 @@ is returned.
 ndims_index(::Type{<:Base.AbstractCartesianIndex{N}}) where {N} = N
 # preserve CartesianIndices{0} as they consume a dimension.
 ndims_index(::Type{CartesianIndices{0,Tuple{}}}) = 1
-ndims_index(@nospecialize T::Type{<:Union{Number,Key,Symbol,AbstractString}}) = 1
+ndims_index(@nospecialize T::Type{<:Union{Number,Key,Symbol,AbstractString,AbstractChar}}) = 1
 ndims_index(@nospecialize T::Type{<:AbstractArray{Bool}}) = ndims(T)
 ndims_index(@nospecialize T::Type{<:AbstractArray}) = ndims_index(eltype(T))
 ndims_index(@nospecialize T::Type{<:Base.LogicalIndex}) = ndims(fieldtype(T, :mask))
@@ -668,7 +668,7 @@ indexing with an instance of `I`.
 ndims_shape(T::DataType) = ndims_index(T)
 ndims_shape(::Type{Colon}) = 1
 ndims_shape(@nospecialize T::Type{<:CartesianIndices}) = ndims(T)
-ndims_shape(@nospecialize T::Type{<:Union{Number,Base.AbstractCartesianIndex,Key,Symbol,AbstractString}}) = 0
+ndims_shape(@nospecialize T::Type{<:Union{Number,Base.AbstractCartesianIndex,Key,Symbol,AbstractString,AbstractChar}}) = 0
 ndims_shape(@nospecialize T::Type{<:AbstractArray{Bool}}) = 1
 ndims_shape(@nospecialize T::Type{<:AbstractArray}) = ndims(T)
 ndims_shape(x) = ndims_shape(typeof(x))
