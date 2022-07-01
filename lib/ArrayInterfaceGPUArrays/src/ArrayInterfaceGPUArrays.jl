@@ -3,6 +3,7 @@ module ArrayInterfaceGPUArrays
 using Adapt
 using ArrayInterfaceCore
 using GPUArraysCore
+using LinearAlgebra: lu
 
 ArrayInterfaceCore.fast_scalar_indexing(::Type{<:GPUArraysCore.AbstractGPUArray}) = false
 @inline ArrayInterfaceCore.allowed_getindex(x::GPUArraysCore.AbstractGPUArray, i...) = GPUArraysCore.@allowscalar(x[i...])
@@ -19,7 +20,7 @@ function ArrayInterfaceCore.restructure(x::GPUArraysCore.AbstractGPUArray, y)
 end
 
 function ArrayInterfaceCore.lu_instance(A::GPUArraysCore.AbstractGPUMatrix{T}) where {T}
-    qr(similar(A, 1, 1))
+    lu(similar(A, 1, 1))
 end
 
 # Doesn't do much, but makes a gigantic change to the dependency chain.
