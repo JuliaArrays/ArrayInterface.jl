@@ -187,14 +187,14 @@ function to_index(x, k::Key)
     # delay throwing bounds-error if we didn't find key
     index === nothing ? offset1(x) - 1 : index
 end
-function to_index(x, k::Union{Symbol,AbstractString,AbstractChar})
+function to_index(x, k::Union{Symbol,AbstractString,AbstractChar,Number})
     index = findfirst(==(k), first(axes_keys(x)))
     index === nothing ? offset1(x) - 1 : index
 end
 # TODO there's probably a more efficient way of doing this
 to_index(x, ks::AbstractArray{<:Key}) = [to_index(x, k) for k in ks]
-function to_index(x, ks::AbstractArray{<:Union{Symbol,AbstractString,AbstractChar}})
-    [findfirst(==(k), axes_keys(x)) for k in ks]
+function to_index(x, ks::AbstractArray{<:Union{Symbol,AbstractString,AbstractChar,Number}})
+    [to_index(x, k) for k in ks]
 end
 
 # integer indexing

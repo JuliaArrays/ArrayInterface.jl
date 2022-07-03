@@ -112,6 +112,7 @@ end
     cmat_view1 = view(colormat, :, 4);
     cmat_view2 = view(colormat, :, 4:7);
     cmat_view3 = view(colormat, 2:3,:);
+    absym_abstr = KeyedArray(rand(Int64, 2,2), ([:a, :b], ["a", "b"],))
 
     @test @inferred(ArrayInterface.axes_keys(colors)) == (range(-10, 10, length=100),)
     @test @inferred(ArrayInterface.axes_keys(caxis)) == (range(-10, 10, length=100),)
@@ -126,13 +127,15 @@ end
     @test ArrayInterface.axes_keys(cmat_view3) == ((:G, :B), -10.0:0.20202020202020202:10.0)
     @test @inferred(ArrayInterface.axes_keys(Symmetric(view(colormat, :, 1:3)))) == ((:R, :G, :B), -10.0:0.20202020202020202:-9.595959595959595)
 
+    @test @inferred(ArrayInterface.axes_keys(reinterpret(Int8, absym_abstr))) == (keys(Base.OneTo(16)), ["a", "b"])
+    @test @inferred(ArrayInterface.axes_keys(reinterpret(reshape, Int8, absym_abstr))) == (keys(static(1):static(8)), [:a, :b], ["a", "b"])
+    @test @inferred(ArrayInterface.axes_keys(reinterpret(reshape, Int64, KeyedArray(rand(Int32, 2,2), ([:a, :b], ["a", "b"],))))) == (["a", "b"],)
+    @test @inferred(ArrayInterface.axes_keys(reinterpret(reshape, Float64, KeyedArray(rand(Int64, 2,2), ([:a, :b], ["a", "b"],))))) == ([:a, :b], ["a", "b"],)
+    @test @inferred(ArrayInterface.axes_keys(reinterpret(Float64, absym_abstr))) == ([:a, :b], ["a", "b"],)
+
     @test @inferred(ArrayInterface.getindex(colormat, :R, :)) == colormat[1, :]
     @test @inferred(ArrayInterface.getindex(cmat_view1, :R)) == cmat_view1[1]
     @test @inferred(ArrayInterface.getindex(colormat, :,ArrayInterface.Key(-9.595959595959595))) == colormat[:, 3]
     @test @inferred(ArrayInterface.getindex(colormat, :,<=(ArrayInterface.Key(-9.595959595959595)))) == colormat[:, 1:3]
-    @test @inferred(ArrayInterface.axes_keys(reinterpret(Int8, KeyedArray(randn(2,2), ([:a, :b], ["a", "b"]))))) == (keys(Base.OneTo(16)), ["a", "b"])
-    @test @inferred(ArrayInterface.axes_keys(reinterpret(reshape, Int8, KeyedArray(randn(2,2), ([:a, :b], ["a", "b"]))))) == (keys(static(1):static(8)), [:a, :b], ["a", "b"])
-    @test @inferred(ArrayInterface.axes_keys(reinterpret(reshape, Int64, KeyedArray(rand(Int32, 2,2), ([:a, :b], ["a", "b"],))))) == (["a", "b"],)
-    @test @inferred(ArrayInterface.axes_keys(reinterpret(reshape, Float64, KeyedArray(rand(Int64, 2,2), ([:a, :b], ["a", "b"],))))) == ([:a, :b], ["a", "b"],)
-    @test @inferred(ArrayInterface.axes_keys(reinterpret(Float64, KeyedArray(rand(Int64, 2,2), ([:a, :b], ["a", "b"],))))) == ([:a, :b], ["a", "b"],)
+    @test @inferred(ArrayInterface.getindex(absym_abstr, :, ["a"])) == absym_abstr[:,[1]]
 end
