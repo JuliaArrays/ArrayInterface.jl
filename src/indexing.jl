@@ -99,9 +99,8 @@ end
 end
 @inline (ima::IndexedMappedArray{A})(idx::CartesianIndex, ::Tuple) where {A} = getfield(idx, 1)
 @inline function (ima::IndexedMappedArray{A})(idx::I, dims::Tuple) where {A,I}
-    to_index(CartesianIndices(map(Base.Fix1(_to_lazy_axes, ima.a), dims)), idx)
+    to_index(CartesianIndices(lazy_axes(ima.a, dims)), idx)
 end
-@inline _to_lazy_axes(a::A, ::StaticInt{dim}) where {A,dim} = LazyAxis{dim}(a)
 
 """
     ArrayInterface.to_index([::IndexStyle, ]axis, arg) -> index
