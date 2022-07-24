@@ -83,6 +83,7 @@ ArrayInterface.offset1
 ArrayInterface.offsets
 ArrayInterface.setindex!
 ArrayInterface.size
+ArrayInterface.stride_rank
 ArrayInterface.strides
 ArrayInterface.to_axes
 ArrayInterface.to_axis

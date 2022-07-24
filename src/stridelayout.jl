@@ -222,8 +222,15 @@ function rank_to_sortperm(R::Tuple{Vararg{StaticInt,N}}) where {N}
     return sp
 end
 
-stride_rank(::Type{<:StrideIndex{N,R}}) where {N,R} = static(R)
+
+"""
+    stride_rank(T::Type[, dim])
+
+Returns a tuple of the stride rank for each dimensioon for the multidimensional collection `T`.
+"""
+stride_rank(x, dim) = getfield(stride_rank(x), dim)
 stride_rank(x) = stride_rank(typeof(x))
+stride_rank(::Type{<:StrideIndex{N,R}}) where {N,R} = static(R)
 function stride_rank(::Type{T}) where {T}
     is_forwarding_wrapper(T) ? stride_rank(parent_type(T)) : nothing
 end
@@ -249,8 +256,6 @@ function stride_rank(@nospecialize T::Type{<:SubArray})
         return map(GetIndex{false}(rank), to_parent_dims(T))
     end
 end
-
-stride_rank(x, i) = stride_rank(x)[i]
 function stride_rank(::Type{R}) where {T,N,S,A<:Array{S},R<:Base.ReinterpretArray{T,N,S,A}}
     return ntuple(static, StaticInt(N))
 end
@@ -285,7 +290,6 @@ end
     end
     :(Zero())
 end
-
 function stride_rank(::Type{Base.ReshapedArray{T, N, P, Tuple{Vararg{Base.SignedMultiplicativeInverse{Int},M}}}}) where {T,N,P,M}
     _reshaped_striderank(is_column_major(P), Val{N}(), Val{M}())
 end
