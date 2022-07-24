@@ -226,7 +226,8 @@ end
 """
     stride_rank(T::Type[, dim])
 
-Returns a tuple of the stride rank for each dimensioon for the multidimensional collection `T`.
+Returns a tuple of the stride rank for each dimensioon for the multidimensional collection
+`T` relative to its raw data.
 """
 stride_rank(x, dim) = getfield(stride_rank(x), dim)
 stride_rank(x) = stride_rank(typeof(x))
