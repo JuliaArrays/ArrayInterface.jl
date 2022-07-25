@@ -18,6 +18,7 @@ function Base.getindex(x::MArray, inds...)
     @boundscheck checkbounds(x, inds...)
     @inbounds parent(x)[inds...]
 end
+ArrayInterface.known_size(T::Type{<:MArray}) = ArrayInterface.known_size(fieldtype(T, :indices))
 
 Base.size(x::MArray) = map(Int, ArrayInterface.size(x))
 

@@ -8,6 +8,9 @@ import ArrayInterfaceCore: allowed_getindex, allowed_setindex!, aos_to_soa, buff
     ndims_index, ndims_shape, is_splat_index, is_forwarding_wrapper, IndicesInfo,
     map_tuple_type, flatten_tuples, GetIndex
 
+# compile time known
+import ArrayInterfaceCore: known_dimnames, known_size, known_length, known_offsets,
+    known_offset1
 # ArrayIndex subtypes and methods
 import ArrayInterfaceCore: ArrayIndex, MatrixIndex, VectorIndex, BidiagonalIndex, TridiagonalIndex
 # managing immutables
@@ -98,6 +101,13 @@ end
 @inline function _to_linear(a, i::Tuple{CanonicalInt,Vararg{CanonicalInt}})
     _strides2int(offsets(a), size_to_strides(size(a), static(1)), i) + static(1)
 end
+
+# support static dim-args
+known_size(x, ::StaticSymbol{s}) where {s} = known_size(x, to_dims(x, s))
+known_size(x, ::StaticInt{d}) where {d} = known_size(x, d)
+known_offsets(x, ::StaticSymbol{s}) where {s} = known_offsets(x, to_dims(x, s))
+known_offsets(x, ::StaticInt{d}) where {d} = known_offsets(x, d)
+known_dimnames(x, ::StaticInt{d}) where {d} = known_dimnames(x, d)
 
 """
     has_parent(::Type{T}) -> StaticBool

@@ -28,34 +28,6 @@ end
 stride_preserving_index(@nospecialize T::Type) = false
 
 """
-    known_offsets(::Type{T}) -> Tuple
-    known_offsets(::Type{T}, dim) -> Union{Int,Nothing}
-
-Returns a tuple of offset values known at compile time. If the offset of a given axis is
-not known at compile time `nothing` is returned its position.
-"""
-known_offsets(x, dim) = known_offsets(typeof(x), dim)
-known_offsets(::Type{T}, dim) where {T} = known_offsets(T, to_dims(T, dim))
-known_offsets(@nospecialize T::Type{<:Number}) = ()  # Int has no dimensions
-@inline function known_offsets(@nospecialize T::Type{<:SubArray})
-    flatten_tuples(map_tuple_type(known_offsets, fieldtype(T, :indices)))
-end
-function known_offsets(::Type{T}, dim::CanonicalInt) where {T}
-    if ndims(T) < dim
-        return 1
-    else
-        return known_offsets(T)[dim]
-    end
-end
-
-known_offsets(x) = known_offsets(typeof(x))
-function known_offsets(::Type{T}) where {T}
-    eachop(_known_offsets, ntuple(static, StaticInt(ndims(T))), axes_types(T))
-end
-_known_offsets(::Type{T}, dim::StaticInt) where {T} = known_first(field_type(T, dim))
-known_offsets(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(O)
-
-"""
     offsets(A) -> Tuple
     offsets(A, dim) -> Union{Int,StaticInt}
 
@@ -79,20 +51,6 @@ end
 # we can't generate an axis for `StrideIndex` so this is performed manually here
 @inline offsets(x::StrideIndex, dim::Int) = getfield(offsets(x), dim)
 @inline offsets(x::StrideIndex, ::StaticInt{dim}) where {dim} = getfield(offsets(x), dim)
-
-"""
-    known_offset1(::Type{T}) -> Union{Int,Nothing}
-
-Returns the linear offset of array `x` if known at compile time.
-"""
-@inline known_offset1(x) = known_offset1(typeof(x))
-@inline function known_offset1(::Type{T}) where {T}
-    if ndims(T) === 0
-        return 1
-    else
-        return known_offsets(T, 1)
-    end
-end
 
 """
     offset1(x) -> Union{Int,StaticInt}
@@ -466,45 +424,6 @@ end
 is_dense(A) = all(dense_dims(A)) ? True() : False()
 
 """
-    known_strides(::Type{T}) -> Tuple
-    known_strides(::Type{T}, dim) -> Union{Int,Nothing}
-
-Returns the strides of array `A` known at compile time. Any strides that are not known at
-compile time are represented by `nothing`.
-"""
-known_strides(x, dim) = known_strides(typeof(x), dim)
-known_strides(::Type{T}, dim) where {T} = known_strides(T, to_dims(T, dim))
-function known_strides(::Type{T}, dim::CanonicalInt) where {T}
-    # see https://github.com/JuliaLang/julia/blob/6468dcb04ea2947f43a11f556da9a5588de512a0/base/reinterpretarray.jl#L148
-    if ndims(T) < dim
-        return known_length(T)
-    else
-        return known_strides(T)[dim]
-    end
-end
-known_strides(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(S)
-
-known_strides(x) = known_strides(typeof(x))
-known_strides(::Type{T}) where {T<:Vector} = (1,)
-@inline function known_strides(::Type{T}) where {T<:VecAdjTrans}
-    strd = first(known_strides(parent_type(T)))
-    return (strd, strd)
-end
-@inline function known_strides(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsArray}})
-    map(GetIndex{false}(known_strides(parent_type(T))), to_parent_dims(T))
-end
-@inline function known_strides(::Type{T}) where {T<:SubArray}
-    map(GetIndex{false}(known_strides(parent_type(T))), to_parent_dims(T))
-end
-function known_strides(::Type{T}) where {T}
-    if ndims(T) === 1
-        return (1,)
-    else
-        return size_to_strides(known_size(T), 1)
-    end
-end
-
-"""
     strides(A) -> Tuple{Vararg{Union{Int,StaticInt}}}
     strides(A, dim) -> Union{Int,StaticInt}
 
@@ -717,3 +636,41 @@ end
 @inline stride(A::AbstractArray, ::StaticInt{N}) where {N} = strides(A)[N]
 @inline stride(A::AbstractArray, ::Val{N}) where {N} = strides(A)[N]
 stride(A, i) = Base.stride(A, i) # for type stability
+
+"""
+    known_strides(::Type{T}) -> Tuple
+    known_strides(::Type{T}, dim) -> Union{Int,Nothing}
+Returns the strides of array `A` known at compile time. Any strides that are not known at
+compile time are represented by `nothing`.
+"""
+known_strides(x, dim) = known_strides(typeof(x), dim)
+known_strides(::Type{T}, dim) where {T} = known_strides(T, to_dims(T, dim))
+function known_strides(::Type{T}, dim::CanonicalInt) where {T}
+    # see https://github.com/JuliaLang/julia/blob/6468dcb04ea2947f43a11f556da9a5588de512a0/base/reinterpretarray.jl#L148
+    if ndims(T) < dim
+        return known_length(T)
+    else
+        return known_strides(T)[dim]
+    end
+end
+known_strides(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(S)
+
+known_strides(x) = known_strides(typeof(x))
+known_strides(::Type{T}) where {T<:Vector} = (1,)
+@inline function known_strides(::Type{T}) where {T<:VecAdjTrans}
+    strd = first(known_strides(parent_type(T)))
+    return (strd, strd)
+end
+@inline function known_strides(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsArray}})
+    map(GetIndex{false}(known_strides(parent_type(T))), to_parent_dims(T))
+end
+@inline function known_strides(::Type{T}) where {T<:SubArray}
+    map(GetIndex{false}(known_strides(parent_type(T))), to_parent_dims(T))
+end
+function known_strides(::Type{T}) where {T}
+    if ndims(T) === 1
+        return (1,)
+    else
+        return size_to_strides(known_size(T), 1)
+    end
+end

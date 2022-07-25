@@ -19,7 +19,8 @@ struct StrideIndex{N,R,C,S,O} <: ArrayIndex{N}
     end
 end
 
-## getindex
+ArrayInterfaceCore.known_offsets(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(O)
+
 @propagate_inbounds Base.getindex(x::ArrayIndex, i::CanonicalInt, ii::CanonicalInt...) = x[NDIndex(i, ii...)]
 
 @inline function Base.getindex(x::StrideIndex{N}, i::AbstractCartesianIndex) where {N}
@@ -34,4 +35,3 @@ end
     end
     return Expr(:block, Expr(:meta, :inline), out)
 end
-

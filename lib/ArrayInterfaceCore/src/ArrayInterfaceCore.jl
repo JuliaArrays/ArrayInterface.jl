@@ -520,6 +520,7 @@ const MatrixIndex = ArrayIndex{2}
 
 const VectorIndex = ArrayIndex{1}
 
+Base.ndims(::ArrayIndex{N}) where {N} = N
 Base.ndims(::Type{<:ArrayIndex{N}}) where {N} = N
 
 struct BidiagonalIndex <: MatrixIndex
@@ -778,5 +779,280 @@ indices_do_not_alias(::Type{Adjoint{T,A}}) where {T, A <: AbstractArray{T}} = in
 indices_do_not_alias(::Type{Transpose{T,A}}) where {T, A <: AbstractArray{T}} = indices_do_not_alias(A)
 indices_do_not_alias(::Type{<:SubArray{<:Any,<:Any,A,I}}) where {
   A,I<:Tuple{Vararg{Union{Integer, UnitRange, Base.ReshapedUnitRange, Base.AbstractCartesianIndex}}}} = indices_do_not_alias(A)
+
+"""
+    known_dimnames(::Type{T}) -> Tuple{Vararg{Union{Symbol,Nothing}}}
+    known_dimnames(::Type{T}, dim::Union{Int,StaticInt}) -> Union{Symbol,Nothing}
+
+Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
+have a name.
+"""
+@inline known_dimnames(x, dim::Int) = _itrndims(x) < dim ? :_ : getfield(known_dimnames(x), dim)
+known_dimnames(x) = known_dimnames(typeof(x))
+function known_dimnames(@nospecialize T::Type{<:VecAdjTrans})
+    (:_, getfield(known_dimnames(parent_type(T)), 1))
+end
+function known_dimnames(@nospecialize T::Type{<:MatAdjTrans})
+    n1, n2 = known_dimnames(T)
+    (n2, n1)
+end
+_permdims(::Type{<:PermutedDimsArray{<:Any,<:Any,I1,I2}}) where {I1,I2} = (I1, I2)
+function known_dimnames(@nospecialize T::Type{<:PermutedDimsArray})
+    map(GetIndex{false}(known_dimnames(parent_type(T))), getfield(_permdims(T), 1))
+end
+known_dimnames(@nospecialize T::Type{<:SubArray}) = _sub_known_dimnames(IndicesInfo(T), T)
+function _sub_known_dimnames(::IndicesInfo{N,pdims,cdims}, @nospecialize(T::Type{<:SubArray})) where {N,pdims,cdims}
+    indices_dimnames = map_tuple_type(_known_index_dimnames, fieldtype(T, :indices))
+    parent_dimnames = known_dimnames(parent_type(T))
+    flatten_tuples(ntuple(Val{nfields(pdims)}()) do index
+        _sub_dimname(parent_dimnames, getfield(indices_dimnames, index), getfield(pdims, index))
+    end)
+end
+_known_index_dimnames(@nospecialize T::Type) = _known_index_dimnames(known_dimnames(T))
+_known_index_dimnames(@nospecialize dnames::Tuple{Symbol,Vararg{Symbol}}) = dnames
+_known_index_dimnames(dnames::Tuple{Symbol}) = first(dnames)
+_known_index_dimnames(::Tuple{}) = ()
+_sub_dimname(p::Tuple{Vararg{Symbol}}, n::Symbol, d::Int) = n === :_ ? getfield(p, d) : n
+_sub_dimname(@nospecialize(p::Tuple{Vararg{Symbol}}), n::Symbol, @nospecialize(d::Tuple{Vararg{Int}})) = n
+_sub_dimname(@nospecialize(p::Tuple{Vararg{Symbol}}), n::Tuple{Vararg{Symbol}}, d::Int) = n
+_sub_dimname(@nospecialize(p::Tuple{Vararg{Symbol}}), n::Tuple{Vararg{Symbol}}, @nospecialize(d::Tuple{Vararg{Int}})) = n
+function known_dimnames(@nospecialize T::Type{<:Base.NonReshapedReinterpretArray})
+    known_dimnames(parent_type(T))
+end
+function known_dimnames(@nospecialize T::Type{<:Base.ReshapedReinterpretArray})
+    ss = sizeof(eltype(parent_type(T)))
+    ts = sizeof(eltype(T))
+    if ss === ts
+        return known_dimnames(parent_type(T))
+    elseif ss > ts
+        return (:_, known_dimnames(parent_type(T))...)
+    else
+        return Base.tail(known_dimnames(parent_type(T)))
+    end
+end
+@inline function known_dimnames(@nospecialize T::Type{<:Base.ReshapedArray})
+    if ndims(T) === ndims(parent_type(T))
+        return known_dimnames(parent_type(T))
+    elseif ndims(T) > ndims(parent_type(T))
+        return (known_dimnames(parent_type(T))..., ntuple(_->:_, Val{ndims(T) - ndims(parent_type(T))}())...)
+    else
+        return ntuple(_->:_, Val{ndims(T)}())
+    end
+end
+@inline function known_dimnames(::Type{T}) where {T}
+    if is_forwarding_wrapper(T)
+        return known_dimnames(parent_type(T))
+    else
+        ntuple(_->:_, Val{_itrndims(T)}())
+    end
+end
+
+_itrndims(@nospecialize x) = Base.IteratorSize(x) isa Base.HasShape ? ndims(x) : 1
+
+"""
+    known_offsets(::Type{T}) -> Tuple
+    known_offsets(::Type{T}, dim) -> Union{Int,Nothing}
+
+Returns a tuple of offset values known at compile time. If the offset of a given axis is
+not known at compile time `nothing` is returned its position.
+"""
+known_offsets(x, dim::Int) = ndims(x) < dim ? 1 : getfield(known_offsets(x), dim)
+known_offsets(x, s::Symbol) = known_offsets(x, Base.sym_in(s, known_dimnames(x)))
+known_offsets(x) = known_offsets(typeof(x))
+function known_offsets(T::Type)
+    if is_forwarding_wrapper(T)
+        known_offsets(parent_type(T))
+    else
+        ntuple(_->1, Val{_itrndims(T)}())
+    end
+end
+known_offsets(@nospecialize T::Type{<:Number}) = ()  # Int has no dimensions
+@inline function known_offsets(@nospecialize T::Type{<:SubArray})
+    flatten_tuples(map_tuple_type(known_offsets, fieldtype(T, :indices)))
+end
+known_offsets(@nospecialize T::Type{<:VecAdjTrans}) = (1, known_offset1(parent_type(T)))
+function known_offsets(@nospecialize T::Type{<:MatAdjTrans})
+    o1, o2 = known_offsets(parent_type(T))
+    (o2, o1)
+end
+@inline function known_offsets(@nospecialize T::Type{<:PermutedDimsArray})
+    map(GetIndex{false}(known_offsets(parent_type(T))), getfield(_permdims(T), 1))
+end
+function known_offsets(@nospecialize T::Type{<:Base.ReshapedReinterpretArray})
+    tcs = sizeof(eltype(T))  # child eltype size
+    tps = sizeof(eltype(parent_type(T)))  # parent eltype size
+    if tps > tcs
+        return (1, known_offsets(parent_type(T))...)
+    elseif tcs === tps
+        return known_offsets(parent_type(T))
+    else
+        return Base.tail(known_offsets(parent_type(T)))
+    end
+
+end
+function known_offsets(@nospecialize T::Type{<:Base.NonReshapedReinterpretArray})
+    tcs = sizeof(eltype(T))  # child eltype size
+    tps = sizeof(eltype(parent_type(T)))  # parent eltype size
+    if tcs === tps
+        return known_offsets(parent_type(T))
+    else
+        return (1, Base.tail(known_offsets(parent_type(T)))...)
+    end
+end
+
+"""
+    known_offset1(::Type{T}) -> Union{Int,Nothing}
+
+Returns the linear offset of array `x` if known at compile time.
+"""
+@inline known_offset1(x) = known_offsets(x, 1)
+
+"""
+    known_size(::Type{T}) -> Tuple
+    known_size(::Type{T}, dim) -> Union{Int,Nothing}
+
+Returns the size of each dimension of `A` or along dimension `dim` of `A` that is known at
+compile time. If a dimension does not have a known size along a dimension then `nothing` is
+returned in its position.
+"""
+known_size(x) = known_size(typeof(x))
+@inline function known_size(::Type{T}) where {T}
+    if is_forwarding_wrapper(T)
+        return known_size(parent_type(T))
+    elseif Base.IteratorSize(T) isa Base.HasShape
+        return ntuple(_->nothing, ndims(T))
+    else
+        return (known_length(T),)
+    end
+end
+known_size(x, d::Int) = ndims(x) < d ? 1 : getfield(known_size(x), d)
+known_size(x, d::Symbol) = known_size(x, Base.sym_in(d, known_dimnames(d)))
+@inline known_size(@nospecialize T::Type{<:Number}) = ()
+@inline known_size(@nospecialize T::Type{<:VecAdjTrans}) = (1, known_length(parent_type(T)))
+@inline function known_size(@nospecialize T::Type{<:MatAdjTrans})
+    s1, s2 = known_size(parent_type(T))
+    (s2, s1)
+end
+@inline function known_size(@nospecialize T::Type{<:PermutedDimsArray})
+    map(GetIndex{false}(known_size(parent_type(T))), getfield(_permdims(T), 1))
+end
+function known_size(@nospecialize T::Type{<:Diagonal})
+    s = known_length(parent_type(T))
+    (s, s)
+end
+known_size(@nospecialize T::Type{<:Union{Symmetric,Hermitian}}) = known_size(parent_type(T))
+@inline function known_size(@nospecialize T::Type{<:Base.ReshapedReinterpretArray})
+    tcs = sizeof(eltype(T))  # child eltype size
+    tps = sizeof(eltype(parent_type(T)))  # parent eltype size
+    if tps > tcs
+        return flatten_tuples((div(tps, tcs), known_size(parent_type(T))))
+    elseif tcs === tps
+        return known_size(parent_type(T))
+    else
+        return Base.tail(known_size(parent_type(T)))
+    end
+end
+@inline function known_size(@nospecialize T::Type{<:Base.NonReshapedReinterpretArray})
+    psize = known_size(parent_type(T))
+    if Base.issingletontype(eltype(T)) || first(psize) === nothing
+        return psize
+    else
+        return flatten_tuples((div(first(psize) * sizeof(eltype(parent_type(T))), sizeof(eltype(T))), Base.tail(psize)))
+    end
+end
+known_size(@nospecialize T::Type{<:Base.IdentityUnitRange}) = known_size(parent_type(T))
+known_size(::Type{<:Base.Generator{I}}) where {I} = known_size(I)
+known_size(::Type{<:Iterators.Reverse{I}}) where {I} = known_size(I)
+known_size(::Type{<:Iterators.Enumerate{I}}) where {I} = known_size(I)
+known_size(::Type{<:Iterators.Accumulate{<:Any,I}}) where {I} = known_size(I)
+known_size(::Type{<:Iterators.Pairs{<:Any,<:Any,I}}) where {I} = known_size(I)
+@inline function known_size(::Type{<:Iterators.ProductIterator{T}}) where {T}
+    ntuple(i -> known_length(T.parameters[i]), Val(known_length(T)))
+end
+@inline function known_size(@nospecialize T::Type{<:AbstractRange})
+    start = known_first(T)
+    s = known_step(T)
+    stop = known_last(T)
+    if start === nothing || s === nothing || stop === nothing
+        return is_forwarding_wrapper(T) ? known_size(parent_type(T)) : (nothing,)
+    elseif s > 0
+        return (max(0, div(stop - start, s) + 1),)
+    else
+        return (max(0, div(start - stop, -s) + 1),)
+    end
+end
+@inline function known_size(@nospecialize T::Type{<:Union{LinearIndices,CartesianIndices}})
+    map_tuple_type(known_length, fieldtype(T, :indices))
+end
+known_size(@nospecialize T::Type{<:SubArray}) = _sub_known_size(IndicesInfo(T), T)
+function _sub_known_size(::IndicesInfo{N,pdims}, @nospecialize(T::Type{<:SubArray})) where {N,pdims}
+    P = parent_type(T)
+    I = fieldtype(T, :indices)
+    flatten_tuples(ntuple(Val{nfields(pdims)}()) do i
+        I_i = fieldtype(I, i)
+        if I_i <: Base.Slice{Base.OneTo{Int}}
+            known_size(P, getfield(pdims, i))
+        else
+            known_size(I_i)
+        end
+    end)
+end
+
+# 1. `Zip` doesn't check that its collections are compatible (same size) at construction,
+#   but we assume as much b/c otherwise it will error while iterating. So we promote to the
+#   known size if matching a `Nothing` and `Int` size.
+# 2. `promote_shape(::Tuple{Vararg{CanonicalInt}}, ::Tuple{Vararg{CanonicalInt}})` promotes
+#   trailing dimensions (which must be of size 1), to `static(1)`. We want to stick to
+#   `Nothing` and `Int` types, so we do one last pass to ensure everything is dynamic
+@inline function known_size(::Type{<:Iterators.Zip{T}}) where {T}
+    N = known_length(T)
+    if N > 0
+        szs = map_tuple_type(known_size, T)
+        return _combine_sizes(first(szs), Base.tail(szs))
+    else
+        return ()
+    end
+end
+_combine_size(::Nothing, ::Nothing) = nothing
+_combine_size(x::Int, ::Nothing) = x
+_combine_size(::Nothing, y::Int) = y
+_combine_size(::Int, y::Int) = y
+@inline function _combine_size(x::Tuple{Vararg{Any,Nx}}, y::Tuple{Vararg{Any,Ny}}) where {Nx,Ny}
+    if Nx >= Ny
+        ntuple(Val{Nx}()) do i
+            _combine_size(getfield(x, i), i > Ny ? 1 : getfield(y, i))
+        end
+    else
+        return _combine_size(y, x)
+    end
+end
+_combine_sizes(sz::Tuple, ::Tuple{}) = sz
+function _combine_sizes(sz::Tuple, szs::Tuple)
+    _combine_sizes(_combine_size(sz, first(szs)), Base.tail(szs))
+end
+
+"""
+    known_length(::Type{T}) -> Union{Int,Nothing}
+
+If `length` of an instance of type `T` is known at compile time, return it.
+Otherwise, return `nothing`.
+"""
+known_length(x) = known_length(typeof(x))
+known_length(@nospecialize T::Type{<:Number}) = 1
+known_length(@nospecialize T::Type{<:Union{NamedTuple,Tuple}}) = fieldcount(T)
+known_length(@nospecialize T::Type{<:Base.Slice}) = known_length(parent_type(T))
+known_length(::Type{<:Base.AbstractCartesianIndex{N}}) where {N} = N
+function known_length(::Type{T}) where {T}
+    if Base.IteratorSize(T) isa Base.HasShape
+        _prod_or_nothing(known_size(T))
+    else
+        return nothing
+    end
+end
+function known_length(::Type{<:Iterators.Flatten{I}}) where {I}
+  _prod_or_nothing((known_length(I), known_length(eltype(I))))
+end
+_prod_or_nothing(x::Tuple{Vararg{Int}}) = prod(x)
+_prod_or_nothing(_) = nothing
 
 end # module

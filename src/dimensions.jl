@@ -99,68 +99,6 @@ to `:_`, then `false` is returned.
 @inline has_dimnames(x) = static(known_dimnames(x) !== ntuple(Compat.Returns(:_), Val(ndims(x))))
 
 """
-    known_dimnames(::Type{T}) -> Tuple{Vararg{Union{Symbol,Nothing}}}
-    known_dimnames(::Type{T}, dim::Union{Int,StaticInt}) -> Union{Symbol,Nothing}
-
-Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
-have a name.
-"""
-@inline known_dimnames(x, dim) = _known_dimname(known_dimnames(x), canonicalize(dim))
-known_dimnames(x) = known_dimnames(typeof(x))
-function known_dimnames(@nospecialize T::Type{<:VecAdjTrans})
-    (:_, getfield(known_dimnames(parent_type(T)), 1))
-end
-function known_dimnames(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsArray}})
-    map(GetIndex{false}(known_dimnames(parent_type(T))), to_parent_dims(T))
-end
-
-function known_dimnames(@nospecialize T::Type{<:SubArray})
-    dynamic(sub_dimnames_map(known_dimnames(parent_type(T)), map_indices_info(IndicesInfo(T))))
-end
-
-function known_dimnames(::Type{<:ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
-    pnames = known_dimnames(A)
-    if IsReshaped
-        if sizeof(S) === sizeof(T)
-            return pnames
-        elseif sizeof(S) > sizeof(T)
-            return (:_, pnames...)
-        else
-            return tail(pnames)
-        end
-    else
-        return pnames
-    end
-end
-
-@inline function known_dimnames(@nospecialize T::Type{<:Base.ReshapedArray})
-    if ndims(T) === ndims(parent_type(T))
-        return known_dimnames(parent_type(T))
-    elseif ndims(T) > ndims(parent_type(T))
-        return flatten_tuples((known_dimnames(parent_type(T)), ntuple(Compat.Returns(:_), StaticInt(ndims(T) - ndims(parent_type(T))))))
-    else
-        return ntuple(Compat.Returns(:_), StaticInt(ndims(T)))
-    end
-end
-@inline function known_dimnames(::Type{T}) where {T}
-    if is_forwarding_wrapper(T)
-        return known_dimnames(parent_type(T))
-    else
-        return _unknown_dimnames(Base.IteratorSize(T))
-    end
-end
-
-_unknown_dimnames(::Base.HasShape{N}) where {N} = ntuple(Compat.Returns(:_), StaticInt(N))
-_unknown_dimnames(::Any) = (:_,)
-
-@inline function _known_dimname(x::Tuple{Vararg{Any,N}}, dim::CanonicalInt) where {N}
-    # we cannot have `@boundscheck`, else this will depend on bounds checking being enabled
-    (dim > N || dim < 1) && return :_
-    return @inbounds(x[dim])
-end
-@inline _inbounds_known_dimname(x, dim) = @inbounds(_known_dimname(x, dim))
-
-"""
     dimnames(x) -> Tuple{Vararg{Union{Symbol,StaticSymbol}}}
     dimnames(x, dim::Union{Int,StaticInt}) -> Union{Symbol,StaticSymbol}
 
@@ -171,7 +109,6 @@ have a name.
 @inline function dimnames(x::Union{PermutedDimsArray,MatAdjTrans})
     map(GetIndex{false}(dimnames(parent(x))), to_parent_dims(x))
 end
-
 function dimnames(x::SubArray)
     sub_dimnames_map(dimnames(parent(x)), map_indices_info(IndicesInfo(typeof(x))))
 end

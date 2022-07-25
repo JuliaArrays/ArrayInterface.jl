@@ -187,6 +187,7 @@ Base.IndexStyle(T::Type{<:LazyAxis}) = IndexStyle(parent_type(T))
 
 ArrayInterfaceCore.can_change_size(@nospecialize T::Type{<:LazyAxis}) = can_change_size(fieldtype(T, :parent))
 
+ArrayInterface.known_offsets(@nospecialize T::Type{<:LazyAxis}) = (known_first(T),)
 ArrayInterfaceCore.known_first(::Type{<:LazyAxis{N,P}}) where {N,P} = known_offsets(P, static(N))
 ArrayInterfaceCore.known_first(::Type{<:LazyAxis{:,P}}) where {P} = 1
 @inline function Base.first(x::LazyAxis{N})::Int where {N}
@@ -204,8 +205,8 @@ _last(::Nothing, x::LazyAxis{:}) = lastindex(getfield(x, :parent))
 _last(::Nothing, x::LazyAxis{N}) where {N} = lastindex(getfield(x, :parent), N)
 _last(N::Int, x) = N
 
-known_length(::Type{<:LazyAxis{:,P}}) where {P} = known_length(P)
-known_length(::Type{<:LazyAxis{N,P}}) where {N,P} = known_size(P, static(N))
+ArrayInterfaceCore.known_size(::Type{<:LazyAxis{:,P}}) where {P} = (known_length(P),)
+ArrayInterfaceCore.known_size(::Type{<:LazyAxis{N,P}}) where {N,P} = (getfield(known_size(P), N),)
 @inline Base.length(x::LazyAxis{:}) = Base.length(getfield(x, :parent))
 @inline Base.length(x::LazyAxis{N}) where {N} = Base.size(getfield(x, :parent), N)
 
