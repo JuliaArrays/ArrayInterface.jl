@@ -627,8 +627,22 @@ known_step(x) = known_step(typeof(x))
 known_step(T::Type) = is_forwarding_wrapper(T) ? known_step(parent_type(T)) : nothing
 known_step(@nospecialize T::Type{<:AbstractUnitRange}) = 1
 
+#=
+    stride_preserving_index(::Type{T}) -> StaticBool
+
+Returns `True` if strides between each element can still be derived when indexing with an
+instance of type `T`.
+=#
+stride_preserving_index(@nospecialize T::Type{<:AbstractRange}) = true
+stride_preserving_index(@nospecialize T::Type{<:Number}) = true
+@inline function stride_preserving_index(@nospecialize T::Type{<:Tuple})
+    all(map_tuple_type(stride_preserving_index, T))
+end
+stride_preserving_index(@nospecialize T::Type) = false
+
 """
     is_splat_index(::Type{T}) -> Bool
+
 Returns `static(true)` if `T` is a type that splats across multiple dimensions.
 """
 is_splat_index(T::Type) = false
@@ -1054,5 +1068,109 @@ function known_length(::Type{<:Iterators.Flatten{I}}) where {I}
 end
 _prod_or_nothing(x::Tuple{Vararg{Int}}) = prod(x)
 _prod_or_nothing(_) = nothing
+
+"""
+    known_strides(::Type{T}) -> Tuple
+    known_strides(::Type{T}, dim) -> Union{Int,Nothing}
+
+Returns the strides of array `A` known at compile time. Any strides that are not known at
+compile time are represented by `nothing`.
+"""
+known_strides(x) = known_strides(typeof(x))
+function known_strides(T::Type)
+    if is_forwarding_wrapper(T)
+        return known_strides(parent_type(T))
+    elseif defines_strides(T)
+        return size_to_strides(known_size(T), 1)
+    else
+        return ntuple(_->:_, _itrndims(T))
+    end
+end
+# see https://github.com/JuliaLang/julia/blob/6468dcb04ea2947f43a11f556da9a5588de512a0/base/reinterpretarray.jl#L148
+# for original code in Base that gives strides by individual dimensions
+known_strides(x, d::Int) = ndims(x) < d ? known_length(x) : getfield(known_strides(x), d)
+known_strides(x, s::Symbol) = known_strides(x, Base.sym_in(s, known_dimnames(x)))
+known_strides(::Type{T}) where {T<:Vector} = (1,)
+@inline function known_strides(@nospecialize T::Type{<:VecAdjTrans})
+    strd = first(known_strides(parent_type(T)))
+    return (strd, strd)
+end
+@inline function known_strides(@nospecialize T::Type{<:MatAdjTrans})
+    s1, s2 = known_strides(parent_type(T))
+    (s2, s1)
+end
+@inline function known_strides(@nospecialize T::Type{<:PermutedDimsArray})
+    map(GetIndex{false}(known_strides(parent_type(T))), getfield(_permdims(T), 1))
+end
+# FIXME
+@inline function known_strides(@nospecialize T::Type{<:SubArray})
+    if defines_strides(T)
+        _sub_known_strides(IndicesInfo(T), T)
+    else
+        ArgumentError("Provided type does not support strides.") |> throw
+    end
+end
+function _sub_known_strides(::IndicesInfo{N,pdims,cdims}, @nospecialize(T::Type{<:SubArray})) where {N,pdims,cdims}
+    steps = map_tuple_type(_try_known_step, fieldtype(T, :indices))
+    strs = known_strides(parent_type(T))
+    ntuple(Val{nfields(pdims)}()) do i
+        if getfield(cdims, 1) === 0
+            ()
+        else
+            _mul(getfield(steps, i), getfield(strs, getfield(pdims, i)))
+        end
+    end
+end
+_try_known_step(@nospecialize x) = known_step(x)
+
+
+function size_to_strides(sz::S, init) where {N,S<:Tuple{Vararg{Any,N}}}
+    if @generated
+        out = Expr(:block, Expr(:meta, :inline))
+        t = Expr(:tuple, :init)
+        prev = :init
+        i = 1
+        while i <= (N - 1)
+            if S.parameters[i] <: Nothing || (i > 1 &&  t.args[i - 1] === :nothing)
+                push!(t.args, :nothing)
+            else
+                next = Symbol(:val_, i)
+                push!(out.args, :($next = $prev * getfield(sz, $i)))
+                push!(t.args, next)
+                prev = next
+            end
+            i += 1
+        end
+        push!(out.args, t)
+        return out
+    else
+        return _size_to_strides(init, sz...)
+    end
+end
+
+_mul(x, y) = x * y
+_mul(::Nothing, ::Nothing) = nothing
+_mul(x, ::Nothing) = nothing
+_mul(::Nothing, y) = nothing
+
+@inline _size_to_strides(s, d, sz...) = (s, _size_to_strides(_mul(s, d), sz...)...)
+_size_to_strides(s, d) = (s,)
+_size_to_strides(s) = ()
+
+"""
+    defines_strides(::Type{T}) -> Bool
+
+Is strides(::T) defined? It is assumed that types returning `true` also return a valid
+pointer on `pointer(::T)`.
+"""
+defines_strides(x) = defines_strides(typeof(x))
+_defines_strides(::Type{T}, ::Type{T}) where {T} = false
+_defines_strides(::Type{P}, ::Type{T}) where {P,T} = defines_strides(P)
+defines_strides(::Type{T}) where {T} = _defines_strides(parent_type(T), T)
+defines_strides(@nospecialize T::Type{<:StridedArray}) = true
+defines_strides(@nospecialize T::Type{<:BitArray}) = true
+@inline function defines_strides(@nospecialize T::Type{<:SubArray})
+    stride_preserving_index(fieldtype(T, :indices))
+end
 
 end # module

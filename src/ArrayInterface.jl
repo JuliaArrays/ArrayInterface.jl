@@ -6,11 +6,12 @@ import ArrayInterfaceCore: allowed_getindex, allowed_setindex!, aos_to_soa, buff
     issingular, isstructured, matrix_colors, restructure, lu_instance,
     safevec, zeromatrix, ColoringAlgorithm, fast_scalar_indexing, parameterless_type,
     ndims_index, ndims_shape, is_splat_index, is_forwarding_wrapper, IndicesInfo,
-    map_tuple_type, flatten_tuples, GetIndex
+    map_tuple_type, flatten_tuples, GetIndex, defines_strides, stride_preserving_index,
+    size_to_strides
 
-# compile time known
+# compile time known methods
 import ArrayInterfaceCore: known_dimnames, known_size, known_length, known_offsets,
-    known_offset1
+    known_offset1, known_strides
 # ArrayIndex subtypes and methods
 import ArrayInterfaceCore: ArrayIndex, MatrixIndex, VectorIndex, BidiagonalIndex, TridiagonalIndex
 # managing immutables
@@ -107,6 +108,8 @@ known_size(x, ::StaticSymbol{s}) where {s} = known_size(x, to_dims(x, s))
 known_size(x, ::StaticInt{d}) where {d} = known_size(x, d)
 known_offsets(x, ::StaticSymbol{s}) where {s} = known_offsets(x, to_dims(x, s))
 known_offsets(x, ::StaticInt{d}) where {d} = known_offsets(x, d)
+known_strides(x, ::StaticSymbol{s}) where {s} = known_strides(x, to_dims(x, s))
+known_strides(x, ::StaticInt{d}) where {d} = known_strides(x, d)
 known_dimnames(x, ::StaticInt{d}) where {d} = known_dimnames(x, d)
 
 """

@@ -1,33 +1,5 @@
 
 """
-    defines_strides(::Type{T}) -> Bool
-
-Is strides(::T) defined? It is assumed that types returning `true` also return a valid
-pointer on `pointer(::T)`.
-"""
-defines_strides(x) = defines_strides(typeof(x))
-_defines_strides(::Type{T}, ::Type{T}) where {T} = false
-_defines_strides(::Type{P}, ::Type{T}) where {P,T} = defines_strides(P)
-defines_strides(::Type{T}) where {T} = _defines_strides(parent_type(T), T)
-defines_strides(@nospecialize T::Type{<:StridedArray}) = true
-defines_strides(@nospecialize T::Type{<:BitArray}) = true
-@inline function defines_strides(@nospecialize T::Type{<:SubArray})
-    stride_preserving_index(fieldtype(T, :indices))
-end
-#=
-    stride_preserving_index(::Type{T}) -> StaticBool
-
-Returns `True` if strides between each element can still be derived when indexing with an
-instance of type `T`.
-=#
-stride_preserving_index(@nospecialize T::Type{<:AbstractRange}) = true
-stride_preserving_index(@nospecialize T::Type{<:Number}) = true
-@inline function stride_preserving_index(@nospecialize T::Type{<:Tuple})
-    all(map_tuple_type(stride_preserving_index, T))
-end
-stride_preserving_index(@nospecialize T::Type) = false
-
-"""
     offsets(A) -> Tuple
     offsets(A, dim) -> Union{Int,StaticInt}
 
@@ -604,26 +576,6 @@ end
 maybe_static_step(x::AbstractRange) = static_step(x)
 maybe_static_step(_) = nothing
 
-@generated function size_to_strides(sz::S, init) where {N,S<:Tuple{Vararg{Any,N}}}
-    out = Expr(:block, Expr(:meta, :inline))
-    t = Expr(:tuple, :init)
-    prev = :init
-    i = 1
-    while i <= (N - 1)
-        if S.parameters[i] <: Nothing || (i > 1 &&  t.args[i - 1] === :nothing)
-            push!(t.args, :nothing)
-        else
-            next = Symbol(:val_, i)
-            push!(out.args, :($next = $prev * getfield(sz, $i)))
-            push!(t.args, next)
-            prev = next
-        end
-        i += 1
-    end
-    push!(out.args, t)
-    return out
-end
-
 strides(a, dim) = strides(a, to_dims(a, dim))
 function strides(a::A, dim::CanonicalInt) where {A}
     if is_forwarding_wrapper(A)
@@ -636,41 +588,3 @@ end
 @inline stride(A::AbstractArray, ::StaticInt{N}) where {N} = strides(A)[N]
 @inline stride(A::AbstractArray, ::Val{N}) where {N} = strides(A)[N]
 stride(A, i) = Base.stride(A, i) # for type stability
-
-"""
-    known_strides(::Type{T}) -> Tuple
-    known_strides(::Type{T}, dim) -> Union{Int,Nothing}
-Returns the strides of array `A` known at compile time. Any strides that are not known at
-compile time are represented by `nothing`.
-"""
-known_strides(x, dim) = known_strides(typeof(x), dim)
-known_strides(::Type{T}, dim) where {T} = known_strides(T, to_dims(T, dim))
-function known_strides(::Type{T}, dim::CanonicalInt) where {T}
-    # see https://github.com/JuliaLang/julia/blob/6468dcb04ea2947f43a11f556da9a5588de512a0/base/reinterpretarray.jl#L148
-    if ndims(T) < dim
-        return known_length(T)
-    else
-        return known_strides(T)[dim]
-    end
-end
-known_strides(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(S)
-
-known_strides(x) = known_strides(typeof(x))
-known_strides(::Type{T}) where {T<:Vector} = (1,)
-@inline function known_strides(::Type{T}) where {T<:VecAdjTrans}
-    strd = first(known_strides(parent_type(T)))
-    return (strd, strd)
-end
-@inline function known_strides(@nospecialize T::Type{<:Union{MatAdjTrans,PermutedDimsArray}})
-    map(GetIndex{false}(known_strides(parent_type(T))), to_parent_dims(T))
-end
-@inline function known_strides(::Type{T}) where {T<:SubArray}
-    map(GetIndex{false}(known_strides(parent_type(T))), to_parent_dims(T))
-end
-function known_strides(::Type{T}) where {T}
-    if ndims(T) === 1
-        return (1,)
-    else
-        return size_to_strides(known_size(T), 1)
-    end
-end

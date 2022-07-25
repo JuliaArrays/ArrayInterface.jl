@@ -21,6 +21,8 @@ end
 
 ArrayInterfaceCore.known_offsets(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(O)
 
+known_strides(::Type{<:StrideIndex{N,R,C,S,O}}) where {N,R,C,S,O} = known(S)
+
 @propagate_inbounds Base.getindex(x::ArrayIndex, i::CanonicalInt, ii::CanonicalInt...) = x[NDIndex(i, ii...)]
 
 @inline function Base.getindex(x::StrideIndex{N}, i::AbstractCartesianIndex) where {N}
