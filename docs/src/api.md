@@ -10,9 +10,13 @@ ArrayInterfaceCore.can_change_size
 ArrayInterfaceCore.can_setindex
 ArrayInterfaceCore.fast_matrix_colors
 ArrayInterfaceCore.fast_scalar_indexing
+ArrayInterfaceCore.is_forwarding_wrapper
 ArrayInterfaceCore.ismutable
 ArrayInterfaceCore.isstructured
 ArrayInterfaceCore.has_sparsestruct
+ArrayInterfaceCore.ndims_index
+ArrayInterfaceCore.ndims_shape
+
 ```
 
 ### Functions
@@ -36,6 +40,8 @@ ArrayInterfaceCore.zeromatrix
 
 ```@docs
 ArrayInterfaceCore.ArrayIndex
+ArrayInterfaceCore.GetIndex
+ArrayInterfaceCore.SetIndex!
 ```
 
 ## ArrayInterface.jl
@@ -63,7 +69,6 @@ ArrayInterface.known_offsets
 ArrayInterface.known_size
 ArrayInterface.known_step
 ArrayInterface.known_strides
-ArrayInterface.ndims_index
 ```
 
 ### Functions
