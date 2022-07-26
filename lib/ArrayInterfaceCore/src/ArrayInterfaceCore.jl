@@ -137,6 +137,8 @@ is equivalent to `buffer[inds...]`. If `check` is `false`, then all indexing arg
 considered in-bounds. The default value for `check` is `true`, requiring bounds checking for
 each index.
 
+See also [`SetIndex!`](@ref)
+
 !!! Warning
     Passing `false` as `check` may result in incorrect results/crashes/corruption for
     out-of-bounds indices, similar to inappropriate use of `@inbounds`. The user is
@@ -145,10 +147,10 @@ each index.
 # Examples
 
 ```julia
-julia> ArrayInterfaceCore.GetIndex(1:10)[3]
+julia> ArrayInterfaceCore.GetIndex(1:10)(3)
 3
 
-julia> ArrayInterfaceCore.GetIndex{false}(1:10)[11]  # shouldn't be in-bounds
+julia> ArrayInterfaceCore.GetIndex{false}(1:10)(11)  # shouldn't be in-bounds
 11
 
 ```
@@ -163,10 +165,52 @@ struct GetIndex{CB,B} <: Function
     GetIndex(b) = GetIndex{true}(b)
 end
 
-buffer(g::GetIndex) = getfield(g, :buffer)
+"""
+    SetIndex!(buffer) = SetIndex!{true}(buffer)
+    SetIndex!{check}(buffer) -> g
+
+Wraps an indexable buffer in a function type that sets a value at an index when called, so
+that `g(val, inds..)` is equivalent to `setindex!(buffer, val, inds...)`. If `check` is
+`false`, then all indexing arguments are considered in-bounds. The default value for `check`
+is `true`, requiring bounds checking for each index.
+
+See also [`GetIndex`](@ref)
+
+!!! Warning
+    Passing `false` as `check` may result in incorrect results/crashes/corruption for
+    out-of-bounds indices, similar to inappropriate use of `@inbounds`. The user is
+    responsible for ensuring this is correctly used.
+
+# Examples
+
+```julia
+
+julia> x = [1, 2, 3, 4];
+
+julia> ArrayInterface.SetIndex!(x)(10, 2);
+
+julia> x[2]
+10
+
+```
+"""
+struct SetIndex!{CB,B} <: Function
+    buffer::B
+
+    SetIndex!{true,B}(b) where {B} = new{true,B}(b)
+    SetIndex!{false,B}(b) where {B} = new{false,B}(b)
+    SetIndex!{check}(b::B) where {check,B} = SetIndex!{check,B}(b)
+    SetIndex!(b) = SetIndex!{true}(b)
+end
+
+buffer(x::Union{SetIndex!,GetIndex}) = getfield(x, :buffer)
 
 Base.@propagate_inbounds @inline (g::GetIndex{true})(inds...) = buffer(g)[inds...]
 @inline (g::GetIndex{false})(inds...) = @inbounds(buffer(g)[inds...])
+Base.@propagate_inbounds @inline function (s::SetIndex!{true})(v, inds...)
+    setindex!(buffer(s), v, inds...)
+end
+@inline (s::SetIndex!{false})(v, inds...) = @inbounds(setindex!(buffer(s), v, inds...))
 
 """
     can_change_size(::Type{T}) -> Bool
@@ -520,6 +564,7 @@ const MatrixIndex = ArrayIndex{2}
 
 const VectorIndex = ArrayIndex{1}
 
+Base.ndims(::ArrayIndex{N}) where {N} = N
 Base.ndims(::Type{<:ArrayIndex{N}}) where {N} = N
 
 struct BidiagonalIndex <: MatrixIndex
@@ -628,6 +673,7 @@ known_step(@nospecialize T::Type{<:AbstractUnitRange}) = 1
 
 """
     is_splat_index(::Type{T}) -> Bool
+
 Returns `static(true)` if `T` is a type that splats across multiple dimensions.
 """
 is_splat_index(T::Type) = false
@@ -636,9 +682,24 @@ is_splat_index(@nospecialize(x)) = is_splat_index(typeof(x))
 """
     ndims_index(::Type{I}) -> Int
 
-Returns the number of dimension that an instance of `I` maps to when indexing. For example,
-`CartesianIndex{3}` maps to 3 dimensions. If this method is not explicitly defined, then `1`
-is returned.
+Returns the number of dimensions that an instance of `I` indexes into. If this method is
+not explicitly defined, then `1` is returned.
+
+See also [`ndims_shape`](@ref)
+
+# Examples
+
+```julia
+julia> ArrayInterfaceCore.ndims_index(Int)
+1
+
+julia> ArrayInterfaceCore.ndims_index(CartesianIndex(1, 2, 3))
+3
+
+julia> ArrayInterfaceCore.ndims_index([CartesianIndex(1, 2), CartesianIndex(1, 3)])
+2
+
+```
 """
 ndims_index(::Type{<:Base.AbstractCartesianIndex{N}}) where {N} = N
 # preserve CartesianIndices{0} as they consume a dimension.
@@ -652,8 +713,20 @@ ndims_index(@nospecialize(i)) = ndims_index(typeof(i))
 """
     ndims_shape(::Type{I}) -> Union{Int,Tuple{Vararg{Int}}}
 
-Returns the number of dimension that are represented in shape of the returned array when
+Returns the number of dimension that are represented in the shape of the returned array when
 indexing with an instance of `I`.
+
+See also [`ndims_index`](@ref)
+
+# Examples
+
+```julia
+julia> ArrayInterfaceCore.ndims_shape([CartesianIndex(1, 1), CartesianIndex(1, 2)])
+1
+
+julia> ndims(CartesianIndices((2,2))[[CartesianIndex(1, 1), CartesianIndex(1, 2)]])
+1
+
 """
 ndims_shape(T::DataType) = ndims_index(T)
 ndims_shape(::Type{Colon}) = 1
@@ -671,11 +744,10 @@ ndims_shape(x) = ndims_shape(typeof(x))
 end
 
 """
-    IndicesInfo{N}(T::Type{<:Tuple}) -> IndicesInfo{N,NI,NS}()
+    IndicesInfo{N}(T::Type{<:Tuple}) -> IndicesInfo{N,pdims,cdims}()
 
-Provides basic trait information for each index type in in the tuple `T`. `NI`, `NS`, and
-`IS` are tuples of [`ndims_index`](@ref), [`ndims_shape`](@ref), and
-[`is_splat_index`](@ref) (respectively) for each field of `T`.
+Provides basic trait information for each index type in in the tuple `T`. `pdims` and
+`cdims` are dimension mappings to the parent and child dimensions respectively.
 
 # Examples
 
