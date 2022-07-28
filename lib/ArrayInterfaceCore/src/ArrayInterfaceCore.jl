@@ -35,16 +35,8 @@ julia> ArrayInterfaceCore.map_tuple_type(sqrt, Tuple{1,4,16})
 
 ```
 """
-function map_tuple_type(f::F, ::Type{T}) where {F,T<:Tuple}
-    if @generated
-        t = Expr(:tuple)
-        for i in 1:fieldcount(T)
-            push!(t.args, :(f($(fieldtype(T, i)))))
-        end
-        Expr(:block, Expr(:meta, :inline), t)
-    else
-        Tuple(f(fieldtype(T, i)) for i in 1:fieldcount(T))
-    end
+@inline function map_tuple_type(f, @nospecialize(T::Type))
+    ntuple(i -> f(fieldtype(T, i)), Val{fieldcount(T)}())
 end
 
 """
@@ -66,27 +58,27 @@ julia> ArrayInterfaceCore.flatten_tuples((1, (2, (3,))))
 
 ```
 """
-@inline function flatten_tuples(t::Tuple)
-    if @generated
-        texpr = Expr(:tuple)
-        for i in 1:fieldcount(t)
-            p = fieldtype(t, i)
-            if p <: Tuple
-                for j in 1:fieldcount(p)
-                    push!(texpr.args, :(@inbounds(getfield(getfield(t, $i), $j))))
-                end
-            else
-                push!(texpr.args, :(@inbounds(getfield(t, $i))))
-            end
-        end
-        Expr(:block, Expr(:meta, :inline), texpr)
-    else
-        _flatten(t)
+function flatten_tuples(t::Tuple)
+    fields = _new_field_positions(typeof(t))
+    ntuple(Val{nfields(fields)}()) do k
+        i, j = getfield(fields, k)
+        @inbounds j === 0 ? getfield(t, i) : getfield(getfield(t, i), j)
     end
 end
-_flatten(::Tuple{}) = ()
-@inline _flatten(t::Tuple{Any,Vararg{Any}}) = (getfield(t, 1), _flatten(Base.tail(t))...)
-@inline _flatten(t::Tuple{Tuple,Vararg{Any}}) = (getfield(t, 1)..., _flatten(Base.tail(t))...)
+@assume_effects :total function _new_field_positions(@nospecialize T::Type{<:Tuple})
+    out = Tuple{Int,Int}[]
+    for i in 1:fieldcount(T)
+        T_i = fieldtype(T, i)
+        if T_i <: Tuple
+            for j in 1:fieldcount(T_i)
+                push!(out, (i, j))
+            end
+        else
+            push!(out, (i, 0))
+        end
+    end
+    (out...,)
+end
 
 """
     parent_type(::Type{T}) -> Type
