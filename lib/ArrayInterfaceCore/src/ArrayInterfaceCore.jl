@@ -65,7 +65,7 @@ function flatten_tuples(t::Tuple)
         @inbounds j === 0 ? getfield(t, i) : getfield(getfield(t, i), j)
     end
 end
-@assume_effects :total function _new_field_positions(@nospecialize T::Type{<:Tuple})
+@assume_effects :total function _new_field_positions(T::DataType)
     out = Tuple{Int,Int}[]
     for i in 1:fieldcount(T)
         T_i = fieldtype(T, i)
