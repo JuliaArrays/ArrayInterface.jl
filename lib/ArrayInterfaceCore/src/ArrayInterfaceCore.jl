@@ -490,6 +490,32 @@ struct CPUIndex <: AbstractCPU end
 struct GPU <: AbstractDevice end
 
 """
+    device(::Type{T}) -> AbstractDevice
+
+Indicates the most efficient way to access elements from the collection in low-level code.
+For `GPUArrays`, will return `ArrayInterface.GPU()`.
+For `AbstractArray` supporting a `pointer` method, returns `ArrayInterface.CPUPointer()`.
+For other `AbstractArray`s and `Tuple`s, returns `ArrayInterface.CPUIndex()`.
+Otherwise, returns `nothing`.
+"""
+device(A) = device(typeof(A))
+device(::Type) = nothing
+device(::Type{<:Tuple}) = CPUTuple()
+device(::Type{T}) where {T<:Array} = CPUPointer()
+device(::Type{T}) where {T<:AbstractArray} = _device(parent_type(T), T)
+function _device(::Type{P}, ::Type{T}) where {P,T}
+    if defines_strides(T)
+        return device(P)
+    else
+        return _not_pointer(device(P))
+    end
+end
+_not_pointer(::CPUPointer) = CPUIndex()
+_not_pointer(x) = x
+_device(::Type{T}, ::Type{T}) where {T<:DenseArray} = CPUPointer()
+_device(::Type{T}, ::Type{T}) where {T} = CPUIndex()
+
+"""
     can_avx(f) -> Bool
 
 Returns `true` if the function `f` is guaranteed to be compatible with
@@ -835,5 +861,34 @@ indices_do_not_alias(::Type{Adjoint{T,A}}) where {T, A <: AbstractArray{T}} = in
 indices_do_not_alias(::Type{Transpose{T,A}}) where {T, A <: AbstractArray{T}} = indices_do_not_alias(A)
 indices_do_not_alias(::Type{<:SubArray{<:Any,<:Any,A,I}}) where {
   A,I<:Tuple{Vararg{Union{Integer, UnitRange, Base.ReshapedUnitRange, Base.AbstractCartesianIndex}}}} = indices_do_not_alias(A)
+
+"""
+    defines_strides(::Type{T}) -> Bool
+
+Is strides(::T) defined? It is assumed that types returning `true` also return a valid
+pointer on `pointer(::T)`.
+"""
+defines_strides(x) = defines_strides(typeof(x))
+_defines_strides(::Type{T}, ::Type{T}) where {T} = false
+_defines_strides(::Type{P}, ::Type{T}) where {P,T} = defines_strides(P)
+defines_strides(::Type{T}) where {T} = _defines_strides(parent_type(T), T)
+defines_strides(@nospecialize T::Type{<:StridedArray}) = true
+defines_strides(@nospecialize T::Type{<:BitArray}) = true
+@inline function defines_strides(@nospecialize T::Type{<:SubArray})
+    stride_preserving_index(fieldtype(T, :indices))
+end
+
+#=
+    stride_preserving_index(::Type{T}) -> Bool
+
+Returns `True` if strides between each element can still be derived when indexing with an
+instance of type `T`.
+=#
+stride_preserving_index(@nospecialize T::Type{<:AbstractRange}) = true
+stride_preserving_index(@nospecialize T::Type{<:Number}) = true
+@inline function stride_preserving_index(@nospecialize T::Type{<:Tuple})
+    all(map_tuple_type(stride_preserving_index, T))
+end
+stride_preserving_index(@nospecialize T::Type) = false
 
 end # module
