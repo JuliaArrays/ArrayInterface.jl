@@ -35,16 +35,8 @@ julia> ArrayInterfaceCore.map_tuple_type(sqrt, Tuple{1,4,16})
 
 ```
 """
-function map_tuple_type(f::F, ::Type{T}) where {F,T<:Tuple}
-    if @generated
-        t = Expr(:tuple)
-        for i in 1:fieldcount(T)
-            push!(t.args, :(f($(fieldtype(T, i)))))
-        end
-        Expr(:block, Expr(:meta, :inline), t)
-    else
-        Tuple(f(fieldtype(T, i)) for i in 1:fieldcount(T))
-    end
+@inline function map_tuple_type(f, @nospecialize(T::Type))
+    ntuple(i -> f(fieldtype(T, i)), Val{fieldcount(T)}())
 end
 
 """
