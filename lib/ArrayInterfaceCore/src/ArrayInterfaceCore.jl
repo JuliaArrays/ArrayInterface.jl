@@ -59,26 +59,19 @@ julia> ArrayInterfaceCore.flatten_tuples((1, (2, (3,))))
 ```
 """
 function flatten_tuples(t::Tuple)
-    fields = _new_field_positions(typeof(t))
+    fields = _new_field_positions(t)
     ntuple(Val{nfields(fields)}()) do k
         i, j = getfield(fields, k)
+        i = length(t) - i
         @inbounds j === 0 ? getfield(t, i) : getfield(getfield(t, i), j)
     end
 end
-@assume_effects :total function _new_field_positions(T::DataType)
-    out = Tuple{Int,Int}[]
-    for i in 1:fieldcount(T)
-        T_i = fieldtype(T, i)
-        if T_i <: Tuple
-            for j in 1:fieldcount(T_i)
-                push!(out, (i, j))
-            end
-        else
-            push!(out, (i, 0))
-        end
-    end
-    (out...,)
-end
+_new_field_positions(::Tuple{}) = ()
+@nospecialize
+_new_field_positions(x::Tuple) = (_fl1(x, x[1])..., _new_field_positions(Base.tail(x))...)
+_fl1(x::Tuple, x1::Tuple) = ntuple(Base.Fix1(tuple, length(x) - 1), Val(length(x1)))
+_fl1(x::Tuple, x1) = ((length(x) - 1, 0),)
+@specialize
 
 """
     parent_type(::Type{T}) -> Type
