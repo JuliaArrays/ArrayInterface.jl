@@ -1,33 +1,5 @@
 
 """
-    defines_strides(::Type{T}) -> Bool
-
-Is strides(::T) defined? It is assumed that types returning `true` also return a valid
-pointer on `pointer(::T)`.
-"""
-defines_strides(x) = defines_strides(typeof(x))
-_defines_strides(::Type{T}, ::Type{T}) where {T} = false
-_defines_strides(::Type{P}, ::Type{T}) where {P,T} = defines_strides(P)
-defines_strides(::Type{T}) where {T} = _defines_strides(parent_type(T), T)
-defines_strides(@nospecialize T::Type{<:StridedArray}) = true
-defines_strides(@nospecialize T::Type{<:BitArray}) = true
-@inline function defines_strides(@nospecialize T::Type{<:SubArray})
-    stride_preserving_index(fieldtype(T, :indices))
-end
-#=
-    stride_preserving_index(::Type{T}) -> StaticBool
-
-Returns `True` if strides between each element can still be derived when indexing with an
-instance of type `T`.
-=#
-stride_preserving_index(@nospecialize T::Type{<:AbstractRange}) = true
-stride_preserving_index(@nospecialize T::Type{<:Number}) = true
-@inline function stride_preserving_index(@nospecialize T::Type{<:Tuple})
-    all(map_tuple_type(stride_preserving_index, T))
-end
-stride_preserving_index(@nospecialize T::Type) = false
-
-"""
     known_offsets(::Type{T}) -> Tuple
     known_offsets(::Type{T}, dim) -> Union{Int,Nothing}
 
