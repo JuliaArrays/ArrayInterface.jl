@@ -236,14 +236,17 @@ Base.show(io::IO, x::LazyAxis{N}) where {N} = print(io, "LazyAxis{$N}($(parent(x
 Produces a tuple of axes where each axis is constructed lazily. If an axis of `x` is already
 constructed or it is simply retrieved.
 """
-@generated function lazy_axes(x::X) where {X}
-    Expr(:block, Expr(:meta, :inline), Expr(:tuple, [:(LazyAxis{$dim}(x)) for dim in 1:ndims(X)]...))
-end
+@inline lazy_axes(x) = lazy_axes(x, ntuple(static, StaticInt(ndims(x))))
 lazy_axes(x::Union{LinearIndices,CartesianIndices,AbstractRange}) = axes(x)
-@inline lazy_axes(x::VecAdjTrans) = (SOneTo{1}(), first(lazy_axes(parent(x))))
-@inline function lazy_axes(x::Union{PermutedDimsArray,MatAdjTrans})
-    map(GetIndex{false}(lazy_axes(parent(x))), to_parent_dims(x))
+@inline function lazy_axes(x::PermutedDimsArray, ::StaticInt{N}) where {N}
+    N <= ndims(x) ? lazy_axes(parent(x), getfield(to_parent_dims(x), N)) : SOneTo{1}()
 end
+lazy_axes(x::Union{Adjoint,Transpose}, ::StaticInt{1}) = lazy_axes(parent(x), StaticInt(2))
+lazy_axes(x::Union{Adjoint,Transpose}, ::StaticInt{2}) = lazy_axes(parent(x), StaticInt(1))
+lazy_axes(x::AbstractRange, ::StaticInt{1}) = Base.axes1(x)
+lazy_axes(x, ::Colon) = LazyAxis{:}(x)
+lazy_axes(x, ::StaticInt{dim}) where {dim} = ndims(x) < dim ? SOneTo{1}() : LazyAxis{dim}(x)
+@inline lazy_axes(x, dims::Tuple) = map(Base.Fix1(lazy_axes, x), dims)
 
 """
     axislabels(x)

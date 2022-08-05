@@ -88,8 +88,8 @@ struct IndexedMappedArray{A}
     a::A
 end
 @inline (ima::IndexedMappedArray{A})(idx::I, ::StaticInt{0}) where {A,I} = to_index(StaticInt(1):StaticInt(1), idx)
-@inline (ima::IndexedMappedArray{A})(idx::I, ::Colon) where {A,I} = to_index(LazyAxis{:}(ima.a), idx)
-@inline (ima::IndexedMappedArray{A})(idx::I, ::StaticInt{dim}) where {A,I,dim} = to_index(LazyAxis{dim}(ima.a), idx)
+@inline (ima::IndexedMappedArray{A})(idx::I, ::Colon) where {A,I} = to_index(lazy_axes(ima.a, :), idx)
+@inline (ima::IndexedMappedArray{A})(idx::I, d::StaticInt{D}) where {A,I,D} = to_index(lazy_axes(ima.a, d), idx)
 @inline function (ima::IndexedMappedArray{A})(idx::AbstractArray{Bool}, dims::Tuple) where {A}
     if (last(dims) == ndims(A)) && (IndexStyle(A) isa IndexLinear)
         return LogicalIndex{Int}(idx)
@@ -99,9 +99,8 @@ end
 end
 @inline (ima::IndexedMappedArray{A})(idx::CartesianIndex, ::Tuple) where {A} = getfield(idx, 1)
 @inline function (ima::IndexedMappedArray{A})(idx::I, dims::Tuple) where {A,I}
-    to_index(CartesianIndices(map(Base.Fix1(_to_lazy_axes, ima.a), dims)), idx)
+    to_index(CartesianIndices(lazy_axes(ima.a, dims)), idx)
 end
-@inline _to_lazy_axes(a::A, ::StaticInt{dim}) where {A,dim} = LazyAxis{dim}(a)
 
 """
     ArrayInterface.to_index([::IndexStyle, ]axis, arg) -> index
