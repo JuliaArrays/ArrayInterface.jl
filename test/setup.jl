@@ -34,16 +34,16 @@ function ArrayInterface.known_dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L
     ArrayInterface.Static.known(L)
 end
 
-struct KeyedArray{T,N,P<:AbstractArray{T,N},K} <: ArrayInterface.AbstractArray2{T,N}
+struct LabelledArray{T,N,P<:AbstractArray{T,N},L} <: ArrayInterface.AbstractArray2{T,N}
     parent::P
-    keys::K
+    labels::L
 
-    KeyedArray(p::P, k::K) where {P,K} = new{eltype(P),ndims(p),P,K}(p, k)
+    LabelledArray(p::P, labels::L) where {P,L} = new{eltype(P),ndims(p),P,L}(p, labels)
 end
-ArrayInterface.is_forwarding_wrapper(::Type{<:KeyedArray}) = true
-Base.parent(x::KeyedArray) = getfield(x, :parent)
-ArrayInterface.parent_type(::Type{T}) where {P,T<:KeyedArray{<:Any,<:Any,P}} = P
-ArrayInterface.axes_keys(x::KeyedArray) = getfield(x, :keys)
+ArrayInterface.is_forwarding_wrapper(::Type{<:LabelledArray}) = true
+Base.parent(x::LabelledArray) = getfield(x, :parent)
+ArrayInterface.parent_type(::Type{T}) where {P,T<:LabelledArray{<:Any,<:Any,P}} = P
+ArrayInterface.axislabels(x::LabelledArray) = getfield(x, :labels)
 
 # Dummy array type with undetermined contiguity properties
 struct DummyZeros{T,N} <: AbstractArray{T,N}

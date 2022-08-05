@@ -112,7 +112,7 @@ axes(A::ReshapedArray) = Base.axes(A)
 @inline function axes(x::Union{MatAdjTrans,PermutedDimsArray})
     map(GetIndex{false}(axes(parent(x))), to_parent_dims(x))
 end
-axes(A::VecAdjTrans) = (SOneTo{1}(), axes(parent(A), 1))
+axes(A::VecAdjTrans) = (SOneTo{1}(), getfield(axes(parent(A)), 1))
 
 @inline axes(x::SubArray) = flatten_tuples(map(Base.Fix1(_sub_axes, x), sub_axes_map(typeof(x))))
 @inline _sub_axes(x::SubArray, axis::SOneTo) = axis
@@ -246,80 +246,62 @@ lazy_axes(x::Union{LinearIndices,CartesianIndices,AbstractRange}) = axes(x)
 end
 
 """
-    axes_keys(x)
-    axes_keys(x, dim)
+    axislabels(x)
+    axislabels(x, dim)
 
-Returns a tuple of keys assigned to each axis or the axis at dimension `dim` for `x`.
-Default is to simply return `map(keys, axes(x))`.
+Returns a tuple of labels assigned to each axis or a collection of labels corresponding to
+axis `dim` of `x`. Default is to simply return `map(keys, axes(x))`.
 """
-axes_keys(x, dim)  = axes_keys(x, to_dims(x, dim))
-@inline axes_keys(x, d::CanonicalInt) = d > ndims(x) ? keys(axes(x, d)) : axes_keys(x)[d]
-@inline axes_keys(x) = is_forwarding_wrapper(x) ? axes_keys(parent(x)) : map(keys, axes(x))
-function axes_keys(x::Union{MatAdjTrans,PermutedDimsArray})
-    map(GetIndex{false}(axes_keys(parent(x))), to_parent_dims(x))
+axislabels(x, dim)  = axislabels(x, to_dims(x, dim))
+axislabels(@nospecialize x::Number) = ()
+@inline axislabels(x, d::CanonicalInt) = d > ndims(x) ? keys(axes(x, d)) : axislabels(x)[d]
+@inline axislabels(x) = is_forwarding_wrapper(x) ? axislabels(parent(x)) : map(keys, axes(x))
+function axislabels(x::Union{MatAdjTrans,PermutedDimsArray})
+    map(GetIndex{false}(axislabels(parent(x))), to_parent_dims(x))
 end
-axes_keys(x::VecAdjTrans) = (keys(SOneTo{1}()), getfield(axes_keys(parent(x)), 1))
-
-# TODO ReshapedArray - is there any approach for appropriately propagating keys?
-function axes_keys(x::SubArray)
-    flatten_tuples(map(
-        Base.Fix1(_axis_key_view, (x.indices, axes_keys(parent(x)))),
-        map_indices_info(IndicesInfo(x))
-    ))
-end
-# TODO should we be taking views of keys instead of directly indexing them? views may be
-# problematic if the keys aren't array types (e.g., tuple)
-function _axis_key_view((inds, ks), ::Tuple{StaticInt{index},StaticInt{pdim},StaticInt{cdim}}) where {index,pdim,cdim}
-    if pdim === 0  # trailing dimension
-        return keys(SOneTo{1}())
-    elseif cdim === 0  # dropped dimension
-        return ()
-    else
-        i = getfield(inds, index)
-        if i isa Base.Slice
-            return (getfield(ks, pdim),)
+axislabels(x::VecAdjTrans) = (keys(SOneTo{1}()), getfield(axislabels(parent(x)), 1))
+axislabels(x::SubArray) = _sub_axislabels(parent(x), x.indices, IndicesInfo(x))
+function _sub_axislabels(x::AbstractArray, inds::Tuple, ::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
+    labels = axislabels(x)
+    flatten_tuples(ntuple(Val{nfields(pdims)}()) do i
+        pdim_i = getfield(pdims, i)
+        cdim_i = getfield(cdims, i)
+        index = getfield(inds, i)
+        if pdim_i isa Tuple || cdim_i isa Tuple # no direct mapping to parent axes
+            axislabels(index)
+        elseif cdim_i === 0  # integer indexing drops axes
+            ()
+        elseif pdim_i === 0  # trailing dimension
+            LinearIndices((SOneTo{1}(),))
+        elseif index isa Base.Slice  # index into labels where there is direct mapping to parent axis
+            (getfield(labels, pdim_i),)
         else
-            return (@inbounds(getfield(ks, pdim)[i]),)  # TODO can we assume this is safe?
+            (@inbounds(getfield(labels, pdim_i)[index]),)
         end
+    end)
+end
+axislabels(x::Union{LinearIndices,CartesianIndices}) = map(first ∘ axislabels, axes(x))
+axislabels(x::Union{Symmetric,Hermitian}) = axislabels(parent(x))
+axislabels(x::LazyAxis{N,P}) where {N,P} = (axislabels(getfield(x, :parent), StaticInt(N)),)
+@inline @inline function axislabels(x::Base.NonReshapedReinterpretArray{T,N,S}) where {T,N,S}
+    if sizeof(T) === sizeof(S)
+        return axislabels(parent(x))
+    else
+        return flatten_tuples((keys(StaticInt(1):size(x, 1)), Base.tail(axislabels(parent(x)))))
     end
 end
-axes_keys(x::Union{LinearIndices,CartesianIndices}) = map(first ∘ axes_keys, axes(x))
-# if the index creates multiple dimension in the SubArray or maps to multiple dimension of
-# the parent array, then we just get the keys from the index (similar to how we manage axes).
-function _axis_key_view((inds, ks), x::Tuple{StaticInt{index},Any,Any}) where {index}
-    axes_keys(getfield(inds, index))
-end
-axes_keys(x::Union{Symmetric,Hermitian}) = axes_keys(parent(x))
-axes_keys(x::LazyAxis{N,P}) where {N,P} = (axes_keys(getfield(x, :parent), static(N)),)
-function axes_keys(x::Base.ReshapedReinterpretArray{T,N,S}) where {T,N,S}
-    _reinterpret_axes_keys(div(StaticInt(sizeof(S)), StaticInt(sizeof(T))), x)
+function axislabels(x::Base.ReshapedReinterpretArray{T,N,S}) where {T,N,S}
+    _reinterpret_axislabels(div(StaticInt(sizeof(S)), StaticInt(sizeof(T))), x)
 end
 @inline function _reinterpreted_fieldnames(@nospecialize T::Type{<:Base.ReshapedReinterpretArray})
     S = eltype(parent_type(T))
-    if isstructtype(S)
-        return fieldnames(S)
-    else
-        return ()
-    end
+    isstructtype(S) ? fieldnames(S) : ()
 end
-function _reinterpret_axes_keys(s::StaticInt{N}, x::Base.ReshapedReinterpretArray) where {N}
-    __reinterpret_axes_keys(s, _reinterpreted_fieldnames(typeof(x)), axes_keys(parent(x)))
+function _reinterpret_axislabels(s::StaticInt{N}, x::Base.ReshapedReinterpretArray) where {N}
+    __reinterpret_axislabels(s, _reinterpreted_fieldnames(typeof(x)), axislabels(parent(x)))
 end
-@inline function __reinterpret_axes_keys(::StaticInt{N}, fields::NTuple{M,Symbol}, ks::Tuple) where {N,M}
-    if N === M
-        return flatten_tuples(((fields,), ks))
-    else
-        return flatten_tuples((LinearIndices((SOneTo{N}(),)), ks))
-    end
+@inline function __reinterpret_axislabels(::StaticInt{N}, fields::NTuple{M,Symbol}, ks::Tuple) where {N,M}
+    N === M ? (fields, ks...,) : (LinearIndices((SOneTo{N}(),)), ks...,)
 end
-_reinterpret_axes_keys(::StaticInt{1}, x::Base.ReshapedReinterpretArray) = axes_keys(parent(x))
-_reinterpret_axes_keys(::StaticInt{0}, x::Base.ReshapedReinterpretArray) = tail(axes_keys(parent(x)))
-@inline @inline function axes_keys(x::Base.NonReshapedReinterpretArray{T,N,S}) where {T,N,S}
-    Ss = sizeof(S)
-    Ts = sizeof(T)
-    if Ss === Ts
-        return axes_keys(parent(x))
-    else
-        return flatten_tuples((keys(StaticInt(1):size(x, 1)), Base.tail(axes_keys(parent(x)))))
-    end
-end
+_reinterpret_axislabels(::StaticInt{1}, x::Base.ReshapedReinterpretArray) = axislabels(parent(x))
+_reinterpret_axislabels(::StaticInt{0}, x::Base.ReshapedReinterpretArray) = tail(axislabels(parent(x)))

@@ -105,37 +105,37 @@ if isdefined(Base, :ReshapedReinterpretArray)
   end
 end
 
-@testset "axes_keys" begin
-    colors = KeyedArray([(R = rand(), G = rand(), B = rand()) for i ∈ 1:100], (range(-10, 10, length=100),));
+@testset "axislabels" begin
+    colors = LabelledArray([(R = rand(), G = rand(), B = rand()) for i ∈ 1:100], (range(-10, 10, length=100),));
     caxis = ArrayInterface.LazyAxis{1}(colors);
     colormat = reinterpret(reshape, Float64, colors);
     cmat_view1 = view(colormat, :, 4);
     cmat_view2 = view(colormat, :, 4:7);
     cmat_view3 = view(colormat, 2:3,:);
-    absym_abstr = KeyedArray(rand(Int64, 2,2), ([:a, :b], ["a", "b"],))
+    absym_abstr = LabelledArray(rand(Int64, 2,2), ([:a, :b], ["a", "b"],));
 
-    @test @inferred(ArrayInterface.axes_keys(colors)) == (range(-10, 10, length=100),)
-    @test @inferred(ArrayInterface.axes_keys(caxis)) == (range(-10, 10, length=100),)
-    @test ArrayInterface.axes_keys(view(colors, :, :), 2) == keys(static(1):static(1))
-    @test @inferred(ArrayInterface.axes_keys(LinearIndices((caxis,)))) == (range(-10, 10, length=100),)
-    @test @inferred(ArrayInterface.axes_keys(colormat)) == ((:R, :G, :B), range(-10, 10, length=100))
-    @test @inferred(ArrayInterface.axes_keys(colormat')) == (range(-10, 10, length=100), (:R, :G, :B))
-    @test @inferred(ArrayInterface.axes_keys(cmat_view1)) == ((:R, :G, :B),)
-    @test @inferred((ArrayInterface.axes_keys(cmat_view2))) == ((:R, :G, :B), -9.393939393939394:0.20202020202020202:-8.787878787878787)
-    @test @inferred((ArrayInterface.axes_keys(view(colormat, 1, :)'))) == (keys(static(1):static(1)), range(-10, 10, length=100))
+    @test @inferred(ArrayInterface.axislabels(colors)) == (range(-10, 10, length=100),)
+    @test @inferred(ArrayInterface.axislabels(caxis)) == (range(-10, 10, length=100),)
+    @test ArrayInterface.axislabels(view(colors, :, :), 2) == keys(static(1):static(1))
+    @test @inferred(ArrayInterface.axislabels(LinearIndices((caxis,)))) == (range(-10, 10, length=100),)
+    @test @inferred(ArrayInterface.axislabels(colormat)) == ((:R, :G, :B), range(-10, 10, length=100))
+    @test @inferred(ArrayInterface.axislabels(colormat')) == (range(-10, 10, length=100), (:R, :G, :B))
+    @test @inferred(ArrayInterface.axislabels(cmat_view1)) == ((:R, :G, :B),)
+    @test @inferred((ArrayInterface.axislabels(cmat_view2))) == ((:R, :G, :B), -9.393939393939394:0.20202020202020202:-8.787878787878787)
+    @test @inferred((ArrayInterface.axislabels(view(colormat, 1, :)'))) == (keys(static(1):static(1)), range(-10, 10, length=100))
     # can't infer this b/c tuple is being indexed by range
-    @test ArrayInterface.axes_keys(cmat_view3) == ((:G, :B), -10.0:0.20202020202020202:10.0)
-    @test @inferred(ArrayInterface.axes_keys(Symmetric(view(colormat, :, 1:3)))) == ((:R, :G, :B), -10.0:0.20202020202020202:-9.595959595959595)
+    @test ArrayInterface.axislabels(cmat_view3) == ((:G, :B), -10.0:0.20202020202020202:10.0)
+    @test @inferred(ArrayInterface.axislabels(Symmetric(view(colormat, :, 1:3)))) == ((:R, :G, :B), -10.0:0.20202020202020202:-9.595959595959595)
 
-    @test @inferred(ArrayInterface.axes_keys(reinterpret(Int8, absym_abstr))) == (keys(Base.OneTo(16)), ["a", "b"])
-    @test @inferred(ArrayInterface.axes_keys(reinterpret(reshape, Int8, absym_abstr))) == (keys(static(1):static(8)), [:a, :b], ["a", "b"])
-    @test @inferred(ArrayInterface.axes_keys(reinterpret(reshape, Int64, KeyedArray(rand(Int32, 2,2), ([:a, :b], ["a", "b"],))))) == (["a", "b"],)
-    @test @inferred(ArrayInterface.axes_keys(reinterpret(reshape, Float64, KeyedArray(rand(Int64, 2,2), ([:a, :b], ["a", "b"],))))) == ([:a, :b], ["a", "b"],)
-    @test @inferred(ArrayInterface.axes_keys(reinterpret(Float64, absym_abstr))) == ([:a, :b], ["a", "b"],)
+    @test @inferred(ArrayInterface.axislabels(reinterpret(Int8, absym_abstr))) == (keys(Base.OneTo(16)), ["a", "b"])
+    @test @inferred(ArrayInterface.axislabels(reinterpret(reshape, Int8, absym_abstr))) == (keys(static(1):static(8)), [:a, :b], ["a", "b"])
+    @test @inferred(ArrayInterface.axislabels(reinterpret(reshape, Int64, LabelledArray(rand(Int32, 2,2), ([:a, :b], ["a", "b"],))))) == (["a", "b"],)
+    @test @inferred(ArrayInterface.axislabels(reinterpret(reshape, Float64, LabelledArray(rand(Int64, 2,2), ([:a, :b], ["a", "b"],))))) == ([:a, :b], ["a", "b"],)
+    @test @inferred(ArrayInterface.axislabels(reinterpret(Float64, absym_abstr))) == ([:a, :b], ["a", "b"],)
 
     @test @inferred(ArrayInterface.getindex(colormat, :R, :)) == colormat[1, :]
     @test @inferred(ArrayInterface.getindex(cmat_view1, :R)) == cmat_view1[1]
-    @test @inferred(ArrayInterface.getindex(colormat, :,ArrayInterface.Key(-9.595959595959595))) == colormat[:, 3]
-    @test @inferred(ArrayInterface.getindex(colormat, :,<=(ArrayInterface.Key(-9.595959595959595)))) == colormat[:, 1:3]
+    @test @inferred(ArrayInterface.getindex(colormat, :,ArrayInterface.Label(-9.595959595959595))) == colormat[:, 3]
+    @test @inferred(ArrayInterface.getindex(colormat, :,<=(ArrayInterface.Label(-9.595959595959595)))) == colormat[:, 1:3]
     @test @inferred(ArrayInterface.getindex(absym_abstr, :, ["a"])) == absym_abstr[:,[1]]
 end

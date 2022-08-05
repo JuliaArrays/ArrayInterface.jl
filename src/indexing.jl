@@ -171,8 +171,8 @@ end
 @inline function to_index(x, i::Base.Fix2{typeof(>=),<:Union{Base.BitInteger,StaticInt}})
     max(canonicalize(i.x), static_first(x)):static_last(x)
 end
-@inline function to_index(x, i::Base.Fix2{<:Union{typeof(>),typeof(>=),typeof(<=),typeof(<),typeof(isless)},<:Key})
-    findall(i.f(i.x.key), first(axes_keys(x)))
+@inline function to_index(x, i::Base.Fix2{<:Union{typeof(>),typeof(>=),typeof(<=),typeof(<),typeof(isless)},<:Label})
+    findall(i.f(i.x.label), first(axislabels(x)))
 end
 @inline function to_index(x, i::Base.Fix2{typeof(>),<:Union{Base.BitInteger,StaticInt}})
     max(_add1(canonicalize(i.x)), static_first(x)):static_last(x)
@@ -182,17 +182,17 @@ to_index(x, @nospecialize(i::StaticInt)) = i
 to_index(x, i::Integer) = Int(i)
 @inline to_index(x, i) = to_index(IndexStyle(x), x, i)
 # key indexing
-function to_index(x, k::Key)
-    index = findfirst(==(k.key), first(axes_keys(x)))
-    # delay throwing bounds-error if we didn't find key
+function to_index(x, i::Label)
+    index = findfirst(==(getfield(i, :label)), first(axislabels(x)))
+    # delay throwing bounds-error if we didn't find label
     index === nothing ? offset1(x) - 1 : index
 end
-function to_index(x, k::Union{Symbol,AbstractString,AbstractChar,Number})
-    index = findfirst(==(k), first(axes_keys(x)))
+function to_index(x, i::Union{Symbol,AbstractString,AbstractChar,Number})
+    index = findfirst(==(i), getfield(axislabels(x), 1))
     index === nothing ? offset1(x) - 1 : index
 end
 # TODO there's probably a more efficient way of doing this
-to_index(x, ks::AbstractArray{<:Key}) = [to_index(x, k) for k in ks]
+to_index(x, ks::AbstractArray{<:Label}) = [to_index(x, k) for k in ks]
 function to_index(x, ks::AbstractArray{<:Union{Symbol,AbstractString,AbstractChar,Number}})
     [to_index(x, k) for k in ks]
 end
