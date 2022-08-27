@@ -249,29 +249,29 @@ lazy_axes(x, ::StaticInt{dim}) where {dim} = ndims(x) < dim ? SOneTo{1}() : Lazy
 @inline lazy_axes(x, dims::Tuple) = map(Base.Fix1(lazy_axes, x), dims)
 
 """
-    axislabels(x)
-    axislabels(x, dim)
+    index_labels(x)
+    index_labels(x, dim)
 
 Returns a tuple of labels assigned to each axis or a collection of labels corresponding to
 axis `dim` of `x`. Default is to simply return `map(keys, axes(x))`.
 """
-axislabels(x, dim)  = axislabels(x, to_dims(x, dim))
-axislabels(@nospecialize x::Number) = ()
-@inline axislabels(x, d::CanonicalInt) = d > ndims(x) ? keys(axes(x, d)) : axislabels(x)[d]
-@inline axislabels(x) = is_forwarding_wrapper(x) ? axislabels(parent(x)) : map(keys, axes(x))
-function axislabels(x::Union{MatAdjTrans,PermutedDimsArray})
-    map(GetIndex{false}(axislabels(parent(x))), to_parent_dims(x))
+index_labels(x, dim)  = index_labels(x, to_dims(x, dim))
+index_labels(@nospecialize x::Number) = ()
+@inline index_labels(x, d::CanonicalInt) = d > ndims(x) ? keys(axes(x, d)) : index_labels(x)[d]
+@inline index_labels(x) = is_forwarding_wrapper(x) ? index_labels(parent(x)) : map(keys, axes(x))
+function index_labels(x::Union{MatAdjTrans,PermutedDimsArray})
+    map(GetIndex{false}(index_labels(parent(x))), to_parent_dims(x))
 end
-axislabels(x::VecAdjTrans) = (keys(SOneTo{1}()), getfield(axislabels(parent(x)), 1))
-axislabels(x::SubArray) = _sub_axislabels(parent(x), x.indices, IndicesInfo(x))
-function _sub_axislabels(x::AbstractArray, inds::Tuple, ::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
-    labels = axislabels(x)
+index_labels(x::VecAdjTrans) = (keys(SOneTo{1}()), getfield(index_labels(parent(x)), 1))
+index_labels(x::SubArray) = _sub_index_labels(parent(x), x.indices, IndicesInfo(x))
+function _sub_index_labels(x::AbstractArray, inds::Tuple, ::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
+    labels = index_labels(x)
     flatten_tuples(ntuple(Val{nfields(pdims)}()) do i
         pdim_i = getfield(pdims, i)
         cdim_i = getfield(cdims, i)
         index = getfield(inds, i)
         if pdim_i isa Tuple || cdim_i isa Tuple # no direct mapping to parent axes
-            axislabels(index)
+            index_labels(index)
         elseif cdim_i === 0  # integer indexing drops axes
             ()
         elseif pdim_i === 0  # trailing dimension
@@ -283,28 +283,28 @@ function _sub_axislabels(x::AbstractArray, inds::Tuple, ::IndicesInfo{N,pdims,cd
         end
     end)
 end
-axislabels(x::Union{LinearIndices,CartesianIndices}) = map(first ∘ axislabels, axes(x))
-axislabels(x::Union{Symmetric,Hermitian}) = axislabels(parent(x))
-axislabels(x::LazyAxis{N,P}) where {N,P} = (axislabels(getfield(x, :parent), StaticInt(N)),)
-@inline @inline function axislabels(x::Base.NonReshapedReinterpretArray{T,N,S}) where {T,N,S}
+index_labels(x::Union{LinearIndices,CartesianIndices}) = map(first ∘ index_labels, axes(x))
+index_labels(x::Union{Symmetric,Hermitian}) = index_labels(parent(x))
+index_labels(x::LazyAxis{N,P}) where {N,P} = (index_labels(getfield(x, :parent), StaticInt(N)),)
+@inline @inline function index_labels(x::Base.NonReshapedReinterpretArray{T,N,S}) where {T,N,S}
     if sizeof(T) === sizeof(S)
-        return axislabels(parent(x))
+        return index_labels(parent(x))
     else
-        return flatten_tuples((keys(StaticInt(1):size(x, 1)), Base.tail(axislabels(parent(x)))))
+        return flatten_tuples((keys(StaticInt(1):size(x, 1)), Base.tail(index_labels(parent(x)))))
     end
 end
-function axislabels(x::Base.ReshapedReinterpretArray{T,N,S}) where {T,N,S}
-    _reinterpret_axislabels(div(StaticInt(sizeof(S)), StaticInt(sizeof(T))), x)
+function index_labels(x::Base.ReshapedReinterpretArray{T,N,S}) where {T,N,S}
+    _reinterpret_index_labels(div(StaticInt(sizeof(S)), StaticInt(sizeof(T))), x)
 end
 @inline function _reinterpreted_fieldnames(@nospecialize T::Type{<:Base.ReshapedReinterpretArray})
     S = eltype(parent_type(T))
     isstructtype(S) ? fieldnames(S) : ()
 end
-function _reinterpret_axislabels(s::StaticInt{N}, x::Base.ReshapedReinterpretArray) where {N}
-    __reinterpret_axislabels(s, _reinterpreted_fieldnames(typeof(x)), axislabels(parent(x)))
+function _reinterpret_index_labels(s::StaticInt{N}, x::Base.ReshapedReinterpretArray) where {N}
+    __reinterpret_index_labels(s, _reinterpreted_fieldnames(typeof(x)), index_labels(parent(x)))
 end
-@inline function __reinterpret_axislabels(::StaticInt{N}, fields::NTuple{M,Symbol}, ks::Tuple) where {N,M}
+@inline function __reinterpret_index_labels(::StaticInt{N}, fields::NTuple{M,Symbol}, ks::Tuple) where {N,M}
     N === M ? (fields, ks...,) : (LinearIndices((SOneTo{N}(),)), ks...,)
 end
-_reinterpret_axislabels(::StaticInt{1}, x::Base.ReshapedReinterpretArray) = axislabels(parent(x))
-_reinterpret_axislabels(::StaticInt{0}, x::Base.ReshapedReinterpretArray) = tail(axislabels(parent(x)))
+_reinterpret_index_labels(::StaticInt{1}, x::Base.ReshapedReinterpretArray) = index_labels(parent(x))
+_reinterpret_index_labels(::StaticInt{0}, x::Base.ReshapedReinterpretArray) = tail(index_labels(parent(x)))
