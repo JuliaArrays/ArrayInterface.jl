@@ -617,11 +617,11 @@ Base.@propagate_inbounds function Base.getindex(ind::TridiagonalIndex, i::Int)
 end
 
 """
-    Label(label)
+    IndexLabel(label)
 
 A type that clearly communicates that `label` refers to a key-index mapping.
 """
-struct Label{L} <: ArrayIndex{0}
+struct IndexLabel{L} <: ArrayIndex{0}
     label::L
 end
 
@@ -724,7 +724,7 @@ julia> ArrayInterfaceCore.ndims_index([CartesianIndex(1, 2), CartesianIndex(1, 3
 ndims_index(::Type{<:Base.AbstractCartesianIndex{N}}) where {N} = N
 # preserve CartesianIndices{0} as they consume a dimension.
 ndims_index(::Type{CartesianIndices{0,Tuple{}}}) = 1
-ndims_index(@nospecialize T::Type{<:Union{Number,Label,Symbol,AbstractString,AbstractChar}}) = 1
+ndims_index(@nospecialize T::Type{<:Union{Number,IndexLabel,Symbol,AbstractString,AbstractChar}}) = 1
 ndims_index(@nospecialize T::Type{<:AbstractArray{Bool}}) = ndims(T)
 ndims_index(@nospecialize T::Type{<:AbstractArray}) = ndims_index(eltype(T))
 ndims_index(@nospecialize T::Type{<:Base.LogicalIndex}) = ndims(fieldtype(T, :mask))
@@ -752,7 +752,7 @@ julia> ndims(CartesianIndices((2,2))[[CartesianIndex(1, 1), CartesianIndex(1, 2)
 ndims_shape(T::DataType) = ndims_index(T)
 ndims_shape(::Type{Colon}) = 1
 ndims_shape(@nospecialize T::Type{<:CartesianIndices}) = ndims(T)
-ndims_shape(@nospecialize T::Type{<:Union{Number,Base.AbstractCartesianIndex,Label,Symbol,AbstractString,AbstractChar}}) = 0
+ndims_shape(@nospecialize T::Type{<:Union{Number,Base.AbstractCartesianIndex,IndexLabel,Symbol,AbstractString,AbstractChar}}) = 0
 ndims_shape(@nospecialize T::Type{<:AbstractArray{Bool}}) = 1
 ndims_shape(@nospecialize T::Type{<:AbstractArray}) = ndims(T)
 ndims_shape(x) = ndims_shape(typeof(x))

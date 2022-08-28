@@ -135,7 +135,7 @@ end
 
     @test @inferred(ArrayInterface.getindex(colormat, :R, :)) == colormat[1, :]
     @test @inferred(ArrayInterface.getindex(cmat_view1, :R)) == cmat_view1[1]
-    @test @inferred(ArrayInterface.getindex(colormat, :,ArrayInterface.Label(-9.595959595959595))) == colormat[:, 3]
-    @test @inferred(ArrayInterface.getindex(colormat, :,<=(ArrayInterface.Label(-9.595959595959595)))) == colormat[:, 1:3]
+    @test @inferred(ArrayInterface.getindex(colormat, :,ArrayInterface.IndexLabel(-9.595959595959595))) == colormat[:, 3]
+    @test @inferred(ArrayInterface.getindex(colormat, :,<=(ArrayInterface.IndexLabel(-9.595959595959595)))) == colormat[:, 1:3]
     @test @inferred(ArrayInterface.getindex(absym_abstr, :, ["a"])) == absym_abstr[:,[1]]
 end
