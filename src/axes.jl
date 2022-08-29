@@ -256,7 +256,7 @@ Returns `true` if `x` has has any index labels. If [`index_labels`](@ref) return
 
 See also: [`index_labels`](@ref)
 """
-has_index_labels(x) = is_forwarding_wrapper(x) ? has_index_labels(parent(x)) : false
+has_index_labels(x) = is_forwarding_wrapper(x) ? has_index_labels(buffer(x)) : false
 function has_index_labels(x::Union{Base.NonReshapedReinterpretArray,Transpose,Adjoint,PermutedDimsArray,Symmetric,Hermitian})
     has_index_labels(parent(x))
 end
@@ -269,8 +269,17 @@ function has_index_labels(x::Base.ReshapedReinterpretArray{T,N,S}) where {T,N,S}
     end
 end
 function has_index_labels(x::SubArray)
-    has_index_labels(parent(x)) || any(has_index_labels, x.indices)
+    if has_index_labels(parent(x))
+        return true
+    else
+        inds = x.indices
+        for i in 1:nfields(inds)
+            has_index_labels(getfield(inds, i)) && return true
+        end
+        return false
+    end
 end
+has_index_labels(x::LazyAxis) = index_labels(x) !== (nothing,)
 
 """
     index_labels(x)

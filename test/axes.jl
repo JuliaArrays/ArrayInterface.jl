@@ -133,6 +133,12 @@ end
     @test @inferred(ArrayInterface.index_labels(reinterpret(reshape, Float64, LabelledArray(rand(Int64, 2,2), ([:a, :b], ["a", "b"],))))) == ([:a, :b], ["a", "b"],)
     @test @inferred(ArrayInterface.index_labels(reinterpret(Float64, absym_abstr))) == ([:a, :b], ["a", "b"],)
 
+    @test ArrayInterface.has_index_labels(colors)
+    @test ArrayInterface.has_index_labels(caxis)
+    @test ArrayInterface.has_index_labels(colormat)
+    @test ArrayInterface.has_index_labels(cmat_view1)
+    @test !ArrayInterface.has_index_labels(view(colors, :, :))
+
     @test @inferred(ArrayInterface.getindex(colormat, :R, :)) == colormat[1, :]
     @test @inferred(ArrayInterface.getindex(cmat_view1, :R)) == cmat_view1[1]
     @test @inferred(ArrayInterface.getindex(colormat, :,ArrayInterface.IndexLabel(-9.595959595959595))) == colormat[:, 3]

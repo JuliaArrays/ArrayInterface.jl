@@ -44,6 +44,7 @@ ArrayInterface.is_forwarding_wrapper(::Type{<:LabelledArray}) = true
 Base.parent(x::LabelledArray) = getfield(x, :parent)
 ArrayInterface.parent_type(::Type{T}) where {P,T<:LabelledArray{<:Any,<:Any,P}} = P
 ArrayInterface.index_labels(x::LabelledArray) = getfield(x, :labels)
+ArrayInterface.has_index_labels(::LabelledArray) = true
 
 # Dummy array type with undetermined contiguity properties
 struct DummyZeros{T,N} <: AbstractArray{T,N}
