@@ -256,7 +256,7 @@ Returns `true` if `x` has has any index labels. If [`index_labels`](@ref) return
 
 See also: [`index_labels`](@ref)
 """
-has_index_labels(x) = is_forwarding_wrapper(x) ? has_index_labels(buffer(x)) : false
+has_index_labels(x) = _any_labels(index_labels(x))
 function has_index_labels(x::Union{Base.NonReshapedReinterpretArray,Transpose,Adjoint,PermutedDimsArray,Symmetric,Hermitian})
     has_index_labels(parent(x))
 end
@@ -279,7 +279,8 @@ function has_index_labels(x::SubArray)
         return false
     end
 end
-has_index_labels(x::LazyAxis) = index_labels(x) !== (nothing,)
+_any_labels(@nospecialize labels::Tuple{Vararg{Nothing}}) = false
+_any_labels(@nospecialize labels::Tuple{Vararg{Any}}) = true
 
 """
     index_labels(x)
