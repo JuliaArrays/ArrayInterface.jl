@@ -619,9 +619,10 @@ end
 """
     IndexLabel(label)
 
-A type that clearly communicates that `label` refers to a key-index mapping.
+A type that clearly communicates to internal methods to lookup the index corresponding to
+for `label`.
 """
-struct IndexLabel{L} <: ArrayIndex{0}
+struct IndexLabel{L} <: ArrayIndex{1}
     label::L
 end
 

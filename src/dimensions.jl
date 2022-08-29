@@ -1,10 +1,14 @@
 
 
 _init_dimsmap(x) = _init_dimsmap(IndicesInfo(x))
-function _init_dimsmap(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
+function _init_dimsmap(info::IndicesInfo{<:Any,pdims,cdims}) where {pdims,cdims}
     ntuple(i -> static(getfield(pdims, i)), length(pdims)),
     ntuple(i -> static(getfield(cdims, i)), length(pdims))
 end
+
+parentdims(::IndicesInfo{<:Any,pdims}) where {pdims} = pdims
+
+childdims(::IndicesInfo{<:Any,<:Any,cdims}) where {cdims} = cdims
 
 """
     to_parent_dims(::Type{T}) -> Tuple{Vararg{Union{StaticInt,Tuple{Vararg{StaticInt}}}}}

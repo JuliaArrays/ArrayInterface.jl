@@ -35,6 +35,7 @@ using Base.Iterators: Pairs
 using LinearAlgebra
 
 import Compat
+using Compat: Returns
 
 _add1(@nospecialize x) = x + oneunit(x)
 _sub1(@nospecialize x) = x - oneunit(x)
