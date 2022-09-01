@@ -771,58 +771,64 @@ IndicesInfo{5, (1, (2, 3), 4, 5, 0, 0), (1, 2, 0, (3, 4), 5, 0)}()
 ```
 """
 struct IndicesInfo{N,NI,NS} end
-IndicesInfo(x::SubArray) = IndicesInfo{ndims(parent(x))}(typeof(x.indices))
 @inline function IndicesInfo(@nospecialize T::Type{<:SubArray})
     IndicesInfo{ndims(parent_type(T))}(fieldtype(T, :indices))
 end
 function IndicesInfo{N}(@nospecialize(T::Type{<:Tuple})) where {N}
-    _indices_info(
-        Val{_find_first_true(map_tuple_type(is_splat_index, T))}(),
-        IndicesInfo{N,map_tuple_type(ndims_index, T),map_tuple_type(ndims_shape, T)}()
-    )
-end
-function _indices_info(::Val{nothing}, ::IndicesInfo{1,(1,),NS}) where {NS}
-    ns1 = getfield(NS, 1)
-    IndicesInfo{1,(1,), (ns1 > 1 ? ntuple(identity, ns1) : ns1,)}()
-end
-function _indices_info(::Val{nothing}, ::IndicesInfo{N,(1,),NS}) where {N,NS}
-    ns1 = getfield(NS, 1)
-    IndicesInfo{N,(:,),(ns1 > 1 ? ntuple(identity, ns1) : ns1,)}()
-end
-@inline function _indices_info(::Val{nothing}, ::IndicesInfo{N,NI,NS}) where {N,NI,NS}
-    if sum(NI) > N
-        IndicesInfo{N,_replace_trailing(N, _accum_dims(cumsum(NI), NI)), _accum_dims(cumsum(NS), NS)}()
+    SI = _find_first_true(map_tuple_type(is_splat_index, T))
+    NI = map_tuple_type(ndims_index, T)
+    NS = map_tuple_type(ndims_shape, T)
+    if SI === nothing
+        ndi = NI
+        nds = NS
     else
-        IndicesInfo{N,_accum_dims(cumsum(NI), NI), _accum_dims(cumsum(NS), NS)}()
+        nsplat = N - sum(NI)
+        if nsplat === 0
+            ndi = NI
+            nds = NS
+        else
+            splatmul = max(0, nsplat + 1)
+            ndi = _map_splats(splatmul, SI, NI)
+            nds = _map_splats(splatmul, SI, NS)
+        end
+    end
+    if ndi === (1,) && N !== 1
+        ns1 = getfield(nds, 1)
+        IndicesInfo{N,(:,),(ns1 > 1 ? ntuple(identity, ns1) : ns1,)}()
+    else
+        if sum(ndi) > N
+            init_pdims = _accum_dims(ndi)
+            pdims = ntuple(nfields(init_pdims)) do i
+                dim_i = getfield(init_pdims, i)
+                if dim_i isa Tuple
+                    ntuple(length(dim_i)) do j
+                        dim_i_j = getfield(dim_i, j)
+                        dim_i_j > N ? 0 : dim_i_j
+                    end
+                else
+                    dim_i > N ? 0 : dim_i
+                end
+            end
+            IndicesInfo{N, pdims, _accum_dims(nds)}()
+        else
+            IndicesInfo{N,_accum_dims(ndi), _accum_dims(nds)}()
+        end
     end
 end
-@inline function _indices_info(::Val{SI}, ::IndicesInfo{N,NI,NS}) where {N,NI,NS,SI}
-    nsplat = N - sum(NI)
-    if nsplat === 0
-        _indices_info(Val{nothing}(), IndicesInfo{N,NI,NS}())
-    else
-        splatmul = max(0, nsplat + 1)
-        _indices_info(Val{nothing}(), IndicesInfo{N,_map_splats(splatmul, SI, NI),_map_splats(splatmul, SI, NS)}())
-    end
+function IndicesInfo(@nospecialize(T::Type{<:Tuple}))
+    pdims = _accum_dims(map_tuple_type(ndims_index, T))
+    cdims = _accum_dims(map_tuple_type(ndims_shape, T))
+    IndicesInfo{N,pdims,cdims}()
 end
+IndicesInfo{N}(@nospecialize t::Tuple) where {N} = IndicesInfo{N}(typeof(t))
+IndicesInfo(@nospecialize t::Tuple) = IndicesInfo(typeof(t))
+IndicesInfo(x::SubArray) = IndicesInfo{ndims(parent(x))}(typeof(x.indices))
 @inline function _map_splats(nsplat::Int, splat_index::Int, dims::Tuple{Vararg{Int}})
     ntuple(length(dims)) do i
         i === splat_index ? (nsplat * getfield(dims, i)) : getfield(dims, i)
     end
 end
-@inline function _replace_trailing(n::Int, dims::Tuple{Vararg{Any,N}}) where {N}
-    ntuple(N) do i
-        dim_i = getfield(dims, i)
-        if dim_i isa Tuple
-            ntuple(length(dim_i)) do j
-                dim_i_j = getfield(dim_i, j)
-                dim_i_j > n ? 0 : dim_i_j
-            end
-        else
-            dim_i > n ? 0 : dim_i
-        end
-    end
-end
+@inline _accum_dims(nd::Tuple{Vararg{Int}}) = _accum_dims(cumsum(nd), nd)
 @inline function _accum_dims(csdims::NTuple{N,Int}, nd::NTuple{N,Int}) where {N}
     ntuple(N) do i
         nd_i = getfield(nd, i)
