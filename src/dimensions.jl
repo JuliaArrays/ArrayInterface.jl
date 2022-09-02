@@ -1,7 +1,9 @@
 
 
 _init_dimsmap(x) = _init_dimsmap(IndicesInfo(x))
-function _init_dimsmap(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
+function _init_dimsmap(@nospecialize info::IndicesInfo)
+    pdims = parentdims(info)
+    cdims = childdims(info)
     ntuple(i -> static(getfield(pdims, i)), length(pdims)),
     ntuple(i -> static(getfield(cdims, i)), length(pdims))
 end
@@ -48,7 +50,9 @@ function _sub_axis_map(@nospecialize(T::Type{<:SubArray}), x::Tuple{StaticInt{in
     end
 end
 
-function map_indices_info(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
+function map_indices_info(@nospecialize info::IndicesInfo)
+    pdims = parentdims(info)
+    cdims = childdims(info)
     ntuple(i -> (static(i), static(getfield(pdims, i)), static(getfield(cdims, i))), length(pdims))
 end
 function sub_dimnames_map(dnames::Tuple, imap::Tuple)
@@ -82,7 +86,9 @@ from_parent_dims(@nospecialize T::Type{<:MatAdjTrans}) = (StaticInt(2), StaticIn
     from_parent_dims(IndicesInfo{ndims(parent_type(T))}(fieldtype(T, :indices)))
 end
 # TODO do I need to flatten_tuples here?
-function from_parent_dims(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims}
+function from_parent_dims(@nospecialize(info::IndicesInfo))
+    pdims = parentdims(info)
+    cdims = childdims(info)
     ntuple(length(cdims)) do i
         pdim_i = getfield(pdims, i)
         cdim_i = static(getfield(cdims, i))

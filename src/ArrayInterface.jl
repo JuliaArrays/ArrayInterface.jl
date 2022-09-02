@@ -5,8 +5,8 @@ import ArrayInterfaceCore: allowed_getindex, allowed_setindex!, aos_to_soa, buff
     parent_type, fast_matrix_colors, findstructralnz, has_sparsestruct,
     issingular, isstructured, matrix_colors, restructure, lu_instance,
     safevec, zeromatrix, ColoringAlgorithm, fast_scalar_indexing, parameterless_type,
-    ndims_index, ndims_shape, is_splat_index, is_forwarding_wrapper, IndicesInfo,
-    map_tuple_type, flatten_tuples, GetIndex, SetIndex!, defines_strides,
+    ndims_index, ndims_shape, is_splat_index, is_forwarding_wrapper, IndicesInfo, childdims,
+    parentdims, map_tuple_type, flatten_tuples, GetIndex, SetIndex!, defines_strides,
     stride_preserving_index
 
 # ArrayIndex subtypes and methods
