@@ -29,7 +29,7 @@ using IfElse
 
 using Base.Cartesian
 using Base: @propagate_inbounds, tail, OneTo, LogicalIndex, Slice, ReinterpretArray,
-    ReshapedArray, AbstractCartesianIndex
+    ReshapedArray, AbstractCartesianIndex, to_index
 
 using Base.Iterators: Pairs
 using LinearAlgebra

@@ -119,6 +119,7 @@ axes(A::VecAdjTrans) = (SOneTo{1}(), axes(parent(A), 1))
 @inline _sub_axes(x::SubArray, axis::SOneTo) = axis
 _sub_axes(x::SubArray, ::StaticInt{index}) where {index} = axes(getfield(x.indices, index))
 
+axes(A, ::Colon) = indices(A)
 @inline axes(A, dim) = _axes(A, to_dims(A, dim))
 @inline _axes(A, dim::Int) = dim > ndims(A) ? OneTo(1) : getfield(axes(A), dim)
 @inline function _axes(A, ::StaticInt{dim}) where {dim}

@@ -80,108 +80,50 @@ This implementation differs from that of `Base.to_indices` in the following ways
   within `to_index`.
 """
 to_indices(A, ::Tuple{}) = ()
-@inline function to_indices(a::A, inds::I) where {A,I}
-    flatten_tuples(map(IndexedMappedArray(a), inds, getfield(_init_dimsmap(IndicesInfo{ndims(A)}(I)), 1)))
+@inline to_indices(A, inds::Tuple{Vararg{Any}}) = Base.to_indices(A, as_indices(A, inds))
+@inline function Base.to_indices(A, inds::Tuple{Vararg{ArrayIndex}})
+    Base.to_indices(A, as_indices(A, inds))
+end
+@inline function Base.to_indices(A, inds::Tuple{Vararg{AxisIndex{<:Any,<:Union{StaticInt,Tuple,Colon}}}})
+    mapped_indices = map(Base.Fix1(Base.to_index, A), inds)
+    return flatten_tuples(mapped_indices)
 end
 
-struct IndexedMappedArray{A}
-    a::A
+## to_index
+function Base.to_index(A, @nospecialize(i::AxisIndex{<:Union{CartesianIndices{0,Tuple{}},Base.Slice,StaticInt,AbstractArray{<:Integer},AbstractArray{<:AbstractCartesianIndex}}}))
+    getfield(i, :index)
 end
-@inline (ima::IndexedMappedArray{A})(idx::I, ::StaticInt{0}) where {A,I} = to_index(StaticInt(1):StaticInt(1), idx)
-@inline (ima::IndexedMappedArray{A})(idx::I, ::Colon) where {A,I} = to_index(lazy_axes(ima.a, :), idx)
-@inline (ima::IndexedMappedArray{A})(idx::I, d::StaticInt{D}) where {A,I,D} = to_index(lazy_axes(ima.a, d), idx)
-@inline function (ima::IndexedMappedArray{A})(idx::AbstractArray{Bool}, dims::Tuple) where {A}
-    if (last(dims) == ndims(A)) && (IndexStyle(A) isa IndexLinear)
-        return LogicalIndex{Int}(idx)
+# FIXME better tracking of trailing dimensions
+@inline Base.to_index(A, i::AxisIndex{Colon}) = indices(A, getfield(i, :pdims))
+@inline function Base.to_index(A, @nospecialize(i::AxisIndex{<:Union{CartesianIndex,NDIndex,CartesianIndices}}))
+    getfield(getfield(i, :index), 1)
+end
+@inline Base.to_index(A, i::AxisIndex{<:Base.BitInteger}) = Int(getfield(i, :index))
+@inline function Base.to_index(A, i::AxisIndex{<:AbstractArray{Bool}})
+    if (last(getfield(i, :pdims)) == ndims(A)) && (IndexStyle(A) isa IndexLinear)
+        return LogicalIndex{Int}(getfield(i, :index))
     else
-        return LogicalIndex(idx)
+        return LogicalIndex(getfield(i, :index))
     end
 end
-@inline (ima::IndexedMappedArray{A})(idx::CartesianIndex, ::Tuple) where {A} = getfield(idx, 1)
-@inline function (ima::IndexedMappedArray{A})(idx::I, dims::Tuple) where {A,I}
-    to_index(CartesianIndices(lazy_axes(ima.a, dims)), idx)
+@inline function Base.to_index(A, i::AxisIndex{<:Base.Fix2{<:Union{typeof(<),typeof(isless)},<:Union{Base.BitInteger,StaticInt}}})
+    x = lazy_axes(A, getfield(i, :pdims))
+    static_first(x):min(_sub1(canonicalize(getfield(i, :index).x)), static_last(x))
 end
-
-"""
-    ArrayInterface.to_index([::IndexStyle, ]axis, arg) -> index
-
-Convert the argument `arg` that was originally passed to `ArrayInterface.getindex` for the
-dimension corresponding to `axis` into a form for native indexing (`Int`, Vector{Int}, etc.).
-
-`ArrayInterface.to_index` supports passing a function as an index. This function-index is
-transformed into a proper index.
-
-```julia
-julia> using ArrayInterface, Static
-
-julia> ArrayInterface.to_index(static(1):static(10), 5)
-5
-
-julia> ArrayInterface.to_index(static(1):static(10), <(5))
-static(1):4
-
-julia> ArrayInterface.to_index(static(1):static(10), <=(5))
-static(1):5
-
-julia> ArrayInterface.to_index(static(1):static(10), >(5))
-6:static(10)
-
-julia> ArrayInterface.to_index(static(1):static(10), >=(5))
-5:static(10)
-
-```
-
-Use of a function-index helps ensure that indices are inbounds
-
-```julia
-julia> ArrayInterface.to_index(static(1):static(10), <(12))
-static(1):10
-
-julia> ArrayInterface.to_index(static(1):static(10), >(-1))
-1:static(10)
-```
-
-New axis types with unique behavior should use an `IndexStyle` trait:
-```julia
-to_index(axis::MyAxisType, arg) = to_index(IndexStyle(axis), axis, arg)
-to_index(::MyIndexStyle, axis, arg) = ...
-```
-
-"""
-to_index(x, i::Slice) = i
-to_index(x, ::Colon) = indices(x)
-to_index(::LinearIndices{0,Tuple{}}, ::Colon) = Slice(static(1):static(1))
-to_index(::CartesianIndices{0,Tuple{}}, ::Colon) = Slice(static(1):static(1))
-# logical indexing
-to_index(x, i::AbstractArray{Bool}) = LogicalIndex(i)
-to_index(::LinearIndices, i::AbstractArray{Bool}) = LogicalIndex{Int}(i)
-# cartesian indexing
-@inline to_index(x, i::CartesianIndices{0}) = i
-@inline to_index(x, i::CartesianIndices) = getfield(i, :indices)
-@inline to_index(x, i::CartesianIndex) = getfield(i, 1)
-@inline to_index(x, i::NDIndex) = getfield(i, 1)
-@inline to_index(x, i::AbstractArray{<:AbstractCartesianIndex}) = i
-@inline function to_index(x, i::Base.Fix2{<:Union{typeof(<),typeof(isless)},<:Union{Base.BitInteger,StaticInt}})
-    static_first(x):min(_sub1(canonicalize(i.x)), static_last(x))
+@inline function Base.to_index(A, i::AxisIndex{<:Base.Fix2{typeof(<=),<:Union{Base.BitInteger,StaticInt}}})
+    x = lazy_axes(A, getfield(i, :pdims))
+    static_first(x):min(canonicalize(getfield(i, :index).x), static_last(x))
 end
-@inline function to_index(x, i::Base.Fix2{typeof(<=),<:Union{Base.BitInteger,StaticInt}})
-    static_first(x):min(canonicalize(i.x), static_last(x))
+@inline function Base.to_index(A, i::AxisIndex{<:Base.Fix2{typeof(>=),<:Union{Base.BitInteger,StaticInt}}})
+    x = lazy_axes(A, getfield(i, :pdims))
+    max(canonicalize(getfield(i, :index).x), static_first(x)):static_last(x)
 end
-@inline function to_index(x, i::Base.Fix2{typeof(>=),<:Union{Base.BitInteger,StaticInt}})
-    max(canonicalize(i.x), static_first(x)):static_last(x)
+@inline function Base.to_index(A, i::AxisIndex{<:Base.Fix2{typeof(>),<:Union{Base.BitInteger,StaticInt}}})
+    x = lazy_axes(A, getfield(i, :pdims))
+    max(_add1(canonicalize(getfield(i, :index).x)), static_first(x)):static_last(x)
 end
-@inline function to_index(x, i::Base.Fix2{typeof(>),<:Union{Base.BitInteger,StaticInt}})
-    max(_add1(canonicalize(i.x)), static_first(x)):static_last(x)
-end
-# integer indexing
-to_index(x, i::AbstractArray{<:Integer}) = i
-to_index(x, @nospecialize(i::StaticInt)) = i
-to_index(x, i::Integer) = Int(i)
-@inline to_index(x, i) = to_index(IndexStyle(x), x, i)
-function to_index(S::IndexStyle, x, i)
-    throw(ArgumentError(
-        "invalid index: $S does not support indices of type $(typeof(i)) for instances of type $(typeof(x))."
-    ))
+@inline function Base.to_index(A, i::AxisIndex)
+    Base.to_index(CartesianIndices(lazy_axes(A, getfield(i, :pdims))), getfield(i, :index))
 end
 
 """
