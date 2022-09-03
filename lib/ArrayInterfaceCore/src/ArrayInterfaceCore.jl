@@ -797,6 +797,9 @@ end
 """
     IndicesInfo{N}(inds::Tuple) -> IndicesInfo{N}(typeof(inds))
     IndicesInfo{N}(T::Type{<:Tuple}) -> IndicesInfo{N,pdims,cdims}()
+    IndicesInfo(inds::Tuple) -> IndicesInfo(typeof(inds))
+    IndicesInfo(T::Type{<:Tuple}) -> IndicesInfo{maximum(pdims),pdims,cdims}()
+
 
 Maps a tuple of indices to `N` dimensions. The resulting `pdims` is a tuple where each
 field in `inds` (or field type in `T`) corresponds to the parent dimensions accessed.
@@ -807,12 +810,14 @@ dimensions and there are no trailing dimensions accessed. These may be accessed 
 it is assumed that no indices are accessing trailing dimensions (which are represented as
 `0` in `parentdims(info)[index_position]`).
 
-See also: [`parentdims`](@ref), [`childdims`](@ref)
+The the fields and types of `IndicesInfo` should not be accessed directly.
+Instead [`parentdims`](@ref), [`childdims`](@ref), [`ndims_index`](@ref), and
+[`ndims_shape`](@ref) should be used to extract relevant information.
 
 # Examples
 
 ```julia
-julia> using ArrayInterfaceCore: IndicesInfo, parentdims, childdims
+julia> using ArrayInterfaceCore: IndicesInfo, parentdims, childdims, ndims_index, ndims_shape
 
 julia> info = IndicesInfo{5}(typeof((:,[CartesianIndex(1,1),CartesianIndex(1,1)], 1, ones(Int, 2, 2), :, 1)));
 
@@ -822,80 +827,90 @@ julia> parentdims(info)  # the last two indices access trailing dimensions
 julia> childdims(info)
 (1, 2, 0, (3, 4), 5, 0)
 
-julia> info = IndicesInfo(typeof((:,[CartesianIndex(1,1),CartesianIndex(1,1)], 1, ones(Int, 2, 2), :, 1)));
-
-julia> parentdims(info)
-(1, (2, 3), 4, 5, 6, 7)
-
 julia> childdims(info)[3]  # index 3 accesses a parent dimension but is dropped in the child array
 0
 
+julia> ndims_index(info)
+5
+
+julia> ndims_shape(info)
+5
+
+julia> info = IndicesInfo(typeof((:,[CartesianIndex(1,1),CartesianIndex(1,1)], 1, ones(Int, 2, 2), :, 1)));
+
+julia> parentdims(info)  # assumed no trailing dimensions
+(1, (2, 3), 4, 5, 6, 7)
+
+julia> ndims_index(info)  # assumed no trailing dimensions
+7
+
 ```
 """
-struct IndicesInfo{N,pdims,cdims} end
-function IndicesInfo{N}(@nospecialize(T::Type{<:Tuple})) where {N}
-    SI = _find_first_true(map_tuple_type(is_splat_index, T))
-    NI = map_tuple_type(ndims_index, T)
-    NS = map_tuple_type(ndims_shape, T)
-    if SI === nothing
-        ndi = NI
-        nds = NS
-    else
-        nsplat = N - sum(NI)
-        if nsplat === 0
+struct IndicesInfo{Np,pdims,cdims,Nc}
+    function IndicesInfo{N}(@nospecialize(T::Type{<:Tuple})) where {N}
+        SI = _find_first_true(map_tuple_type(is_splat_index, T))
+        NI = map_tuple_type(ndims_index, T)
+        NS = map_tuple_type(ndims_shape, T)
+        if SI === nothing
             ndi = NI
             nds = NS
         else
-            splatmul = max(0, nsplat + 1)
-            ndi = _map_splats(splatmul, SI, NI)
-            nds = _map_splats(splatmul, SI, NS)
-        end
-    end
-    if ndi === (1,) && N !== 1
-        ns1 = getfield(nds, 1)
-        IndicesInfo{N,(:,),(ns1 > 1 ? ntuple(identity, ns1) : ns1,)}()
-    else
-        if sum(ndi) > N
-            init_pdims = _accum_dims(ndi)
-            pdims = ntuple(nfields(init_pdims)) do i
-                dim_i = getfield(init_pdims, i)
-                if dim_i isa Tuple
-                    ntuple(length(dim_i)) do j
-                        dim_i_j = getfield(dim_i, j)
-                        dim_i_j > N ? 0 : dim_i_j
-                    end
-                else
-                    dim_i > N ? 0 : dim_i
-                end
+            nsplat = N - sum(NI)
+            if nsplat === 0
+                ndi = NI
+                nds = NS
+            else
+                splatmul = max(0, nsplat + 1)
+                ndi = _map_splats(splatmul, SI, NI)
+                nds = _map_splats(splatmul, SI, NS)
             end
-            IndicesInfo{N, pdims, _accum_dims(nds)}()
+        end
+        if ndi === (1,) && N !== 1
+            ns1 = getfield(nds, 1)
+            new{N,(:,),(ns1 > 1 ? ntuple(identity, ns1) : ns1,),ns1}()
         else
-            IndicesInfo{N,_accum_dims(ndi), _accum_dims(nds)}()
+            nds_cumsum = cumsum(nds)
+            if sum(ndi) > N
+                init_pdims = _accum_dims(cumsum(ndi), ndi)
+                pdims = ntuple(nfields(init_pdims)) do i
+                    dim_i = getfield(init_pdims, i)
+                    if dim_i isa Tuple
+                        ntuple(length(dim_i)) do j
+                            dim_i_j = getfield(dim_i, j)
+                            dim_i_j > N ? 0 : dim_i_j
+                        end
+                    else
+                        dim_i > N ? 0 : dim_i
+                    end
+                end
+                new{N, pdims, _accum_dims(nds_cumsum, nds), last(nds_cumsum)}()
+            else
+                new{N,_accum_dims(cumsum(ndi), ndi), _accum_dims(nds_cumsum, nds), last(nds_cumsum)}()
+            end
         end
     end
+    IndicesInfo{N}(@nospecialize(t::Tuple)) where {N} = IndicesInfo{N}(typeof(t))
+    function IndicesInfo(@nospecialize(T::Type{<:Tuple}))
+        ndi = map_tuple_type(ndims_index, T)
+        nds = map_tuple_type(ndims_shape, T)
+        ndi_sum = cumsum(ndi)
+        nds_sum = cumsum(nds)
+        nf = nfields(ndi_sum)
+        pdims = _accum_dims(ndi_sum, ndi)
+        cdims = _accum_dims(nds_sum, nds)
+        new{getfield(ndi_sum, nf),pdims,cdims,getfield(nds_sum, nf)}()
+    end
+    IndicesInfo(@nospecialize t::Tuple) = IndicesInfo(typeof(t))
+    @inline function IndicesInfo(@nospecialize T::Type{<:SubArray})
+        IndicesInfo{ndims(parent_type(T))}(fieldtype(T, :indices))
+    end
+    IndicesInfo(x::SubArray) = IndicesInfo{ndims(parent(x))}(typeof(x.indices))
 end
-IndicesInfo{N}(@nospecialize(t::Tuple)) where {N} = IndicesInfo{N}(typeof(t))
-
-function IndicesInfo(@nospecialize(T::Type{<:Tuple}))
-    ndi = map_tuple_type(ndims_index, T)
-    nds = map_tuple_type(ndims_shape, T)
-    ndi_sum = cumsum(ndi)
-    nds_sum = cumsum(nds)
-    pdims = _accum_dims(ndi_sum, ndi)
-    cdims = _accum_dims(nds_sum, nds)
-    IndicesInfo{last(ndi_sum),pdims,cdims}()
-end
-IndicesInfo(@nospecialize t::Tuple) = IndicesInfo(typeof(t))
-@inline function IndicesInfo(@nospecialize T::Type{<:SubArray})
-    IndicesInfo{ndims(parent_type(T))}(fieldtype(T, :indices))
-end
-IndicesInfo(x::SubArray) = IndicesInfo{ndims(parent(x))}(typeof(x.indices))
 @inline function _map_splats(nsplat::Int, splat_index::Int, dims::Tuple{Vararg{Int}})
     ntuple(length(dims)) do i
         i === splat_index ? (nsplat * getfield(dims, i)) : getfield(dims, i)
     end
 end
-@inline _accum_dims(nd::Tuple{Vararg{Int}}) = _accum_dims(cumsum(nd), nd)
 @inline function _accum_dims(csdims::NTuple{N,Int}, nd::NTuple{N,Int}) where {N}
     ntuple(N) do i
         nd_i = getfield(nd, i)
@@ -909,6 +924,11 @@ end
     end
 end
 
+_lower_info(::IndicesInfo{Np,pdims,cdims,Nc}) where {Np,pdims,cdims,Nc} = Np,pdims,cdims,Nc
+
+ndims_index(@nospecialize(info::IndicesInfo)) = getfield(_lower_info(info), 1)
+ndims_shape(@nospecialize(info::IndicesInfo)) = getfield(_lower_info(info), 4)
+
 """
     parentdims(::IndicesInfo) -> Tuple
 
@@ -916,7 +936,7 @@ Returns the parent dimension mapping from `IndicesInfo`.
 
 See also: [`IndicesInfo`](@ref), [`childdims`](@ref)
 """
-parentdims(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims} = pdims
+parentdims(@nospecialize info::IndicesInfo) = getfield(_lower_info(info), 2)
 
 """
     childdims(::IndicesInfo) -> Tuple
@@ -925,7 +945,8 @@ Returns the child dimension mapping from `IndicesInfo`.
 
 See also: [`IndicesInfo`](@ref), [`parentdims`](@ref)
 """
-childdims(::IndicesInfo{N,pdims,cdims}) where {N,pdims,cdims} = cdims
+childdims(@nospecialize info::IndicesInfo) = getfield(_lower_info(info), 3)
+
 
 """
     instances_do_not_alias(::Type{T}) -> Bool
