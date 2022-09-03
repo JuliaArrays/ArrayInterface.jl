@@ -33,6 +33,7 @@ ArrayInterfaceCore.lu_instance
 ArrayInterfaceCore.matrix_colors
 ArrayInterfaceCore.issingular
 ArrayInterfaceCore.parent_type
+ArrayInterfaceCore.promote_eltype
 ArrayInterfaceCore.restructure
 ArrayInterfaceCore.safevec
 ArrayInterfaceCore.zeromatrix
