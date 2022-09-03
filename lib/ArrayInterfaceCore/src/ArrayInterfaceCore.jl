@@ -132,6 +132,17 @@ parent_type(::Type{Diagonal{T,V}}) where {T,V} = V
 parent_type(T::Type) = T
 
 """
+    promote_eltype(::Type{<:AbstractArray{T,N}}, ::Type{T2})
+
+Computes the type of the `AbstractArray` that results from the element
+type changing to `promote_type(T,T2)`.
+
+Note that no generic fallback is given.
+"""
+function promote_eltype end
+promote_eltype(::Type{Array{T,N}}, ::Type{T2}) where {T,T2,N} = Array{promote_type(T,T2),N}
+
+"""
     buffer(x)
 
 Return the buffer data that `x` points to. Unlike `parent(x::AbstractArray)`, `buffer(x)`
