@@ -8,13 +8,13 @@ struct StrideIndex{N,R,C,S,O} <: ArrayIndex{N}
     strides::S
     offsets::O
 
-    function StrideIndex{N,R,C}(s::S, o::O) where {N,R,C,S,O}
+    @inline function StrideIndex{N,R,C}(s::S, o::O) where {N,R,C,S,O}
         return new{N,R::NTuple{N,Int},C,S,O}(s, o)
     end
-    function StrideIndex{N,R,C}(a::A) where {N,R,C,A}
+    @inline function StrideIndex{N,R,C}(a::A) where {N,R,C,A}
         return StrideIndex{N,R,C}(strides(a), offsets(a))
     end
-    function StrideIndex(a::A) where {A}
+    @inline function StrideIndex(a::A) where {A}
         return StrideIndex{ndims(A),known(stride_rank(A)),known(contiguous_axis(A))}(a)
     end
 end

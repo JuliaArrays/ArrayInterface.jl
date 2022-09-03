@@ -12,6 +12,8 @@ ArrayInterfaceCore.device
 ArrayInterfaceCore.defines_strides
 ArrayInterfaceCore.fast_matrix_colors
 ArrayInterfaceCore.fast_scalar_indexing
+ArrayInterfaceCore.indices_do_not_alias
+ArrayInterfaceCore.instances_do_not_alias
 ArrayInterfaceCore.is_forwarding_wrapper
 ArrayInterfaceCore.ismutable
 ArrayInterfaceCore.isstructured
@@ -33,6 +35,7 @@ ArrayInterfaceCore.lu_instance
 ArrayInterfaceCore.matrix_colors
 ArrayInterfaceCore.issingular
 ArrayInterfaceCore.parent_type
+ArrayInterfaceCore.promote_eltype
 ArrayInterfaceCore.restructure
 ArrayInterfaceCore.safevec
 ArrayInterfaceCore.zeromatrix
@@ -83,6 +86,7 @@ ArrayInterface.from_parent_dims
 ArrayInterface.getindex
 ArrayInterface.indices
 ArrayInterface.insert
+ArrayInterface.length
 ArrayInterface.lazy_axes
 ArrayInterface.offset1
 ArrayInterface.offsets
@@ -105,8 +109,8 @@ ArrayInterface.BroadcastAxis
 ArrayInterface.LazyAxis
 ArrayInterface.OptionallyStaticStepRange
 ArrayInterface.OptionallyStaticUnitRange
-ArrayInteraface.SOneTo
-ArrayInteraface.SUnitRange
+ArrayInterface.SOneTo
+ArrayInterface.SUnitRange
 ArrayInterface.StrideIndex
 ```
 
