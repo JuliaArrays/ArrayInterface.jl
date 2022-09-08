@@ -1,8 +1,6 @@
-
 using CUDA
 using ArrayInterface
 using ArrayInterfaceCUDA
-using LinearAlgebra
 
 using Test
 
