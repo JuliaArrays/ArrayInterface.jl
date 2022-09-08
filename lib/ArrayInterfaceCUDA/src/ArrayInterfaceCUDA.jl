@@ -3,6 +3,7 @@ module ArrayInterfaceCUDA
 using Adapt
 using ArrayInterface, ArrayInterfaceGPUArrays
 using CUDA
+using CUDA.CUSOLVER
 
 using LinearAlgebra
 
