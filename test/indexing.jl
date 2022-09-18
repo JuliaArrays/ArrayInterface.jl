@@ -143,6 +143,74 @@ end
         reshape(CartesianIndex(1, 1):CartesianIndex(3, 1), 3, 1)
 end
 
+@testset "NDIndices" begin
+    A = reshape(1:12, 3, 4)
+    NI = ArrayInterface.NDIndices((static(1):static(3), static(1):static(4)))
+    # size
+    @test @inferred(size(NI)) == (static(3), static(4))
+    @test @inferred(size(ArrayInterface.getindex(NI, 1, :))) === (static(4),)
+    @test @inferred(size(ArrayInterface.getindex(NI, :, 1))) === (static(3),)
+    @test @inferred(size(ArrayInterface.getindex(NI, 1, :, :))) === (static(4), static(1))
+    @test @inferred(size(ArrayInterface.getindex(NI, 1, :, 1))) === (static(4),)
+    @test @inferred(size(ArrayInterface.getindex(NI, :, :))) === (static(3), static(4))
+    @test @inferred(size(ArrayInterface.getindex(NI, :, :, 1))) === (static(3), static(4))
+    @test @inferred(size(ArrayInterface.getindex(NI, :, :, :))) === (static(3), static(4), static(1))
+    # Base.getindex
+    @test @inferred(ArrayInterface.getindex(NI, 1, :)[1]) == NDIndex(1, 1)
+    @test @inferred(ArrayInterface.getindex(NI, 1, :)[1, 1]) == NDIndex(1, 1)
+    @test @inferred(ArrayInterface.getindex(NI, 1, :)[1, :]) == [NDIndex(1, 1)]
+    @test @inferred(ArrayInterface.getindex(NI, 1, [1, 3])[2, 1]) == NDIndex(1, 3)
+    @test @inferred(ArrayInterface.getindex(NI, [1, 2], [1, 3])[2, 2]) == NDIndex(2, 3)
+    @test @inferred(ArrayInterface.getindex(NI, [1, 2], [1, 3])[2, 2, 1]) == NDIndex(2, 3)
+    @test @inferred(ArrayInterface.getindex(NI, 1, [1, 3], :)[2, 1]) == NDIndex(1, 3)
+    @test_throws BoundsError ArrayInterface.getindex(NI, 1, [1, 3], :)[2, 2]
+    # ArrayInterface.getindex
+    getindex_getindex(A, I1, I2) =
+        ArrayInterface.getindex(ArrayInterface.getindex(A, I1...), I2...)
+    @test @inferred(getindex_getindex(NI, (1, :), (1,))) == NDIndex(1, 1)
+    @test @inferred(getindex_getindex(NI, (1, :), (static(1),))) == NDIndex(1, static(1))
+    @test @inferred(getindex_getindex(NI, (:, 1), (2,))) == NDIndex(2, 1)
+    @test @inferred(getindex_getindex(NI, (static(1), :), (static(1),))) == NDIndex(static(1), static(1))
+    @test @inferred(getindex_getindex(NI, (:, :), (static(1),))) == NDIndex(static(1), static(1))
+    @test @inferred(getindex_getindex(NI, (1, :), (1, 1))) == NDIndex(1, 1)
+    @test @inferred(getindex_getindex(NI, (1, [1, 3]), (static(2), 1))) == NDIndex(1, 3)
+    @test @inferred(getindex_getindex(NI, ([1, 2], [1, 3]), (2, 2))) == NDIndex(2, 3)
+    @test @inferred(getindex_getindex(NI, ([1, 2], [1, 3]), (2, 2, 1))) == NDIndex(2, 3)
+    @test @inferred(getindex_getindex(NI, (1, [1, 3], :), (2, 1))) == NDIndex(1, 3)
+    @test_throws BoundsError getindex_getindex(NI, (1, [1, 3], :), (2, 2))
+    @test @inferred(getindex_getindex(NI, (1, :), (static(1), :))) == [NDIndex(1, static(1))]
+    @test @inferred(getindex_getindex(NI, (static(1), :), (:, 1))) == [NDIndex(static(1), static(1)), NDIndex(static(1), static(2)), NDIndex(static(1), static(3)), NDIndex(static(1), static(4))]
+    @test @inferred(getindex_getindex(NI, (1, :, :), (:, 1))) == [NDIndex(1, static(1)), NDIndex(1, static(2)), NDIndex(1, static(3)), NDIndex(1, static(4))]
+    @test @inferred(getindex_getindex(NI, (1, :, :), (:,))) == [NDIndex(1, static(1)), NDIndex(1, static(2)), NDIndex(1, static(3)), NDIndex(1, static(4))]
+    @test @inferred(getindex_getindex(NI, (:, 1, :), (:, 1))) == [NDIndex(static(1), 1), NDIndex(static(2), 1), NDIndex(static(3), 1)]
+    @test @inferred(getindex_getindex(NI, (:, 1, :), (static(1):static(2):static(3), 1))) == [NDIndex(static(1), 1), NDIndex(static(3), 1)]
+    @test @inferred(getindex_getindex(NI, (static(1), :, :), (static(1), :))) == [NDIndex(static(1), static(1))]
+    # NDIndices as index
+    getindex_subcartesian(A, I, inds...) =
+        ArrayInterface.getindex(A, ArrayInterface.getindex(I, inds...))
+    @test @inferred(ArrayInterface.getindex(A, NI)) == A
+    @test @inferred(ArrayInterface.getindex(fill(1), ArrayInterface.NDIndices(fill(1)))) == fill(1)
+    @test @inferred(ArrayInterface.getindex(1:3, ArrayInterface.NDIndices(1:2))) == 1:2
+    @test @inferred(ArrayInterface.getindex(1:3, ArrayInterface.NDIndices(()), 1:2)) == 1:2
+    @test @inferred(getindex_subcartesian(A, NI, :, 1)) == A[:, 1]
+    @test @inferred(getindex_subcartesian(A, NI, 1, :)) == A[1, :]
+    @test @inferred(getindex_subcartesian(A, NI, :, :)) == A[:, :]
+    @test @inferred(getindex_subcartesian(A, NI, :, :, 1)) == A[:, :]
+    @test @inferred(getindex_subcartesian(A, NI, :, 1, 1)) == A[:, 1]
+    @test @inferred(getindex_subcartesian(A, NI, :, 1, :)) == A[:, 1, :]
+end
+
+@testset "ind2sub" begin
+    @test @inferred(ArrayInterface._ind2sub((), 1)) === (1,)
+    @test @inferred(ArrayInterface._ind2sub((), static(1))) === (static(1),)
+    @test @inferred(ArrayInterface._ind2sub((static(2),), 2)) === (2,)
+    @test @inferred(ArrayInterface._ind2sub((2,), static(2))) === (static(2),)
+    @test @inferred(ArrayInterface._ind2sub((static(2),), static(2))) === (static(2),)
+    @test @inferred(ArrayInterface._ind2sub((static(2), static(2)), 3)) === (1, 2)
+    @test @inferred(ArrayInterface._ind2sub((static(2), 2), static(3))) === (static(1), static(2))
+    @test @inferred(ArrayInterface._ind2sub((static(2), static(2)), static(3))) === (static(1), static(2))
+end
+
 @testset "0-dimensional" begin
     x = Array{Int,0}(undef)
     ArrayInterface.setindex!(x, 1)

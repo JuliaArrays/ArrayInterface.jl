@@ -94,8 +94,18 @@ end
 @inline static_step(x) = Static.maybe_static(known_step, step, x)
 
 @inline function _to_cartesian(a, i::CanonicalInt)
-    @inbounds(CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))[i])
+    return map((sub, off) -> sub + off - one(i), _ind2sub(size(a), i), offsets(a))
 end
+# modified from Base._ind2sub
+@inline _ind2sub(sz::Tuple, i::CanonicalInt) = _ind2sub_recurse(sz,  i - one(i))
+@inline _ind2sub_recurse(::Tuple{}, i::CanonicalInt) = (i + one(i),)
+@inline _ind2sub_recurse(::NTuple{1}, i::CanonicalInt) = (i + one(i),)
+@inline function _ind2sub_recurse(sz::Tuple, i)
+    d = first(sz)
+    indnext = div(i, d)
+    return (i - d * indnext + one(i), _ind2sub_recurse(tail(sz), indnext)...)
+end
+
 @inline function _to_linear(a, i::Tuple{CanonicalInt,Vararg{CanonicalInt}})
     _strides2int(offsets(a), size_to_strides(size(a), static(1)), i) + static(1)
 end
