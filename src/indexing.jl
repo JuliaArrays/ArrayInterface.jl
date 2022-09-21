@@ -373,6 +373,15 @@ function NDIndices(inds::Tuple)
 end
 NDIndices(A::AbstractArray) = NDIndices(axes(A))
 
+function Base.show(io::IO, iter::NDIndices)
+    print(io, "NDIndices{")
+    join(io, typeof(iter).parameters[1:3], ", ")
+    print(io, "}(")
+    show(io, iter.indices)
+    print(io, ")")
+end
+Base.show(io::IO, ::MIME"text/plain", iter::NDIndices) = show(io, iter)
+
 function unsafe_subindices(parent::NDIndices, inds)
     M = Base.length(eltype(parent))
     shapes = map(_ndims_shape, inds)
