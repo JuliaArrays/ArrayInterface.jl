@@ -8,10 +8,10 @@ using CUDA.CUSOLVER
 using LinearAlgebra
 
 function ArrayInterface.lu_instance(A::CuMatrix{T}) where {T}
-    if VERSION >= v"1.8-0"
-        LinearAlgebra.qr!(A)
+    if VERSION >= v"1.8-"
+        LinearAlgebra.lu!(A)
     else
-        CUDA.CUSOLVER.CuQR(similar(A, 0, 0), similar(A, 0))
+        LinearAlgebra.lu(A)
     end
 end
 
