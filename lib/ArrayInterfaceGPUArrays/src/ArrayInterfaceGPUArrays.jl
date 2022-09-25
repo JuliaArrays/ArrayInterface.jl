@@ -20,7 +20,7 @@ function ArrayInterfaceCore.restructure(x::GPUArraysCore.AbstractGPUArray, y)
 end
 
 function ArrayInterfaceCore.lu_instance(A::GPUArraysCore.AbstractGPUMatrix{T}) where {T}
-    lu(similar(A, 1, 1))
+    lu(Adapt.adapt(ArrayInterfaceCore.parameterless_type(A), ones(T, 0, 0)))
 end
 
 # Doesn't do much, but makes a gigantic change to the dependency chain.
