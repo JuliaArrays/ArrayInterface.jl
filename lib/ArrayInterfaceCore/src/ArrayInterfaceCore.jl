@@ -719,8 +719,8 @@ Base.last(x::LabelledIndices) = lastindex(parent(x))
 """
     getlabels(x, idx)
 
-Given a collection of labelled indices (`x`), the subset of lablled indices corresponding
-to the index `idx` are returned.
+Given a collection of labelled indices (`x`), returns the subset of lablled indices
+corresponding to the index `idx` are returned.
 """
 Base.@propagate_inbounds function getlabels(x::LabelledIndices, idx::I) where {I}
     ndims_shape(I) === 0 ? parent(x)[idx] : LabelledIndices(parent(x)[idx])
@@ -733,8 +733,7 @@ end
 """
     setlabels!(x, idx, vals)
 
-Given a collection of labelled indices (`x`), the subset of lablled indices corresponding
-to the index `idx` are returned.
+Sets new labels `vals` at the indices `idx` for the collection of labelled indices `x`.
 """
 Base.@propagate_inbounds setlabels!(x::LabelledIndices, i, v) = setindex!(parent(x), i, v)
 
