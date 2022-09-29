@@ -97,14 +97,6 @@ function from_parent_dims(@nospecialize(info::IndicesInfo))
 end
 
 """
-    has_dimnames(::Type{T}) -> Bool
-
-Returns `true` if `x` has on or more named dimensions. If all dimensions correspond
-to `:_`, then `false` is returned.
-"""
-@inline has_dimnames(x) = static(known_dimnames(x) !== ntuple(Compat.Returns(:_), Val(ndims(x))))
-
-"""
     known_dimnames(::Type{T}) -> Tuple{Vararg{Union{Symbol,Nothing}}}
     known_dimnames(::Type{T}, dim::Union{Int,StaticInt}) -> Union{Symbol,Nothing}
 
@@ -222,11 +214,6 @@ end
 end
 @inline _inbounds_dimname(x, dim) = @inbounds(_dimname(x, dim))
 
-"""
-    to_dims(x, dim) -> Union{Int,StaticInt}
-
-This returns the dimension(s) of `x` corresponding to `dim`.
-"""
 to_dims(x, dim::Colon) = dim
 to_dims(x, @nospecialize(dim::CanonicalInt)) = dim
 to_dims(x, dim::Integer) = Int(dim)

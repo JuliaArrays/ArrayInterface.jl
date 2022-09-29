@@ -1014,4 +1014,58 @@ stride_preserving_index(@nospecialize T::Type{<:Number}) = true
 end
 stride_preserving_index(@nospecialize T::Type) = false
 
+"""
+    has_dimnames(x) -> Bool
+
+Returns `true` if `x` has on or more named dimensions. If all dimensions correspond
+to `:_`, then `false` is returned.
+"""
+@inline has_dimnames(x) = dimnames(x) !== ntuple(_->:_, Val(ndims(x)))
+
+"""
+    dimnames(x) -> Tuple{Vararg{Union{Symbol}}}
+    dimnames(x, dim) -> Symbol
+
+Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
+have a name.
+"""
+@inline function dimnames(x, dim::Integer)
+    dim <= ndims(x) ? getfield(dimnames(x), Int(dim)) : :_
+end
+@inline function dimnames(x)
+    is_forwarding_wrapper(x) ? dimnames(buffer(x)) : ntupl(_->:_,Val{ndims(x)}())
+end
+
+"""
+    to_dims(x, dim)
+
+This returns the dimension(s) of `x` corresponding to `dim`.
+"""
+to_dims(x, dim::Colon) = dim
+to_dims(x, dim::Integer) = Int(dim)
+function to_dims(x, dim::Symbol)
+    dim = _findsym(dim, dimnames(x))
+    dim === 0 && throw(DimensionMismatch("dimension name $(d) not found"))
+    return dim
+end
+function to_dims(x, dim::Tuple{Vararg{Symbol}})
+    ntuple(i-> to_dims(x, getfield(dim, i)), Val{nfields(dims)}())
+end
+@assume_effects :total function _findsym(s::Symbol, syms::Tuple{Vararg{Symbol}})
+    for i in 1:nfields(syms)
+        s === getfield(syms, i) && return i
+    end
+    return 0
+end
+
+function find_named_indices(x, nt::NamedTuple)
+    dns = dimnames(x)
+    ntuple(Val{ndims(x)}()) do dim
+        idx = Base.fieldindex(nt, getfield(dns, dim), false)
+        idx === 0 ? (:) : getfield(nt, idx)
+    end
+end
+
+
+
 end # module
