@@ -677,6 +677,67 @@ struct IndexLabel{L} <: ArrayIndex{1}
     label::L
 end
 
+"""
+    UnlabelledIndices(indices)
+
+A set of indices that explicitly do not have any labels and cannot be accessed with an
+[`IndexLabel`](@ref).
+"""
+struct UnlabelledIndices{I<:AbstractUnitRange{Int}} <: AbstractUnitRange{Int}
+    indices::I
+end
+
+"""
+    LabelledIndices(labels)
+
+A subtype of `AbstractUnitRange{Int}` whose associeated with labels (`labels`).
+`eachindex(labels)` are the indices for `LabelledIndices`.
+"""
+struct LabelledIndices{L<:AbstractVector} <: AbstractUnitRange{Int}
+    labels::L
+end
+# don't nest instances of `LabelledIndices`
+LabelledIndices(labels::LabelledIndices) = labels
+
+Base.parent(x::UnlabelledIndices) = getfield(x, :indices)
+Base.parent(x::LabelledIndices) = getfield(x, :labels)
+
+parent_type(@nospecialize T::Type{<:UnlabelledIndices}) = fieldtype(T, :indices)
+parent_type(@nospecialize T::Type{<:LabelledIndices}) = fieldtype(T, :labels)
+
+is_forwarding_wrapper(@nospecialize T::Type{<:Union{UnlabelledIndices,LabelledIndices}}) = true
+
+Base.size(x::Union{UnlabelledIndices,LabelledIndices}) = size(parent(x))
+Base.axes(x::Union{UnlabelledIndices,LabelledIndices}) = axes(parent(x))
+
+Base.first(x::UnlabelledIndices) = first(parent(x))
+Base.first(x::LabelledIndices) = firstindex(parent(x))
+
+Base.last(x::UnlabelledIndices) = last(parent(x))
+Base.last(x::LabelledIndices) = lastindex(parent(x))
+
+"""
+    getlabels(x, idx)
+
+Given a collection of labelled indices (`x`), the subset of lablled indices corresponding
+to the index `idx` are returned.
+"""
+Base.@propagate_inbounds function getlabels(x::LabelledIndices, idx::I) where {I}
+    ndims_shape(I) === 0 ? parent(x)[idx] : LabelledIndices(parent(x)[idx])
+end
+function getlabels(x::UnlabelledIndices, idx::I) where {I}
+    @boundscheck checkbounds(parent(x), idx)
+    ndims_shape(I) === 0 ? nothing : UnlabelledIndices(eachindex(idx))
+end
+
+"""
+    setlabels!(x, idx, vals)
+
+Given a collection of labelled indices (`x`), the subset of lablled indices corresponding
+to the index `idx` are returned.
+"""
+Base.@propagate_inbounds setlabels!(x::LabelledIndices, i, v) = setindex!(parent(x), i, v)
+
 _cartesian_index(i::Tuple{Vararg{Int}}) = CartesianIndex(i)
 _cartesian_index(::Any) = nothing
 

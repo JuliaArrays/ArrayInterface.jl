@@ -8,10 +8,6 @@ function _init_dimsmap(@nospecialize info::IndicesInfo)
     ntuple(i -> static(getfield(cdims, i)), length(pdims))
 end
 
-parentdims(::IndicesInfo{<:Any,pdims}) where {pdims} = pdims
-
-childdims(::IndicesInfo{<:Any,<:Any,cdims}) where {cdims} = cdims
-
 """
     to_parent_dims(::Type{T}) -> Tuple{Vararg{Union{StaticInt,Tuple{Vararg{StaticInt}}}}}
 

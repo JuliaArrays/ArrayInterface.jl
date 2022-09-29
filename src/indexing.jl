@@ -170,9 +170,6 @@ end
 @inline function to_index(x, i::Base.Fix2{typeof(>=),<:Union{Base.BitInteger,StaticInt}})
     max(canonicalize(i.x), static_first(x)):static_last(x)
 end
-@inline function to_index(x, i::Base.Fix2{<:Union{typeof(>),typeof(>=),typeof(<=),typeof(<),typeof(isless)},<:IndexLabel})
-    findall(i.f(i.x.label), first(index_labels(x)))
-end
 @inline function to_index(x, i::Base.Fix2{typeof(>),<:Union{Base.BitInteger,StaticInt}})
     max(_add1(canonicalize(i.x)), static_first(x)):static_last(x)
 end
@@ -180,20 +177,26 @@ to_index(x, i::AbstractArray{<:Union{Base.BitInteger,StaticInt}}) = i
 to_index(x, @nospecialize(i::StaticInt)) = i
 to_index(x, i::Integer) = Int(i)
 @inline to_index(x, i) = to_index(IndexStyle(x), x, i)
-# key indexing
-function to_index(x, i::IndexLabel)
-    index = findfirst(==(getfield(i, :label)), first(index_labels(x)))
+# label indexing
+to_index(x, i::IndexLabel) = to_index(getfield(index_labels(x), 1), i)
+function to_index(x::LabelledIndices, i::IndexLabel)
+    index = findfirst(==(getfield(i, :label)), parent(x))
     # delay throwing bounds-error if we didn't find label
-    index === nothing ? offset1(x) - 1 : index
+    index === nothing ? typemin(Int) : index
 end
-function to_index(x, i::Union{Symbol,AbstractString,AbstractChar,Number})
-    index = findfirst(==(i), getfield(index_labels(x), 1))
-    index === nothing ? offset1(x) - 1 : index
-end
+to_index(x, i::Union{Symbol,AbstractString,AbstractChar,Number}) = to_index(x, IndexLabel(i))
 # TODO there's probably a more efficient way of doing this
+to_index(x, i::LabelledIndices) = to_index(getfield(index_labels(x), 1), i)
+to_index(x::LabelledIndices, i::LabelledIndices) = findall(in(parent(i)), parent(x))
 to_index(x, ks::AbstractArray{<:IndexLabel}) = [to_index(x, k) for k in ks]
-function to_index(x, ks::AbstractArray{<:Union{Symbol,AbstractString,AbstractChar,Number}})
-    [to_index(x, k) for k in ks]
+function to_index(x, i::AbstractArray{<:Union{Symbol,AbstractString,AbstractChar,Number}})
+    to_index(x, LabelledIndices(i))
+end
+@inline function to_index(x, i::Base.Fix2{<:Union{typeof(>),typeof(>=),typeof(<=),typeof(<),typeof(isless)},<:IndexLabel})
+    to_index(getfield(index_labels(x), 1), i)
+end
+@inline function to_index(x::LabelledIndices, i::Base.Fix2{<:Union{typeof(>),typeof(>=),typeof(<=),typeof(<),typeof(isless)},<:IndexLabel})
+    findall(i.f(i.x.label), parent(x))
 end
 
 # integer indexing
