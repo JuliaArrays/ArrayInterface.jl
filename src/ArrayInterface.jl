@@ -18,6 +18,8 @@ import ArrayInterfaceCore: MatAdjTrans, VecAdjTrans, UpTri, LoTri
 # device pieces
 import ArrayInterfaceCore: AbstractDevice, AbstractCPU, CPUPointer, CPUTuple, CheckParent,
     CPUIndex, GPU, can_avx, device
+# dimnames
+import ArrayInterfaceCore: has_dimnames, dimnames, to_dims
 
 import ArrayInterfaceCore: known_first, known_step, known_last
 

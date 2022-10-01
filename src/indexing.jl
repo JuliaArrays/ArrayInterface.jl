@@ -281,6 +281,14 @@ end
 end
 to_axis(S::IndexLinear, axis, inds) = StaticInt(1):length(inds)
 
+function find_named_indices(x, nt::NamedTuple)
+    dns = dimnames(x)
+    ntuple(Val{ndims(x)}()) do dim
+        idx = Base.fieldindex(nt, getfield(dns, dim), false)
+        idx === 0 ? (:) : getfield(nt, idx)
+    end
+end
+
 """
     ArrayInterface.getindex(A, args...)
 
@@ -295,7 +303,7 @@ function getindex(A, args...)
     unsafe_getindex(A, inds...)
 end
 @propagate_inbounds function getindex(A; kwargs...)
-    inds = to_indices(A, find_all_dimnames(dimnames(A), static(keys(kwargs)), Tuple(values(kwargs)), :))
+    inds = to_indices(A, find_named_indices(A, values(kwargs)))
     @boundscheck checkbounds(A, inds...)
     unsafe_getindex(A, inds...)
 end

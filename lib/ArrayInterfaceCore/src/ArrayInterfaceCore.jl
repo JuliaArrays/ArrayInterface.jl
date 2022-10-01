@@ -1015,23 +1015,24 @@ end
 stride_preserving_index(@nospecialize T::Type) = false
 
 """
-    has_dimnames(x) -> Bool
+    has_dimnames(T::Type) -> Bool
 
-Returns `true` if `x` has on or more named dimensions. If all dimensions correspond
-to `:_`, then `false` is returned.
+Returns `true` if instances of `T` have named dimensions.
+
+See also: [`dimnames`](@ref), [`to_dims`](@ref)
 """
-@inline has_dimnames(x) = dimnames(x) !== ntuple(_->:_, Val(ndims(x)))
+has_dimnames(T::Type) = false
 
 """
-    dimnames(x) -> Tuple{Vararg{Union{Symbol}}}
+    dimnames(x) -> Tuple{Vararg{Symbol}}
     dimnames(x, dim) -> Symbol
 
 Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
 have a name.
+
+See also: [`has_dimnames`](@ref), [`to_dims`](@ref)
 """
-@inline function dimnames(x, dim::Integer)
-    dim <= ndims(x) ? getfield(dimnames(x), Int(dim)) : :_
-end
+@inline dimnames(x, dim::Integer) = dim <= ndims(x) ? getfield(dimnames(x), Int(dim)) : :_
 @inline function dimnames(x)
     is_forwarding_wrapper(x) ? dimnames(buffer(x)) : ntupl(_->:_,Val{ndims(x)}())
 end
@@ -1040,6 +1041,8 @@ end
     to_dims(x, dim)
 
 This returns the dimension(s) of `x` corresponding to `dim`.
+
+See also: [`dimnames`](@ref), [`has_dimnames`](@ref)
 """
 to_dims(x, dim::Colon) = dim
 to_dims(x, dim::Integer) = Int(dim)
@@ -1057,15 +1060,5 @@ end
     end
     return 0
 end
-
-function find_named_indices(x, nt::NamedTuple)
-    dns = dimnames(x)
-    ntuple(Val{ndims(x)}()) do dim
-        idx = Base.fieldindex(nt, getfield(dns, dim), false)
-        idx === 0 ? (:) : getfield(nt, idx)
-    end
-end
-
-
 
 end # module
