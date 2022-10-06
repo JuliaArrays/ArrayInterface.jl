@@ -1,5 +1,6 @@
 module ArrayInterfaceCore
 
+using Base: @propagate_inbounds
 using LinearAlgebra
 using LinearAlgebra: AbstractTriangular
 using SparseArrays
@@ -241,9 +242,9 @@ end
 
 buffer(x::Union{SetIndex!,GetIndex}) = getfield(x, :buffer)
 
-Base.@propagate_inbounds @inline (g::GetIndex{true})(inds...) = buffer(g)[inds...]
+@propagate_inbounds @inline (g::GetIndex{true})(inds...) = buffer(g)[inds...]
 @inline (g::GetIndex{false})(inds...) = @inbounds(buffer(g)[inds...])
-Base.@propagate_inbounds @inline function (s::SetIndex!{true})(v, inds...)
+@propagate_inbounds @inline function (s::SetIndex!{true})(v, inds...)
     setindex!(buffer(s), v, inds...)
 end
 @inline (s::SetIndex!{false})(v, inds...) = @inbounds(setindex!(buffer(s), v, inds...))
@@ -644,7 +645,7 @@ Base.firstindex(i::Union{BidiagonalIndex,TridiagonalIndex}) = 1
 Base.lastindex(i::Union{BidiagonalIndex,TridiagonalIndex}) = i.count
 Base.length(i::Union{BidiagonalIndex,TridiagonalIndex}) = lastindex(i)
 
-Base.@propagate_inbounds function Base.getindex(ind::BidiagonalIndex, i::Int)
+@propagate_inbounds function Base.getindex(ind::BidiagonalIndex, i::Int)
     @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
     if ind.isup
         ii = i + 1
@@ -654,7 +655,7 @@ Base.@propagate_inbounds function Base.getindex(ind::BidiagonalIndex, i::Int)
     convert(Int, floor(ii / 2))
 end
 
-Base.@propagate_inbounds function Base.getindex(ind::TridiagonalIndex, i::Int)
+@propagate_inbounds function Base.getindex(ind::TridiagonalIndex, i::Int)
     @boundscheck 1 <= i <= ind.count || throw(BoundsError(ind, i))
     offsetu = ind.isrow ? 0 : 1
     offsetl = ind.isrow ? 1 : 0
@@ -1014,28 +1015,112 @@ stride_preserving_index(@nospecialize T::Type{<:Number}) = true
 end
 stride_preserving_index(@nospecialize T::Type) = false
 
-"""
-    has_dimnames(T::Type) -> Bool
+@assume_effects :total function _all_unique_names(syms::Tuple{Vararg{Symbol}})
+    @nospecialize syms
+    N = nfields(syms)
+    for i in 1:(N - 1)
+        sym_i = getfield(syms, i)
+        if sym_i !== :_
+            for j in (i + 1):N
+                getfield(syms, j) === sym_i && return false
+            end
+        end
+    end
+    return true
+end
+@assume_effects :total function _find_name(s::Symbol, syms::Tuple{Vararg{Symbol}})
+    @nospecialize syms
+    for i in 1:nfields(syms)
+        getfield(syms, i) === s && return i
+    end
+    return 0
+end
+@inline function _all_blank_names(x::Tuple{Vararg{Symbol}})
+    @nospecialize x
+    for i in 1:nfields(x)
+        :_ === getfield(x, i) || return false
+    end
+    return true
+end
 
-Returns `true` if instances of `T` have named dimensions.
+struct Names{names}
+    global _Names(n::Tuple{Vararg{Symbol}}) = new{n}()
+end
+Base.Tuple(::Names{names}) where {names} = names
+@nospecialize
+Names(n::Names) = n
+Names(itr) = Names(Tuple(itr))
+function Names(n::Tuple{Vararg{Symbol}})
+    @assert _all_unique_names(n) "All Names must be unique."
+    _Names(n)
+end
+Base.IteratorSize(::Type{<:Names}) = Base.HasLength()
+Base.eltype(::Type{<:Names}) = Symbol
+Base.keys(n::Names) = keys(Tuple(n))
+Base.axes(n::Names) = axes(Tuple(n))
+Base.isempty(::Names{()}) = true
+Base.isempty(::Names) = false
+Base.empty(::Names) = Names(())
+Base.firstindex(n::Names) = 1
+Base.lastindex(::Names) = length(n)
+Base.length(n::Names) = length(Tuple(n))
+Base.size(n::Names) = (length(n),)
+Base.get(n::Names, i::Integer, default) = get(Tuple(n), i, default)
+Base.first(n::Names) = first(n)
+Base.last(n::Names) = last(n)
+Base.reverse(n::Names) = _Names(reverse(Tuple(n)))
+Base.getindex(n::Names, ::Colon) = n
+@propagate_inbounds Base.getindex(n::Names, i::Integer) = getfield(Tuple(n), Int(i))
+@propagate_inbounds Base.getindex(n::Names, i::AbstractRange) = _Names(Tuple(n)[i])
+@propagate_inbounds Base.getindex(n::Names, i::AbstractVector{Bool}) = _Names(Tuple(n)[i])
+@propagate_inbounds function Base.setindex(n::Names, v, i::Integer)
+    Base.setindex(n, Symbol(v), Integer(i))
+end
+function Base.setindex(n::Names, v::Symbol, i::Int)
+    @boundscheck 1 <= i <= length(x) || throw(BoundsError(x, i))
+    t = Tuple(n)
+    if v !== :_ || v !== getfield(t, i)
+        @assert _find_name(v, t) === 0 "Name $v already exists at another index in $(n)."
+    end
+    _Names(@inbounds(Base.setindex(t, v, i)))
+end
+@inline function Base.iterate(n::Names, s=1)
+    s > length(n) ? nothing : (getfield(Tuple(n), s), s + 1)
+end
+Base.rest(n::Names) = n
+# skip checks for non-unique names
+Base.rest(n::Names, i::Int) = _Names(Base.rest(Tuple(n), i))
+Base.in(x::Symbol, n::Names) = _find_name(x, Tuple(n)) !== 0
+@specialize
+
+"""
+    has_dimnames(x) -> Bool
+
+Returns `true` if instances of `x` has any named dimensions.
 
 See also: [`dimnames`](@ref), [`to_dims`](@ref)
 """
-has_dimnames(T::Type) = false
+@inline has_dimnames(x) = !_all_blank_names(Tuple(dimnames(x)))
 
 """
     dimnames(x) -> Tuple{Vararg{Symbol}}
-    dimnames(x, dim) -> Symbol
+    dimnames(x, dim::Integer) -> Symbol
 
 Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
 have a name.
 
 See also: [`has_dimnames`](@ref), [`to_dims`](@ref)
 """
-@inline dimnames(x, dim::Integer) = dim <= ndims(x) ? getfield(dimnames(x), Int(dim)) : :_
-@inline function dimnames(x)
-    is_forwarding_wrapper(x) ? dimnames(buffer(x)) : ntupl(_->:_,Val{ndims(x)}())
+@inline function dimnames(x, dim::Int)
+    dn = dimnames(x)
+    dim <= length(dn) ? dn[x] : :_
 end
+@inline function dimnames(x)
+    is_forwarding_wrapper(x) ? dimnames(buffer(x)) : _default_dimnames(Base.IteratorSize(x))
+end
+_default_dimnames(::Union{Base.HasLength,Base.HasShape{1}}) = _Names((:_,))
+_default_dimnames(::Base.HasShape{N}) where {N} = _Names(ntupl(_->:_,Val{ndims(x)}()))
+
 
 """
     to_dims(x, dim)
@@ -1046,19 +1131,15 @@ See also: [`dimnames`](@ref), [`has_dimnames`](@ref)
 """
 to_dims(x, dim::Colon) = dim
 to_dims(x, dim::Integer) = Int(dim)
-function to_dims(x, dim::Symbol)
-    dim = _findsym(dim, dimnames(x))
+to_dims(x, dim::Symbol) = to_dims(dimnames(x), dim)
+to_dims(x, dim::Tuple{Vararg{Symbol}}) = to_dims(dimnames(x), dim)
+function to_dims(@nospecialize(n::Union{Tuple{Vararg{Symbol}},Names}), dim::Tuple{Vararg{Symbol}})
+    ntuple(i-> to_dims(n, getfield(dim, i)), Val{nfields(dims)}())
+end
+function to_dims(@nospecialize(n::Union{Tuple{Vararg{Symbol}},Names}), dim::Symbol)
+    dim = _find_name(dim, Tuple(x))
     dim === 0 && throw(DimensionMismatch("dimension name $(d) not found"))
     return dim
-end
-function to_dims(x, dim::Tuple{Vararg{Symbol}})
-    ntuple(i-> to_dims(x, getfield(dim, i)), Val{nfields(dims)}())
-end
-@assume_effects :total function _findsym(s::Symbol, syms::Tuple{Vararg{Symbol}})
-    for i in 1:nfields(syms)
-        s === getfield(syms, i) && return i
-    end
-    return 0
 end
 
 end # module

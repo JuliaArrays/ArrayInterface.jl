@@ -95,3 +95,8 @@ function from_parent_dims(@nospecialize(info::IndicesInfo))
         pdim_i isa Int ? cdim_i : ntuple(Compat.Returns(cdim_i), length(pdim_i))
     end
 end
+
+to_dims(x, @nospecialize(dim::StaticInt)) = dim
+to_dims(x, @nospecialize(dim::StaticSymbol)) = to_dims(dimnames(x), dim)
+to_dims(x::Tuple{Vararg{Symbol}}, @nospecialize(s::StaticSymbol)) = to_dims(x, Symbol(s))
+to_dims(::Names{names}, ::StaticSymbol{n}) where {names,n} = StaticInt(to_dims(names, n))
