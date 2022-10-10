@@ -513,6 +513,27 @@ function zeromatrix(u::Array{T}) where {T}
 end
 
 """
+    undefmatrix(u::AbstractVector)
+
+Creates the matrix version of `u` with possibly undefined values. Note that this is unique because
+`similar(u,length(u),length(u))` returns a mutable type, so it is not type-matching,
+while `fill(zero(eltype(u)),length(u),length(u))` doesn't match the array type,
+i.e., you'll get a CPU array from a GPU array. The generic fallback is
+`u .* u'`, which works on a surprising number of types, but can be broken
+with weird (recursive) broadcast overloads. For higher-order tensors, this
+returns the matrix linear operator type which acts on the `vec` of the array.
+"""
+function undefmatrix(u)
+    x = safevec(u)
+    x .* x'
+end
+
+# Reduces compile time burdens
+function undefematrix(u::Array{T}) where {T}
+    out = Matrix{T}(undef, length(u), length(u))
+end
+                                                                                                                                    
+"""
     restructure(x,y)
 
 Restructures the object `y` into a shape of `x`, keeping its values intact. For
