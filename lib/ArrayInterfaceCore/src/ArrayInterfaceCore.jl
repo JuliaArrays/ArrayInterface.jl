@@ -524,13 +524,7 @@ with weird (recursive) broadcast overloads. For higher-order tensors, this
 returns the matrix linear operator type which acts on the `vec` of the array.
 """
 function undefmatrix(u)
-    x = safevec(u)
-    x .* x'
-end
-
-# Reduces compile time burdens
-function undefematrix(u::Array{T}) where {T}
-    out = Matrix{T}(undef, length(u), length(u))
+    similar(u, length(u), length(u))
 end
                                                                                                                                     
 """
