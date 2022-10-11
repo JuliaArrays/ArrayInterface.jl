@@ -736,58 +736,58 @@ known_step(T::Type) = is_forwarding_wrapper(T) ? known_step(parent_type(T)) : no
 known_step(@nospecialize T::Type{<:AbstractUnitRange}) = 1
 
 """
-    known_allunique(T::Type) -> Bool
+    is_set_like(T::Type) -> Bool
 
-Returns `true` if instances of `T` enforce all values to be unique.
+Returns `true` if collections of type `T` are always composed of a unique set of elements.
+This does not require that `T` subtypes `AbstractSet` or implements the `AbstractSet`
+interface.
 
 # Examples
 
 ```julia
-julia> ArrayInterfaceCore.known_allunique(BitSet())
+julia> ArrayInterfaceCore.is_set_like(BitSet())
 true
 
-julia> ArrayInterfaceCore.known_allunique([])
+julia> ArrayInterfaceCore.is_set_like([])
 false
 
-julia> ArrayInterfaceCore.known_allunique(typeof(1:10))
+julia> ArrayInterfaceCore.is_set_like(typeof(1:10))
 true
 
-julia> ArrayInterfaceCore.known_allunique(LinRange(1, 1, 10))
+julia> ArrayInterfaceCore.is_set_like(LinRange(1, 1, 10))
 false
 
 ```
 """
-known_allunique(@nospecialize T::Type{<:Union{AbstractSet,AbstractDict}}) = true
-known_allunique(T::Type{<:LinRange}) = false
-known_allunique(@nospecialize T::Type{<:AbstractRange}) = true
-function known_allunique(T::Type)
-    is_forwarding_wrapper(T) ? known_allunique(parent_type(T)) : false
-end
-known_allunique(@nospecialize(x)) = known_allunique(typeof(x))
+is_set_like(@nospecialize T::Type{<:Union{AbstractSet,AbstractDict}}) = true
+is_set_like(@nospecialize T::Type{<:LinRange}) = false
+is_set_like(@nospecialize T::Type{<:AbstractRange}) = true
+is_set_like(T::Type) = is_forwarding_wrapper(T) ? is_set_like(parent_type(T)) : false
+is_set_like(@nospecialize(x)) = is_set_like(typeof(x))
 
 """
-    known_issorted(T::Type) -> Bool
+    ensures_sorted(T::Type) -> Bool
 
 Returns `true` if all instances of `T` are sorted.
 
 # Examples
 
 ```julia
-julia> ArrayInterfaceCore.known_issorted(BitSet())
+julia> ArrayInterfaceCore.ensures_sorted(BitSet())
 true
 
-julia> ArrayInterfaceCore.known_issorted([])
+julia> ArrayInterfaceCore.ensures_sorted([])
 false
 
-julia> ArrayInterfaceCore.known_issorted(1:10)
+julia> ArrayInterfaceCore.ensures_sorted(1:10)
 true
 
 ```
 """
-known_issorted(@nospecialize(T::Type{BitSet})) = true
-known_issorted(@nospecialize( T::Type{<:AbstractRange})) = known_step(T) === 1
-known_issorted(T::Type) = is_forwarding_wrapper(T) ? known_issorted(parent_type(T)) : false
-known_issorted(@nospecialize(x)) = known_issorted(typeof(x))
+ensures_sorted(@nospecialize(T::Type{BitSet})) = true
+ensures_sorted(@nospecialize( T::Type{<:AbstractRange})) = known_step(T) === 1
+ensures_sorted(T::Type) = is_forwarding_wrapper(T) ? ensures_sorted(parent_type(T)) : false
+ensures_sorted(@nospecialize(x)) = ensures_sorted(typeof(x))
 
 """
     is_splat_index(::Type{T}) -> Bool
