@@ -11,7 +11,22 @@ using Test
 using Aqua
 Aqua.test_all(ArrayInterfaceCore)
 
-@test zeromatrix(rand(4,4,4)) == zeros(4*4*4,4*4*4)
+@testset "zeromatrix and unsafematrix" begin
+    for T in (Int, Float32, Float64)
+        for (vectype, mattype) in ((Vector{T}, Matrix{T}), (SparseVector{T}, SparseMatrix{T}))
+            v = vecttype(rand(4))
+            um = undefmatrix(v)
+            @test size(um) == (length(v),length(v))
+            @test typeof(um) == mattype
+            @test zeromatrix(v) == zeros(T,length(v),length(v))
+        end
+        v = rand(T,4,4,4)
+        um = undefmatrix(v)
+        @test size(um) == (length(v),length(v))
+        @test typeof(um) == Matrix{T}
+        @test zeromatrix(v) == zeros(T,4*4*4,4*4*4)
+    end
+end
 
 @testset "matrix colors" begin
     @test ArrayInterfaceCore.fast_matrix_colors(1) == false
