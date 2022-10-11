@@ -540,6 +540,8 @@ struct CheckParent end
 struct CPUIndex <: AbstractCPU end
 struct GPU <: AbstractDevice end
 
+
+
 """
     device(::Type{T}) -> AbstractDevice
 
@@ -732,6 +734,60 @@ julia> ArrayInterface.known_step(typeof(1:4))
 known_step(x) = known_step(typeof(x))
 known_step(T::Type) = is_forwarding_wrapper(T) ? known_step(parent_type(T)) : nothing
 known_step(@nospecialize T::Type{<:AbstractUnitRange}) = 1
+
+"""
+    known_allunique(T::Type) -> Bool
+
+Returns `true` if instances of `T` enforce all values to be unique.
+
+# Examples
+
+```julia
+julia> ArrayInterfaceCore.known_allunique(BitSet())
+true
+
+julia> ArrayInterfaceCore.known_allunique([])
+false
+
+julia> ArrayInterfaceCore.known_allunique(typeof(1:10))
+true
+
+julia> ArrayInterfaceCore.known_allunique(LinRange(1, 1, 10))
+false
+
+```
+"""
+known_allunique(@nospecialize T::Type{<:Union{AbstractSet,AbstractDict}}) = true
+known_allunique(T::Type{<:LinRange}) = false
+known_allunique(@nospecialize T::Type{<:AbstractRange}) = true
+function known_allunique(T::Type)
+    is_forwarding_wrapper(T) ? known_allunique(parent_type(T)) : false
+end
+known_allunique(@nospecialize(x)) = known_allunique(typeof(x))
+
+"""
+    known_issorted(T::Type) -> Bool
+
+Returns `true` if all instances of `T` are sorted.
+
+# Examples
+
+```julia
+julia> ArrayInterfaceCore.known_issorted(BitSet())
+true
+
+julia> ArrayInterfaceCore.known_issorted([])
+false
+
+julia> ArrayInterfaceCore.known_issorted(1:10)
+true
+
+```
+"""
+known_issorted(@nospecialize(T::Type{BitSet})) = true
+known_issorted(@nospecialize( T::Type{<:AbstractRange})) = known_step(T) === 1
+known_issorted(T::Type) = is_forwarding_wrapper(T) ? known_issorted(parent_type(T)) : false
+known_issorted(@nospecialize(x)) = known_issorted(typeof(x))
 
 """
     is_splat_index(::Type{T}) -> Bool

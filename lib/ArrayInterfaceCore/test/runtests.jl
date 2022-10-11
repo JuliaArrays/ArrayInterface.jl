@@ -241,6 +241,19 @@ end
     @test [STri[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,2,3,4,5,6,7,5,6,7]
 end
 
+@testset "known_allunique" begin
+    @test ArrayInterfaceCore.known_allunique(BitSet())
+    @test !ArrayInterfaceCore.known_allunique([])
+    @test ArrayInterfaceCore.known_allunique(1:10)
+    @test !ArrayInterfaceCore.known_allunique(LinRange(1, 1, 10))
+end
+
+@testset "known_issorted" begin
+    @test ArrayInterfaceCore.known_issorted(BitSet())
+    @test !ArrayInterfaceCore.known_issorted([])
+    @test ArrayInterfaceCore.known_issorted(1:10)
+end
+
 @testset "known values" begin
     CI = CartesianIndices((2, 2))
 
