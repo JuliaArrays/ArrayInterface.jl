@@ -9,11 +9,11 @@ import ArrayInterfaceStaticArraysCore
 
 const CanonicalInt = Union{Int,StaticInt}
 
-function ArrayInterfaceCore.undefmatrix(::MArray{S, T, N, L}) where {S, T, N, L}
+function ArrayInterface.undefmatrix(::MArray{S, T, N, L}) where {S, T, N, L}
     return MMatrix{L, L, T, L*L}(undef)
 end
 # SArray doesn't have an undef constructor and is going to be small enough that this is fine.
-function ArrayInterfaceCore.undefmatrix(s::SArray)
+function ArrayInterface.undefmatrix(s::SArray)
     v = vec(s)
     return v.*v'
 end
