@@ -14,7 +14,7 @@ Aqua.test_all(ArrayInterfaceCore)
 @testset "zeromatrix and unsafematrix" begin
     for T in (Int, Float32, Float64)
         for (vectype, mattype) in ((Vector{T}, Matrix{T}), (SparseVector{T}, SparseMatrixCSC{T, Int}))
-            v = vectype(rand(3:10, 4))
+            v = vectype(rand(T, 4))
             um = undefmatrix(v)
             @test size(um) == (length(v),length(v))
             @test typeof(um) == mattype
