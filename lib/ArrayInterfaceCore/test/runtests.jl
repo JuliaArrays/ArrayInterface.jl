@@ -1,5 +1,5 @@
 using ArrayInterfaceCore
-using ArrayInterfaceCore: zeromatrix, zeromatrix
+using ArrayInterfaceCore: zeromatrix, undefmatrix
 import ArrayInterfaceCore: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance,
         parent_type, zeromatrix, IndicesInfo
 using Base: setindex
