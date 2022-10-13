@@ -22,11 +22,11 @@ jobs:
           - {user: SciML, repo: DiffEqBase.jl, group: Core}
           - {user: SciML, repo: DiffEqBase.jl, group: Downstream}
           - {user: SciML, repo: DiffEqBase.jl, group: Downstream2}
-          - {user: SciML, repo: DiffEqSensitivity.jl, group: Core1}
-          - {user: SciML, repo: DiffEqSensitivity.jl, group: Core2}
-          - {user: SciML, repo: DiffEqSensitivity.jl, group: Core3}
-          - {user: SciML, repo: DiffEqSensitivity.jl, group: Core4}
-          - {user: SciML, repo: DiffEqSensitivity.jl, group: Core5}
+          - {user: SciML, repo: SciMLSensitivity.jl, group: Core1}
+          - {user: SciML, repo: SciMLSensitivity.jl, group: Core2}
+          - {user: SciML, repo: SciMLSensitivity.jl, group: Core3}
+          - {user: SciML, repo: SciMLSensitivity.jl, group: Core4}
+          - {user: SciML, repo: SciMLSensitivity.jl, group: Core5}
           - {user: SciML, repo: OrdinaryDiffEq.jl, group: Core}
           - {user: SciML, repo: OrdinaryDiffEq.jl, group: Interface}
           - {user: SciML, repo: DelayDiffEq.jl, group: Interface}
