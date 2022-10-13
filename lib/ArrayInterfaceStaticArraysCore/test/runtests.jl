@@ -1,5 +1,6 @@
 using StaticArrays, ArrayInterfaceCore, ArrayInterfaceStaticArraysCore, Test
 using LinearAlgebra
+using ArrayInterfaceCore: undefmatrix, zeromatrix
 
 x = @SVector [1,2,3]
 @test ArrayInterfaceCore.ismutable(x) == false
@@ -27,3 +28,18 @@ zr = ArrayInterfaceCore.restructure(x, z)
 @test zr isa SMatrix{2, 2}
 @test Base.size(zr) == (2,2)
 @test vec(zr) == vec(z)
+
+
+@testset "zeromatrix and unsafematrix" begin
+    for T in (Int, Float32, Float64)
+        for (vectype, mattype) in ((SVector{4,T},     SMatrix{4,4,T,16}),
+                                   (MVector{4,T},     MMatrix{4,4,T,16}),
+                                   (SMatrix{2,2,T,4}, SMatrix{4,4,T,16}),
+                                   (MMatrix{2,2,T,4}, MMatrix{4,4,T,16}))
+            v = vectype(rand(T, 4))
+            um = undefmatrix(v)
+            @test typeof(um) == mattype
+            @test zeromatrix(v) == zeros(T,length(v),length(v))
+        end
+    end
+end
