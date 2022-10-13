@@ -526,7 +526,9 @@ returns the matrix linear operator type which acts on the `vec` of the array.
 function undefmatrix(u)
     similar(u, length(u), length(u))
 end
-                                                                                                                                    
+function undefmatrix(u::Number)
+    return zero(u)
+end
 """
     restructure(x,y)
 

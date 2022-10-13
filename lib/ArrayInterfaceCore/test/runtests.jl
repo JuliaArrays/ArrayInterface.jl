@@ -25,6 +25,8 @@ Aqua.test_all(ArrayInterfaceCore)
         @test size(um) == (length(v),length(v))
         @test typeof(um) == Matrix{T}
         @test zeromatrix(v) == zeros(T,4*4*4,4*4*4)
+        @test zeromatrix(rand(T)) == zero(T)
+        @test undefmatrix(rand(T)) isa T
     end
 end
 
