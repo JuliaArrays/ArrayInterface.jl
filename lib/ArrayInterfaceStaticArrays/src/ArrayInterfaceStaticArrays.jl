@@ -9,6 +9,14 @@ import ArrayInterfaceStaticArraysCore
 
 const CanonicalInt = Union{Int,StaticInt}
 
+function ArrayInterface.undefmatrix(::MArray{S, T, N, L}) where {S, T, N, L}
+    return MMatrix{L, L, T, L*L}(undef)
+end
+# SArray doesn't have an undef constructor and is going to be small enough that this is fine.
+function ArrayInterface.undefmatrix(s::SArray)
+    v = vec(s)
+    return v.*v'
+end
 ArrayInterface.known_first(::Type{<:StaticArrays.SOneTo}) = 1
 ArrayInterface.known_last(::Type{StaticArrays.SOneTo{N}}) where {N} = N
 ArrayInterface.known_length(::Type{StaticArrays.SOneTo{N}}) where {N} = N
