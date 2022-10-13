@@ -39,6 +39,7 @@ ArrayInterfaceCore.promote_eltype
 ArrayInterfaceCore.restructure
 ArrayInterfaceCore.safevec
 ArrayInterfaceCore.zeromatrix
+ArrayInterfaceCore.undefmatrix
 ```
 
 ### Types

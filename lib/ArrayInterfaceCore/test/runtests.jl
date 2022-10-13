@@ -1,5 +1,5 @@
 using ArrayInterfaceCore
-using ArrayInterfaceCore: zeromatrix
+using ArrayInterfaceCore: zeromatrix, undefmatrix
 import ArrayInterfaceCore: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance,
         parent_type, zeromatrix, IndicesInfo
 using Base: setindex
@@ -11,7 +11,24 @@ using Test
 using Aqua
 Aqua.test_all(ArrayInterfaceCore)
 
-@test zeromatrix(rand(4,4,4)) == zeros(4*4*4,4*4*4)
+@testset "zeromatrix and unsafematrix" begin
+    for T in (Int, Float32, Float64)
+        for (vectype, mattype) in ((Vector{T}, Matrix{T}), (SparseVector{T}, SparseMatrixCSC{T, Int}))
+            v = vectype(rand(T, 4))
+            um = undefmatrix(v)
+            @test size(um) == (length(v),length(v))
+            @test typeof(um) == mattype
+            @test zeromatrix(v) == zeros(T,length(v),length(v))
+        end
+        v = rand(T,4,4,4)
+        um = undefmatrix(v)
+        @test size(um) == (length(v),length(v))
+        @test typeof(um) == Matrix{T}
+        @test zeromatrix(v) == zeros(T,4*4*4,4*4*4)
+        @test zeromatrix(rand(T)) == zero(T)
+        @test undefmatrix(rand(T)) isa T
+    end
+end
 
 @testset "matrix colors" begin
     @test ArrayInterfaceCore.fast_matrix_colors(1) == false
