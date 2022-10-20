@@ -453,7 +453,7 @@ function lu_instance(A::Matrix{T}) where {T}
     return LU{luT}(similar(A, 0, 0), ipiv, info)
 end
 function lu_instance(jac_prototype::SparseMatrixCSC)
-    @static if VERSION < v"1.9"
+    @static if VERSION < v"1.9.0-DEV.1622"
         SuiteSparse.UMFPACK.UmfpackLU(
             Ptr{Cvoid}(),
             Ptr{Cvoid}(),
