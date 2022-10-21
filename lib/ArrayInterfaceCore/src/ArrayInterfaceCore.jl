@@ -453,16 +453,22 @@ function lu_instance(A::Matrix{T}) where {T}
     return LU{luT}(similar(A, 0, 0), ipiv, info)
 end
 function lu_instance(jac_prototype::SparseMatrixCSC)
-    SuiteSparse.UMFPACK.UmfpackLU(
-        Ptr{Cvoid}(),
-        Ptr{Cvoid}(),
-        1,
-        1,
-        jac_prototype.colptr[1:1],
-        jac_prototype.rowval[1:1],
-        jac_prototype.nzval[1:1],
-        0,
-    )
+    @static if VERSION < v"1.9.0-DEV.1622"
+        SuiteSparse.UMFPACK.UmfpackLU(
+            Ptr{Cvoid}(),
+            Ptr{Cvoid}(),
+            1,
+            1,
+            jac_prototype.colptr[1:1],
+            jac_prototype.rowval[1:1],
+            jac_prototype.nzval[1:1],
+            0,
+        )
+    else
+        SuiteSparse.UMFPACK.UmfpackLU(
+            similar(jac_prototype, 1, 1)
+        )
+    end
 end
 
 """
