@@ -11,6 +11,12 @@ using Test
 using Aqua
 Aqua.test_all(ArrayInterfaceCore)
 
+# ensure we are correctly parsing these
+ArrayInterfaceCore.@assume_effects :total foo(x::Bool) = x
+ArrayInterfaceCore.@assume_effects bar(x::Bool) = x
+@test foo(true)
+@test bar(true)
+
 @testset "zeromatrix and unsafematrix" begin
     for T in (Int, Float32, Float64)
         for (vectype, mattype) in ((Vector{T}, Matrix{T}), (SparseVector{T}, SparseMatrixCSC{T, Int}))
