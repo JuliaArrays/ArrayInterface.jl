@@ -14,7 +14,7 @@ else
         if n === 2 && getfield(args, 1) === QuoteNode(:total)
             return esc(:(Base.@pure $(call)))
         else
-            return call
+            return esc(call)
         end
     end
 end
