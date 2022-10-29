@@ -10,7 +10,7 @@ using SuiteSparse
 else
     macro assume_effects(args...)
         n = nfields(args)
-        call = getfield(args, call)
+        call = getfield(args, n)
         if n === 2 && getfield(args, 1) === QuoteNode(:total)
             return esc(:(Base.@pure $(call)))
         else
