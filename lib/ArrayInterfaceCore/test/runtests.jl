@@ -69,6 +69,11 @@ end
 
 @test ArrayInterfaceCore.can_avx(ArrayInterfaceCore.can_avx) == false
 
+@testset "all_assigned" begin
+    @test ArrayInterfaceCore.all_assigned([1, 2])
+    @test !ArrayInterfaceCore.all_assigned(Vector{Any}(undef, 10))
+end
+
 @testset "lu_instance" begin
     A = randn(5, 5)
     @test lu_instance(A) isa typeof(lu(A))

@@ -318,6 +318,18 @@ function Base.setindex(x::AbstractMatrix, v, i::Int, j::Int)
 end
 
 """
+    all_assigned(x) -> Bool
+
+Return `true` if `isassigned` is `true` at all indices of `x`.
+"""
+function all_assigned(x)
+    for i in eachindex(x)
+        @inbounds(isassigned(x, i)) || return false
+    end
+    return true
+end
+
+"""
     can_setindex(::Type{T}) -> Bool
 
 Query whether a type can use `setindex!`.
