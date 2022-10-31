@@ -195,7 +195,6 @@ julia> ArrayInterfaceCore.GetIndex{false}(1:10)(11)  # shouldn't be in-bounds
 11
 
 ```
-
 """
 struct GetIndex{CB,B} <: Function
     buffer::B
@@ -321,6 +320,17 @@ end
     all_assigned(x) -> Bool
 
 Return `true` if `isassigned` is `true` at all indices of `x`.
+
+# Examples
+
+```julia
+julia> ArrayInterfaceCore.all_assigned(1:10)
+true
+
+julia> ArrayInterfaceCore.all_assigned(Vector{Any}(undef, 1))
+false
+
+```
 """
 function all_assigned(x)
     for i in eachindex(x)
@@ -328,6 +338,8 @@ function all_assigned(x)
     end
     return true
 end
+# ranges shouldn't be undefined at any index so long as they aren't mutable
+all_assigned(x::AbstractRange) = !ismutable(typeof(x))
 
 """
     can_setindex(::Type{T}) -> Bool
