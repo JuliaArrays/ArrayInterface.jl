@@ -70,6 +70,17 @@ end
 @test ArrayInterfaceCore.can_avx(ArrayInterfaceCore.can_avx) == false
 
 @testset "all_assigned" begin
+    x = 1:16
+    r = reshape(x, 4, 4)
+    s = Symmetric(r)
+    @test ArrayInterfaceCore.all_assigned(r)
+    @test ArrayInterfaceCore.all_assigned(Diagonal(x))
+    @test ArrayInterfaceCore.all_assigned(SymTridiagonal(s))
+    @test ArrayInterfaceCore.all_assigned(Tridiagonal(s))
+    @test ArrayInterfaceCore.all_assigned(LinearIndices((2, 2)))
+    @test ArrayInterfaceCore.all_assigned(sparse([1,2,3],[1,2,3],[1,2,3]))
+    @test ArrayInterfaceCore.all_assigned(sparsevec([1, 2, 0, 0, 3, 0]))
+    @test ArrayInterfaceCore.all_assigned(view(s, :, 2))
     @test ArrayInterfaceCore.all_assigned([1, 2])
     @test !ArrayInterfaceCore.all_assigned(Vector{Any}(undef, 10))
 end
