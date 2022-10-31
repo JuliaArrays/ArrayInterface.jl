@@ -124,8 +124,10 @@ end
 Returns the parent array that type `T` wraps.
 """
 parent_type(x) = parent_type(typeof(x))
-parent_type(::Type{Symmetric{T,S}}) where {T,S} = S
 parent_type(::Type{<:AbstractTriangular{T,S}}) where {T,S} = S
+parent_type(@nospecialize T::Type{<:Symmetric}) = fieldtype(T, :data)
+parent_type(@nospecialize T::Type{<:Hermitian}) = fieldtype(T, :data)
+parent_type(@nospecialize T::Type{<:UpperHessenberg}) = fieldtype(T, :data)
 parent_type(@nospecialize T::Type{<:PermutedDimsArray}) = fieldtype(T, :parent)
 parent_type(@nospecialize T::Type{<:Adjoint}) = fieldtype(T, :parent)
 parent_type(@nospecialize T::Type{<:Transpose}) = fieldtype(T, :parent)
@@ -195,7 +197,6 @@ julia> ArrayInterfaceCore.GetIndex{false}(1:10)(11)  # shouldn't be in-bounds
 11
 
 ```
-
 """
 struct GetIndex{CB,B} <: Function
     buffer::B
@@ -315,6 +316,67 @@ end
 function Base.setindex(x::AbstractMatrix, v, i::Int, j::Int)
     n, m = Base.size(x)
     x .* (i .!== 1:n) .* (j .!== i:m)' .+ v .* (i .== 1:n) .* (j .== i:m)'
+end
+
+"""
+    all_assigned(x) -> Bool
+
+Return `true` if `isassigned` is `true` at all indices of `x`.
+
+# Examples
+
+```julia
+julia> ArrayInterfaceCore.all_assigned(1:10)
+true
+
+julia> ArrayInterfaceCore.all_assigned(Vector{Any}(undef, 1))
+false
+
+```
+"""
+function all_assigned(x)
+    if is_forwarding_wrapper(x)
+        return all_assigned(buffer(x))
+    else
+        for i in eachindex(x)
+            @inbounds(isassigned(x, i)) || return false
+        end
+        return true
+    end
+end
+function all_assigned(x::SparseMatrixCSC)
+    all_assigned(x.colptr) && all_assigned(x.rowval) && all_assigned(x.nzval)
+end
+all_assigned(x::SparseVector) = all_assigned(x.nzind) && all_assigned(x.nzval)
+all_assigned(x::Union{PermutedDimsArray,Base.ReshapedArray,SubArray}) = all_assigned(parent(x))
+all_assigned(x::Union{Symmetric,Hermitian,UpperHessenberg}) = all_assigned(parent(x))
+all_assigned(x::Union{UpTri,LoTri,Adjoint,Transpose,Diagonal}) = all_assigned(parent(x))
+all_assigned(x::Union{SymTridiagonal,Bidiagonal}) = all_assigned(x.dv) && all_assigned(x.ev)
+function all_assigned(x::Tridiagonal)
+    all_assigned(x.dl) && all_assigned(x.d) && all_assigned(x.du) &&
+    (isdefined(x, :du2) ? all_assigned(x.du2) : true)
+end
+all_assigned(::Union{BitArray,Base.SimpleVector}) = true
+# all values of `Array` are assigned if composed of bits types
+function all_assigned(x::Array{T}) where {T}
+    if Base.isbitsunion(T)
+        return true
+    else
+        i = length(x)
+        while i > 0
+            ccall(:jl_array_isassigned, Cint, (Any, UInt), x, i) == 1 || return false
+            i -= 1
+        end
+        return true
+    end
+end
+# ranges shouldn't be undefined at any index so long as they aren't mutable
+all_assigned(x::AbstractRange) = !ismutable(typeof(x))
+@inline function all_assigned(x::Union{LinearIndices,CartesianIndices})
+    for inds in x.indices
+        all_assigned(inds) || return false
+    end
+    return true
 end
 
 """
@@ -985,7 +1047,6 @@ Returns the child dimension mapping from `IndicesInfo`.
 See also: [`IndicesInfo`](@ref), [`parentdims`](@ref)
 """
 childdims(@nospecialize info::IndicesInfo) = getfield(_lower_info(info), 3)
-
 
 """
     instances_do_not_alias(::Type{T}) -> Bool
