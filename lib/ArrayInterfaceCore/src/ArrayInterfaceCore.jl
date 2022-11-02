@@ -307,16 +307,6 @@ function Base.setindex(x::AbstractArray, v, i...)
     return _x
 end
 
-function Base.setindex(x::AbstractVector, v, i::Int)
-    n = length(x)
-    x .* (i .!== 1:n) .+ v .* (i .== 1:n)
-end
-
-function Base.setindex(x::AbstractMatrix, v, i::Int, j::Int)
-    n, m = Base.size(x)
-    x .* (i .!== 1:n) .* (j .!== i:m)' .+ v .* (i .== 1:n) .* (j .== i:m)'
-end
-
 """
     can_setindex(::Type{T}) -> Bool
 

@@ -234,6 +234,11 @@ end
         @test iszero(x)
         @test all(isone, y2)
     end
+
+    @testset "string" begin
+        x = fill("a", 2, 3)
+        @test setindex(x, "b", 2, 1) == setindex(x, "b", CartesianIndex(2, 1)) == ["a" "a" "a";"b" "a" "a"]
+    end
 end
 
 @testset "Sparsity Structure" begin
