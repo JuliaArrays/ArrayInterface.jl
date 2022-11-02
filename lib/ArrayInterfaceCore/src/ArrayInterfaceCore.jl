@@ -300,13 +300,6 @@ function ismutable(::Type{T}) where {T}
     end
 end
 
-# Piracy
-function Base.setindex(x::AbstractArray, v, i...)
-    _x = Base.copymutable(x)
-    _x[i...] = v
-    return _x
-end
-
 """
     can_setindex(::Type{T}) -> Bool
 
