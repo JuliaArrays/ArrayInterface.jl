@@ -124,8 +124,8 @@ end
 Returns the parent array that type `T` wraps.
 """
 parent_type(x) = parent_type(typeof(x))
-parent_type(::Type{Symmetric{T,S}}) where {T,S} = S
-parent_type(::Type{<:AbstractTriangular{T,S}}) where {T,S} = S
+parent_type(@nospecialize T::Type{<:Union{Symmetric,Hermitian}}) = fieldtype(T, :data)
+parent_type(@nospecialize T::Type{<:Union{UpTri,LoTri}}) = fieldtype(T, :data)
 parent_type(@nospecialize T::Type{<:PermutedDimsArray}) = fieldtype(T, :parent)
 parent_type(@nospecialize T::Type{<:Adjoint}) = fieldtype(T, :parent)
 parent_type(@nospecialize T::Type{<:Transpose}) = fieldtype(T, :parent)
@@ -133,7 +133,7 @@ parent_type(@nospecialize T::Type{<:SubArray}) = fieldtype(T, :parent)
 parent_type(@nospecialize T::Type{<:Base.ReinterpretArray}) = fieldtype(T, :parent)
 parent_type(@nospecialize T::Type{<:Base.ReshapedArray}) = fieldtype(T, :parent)
 parent_type(@nospecialize T::Type{<:Union{Base.Slice,Base.IdentityUnitRange}}) = fieldtype(T, :indices)
-parent_type(::Type{Diagonal{T,V}}) where {T,V} = V
+parent_type(@nospecialize T::Type{<:Diagonal}) = fieldtype(T, :diag)
 parent_type(T::Type) = T
 
 """
