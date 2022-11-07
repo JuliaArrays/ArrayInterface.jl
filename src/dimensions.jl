@@ -111,7 +111,7 @@ to `:_`, then `false` is returned.
 Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
 have a name.
 """
-@inline known_dimnames(x, dim) = _known_dimname(known_dimnames(x), canonicalize(dim))
+@inline known_dimnames(x, dim) = _known_dimname(known_dimnames(x), IntType(dim))
 known_dimnames(x) = known_dimnames(typeof(x))
 function known_dimnames(@nospecialize T::Type{<:VecAdjTrans})
     (:_, getfield(known_dimnames(parent_type(T)), 1))
@@ -159,7 +159,7 @@ end
 _unknown_dimnames(::Base.HasShape{N}) where {N} = ntuple(Compat.Returns(:_), StaticInt(N))
 _unknown_dimnames(::Any) = (:_,)
 
-@inline function _known_dimname(x::Tuple{Vararg{Any,N}}, dim::CanonicalInt) where {N}
+@inline function _known_dimname(x::Tuple{Vararg{Any,N}}, dim::IntType) where {N}
     # we cannot have `@boundscheck`, else this will depend on bounds checking being enabled
     (dim > N || dim < 1) && return :_
     return @inbounds(x[dim])
@@ -173,7 +173,7 @@ end
 Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
 have a name.
 """
-@inline dimnames(x, dim) = _dimname(dimnames(x), canonicalize(dim))
+@inline dimnames(x, dim) = _dimname(dimnames(x), IntType(dim))
 @inline function dimnames(x::Union{PermutedDimsArray,MatAdjTrans})
     map(GetIndex{false}(dimnames(parent(x))), to_parent_dims(x))
 end
@@ -214,7 +214,7 @@ end
         return ntuple(Compat.Returns(static(:_)), StaticInt(ndims(x)))
     end
 end
-@inline function _dimname(x::Tuple{Vararg{Any,N}}, dim::CanonicalInt) where {N}
+@inline function _dimname(x::Tuple{Vararg{Any,N}}, dim::IntType) where {N}
     # we cannot have `@boundscheck`, else this will depend on bounds checking being enabled
     # for calls such as `dimnames(view(x, :, 1, :))`
     (dim > N || dim < 1) && return static(:_)
@@ -228,7 +228,7 @@ end
 This returns the dimension(s) of `x` corresponding to `dim`.
 """
 to_dims(x, dim::Colon) = dim
-to_dims(x, @nospecialize(dim::CanonicalInt)) = dim
+to_dims(x, @nospecialize(dim::IntType)) = dim
 to_dims(x, dim::Integer) = Int(dim)
 to_dims(x, dim::Union{StaticSymbol,Symbol}) = _to_dim(dimnames(x), dim)
 function to_dims(x, dims::Tuple{Vararg{Any,N}}) where {N}

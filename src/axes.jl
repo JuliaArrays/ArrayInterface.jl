@@ -219,7 +219,7 @@ Base.axes1(x::Slice{LazyAxis{N,A}}) where {N,A} = indices(getfield(x.indices, :p
 Base.axes1(x::Slice{LazyAxis{:,A}}) where {A} = indices(getfield(x.indices, :parent))
 Base.to_shape(x::LazyAxis) = Base.length(x)
 
-@propagate_inbounds function Base.getindex(x::LazyAxis, i::CanonicalInt)
+@propagate_inbounds function Base.getindex(x::LazyAxis, i::IntType)
     @boundscheck checkindex(Bool, x, i) || throw(BoundsError(x, i))
     return Int(i)
 end
