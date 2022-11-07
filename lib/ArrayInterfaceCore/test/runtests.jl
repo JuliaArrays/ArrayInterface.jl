@@ -2,7 +2,6 @@ using ArrayInterfaceCore
 using ArrayInterfaceCore: zeromatrix, undefmatrix
 import ArrayInterfaceCore: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance,
         parent_type, zeromatrix, IndicesInfo
-using Base: setindex
 using LinearAlgebra
 using Random
 using SparseArrays
@@ -188,57 +187,6 @@ end
     @test !@inferred(ArrayInterfaceCore.issingular(Bidiagonal([1,2,3,4], [7,8,9], :U)))
     @test !@inferred(ArrayInterfaceCore.issingular(SymTridiagonal([1,2,3,4],[5,6,7])))
     @test !@inferred(ArrayInterfaceCore.issingular(Tridiagonal([1,2,3],[1,2,3,4],[4,5,6])))
-end
-
-@testset "setindex" begin
-    @testset "$(typeof(x))" for x in [
-        zeros(3),
-        falses(3),
-        spzeros(3),
-    ]
-        y = setindex(x, true, 1)
-        @test iszero(x)  # x is not mutated
-        @test y[1] == true
-        @test iszero(x[CartesianIndices(size(x)) .== [CartesianIndex(1)]])
-
-        y2 = setindex(x, one.(x), :)
-        @test iszero(x)
-        @test all(isone, y2)
-    end
-
-    @testset "$(typeof(x))" for x in [
-        zeros(3, 3),
-        falses(3, 3),
-        spzeros(3, 3),
-    ]
-        y = setindex(x, true, 1, 1)
-        @test iszero(x)  # x is not mutated
-        @test y[1, 1] == true
-        @test iszero(x[CartesianIndices(size(x)) .== [CartesianIndex(1, 1)]])
-
-        y2 = setindex(x, one.(x), :, :)
-        @test iszero(x)
-        @test all(isone, y2)
-    end
-
-    @testset "$(typeof(x))" for x in [
-        zeros(3, 3, 3),
-        falses(3, 3, 3),
-    ]
-        y = setindex(x, true, 1, 1, 1)
-        @test iszero(x)  # x is not mutated
-        @test y[1, 1, 1] == true
-        @test iszero(x[CartesianIndices(size(x)) .== [CartesianIndex(1, 1, 1)]])
-
-        y2 = setindex(x, one.(x), :, :, :)
-        @test iszero(x)
-        @test all(isone, y2)
-    end
-
-    @testset "string" begin
-        x = fill("a", 2, 3)
-        @test setindex(x, "b", 2, 1) == setindex(x, "b", CartesianIndex(2, 1)) == ["a" "a" "a";"b" "a" "a"]
-    end
 end
 
 @testset "Sparsity Structure" begin
