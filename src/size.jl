@@ -141,7 +141,18 @@ end
     if is_forwarding_wrapper(T)
         return known_size(parent_type(T))
     else
-        return (_range_length(known_first(T), known_step(T), known_last(T)),)
+        start = known_first(T)
+        s = known_step(T)
+        stop = known_last(T)
+        if stop !== nothing && s !== nothing && start !== nothing
+            if s > 0
+                return (stop < start ? 0 : div(stop - start, s) + 1,)
+            else
+                return (stop > start ? 0 : div(start - stop, -s) + 1,)
+            end
+        else
+            return (nothing,)
+        end
     end
 end
 

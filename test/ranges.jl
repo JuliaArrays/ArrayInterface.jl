@@ -19,7 +19,7 @@ end
     A23 = ones(2,3);
     SA23 = MArray(A23);
     A32 = ones(3,2);
-    SA32 = MArray(A32)
+    SA32 = MArray(A32);
 
     @test @inferred(ArrayInterface.indices(A23, (static(1),static(2)))) === (Base.Slice(StaticInt(1):2), Base.Slice(StaticInt(1):3))
     @test @inferred(ArrayInterface.indices((A23, A32))) == 1:6
@@ -40,11 +40,11 @@ end
     @test @inferred(ArrayInterface.indices((A23, SA23), StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
     @test @inferred(ArrayInterface.indices((SA23, SA23), StaticInt(1))) === Base.Slice(StaticInt(1):StaticInt(2))
 
-    @test_throws AssertionError ArrayInterface.indices((A23, ones(3, 3)), 1)
-    @test_throws AssertionError ArrayInterface.indices((A23, ones(3, 3)), (1, 2))
-    @test_throws AssertionError ArrayInterface.indices((SA23, ones(3, 3)), StaticInt(1))
-    @test_throws AssertionError ArrayInterface.indices((SA23, ones(3, 3)), (StaticInt(1), 2))
-    @test_throws AssertionError ArrayInterface.indices((SA23, SA23), (StaticInt(1), StaticInt(2)))
+    @test_throws ErrorException ArrayInterface.indices((A23, ones(3, 3)), 1)
+    @test_throws ErrorException ArrayInterface.indices((A23, ones(3, 3)), (1, 2))
+    @test_throws ErrorException ArrayInterface.indices((SA23, ones(3, 3)), StaticInt(1))
+    @test_throws ErrorException ArrayInterface.indices((SA23, ones(3, 3)), (StaticInt(1), 2))
+    @test_throws ErrorException ArrayInterface.indices((SA23, SA23), (StaticInt(1), StaticInt(2)))
 
     @test size(similar(ones(2, 4), ArrayInterface.indices(ones(2, 4), 1), ArrayInterface.indices(ones(2, 4), 2))) == (2, 4)
     @test axes(ArrayInterface.indices(ones(2,2))) === (StaticInt(1):4,)

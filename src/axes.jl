@@ -185,6 +185,9 @@ Base.keys(x::LazyAxis) = keys(parent(x))
 
 Base.IndexStyle(T::Type{<:LazyAxis}) = IndexStyle(parent_type(T))
 
+function Static.OptionallyStaticUnitRange(x::LazyAxis)
+    OptionallyStaticUnitRange(static_first(x), static_last(x))
+end
 ArrayInterfaceCore.can_change_size(@nospecialize T::Type{<:LazyAxis}) = can_change_size(fieldtype(T, :parent))
 
 ArrayInterfaceCore.known_first(::Type{<:LazyAxis{N,P}}) where {N,P} = known_offsets(P, static(N))

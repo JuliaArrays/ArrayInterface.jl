@@ -9,6 +9,9 @@ import ArrayInterfaceStaticArraysCore
 
 const CanonicalInt = Union{Int,StaticInt}
 
+function Static.OptionallyStaticUnitRange(::StaticArrays.SOneTo{N}) where {N}
+    Static.OptionallyStaticUnitRange(StaticInt(1), StaticInt(N))
+end
 ArrayInterface.known_first(::Type{<:StaticArrays.SOneTo}) = 1
 ArrayInterface.known_last(::Type{StaticArrays.SOneTo{N}}) where {N} = N
 ArrayInterface.known_length(::Type{StaticArrays.SOneTo{N}}) where {N} = N

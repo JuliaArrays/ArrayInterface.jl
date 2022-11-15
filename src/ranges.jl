@@ -36,7 +36,7 @@ Returns valid indices for the entire length of each array in `x`.
 """
 @propagate_inbounds function indices(x::Tuple)
     inds = map(eachindex, x)
-    return reduce_tup(static_promote, inds)
+    return Base.Slice(reduce_tup(static_promote, inds))
 end
 
 """
@@ -46,7 +46,7 @@ Returns valid indices for each array in `x` along dimension `dim`
 """
 @propagate_inbounds function indices(x::Tuple, dim)
     inds = map(Base.Fix2(indices, dim), x)
-    return reduce_tup(static_promote, inds)
+    return Base.Slice(reduce_tup(static_promote, inds))
 end
 
 """
@@ -57,7 +57,7 @@ respective array (`dim`).
 """
 @propagate_inbounds function indices(x::Tuple, dim::Tuple)
     inds = map(indices, x, dim)
-    return reduce_tup(static_promote, inds)
+    return Base.Slice(reduce_tup(static_promote, inds))
 end
 
 """
