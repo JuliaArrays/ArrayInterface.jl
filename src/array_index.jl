@@ -20,7 +20,7 @@ struct StrideIndex{N,R,C,S,O} <: ArrayIndex{N}
 end
 
 ## getindex
-@propagate_inbounds Base.getindex(x::ArrayIndex, i::CanonicalInt, ii::CanonicalInt...) = x[NDIndex(i, ii...)]
+@propagate_inbounds Base.getindex(x::ArrayIndex, i::IntType, ii::IntType...) = x[NDIndex(i, ii...)]
 
 @inline function Base.getindex(x::StrideIndex{N}, i::AbstractCartesianIndex) where {N}
     return _strides2int(offsets(x), strides(x), Tuple(i)) + static(1)

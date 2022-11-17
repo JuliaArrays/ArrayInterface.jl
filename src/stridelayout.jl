@@ -12,7 +12,7 @@ known_offsets(@nospecialize T::Type{<:Number}) = ()  # Int has no dimensions
 @inline function known_offsets(@nospecialize T::Type{<:SubArray})
     flatten_tuples(map_tuple_type(known_offsets, fieldtype(T, :indices)))
 end
-function known_offsets(::Type{T}, dim::CanonicalInt) where {T}
+function known_offsets(::Type{T}, dim::IntType) where {T}
     if ndims(T) < dim
         return 1
     else
@@ -155,7 +155,7 @@ end
         I = field_type(fieldtype(T, :indices), c)
         if I <: AbstractUnitRange
             return from_parent_dims(T)[c]  # FIXME get rid of from_parent_dims
-        elseif I <: AbstractArray || I <: CanonicalInt
+        elseif I <: AbstractArray || I <: IntType
             return StaticInt(-1)
         else
             return nothing
@@ -446,7 +446,7 @@ compile time are represented by `nothing`.
 """
 known_strides(x, dim) = known_strides(typeof(x), dim)
 known_strides(::Type{T}, dim) where {T} = known_strides(T, to_dims(T, dim))
-function known_strides(::Type{T}, dim::CanonicalInt) where {T}
+function known_strides(::Type{T}, dim::IntType) where {T}
     # see https://github.com/JuliaLang/julia/blob/6468dcb04ea2947f43a11f556da9a5588de512a0/base/reinterpretarray.jl#L148
     if ndims(T) < dim
         return known_length(T)
@@ -678,7 +678,7 @@ maybe_static_step(_) = nothing
 end
 
 strides(a, dim) = strides(a, to_dims(a, dim))
-function strides(a::A, dim::CanonicalInt) where {A}
+function strides(a::A, dim::IntType) where {A}
     if is_forwarding_wrapper(A)
         return strides(parent(a), dim)
     else

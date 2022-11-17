@@ -185,6 +185,9 @@ Base.keys(x::LazyAxis) = keys(parent(x))
 
 Base.IndexStyle(T::Type{<:LazyAxis}) = IndexStyle(parent_type(T))
 
+function Static.OptionallyStaticUnitRange(x::LazyAxis)
+    OptionallyStaticUnitRange(static_first(x), static_last(x))
+end
 ArrayInterfaceCore.can_change_size(@nospecialize T::Type{<:LazyAxis}) = can_change_size(fieldtype(T, :parent))
 
 ArrayInterfaceCore.known_first(::Type{<:LazyAxis{N,P}}) where {N,P} = known_offsets(P, static(N))
@@ -219,7 +222,7 @@ Base.axes1(x::Slice{LazyAxis{N,A}}) where {N,A} = indices(getfield(x.indices, :p
 Base.axes1(x::Slice{LazyAxis{:,A}}) where {A} = indices(getfield(x.indices, :parent))
 Base.to_shape(x::LazyAxis) = Base.length(x)
 
-@propagate_inbounds function Base.getindex(x::LazyAxis, i::CanonicalInt)
+@propagate_inbounds function Base.getindex(x::LazyAxis, i::IntType)
     @boundscheck checkindex(Bool, x, i) || throw(BoundsError(x, i))
     return Int(i)
 end

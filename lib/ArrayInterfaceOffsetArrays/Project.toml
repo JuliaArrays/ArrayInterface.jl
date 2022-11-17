@@ -10,7 +10,7 @@ Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
 [compat]
 ArrayInterface = "5, 6"
 OffsetArrays = "1.11"
-Static = "0.7"
+Static = "0.7, 0.8"
 julia = "1.6"
 
 [extras]

@@ -1,27 +1,4 @@
 
-function known_lastindex(::Type{T}) where {T}
-    if known_offset1(T) === nothing || known_length(T) === nothing
-        return nothing
-    else
-        return known_length(T) - known_offset1(T) + 1
-    end
-end
-known_lastindex(@nospecialize x) = known_lastindex(typeof(x))
-
-@inline static_lastindex(x) = Static.maybe_static(known_lastindex, lastindex, x)
-
-function Base.first(x::AbstractVector, n::StaticInt)
-    @boundscheck n < 0 && throw(ArgumentError("Number of elements must be nonnegative"))
-    start = offset1(x)
-    @inbounds x[start:min((start - one(start)) + n, static_lastindex(x))]
-end
-
-function Base.last(x::AbstractVector, n::StaticInt)
-    @boundscheck n < 0 && throw(ArgumentError("Number of elements must be nonnegative"))
-    stop = static_lastindex(x)
-    @inbounds x[max(offset1(x), (stop + one(stop)) - n):stop]
-end
-
 """
     ArrayInterface.to_indices(A, I::Tuple) -> Tuple
 
@@ -162,16 +139,16 @@ to_index(::LinearIndices, i::AbstractArray{Bool}) = LogicalIndex{Int}(i)
 @inline to_index(x, i::NDIndex) = getfield(i, 1)
 @inline to_index(x, i::AbstractArray{<:AbstractCartesianIndex}) = i
 @inline function to_index(x, i::Base.Fix2{<:Union{typeof(<),typeof(isless)},<:Union{Base.BitInteger,StaticInt}})
-    static_first(x):min(_sub1(canonicalize(i.x)), static_last(x))
+    static_first(x):min(_sub1(IntType(i.x)), static_last(x))
 end
 @inline function to_index(x, i::Base.Fix2{typeof(<=),<:Union{Base.BitInteger,StaticInt}})
-    static_first(x):min(canonicalize(i.x), static_last(x))
+    static_first(x):min(IntType(i.x), static_last(x))
 end
 @inline function to_index(x, i::Base.Fix2{typeof(>=),<:Union{Base.BitInteger,StaticInt}})
-    max(canonicalize(i.x), static_first(x)):static_last(x)
+    max(IntType(i.x), static_first(x)):static_last(x)
 end
 @inline function to_index(x, i::Base.Fix2{typeof(>),<:Union{Base.BitInteger,StaticInt}})
-    max(_add1(canonicalize(i.x)), static_first(x)):static_last(x)
+    max(_add1(IntType(i.x)), static_first(x)):static_last(x)
 end
 # integer indexing
 to_index(x, i::AbstractArray{<:Integer}) = i
@@ -232,7 +209,7 @@ indices calling [`to_axis`](@ref).
     end
 end
 # drop this dimension
-to_axes(A, a::Tuple, i::Tuple{<:CanonicalInt,Vararg{Any}}) = to_axes(A, _maybe_tail(a), tail(i))
+to_axes(A, a::Tuple, i::Tuple{<:IntType,Vararg{Any}}) = to_axes(A, _maybe_tail(a), tail(i))
 to_axes(A, a::Tuple, i::Tuple{I,Vararg{Any}}) where {I} = _to_axes(StaticInt(ndims_index(I)), A, a, i)
 function _to_axes(::StaticInt{1}, A, axs::Tuple, inds::Tuple)
     return (to_axis(_maybe_first(axs), first(inds)), to_axes(A, _maybe_tail(axs), tail(inds))...)
@@ -309,7 +286,7 @@ function unsafe_getindex(a::A) where {A}
 end
 
 # TODO Need to manage index transformations between nested layers of arrays
-function unsafe_getindex(a::A, i::CanonicalInt) where {A}
+function unsafe_getindex(a::A, i::IntType) where {A}
     if IndexStyle(A) === IndexLinear()
         is_forwarding_wrapper(A) || throw(MethodError(unsafe_getindex, (A, i)))
         return unsafe_getindex(parent(a), i)
@@ -317,7 +294,7 @@ function unsafe_getindex(a::A, i::CanonicalInt) where {A}
         return unsafe_getindex(a, _to_cartesian(a, i)...)
     end
 end
-function unsafe_getindex(a::A, i::CanonicalInt, ii::Vararg{CanonicalInt}) where {A}
+function unsafe_getindex(a::A, i::IntType, ii::Vararg{IntType}) where {A}
     if IndexStyle(A) === IndexLinear()
         return unsafe_getindex(a, _to_linear(a, (i, ii...)))
     else
@@ -329,24 +306,24 @@ end
 unsafe_getindex(a, i::Vararg{Any}) = unsafe_get_collection(a, i)
 
 unsafe_getindex(A::Array) = Base.arrayref(false, A, 1)
-unsafe_getindex(A::Array, i::CanonicalInt) = Base.arrayref(false, A, Int(i))
-@inline function unsafe_getindex(A::Array, i::CanonicalInt, ii::Vararg{CanonicalInt})
+unsafe_getindex(A::Array, i::IntType) = Base.arrayref(false, A, Int(i))
+@inline function unsafe_getindex(A::Array, i::IntType, ii::Vararg{IntType})
     unsafe_getindex(A, _to_linear(A, (i, ii...)))
 end
 
-unsafe_getindex(A::LinearIndices, i::CanonicalInt) = Int(i)
-unsafe_getindex(A::CartesianIndices{N}, ii::Vararg{CanonicalInt,N}) where {N} = CartesianIndex(ii...)
-unsafe_getindex(A::CartesianIndices, ii::Vararg{CanonicalInt}) =
+unsafe_getindex(A::LinearIndices, i::IntType) = Int(i)
+unsafe_getindex(A::CartesianIndices{N}, ii::Vararg{IntType,N}) where {N} = CartesianIndex(ii...)
+unsafe_getindex(A::CartesianIndices, ii::Vararg{IntType}) =
     unsafe_getindex(A, Base.front(ii)...)
-unsafe_getindex(A::CartesianIndices, i::CanonicalInt) = @inbounds(A[i])
+unsafe_getindex(A::CartesianIndices, i::IntType) = @inbounds(A[i])
 
-unsafe_getindex(A::ReshapedArray, i::CanonicalInt) = @inbounds(parent(A)[i])
-function unsafe_getindex(A::ReshapedArray, i::CanonicalInt, ii::Vararg{CanonicalInt})
+unsafe_getindex(A::ReshapedArray, i::IntType) = @inbounds(parent(A)[i])
+function unsafe_getindex(A::ReshapedArray, i::IntType, ii::Vararg{IntType})
     @inbounds(parent(A)[_to_linear(A, (i, ii...))])
 end
 
-unsafe_getindex(A::SubArray, i::CanonicalInt) = @inbounds(A[i])
-unsafe_getindex(A::SubArray, i::CanonicalInt, ii::Vararg{CanonicalInt}) = @inbounds(A[i, ii...])
+unsafe_getindex(A::SubArray, i::IntType) = @inbounds(A[i])
+unsafe_getindex(A::SubArray, i::IntType, ii::Vararg{IntType}) = @inbounds(A[i, ii...])
 
 # This is based on Base._unsafe_getindex from https://github.com/JuliaLang/julia/blob/c5ede45829bf8eb09f2145bfd6f089459d77b2b1/base/multidimensional.jl#L755.
 #=
@@ -364,7 +341,7 @@ function unsafe_get_collection(A, inds)
     end
     return dest
 end
-_ints2range(x::CanonicalInt) = x:x
+_ints2range(x::IntType) = x:x
 _ints2range(x::AbstractRange) = x
 # apply _ints2range to front N elements
 _ints2range_front(::Val{N}, ind, inds...) where {N} =
@@ -372,9 +349,9 @@ _ints2range_front(::Val{N}, ind, inds...) where {N} =
 _ints2range_front(::Val{0}, ind, inds...) = ()
 _ints2range_front(::Val{0}) = ()
 # get output shape with given indices
-_output_shape(::CanonicalInt, inds...) = _output_shape(inds...)
+_output_shape(::IntType, inds...) = _output_shape(inds...)
 _output_shape(ind::AbstractRange, inds...) = (Base.length(ind), _output_shape(inds...)...)
-_output_shape(::CanonicalInt) = ()
+_output_shape(::IntType) = ()
 _output_shape(x::AbstractRange) = (Base.length(x),)
 @inline function unsafe_get_collection(A::CartesianIndices{N}, inds) where {N}
     if (Base.length(inds) === 1 && N > 1) || stride_preserving_index(typeof(inds)) === False()
@@ -426,7 +403,7 @@ function unsafe_setindex!(a::A, v) where {A}
     return unsafe_setindex!(parent(a), v)
 end
 # TODO Need to manage index transformations between nested layers of arrays
-function unsafe_setindex!(a::A, v, i::CanonicalInt) where {A}
+function unsafe_setindex!(a::A, v, i::IntType) where {A}
     if IndexStyle(A) === IndexLinear()
         is_forwarding_wrapper(A) || throw(MethodError(unsafe_setindex!, (A, v, i)))
         return unsafe_setindex!(parent(a), v, i)
@@ -434,7 +411,7 @@ function unsafe_setindex!(a::A, v, i::CanonicalInt) where {A}
         return unsafe_setindex!(a, v, _to_cartesian(a, i)...)
     end
 end
-function unsafe_setindex!(a::A, v, i::CanonicalInt, ii::Vararg{CanonicalInt}) where {A}
+function unsafe_setindex!(a::A, v, i::IntType, ii::Vararg{IntType}) where {A}
     if IndexStyle(A) === IndexLinear()
         return unsafe_setindex!(a, v, _to_linear(a, (i, ii...)))
     else
@@ -446,7 +423,7 @@ end
 function unsafe_setindex!(A::Array{T}, v) where {T}
     Base.arrayset(false, A, convert(T, v)::T, 1)
 end
-function unsafe_setindex!(A::Array{T}, v, i::CanonicalInt) where {T}
+function unsafe_setindex!(A::Array{T}, v, i::IntType) where {T}
     return Base.arrayset(false, A, convert(T, v)::T, Int(i))
 end
 

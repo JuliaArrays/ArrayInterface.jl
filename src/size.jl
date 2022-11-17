@@ -64,8 +64,8 @@ end
 _sub_size(x::Tuple, ::StaticInt{dim}) where {dim} = length(getfield(x, dim))
 
 size(a, dim) = size(a, to_dims(a, dim))
-size(a::Array, dim::CanonicalInt) = Base.arraysize(a, convert(Int, dim))
-function size(a::A, dim::CanonicalInt) where {A}
+size(a::Array, dim::IntType) = Base.arraysize(a, convert(Int, dim))
+function size(a::A, dim::IntType) where {A}
     if is_forwarding_wrapper(A)
         return size(parent(a), dim)
     else
@@ -141,7 +141,18 @@ end
     if is_forwarding_wrapper(T)
         return known_size(parent_type(T))
     else
-        return (_range_length(known_first(T), known_step(T), known_last(T)),)
+        start = known_first(T)
+        s = known_step(T)
+        stop = known_last(T)
+        if stop !== nothing && s !== nothing && start !== nothing
+            if s > 0
+                return (stop < start ? 0 : div(stop - start, s) + 1,)
+            else
+                return (stop > start ? 0 : div(start - stop, -s) + 1,)
+            end
+        else
+            return (nothing,)
+        end
     end
 end
 
@@ -161,7 +172,7 @@ end
 # 1. `Zip` doesn't check that its collections are compatible (same size) at construction,
 #   but we assume as much b/c otherwise it will error while iterating. So we promote to the
 #   known size if matching a `Nothing` and `Int` size.
-# 2. `promote_shape(::Tuple{Vararg{CanonicalInt}}, ::Tuple{Vararg{CanonicalInt}})` promotes
+# 2. `promote_shape(::Tuple{Vararg{IntType}}, ::Tuple{Vararg{IntType}})` promotes
 #   trailing dimensions (which must be of size 1), to `static(1)`. We want to stick to
 #   `Nothing` and `Int` types, so we do one last pass to ensure everything is dynamic
 @inline function known_size(::Type{<:Iterators.Zip{T}}) where {T}
@@ -171,7 +182,7 @@ _unzip_size(::Type{T}, n::StaticInt{N}) where {T,N} = known_size(field_type(T, n
 _known_size(::Type{T}, dim::StaticInt) where {T} = known_length(field_type(T, dim))
 @inline known_size(x, dim) = known_size(typeof(x), dim)
 @inline known_size(::Type{T}, dim) where {T} = known_size(T, to_dims(T, dim))
-known_size(T::Type, dim::CanonicalInt) = ndims(T) < dim ? 1 : known_size(T)[dim]
+known_size(T::Type, dim::IntType) = ndims(T) < dim ? 1 : known_size(T)[dim]
 
 """
     length(A) -> Union{Int,StaticInt}

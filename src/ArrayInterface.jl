@@ -23,7 +23,9 @@ import ArrayInterfaceCore: known_first, known_step, known_last
 
 using Static
 using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
-    permute, invariant_permutation, field_type, reduce_tup, find_first_eq
+    permute, invariant_permutation, field_type, reduce_tup, find_first_eq,
+    OptionallyStaticUnitRange, OptionallyStaticStepRange, OptionallyStaticRange, IntType,
+    SOneTo, SUnitRange
 
 using IfElse
 
@@ -42,10 +44,6 @@ _sub1(@nospecialize x) = x - oneunit(x)
 @generated function merge_tuple_type(::Type{X}, ::Type{Y}) where {X<:Tuple,Y<:Tuple}
     Tuple{X.parameters...,Y.parameters...}
 end
-
-const CanonicalInt = Union{Int,StaticInt}
-canonicalize(x::Integer) = Int(x)
-canonicalize(@nospecialize(x::StaticInt)) = x
 
 abstract type AbstractArray2{T,N} <: AbstractArray{T,N} end
 
@@ -93,10 +91,10 @@ end
 @inline static_last(x) = Static.maybe_static(known_last, last, x)
 @inline static_step(x) = Static.maybe_static(known_step, step, x)
 
-@inline function _to_cartesian(a, i::CanonicalInt)
+@inline function _to_cartesian(a, i::IntType)
     @inbounds(CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))[i])
 end
-@inline function _to_linear(a, i::Tuple{CanonicalInt,Vararg{CanonicalInt}})
+@inline function _to_linear(a, i::Tuple{IntType,Vararg{IntType}})
     _strides2int(offsets(a), size_to_strides(size(a), static(1)), i) + static(1)
 end
 
