@@ -69,5 +69,3 @@ Returns valid indices for array `x` along each dimension specified in `dim`.
 _indices(x, dims::Tuple) = (indices(x, first(dims)), _indices(x, tail(dims))...)
 _indices(x, ::Tuple{}) = ()
 
-@deprecate _pick_range(x, y) Base.Slice(Static.static_promote(x, y)) false
-
