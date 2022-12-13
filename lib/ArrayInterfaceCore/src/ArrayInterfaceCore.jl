@@ -22,8 +22,8 @@ end
 parameterless_type(x) = parameterless_type(typeof(x))
 parameterless_type(x::Type) = __parameterless_type(x)
 
-const VecAdjTrans{<:Any,V<:AbstractVector{T}} = Union{Transpose{T,V},Adjoint{T,V}}
-const MatAdjTrans{<:Any,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
+const VecAdjTrans{T,V<:AbstractVector{T}} = Union{Transpose{<:Any,V},Adjoint{<:Any,V}}
+const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{<:Any,M},Adjoint{<:Any,M}}
 const UpTri{T,M} = Union{UpperTriangular{T,M},UnitUpperTriangular{T,M}}
 const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
 
