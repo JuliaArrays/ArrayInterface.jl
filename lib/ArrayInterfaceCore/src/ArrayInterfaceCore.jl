@@ -993,7 +993,9 @@ indices_do_not_alias(::Type) = false
 indices_do_not_alias(::Type{A}) where {T, A<:Base.StridedArray{T}} = instances_do_not_alias(T)
 indices_do_not_alias(::Type{Adjoint{T,A}}) where {T, A <: AbstractArray{T}} = indices_do_not_alias(A)
 indices_do_not_alias(::Type{Transpose{T,A}}) where {T, A <: AbstractArray{T}} = indices_do_not_alias(A)
-indices_do_not_alias(::Type{<:SubArray{<:Any,<:Any,A,I}}) where {
+indices_do_not_alias(::Type{<:SubArray{<:Any,<:Any,A<:DenseArray,I}}) where {
+  A,I<:Tuple{Vararg{Union{Integer, UnitRange, Base.ReshapedUnitRange, Base.AbstractCartesianIndex}}}} = indices_do_not_alias(A)
+indices_do_not_alias(::Type{<:SubArray{<:Any,<:Any,A<:AbstractArray,I}}) where {
   A,I<:Tuple{Vararg{Union{Integer, UnitRange, Base.ReshapedUnitRange, Base.AbstractCartesianIndex}}}} = indices_do_not_alias(A)
 
 """
