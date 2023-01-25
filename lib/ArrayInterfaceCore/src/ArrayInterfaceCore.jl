@@ -1051,4 +1051,15 @@ stride_preserving_index(@nospecialize T::Type{<:Number}) = true
 end
 stride_preserving_index(@nospecialize T::Type) = false
 
+using SnoopPrecompile
+@precompile_setup begin
+    # Putting some things in `setup` can reduce the size of the
+    # precompile file and potentially make loading faster.
+    arrays = [rand(4), Base.oneto(5)]
+    @precompile_all_calls begin for x in arrays
+        known_first(x)
+        known_step(x)
+        known_last(x)
+    end end
+end
 end # module
