@@ -98,72 +98,57 @@ end
 # propagation to preserve statically sized axes. This should probably be addressed before
 # merging into Base Julia.
 """
-    axes(A) -> Tuple{Vararg{AbstractUnitRange{Int}}}
-    axes(A, dim) -> AbstractUnitRange{Int}
+    static_axes(A) -> Tuple{Vararg{AbstractUnitRange{Int}}}
+    static_axes(A, dim) -> AbstractUnitRange{Int}
 
 Returns the axis associated with each dimension of `A` or dimension `dim`.
-`ArrayInterface.axes(::AbstractArray)` behaves nearly identical to `Base.axes` with the
+`ArrayInterface.static_axes(::AbstractArray)` behaves nearly identical to `Base.axes` with the
 exception of a handful of types replace `Base.OneTo{Int}` with `ArrayInterface.SOneTo`. For
 example, the axis along the first dimension of `Transpose{T,<:AbstractVector{T}}` and
 `Adjoint{T,<:AbstractVector{T}}` can be represented by `SOneTo(1)`. Similarly,
 `Base.ReinterpretArray`'s first axis may be statically sized.
 """
-@inline axes(A) = Base.axes(A)
-axes(A::ReshapedArray) = Base.axes(A)
-@inline function axes(x::Union{MatAdjTrans,PermutedDimsArray})
-    map(GetIndex{false}(axes(parent(x))), to_parent_dims(x))
+@inline static_axes(A) = Base.axes(A)
+static_axes(A::ReshapedArray) = Base.axes(A)
+@inline function static_axes(x::Union{MatAdjTrans,PermutedDimsArray})
+    map(GetIndex{false}(static_axes(parent(x))), to_parent_dims(x))
 end
-axes(A::VecAdjTrans) = (SOneTo{1}(), axes(parent(A), 1))
+static_axes(A::VecAdjTrans) = (SOneTo{1}(), static_axes(parent(A), 1))
 
-@inline axes(x::SubArray) = flatten_tuples(map(Base.Fix1(_sub_axes, x), sub_axes_map(typeof(x))))
+@inline static_axes(x::SubArray) = flatten_tuples(map(Base.Fix1(_sub_axes, x), sub_axes_map(typeof(x))))
 @inline _sub_axes(x::SubArray, axis::SOneTo) = axis
-_sub_axes(x::SubArray, ::StaticInt{index}) where {index} = axes(getfield(x.indices, index))
+_sub_axes(x::SubArray, ::StaticInt{index}) where {index} = static_axes(getfield(x.indices, index))
 
-@inline axes(A, dim) = _axes(A, to_dims(A, dim))
-@inline _axes(A, dim::Int) = dim > ndims(A) ? OneTo(1) : getfield(axes(A), dim)
+@inline static_axes(A, dim) = _axes(A, to_dims(A, dim))
+@inline _axes(A, dim::Int) = dim > ndims(A) ? OneTo(1) : getfield(static_axes(A), dim)
 @inline function _axes(A, ::StaticInt{dim}) where {dim}
-    dim > ndims(A) ? SOneTo{1}() : getfield(axes(A), dim)
+    dim > ndims(A) ? SOneTo{1}() : getfield(static_axes(A), dim)
 end
-@inline function axes(A::Base.ReshapedReinterpretArray{T,N,S}) where {T,N,S}
+@inline function static_axes(A::Base.ReshapedReinterpretArray{T,N,S}) where {T,N,S}
     if sizeof(S) > sizeof(T)
-        return (SOneTo(div(sizeof(S), sizeof(T))), axes(parent(A))...)
+        return (SOneTo(div(sizeof(S), sizeof(T))), static_axes(parent(A))...)
     elseif sizeof(S) < sizeof(T)
-        return tail(axes(parent(A)))
+        return tail(static_axes(parent(A)))
     else
-        return axes(parent(A))
+        return static_axes(parent(A))
     end
 end
-@inline function axes(A::Base.ReshapedReinterpretArray{T,N,S}, dim) where {T,N,S}
+@inline function static_axes(A::Base.ReshapedReinterpretArray{T,N,S}, dim) where {T,N,S}
     d = to_dims(A, dim)
     if sizeof(S) > sizeof(T)
         if d == 1
             return SOneTo(div(sizeof(S), sizeof(T)))
         else
-            return axes(parent(A), d - static(1))
+            return static_axes(parent(A), d - static(1))
         end
     elseif sizeof(S) < sizeof(T)
-        return axes(parent(A), d - static(1))
+        return static_axes(parent(A), d - static(1))
     else
-        return axes(parent(A), d)
+        return static_axes(parent(A), d)
     end
 end
 
-"""
-    LazyAxis{N}(parent::AbstractArray)
-
-A lazy representation of `axes(parent, N)`.
-"""
-struct LazyAxis{N,P} <: AbstractUnitRange{Int}
-    parent::P
-
-    function LazyAxis{N}(parent::P) where {N,P}
-        N > 0 && return new{N::Int,P}(parent)
-        throw_dim_error(parent, N)
-    end
-    @inline LazyAxis{:}(parent::P) where {P} = new{ifelse(ndims(P) === 1, 1, :),P}(parent)
-end
-
-@inline Base.parent(x::LazyAxis{N,P}) where {N,P} = axes(getfield(x, :parent), static(N))
+@inline Base.parent(x::LazyAxis{N,P}) where {N,P} = static_axes(getfield(x, :parent), static(N))
 @inline Base.parent(x::LazyAxis{:,P}) where {P} = eachindex(IndexLinear(), getfield(x, :parent))
 
 @inline parent_type(::Type{LazyAxis{N,P}}) where {N,P} = axes_types(P, static(N))
@@ -188,20 +173,20 @@ Base.IndexStyle(T::Type{<:LazyAxis}) = IndexStyle(parent_type(T))
 function Static.OptionallyStaticUnitRange(x::LazyAxis)
     OptionallyStaticUnitRange(static_first(x), static_last(x))
 end
-ArrayInterfaceCore.can_change_size(@nospecialize T::Type{<:LazyAxis}) = can_change_size(fieldtype(T, :parent))
+ArrayInterface.can_change_size(@nospecialize T::Type{<:LazyAxis}) = can_change_size(fieldtype(T, :parent))
 
-ArrayInterfaceCore.known_first(::Type{<:LazyAxis{N,P}}) where {N,P} = known_offsets(P, static(N))
-ArrayInterfaceCore.known_first(::Type{<:LazyAxis{:,P}}) where {P} = 1
+ArrayInterface.known_first(::Type{<:LazyAxis{N,P}}) where {N,P} = known_offsets(P, static(N))
+ArrayInterface.known_first(::Type{<:LazyAxis{:,P}}) where {P} = 1
 @inline function Base.first(x::LazyAxis{N})::Int where {N}
-    if ArrayInterfaceCore.known_first(x) === nothing
+    if ArrayInterface.known_first(x) === nothing
         return Int(offsets(getfield(x, :parent), StaticInt(N)))
     else
         return Int(known_first(x))
     end
 end
 @inline Base.first(x::LazyAxis{:})::Int = Int(offset1(getfield(x, :parent)))
-ArrayInterfaceCore.known_last(::Type{LazyAxis{N,P}}) where {N,P} = known_last(axes_types(P, static(N)))
-ArrayInterfaceCore.known_last(::Type{LazyAxis{:,P}}) where {P} = known_length(P)
+ArrayInterface.known_last(::Type{LazyAxis{N,P}}) where {N,P} = known_last(axes_types(P, static(N)))
+ArrayInterface.known_last(::Type{LazyAxis{:,P}}) where {P} = known_length(P)
 Base.last(x::LazyAxis) = _last(known_last(x), x)
 _last(::Nothing, x::LazyAxis{:}) = lastindex(getfield(x, :parent))
 _last(::Nothing, x::LazyAxis{N}) where {N} = lastindex(getfield(x, :parent), N)
@@ -228,7 +213,7 @@ Base.to_shape(x::LazyAxis) = Base.length(x)
 end
 @propagate_inbounds function Base.getindex(x::LazyAxis, s::StepRange{<:Integer})
     @boundscheck checkbounds(x, s)
-    range(Int(first(x) + s.start-1), step=Int(step(s)), length=Int(length(s)))
+    range(Int(first(x) + s.start-1), step=Int(step(s)), length=Int(static_length(s)))
 end
 @propagate_inbounds Base.getindex(x::LazyAxis, i::AbstractUnitRange{<:Integer}) = parent(x)[i]
 
@@ -241,7 +226,7 @@ Produces a tuple of axes where each axis is constructed lazily. If an axis of `x
 constructed or it is simply retrieved.
 """
 @inline lazy_axes(x) = lazy_axes(x, ntuple(static, StaticInt(ndims(x))))
-lazy_axes(x::Union{LinearIndices,CartesianIndices,AbstractRange}) = axes(x)
+lazy_axes(x::Union{LinearIndices,CartesianIndices,AbstractRange}) = static_axes(x)
 @inline function lazy_axes(x::PermutedDimsArray, ::StaticInt{N}) where {N}
     N <= ndims(x) ? lazy_axes(parent(x), getfield(to_parent_dims(x), N)) : SOneTo{1}()
 end

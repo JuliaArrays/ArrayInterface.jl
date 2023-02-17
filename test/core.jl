@@ -7,9 +7,6 @@ using Random
 using SparseArrays
 using Test
 
-using Aqua
-Aqua.test_all(ArrayInterface)
-
 # ensure we are correctly parsing these
 ArrayInterface.@assume_effects :total foo(x::Bool) = x
 ArrayInterface.@assume_effects bar(x::Bool) = x

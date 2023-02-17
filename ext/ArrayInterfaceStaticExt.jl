@@ -16,7 +16,7 @@ import ArrayInterface: allowed_getindex, allowed_setindex!, aos_to_soa, buffer,
 
 # ArrayIndex subtypes and methods
 import ArrayInterface: ArrayIndex, MatrixIndex, VectorIndex, BidiagonalIndex,
-                           TridiagonalIndex
+                           TridiagonalIndex, StrideIndex
 # managing immutables
 import ArrayInterface: ismutable, can_change_size, can_setindex
 # constants
@@ -26,6 +26,11 @@ import ArrayInterface: AbstractDevice, AbstractCPU, CPUPointer, CPUTuple, CheckP
                            CPUIndex, GPU, can_avx, device
 
 import ArrayInterface: known_first, known_step, known_last
+
+import ArrayInterface: offsets, axes_types, offset1, indices, known_offsets, stride_rank, strides, dense_dims, contiguous_axis, known_length, contiguous_batch_size,
+contiguous_axis_indicator, is_column_major, _all_dense, AbstractArray2, dimnames, known_dimnames, known_offset1, known_strides, LazyAxis, lazy_axes, BroadcastAxis, broadcast_axis,
+to_axes, find_all_dimnames, to_dims, known_size, deleteat, insert, static_size, is_lazy_conjugate, static_stride, static_strides, has_dimnames, unsafe_reconstruct, static_to_indices,
+to_index, unsafe_setindex!, unsafe_getindex, static_axes, to_axis, is_dense, static_getindex
 
 using Static
 using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
@@ -52,24 +57,22 @@ _sub1(@nospecialize x) = x - oneunit(x)
     Tuple{X.parameters..., Y.parameters...}
 end
 
-abstract type AbstractArray2{T, N} <: AbstractArray{T, N} end
-
-Base.size(A::AbstractArray2) = map(Int, ArrayInterface.size(A))
-Base.size(A::AbstractArray2, dim) = Int(ArrayInterface.size(A, dim))
+Base.size(A::AbstractArray2) = map(Int, ArrayInterface.static_size(A))
+Base.size(A::AbstractArray2, dim) = Int(ArrayInterface.static_size(A, dim))
 
 function Base.axes(A::AbstractArray2)
-    is_forwarding_wrapper(A) && return ArrayInterface.axes(parent(A))
+    is_forwarding_wrapper(A) && return ArrayInterface.static_axes(parent(A))
     throw(ArgumentError("Subtypes of `AbstractArray2` must define an axes method"))
 end
 function Base.axes(A::AbstractArray2, dim::Union{Symbol, StaticSymbol})
-    axes(A, to_dims(A, dim))
+    static_axes(A, to_dims(A, dim))
 end
 
 function Base.strides(A::AbstractArray2)
-    defines_strides(A) && return map(Int, ArrayInterface.strides(A))
+    defines_strides(A) && return map(Int, ArrayInterface.static_strides(A))
     throw(MethodError(Base.strides, (A,)))
 end
-Base.strides(A::AbstractArray2, dim) = Int(ArrayInterface.strides(A, dim))
+Base.strides(A::AbstractArray2, dim) = Int(ArrayInterface.static_strides(A, dim))
 
 function Base.IndexStyle(::Type{T}) where {T <: AbstractArray2}
     is_forwarding_wrapper(T) ? IndexStyle(parent_type(T)) : IndexCartesian()
@@ -78,14 +81,14 @@ end
 function Base.length(A::AbstractArray2)
     len = known_length(A)
     if len === nothing
-        return Int(prod(size(A)))
+        return Int(prod(static_size(A)))
     else
         return Int(len)
     end
 end
 
-@propagate_inbounds Base.getindex(A::AbstractArray2, args...) = getindex(A, args...)
-@propagate_inbounds Base.getindex(A::AbstractArray2; kwargs...) = getindex(A; kwargs...)
+@propagate_inbounds Base.getindex(A::AbstractArray2, args...) = static_getindex(A, args...)
+@propagate_inbounds Base.getindex(A::AbstractArray2; kwargs...) = static_getindex(A; kwargs...)
 
 @propagate_inbounds function Base.setindex!(A::AbstractArray2, val, args...)
     return setindex!(A, val, args...)
@@ -102,7 +105,7 @@ end
     @inbounds(CartesianIndices(ntuple(dim -> indices(a, dim), Val(ndims(a))))[i])
 end
 @inline function _to_linear(a, i::Tuple{IntType, Vararg{IntType}})
-    _strides2int(offsets(a), size_to_strides(size(a), static(1)), i) + static(1)
+    _strides2int(offsets(a), size_to_strides(static_size(a), static(1)), i) + static(1)
 end
 
 """
@@ -167,7 +170,7 @@ Returns a new instance of `collection` with `item` inserted into at the given `i
 """
 Base.@propagate_inbounds function insert(collection, index, item)
     @boundscheck checkbounds(collection, index)
-    ret = similar(collection, length(collection) + 1)
+    ret = similar(collection, static_length(collection) + 1)
     @inbounds for i in firstindex(ret):(index - 1)
         ret[i] = collection[i]
     end
@@ -213,7 +216,7 @@ Base.@propagate_inbounds function deleteat(collection::Tuple{Vararg{Any, N}},
 end
 
 function unsafe_deleteat(src::AbstractVector, index)
-    dst = similar(src, length(src) - 1)
+    dst = similar(src, static_length(src) - 1)
     @inbounds for i in indices(dst)
         if i < index
             dst[i] = src[i]
@@ -225,7 +228,7 @@ function unsafe_deleteat(src::AbstractVector, index)
 end
 
 @inline function unsafe_deleteat(src::AbstractVector, inds::AbstractVector)
-    dst = similar(src, length(src) - length(inds))
+    dst = similar(src, static_length(src) - static_length(inds))
     dst_index = firstindex(dst)
     @inbounds for src_index in indices(src)
         if !in(src_index, inds)
@@ -237,9 +240,9 @@ end
 end
 
 @inline function unsafe_deleteat(src::Tuple, inds::AbstractVector)
-    dst = Vector{eltype(src)}(undef, length(src) - length(inds))
+    dst = Vector{eltype(src)}(undef, static_length(src) - static_length(inds))
     dst_index = firstindex(dst)
-    @inbounds for src_index in static(1):length(src)
+    @inbounds for src_index in static(1):static_length(src)
         if !in(src_index, inds)
             dst[dst_index] = src[src_index]
             dst_index += one(dst_index)
@@ -253,7 +256,7 @@ end
 @inline function unsafe_deleteat(x::Tuple, i)
     if i === one(i)
         return tail(x)
-    elseif i == length(x)
+    elseif i == static_length(x)
         return Base.front(x)
     else
         return (first(x), unsafe_deleteat(tail(x), i - one(i))...)

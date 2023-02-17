@@ -1,4 +1,4 @@
-module ArrayInterfaceTracker
+module ArrayInterfaceTrackerExt
 
 using ArrayInterface
 using Tracker

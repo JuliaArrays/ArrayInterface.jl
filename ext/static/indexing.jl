@@ -1,18 +1,18 @@
 
 """
-    ArrayInterface.to_indices(A, I::Tuple) -> Tuple
+    ArrayInterface.static_to_indices(A, I::Tuple) -> Tuple
 
 Converts the tuple of indexing arguments, `I`, into an appropriate form for indexing into `A`.
 Typically, each index should be an `Int`, `StaticInt`, a collection with values of `Int`, or a collection with values of `CartesianIndex`
-This is accomplished in three steps after the initial call to `to_indices`:
+This is accomplished in three steps after the initial call to `static_to_indices`:
 
 # Extended help
 
 This implementation differs from that of `Base.to_indices` in the following ways:
 
-*  `to_indices(A, I)` never results in recursive processing of `I` through
-  `to_indices(A, axes(A), I)`. This is avoided through the use of an internal `@generated`
-  method that aligns calls of `to_indices` and `to_index` based on the return values of
+*  `static_to_indices(A, I)` never results in recursive processing of `I` through
+  `static_to_indices(A, static_axes(A), I)`. This is avoided through the use of an internal `@generated`
+  method that aligns calls of `static_to_indices` and `to_index` based on the return values of
   `ndims_index`. This is beneficial because the compiler currently does not optimize away
   the increased time spent recursing through
     each additional argument that needs converting. For example:
@@ -29,18 +29,18 @@ This implementation differs from that of `Base.to_indices` in the following ways
     1.105 μs (12 allocations: 672 bytes)
     (1, 1, 2, 1, 1, 2, 1, 1, 2, 1)
 
-    julia> @btime ArrayInterface.to_indices(\$x, \$inds2)
+    julia> @btime ArrayInterface.static_to_indices(\$x, \$inds2)
     0.041 ns (0 allocations: 0 bytes)
     (1, 1, 2, 1, 1, 2, 1, 1, 2, 1)
 
     julia> @btime Base.to_indices(\$x, \$inds3);
     340.629 ns (14 allocations: 768 bytes)
 
-    julia> @btime ArrayInterface.to_indices(\$x, \$inds3);
+    julia> @btime ArrayInterface.static_to_indices(\$x, \$inds3);
     11.614 ns (0 allocations: 0 bytes)
 
     ```
-* Recursing through `to_indices(A, axes, I::Tuple{I1,Vararg{Any}})` is intended to provide
+* Recursing through `static_to_indices(A, axes, I::Tuple{I1,Vararg{Any}})` is intended to provide
   context for processing `I1`. However, this doesn't tell use how many dimensions are
   consumed by what is in `Vararg{Any}`. Using `ndims_index` to directly align the axes of
   `A` with each value in `I` ensures that a `CartesiaIndex{3}` at the tail of `I` isn't
@@ -48,16 +48,16 @@ This implementation differs from that of `Base.to_indices` in the following ways
 * `Base.to_indices` may fail to infer the returned type. This is the case for `inds2` and
   `inds3` in the first bullet on Julia 1.6.4.
 * Specializing by dispatch through method definitions like this:
-  `to_indices(::ArrayType, ::Tuple{AxisType,Vararg{Any}}, ::Tuple{::IndexType,Vararg{Any}})`
+  `static_to_indices(::ArrayType, ::Tuple{AxisType,Vararg{Any}}, ::Tuple{::IndexType,Vararg{Any}})`
   require an excessive number of hand written methods to avoid ambiguities. Furthermore, if
   `AxisType` is wrapping another axis that should have unique behavior, then unique parametric
   types need to also be explicitly defined.
-* `to_index(axes(A, dim), index)` is called, as opposed to `Base.to_index(A, index)`. The
+* `to_index(static_axes(A, dim), index)` is called, as opposed to `Base.to_index(A, index)`. The
   `IndexStyle` of the resulting axis is used to allow indirect dispatch on nested axis types
   within `to_index`.
 """
-to_indices(A, ::Tuple{}) = ()
-@inline function to_indices(a::A, inds::I) where {A,I}
+static_to_indices(A, ::Tuple{}) = ()
+@inline function static_to_indices(a::A, inds::I) where {A,I}
     flatten_tuples(map(IndexedMappedArray(a), inds, getfield(_init_dimsmap(IndicesInfo{ndims(A)}(I)), 1)))
 end
 
@@ -82,7 +82,7 @@ end
 """
     ArrayInterface.to_index([::IndexStyle, ]axis, arg) -> index
 
-Convert the argument `arg` that was originally passed to `ArrayInterface.getindex` for the
+Convert the argument `arg` that was originally passed to `ArrayInterface.static_getindex` for the
 dimension corresponding to `axis` into a form for native indexing (`Int`, Vector{Int}, etc.).
 
 `ArrayInterface.to_index` supports passing a function as an index. This function-index is
@@ -201,11 +201,11 @@ indices calling [`to_axis`](@ref).
 """
 @inline function to_axes(A, inds::Tuple)
     if ndims(A) === 1
-        return (to_axis(axes(A, 1), first(inds)),)
+        return (to_axis(static_axes(A, 1), first(inds)),)
     elseif Base.length(inds) === 1
         return (to_axis(eachindex(IndexLinear(), A), first(inds)),)
     else
-        return to_axes(A, axes(A), inds)
+        return to_axes(A, static_axes(A), inds)
     end
 end
 # drop this dimension
@@ -256,28 +256,28 @@ end
         return axis
     end
 end
-to_axis(S::IndexLinear, axis, inds) = StaticInt(1):length(inds)
+to_axis(S::IndexLinear, axis, inds) = StaticInt(1):static_length(inds)
 
 """
-    ArrayInterface.getindex(A, args...)
+    ArrayInterface.static_getindex(A, args...)
 
 Retrieve the value(s) stored at the given key or index within a collection. Creating
-another instance of `ArrayInterface.getindex` should only be done by overloading `A`.
+another instance of `ArrayInterface.static_getindex` should only be done by overloading `A`.
 Changing indexing based on a given argument from `args` should be done through,
 [`to_index`](@ref), or [`to_axis`](@ref).
 """
-function getindex(A, args...)
-    inds = to_indices(A, args)
+function static_getindex(A, args...)
+    inds = static_to_indices(A, args)
     @boundscheck checkbounds(A, inds...)
     unsafe_getindex(A, inds...)
 end
-@propagate_inbounds function getindex(A; kwargs...)
-    inds = to_indices(A, find_all_dimnames(dimnames(A), static(keys(kwargs)), Tuple(values(kwargs)), :))
+@propagate_inbounds function static_getindex(A; kwargs...)
+    inds = static_to_indices(A, find_all_dimnames(dimnames(A), static(keys(kwargs)), Tuple(values(kwargs)), :))
     @boundscheck checkbounds(A, inds...)
     unsafe_getindex(A, inds...)
 end
-@propagate_inbounds getindex(x::Tuple, i::Int) = getfield(x, i)
-@propagate_inbounds getindex(x::Tuple, ::StaticInt{i}) where {i} = getfield(x, i)
+@propagate_inbounds static_getindex(x::Tuple, i::Int) = getfield(x, i)
+@propagate_inbounds static_getindex(x::Tuple, ::StaticInt{i}) where {i} = getfield(x, i)
 
 ## unsafe_getindex ##
 function unsafe_getindex(a::A) where {A}
@@ -334,7 +334,7 @@ Returns a collection of `A` given `inds`. `inds` is assumed to have been bounds-
 function unsafe_get_collection(A, inds)
     axs = to_axes(A, inds)
     dest = similar(A, axs)
-    if map(length, axes(dest)) == map(length, axs)
+    if map(static_length, static_axes(dest)) == map(static_length, axs)
         Base._unsafe_getindex!(dest, A, inds...)
     else
         Base.throw_checksize_error(dest, axs)
@@ -386,13 +386,13 @@ Store the given values at the given key or index within a collection.
 """
 @propagate_inbounds function setindex!(A, val, args...)
     can_setindex(A) || error("Instance of type $(typeof(A)) are not mutable and cannot change elements after construction.")
-    inds = to_indices(A, args)
+    inds = static_to_indices(A, args)
     @boundscheck checkbounds(A, inds...)
     unsafe_setindex!(A, val, inds...)
 end
 @propagate_inbounds function setindex!(A, val; kwargs...)
     can_setindex(A) || error("Instance of type $(typeof(A)) are not mutable and cannot change elements after construction.")
-    inds = to_indices(A, find_all_dimnames(dimnames(A), static(keys(kwargs)), Tuple(values(kwargs)), :))
+    inds = static_to_indices(A, find_all_dimnames(dimnames(A), static(keys(kwargs)), Tuple(values(kwargs)), :))
     @boundscheck checkbounds(A, inds...)
     unsafe_setindex!(A, val, inds...)
 end

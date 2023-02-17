@@ -31,7 +31,7 @@ function ArrayInterface.axes_types(::Type{T}) where {T<:OffsetArrays.OffsetArray
         ArrayInterface.parent_type(T)
     )
 end
-ArrayInterface.strides(A::OffsetArray) = ArrayInterface.strides(parent(A))
+ArrayInterface.static_strides(A::OffsetArray) = ArrayInterface.static_strides(parent(A))
 function ArrayInterface.known_offsets(::Type{A}) where {A<:OffsetArrays.OffsetArray}
     ntuple(identity -> nothing, Val(ndims(A)))
 end
@@ -42,12 +42,12 @@ end
     d = ArrayInterface.to_dims(A, dim)
     ArrayInterface.offsets(parent(A), d) + relative_offsets(A, d)
 end
-@inline function ArrayInterface.axes(A::OffsetArrays.OffsetArray)
-    map(OffsetArrays.IdOffsetRange, ArrayInterface.axes(parent(A)), relative_offsets(A))
+@inline function ArrayInterface.static_axes(A::OffsetArrays.OffsetArray)
+    map(OffsetArrays.IdOffsetRange, ArrayInterface.static_axes(parent(A)), relative_offsets(A))
 end
-@inline function ArrayInterface.axes(A::OffsetArrays.OffsetArray, dim)
+@inline function ArrayInterface.static_axes(A::OffsetArrays.OffsetArray, dim)
     d = ArrayInterface.to_dims(A, dim)
-    OffsetArrays.IdOffsetRange(ArrayInterface.axes(parent(A), d), relative_offsets(A, d))
+    OffsetArrays.IdOffsetRange(ArrayInterface.static_axes(parent(A), d), relative_offsets(A, d))
 end
 function ArrayInterface.stride_rank(T::Type{<:OffsetArray})
   ArrayInterface.stride_rank(ArrayInterface.parent_type(T))

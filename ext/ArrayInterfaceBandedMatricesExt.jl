@@ -1,16 +1,8 @@
 module ArrayInterfaceBandedMatricesExt
 
 using ArrayInterface
+using ArrayInterface: BandedMatrixIndex
 using BandedMatrices
-
-struct BandedMatrixIndex <: ArrayInterface.MatrixIndex
-    count::Int
-    rowsize::Int
-    colsize::Int
-    bandinds::Array{Int,1}
-    bandsizes::Array{Int,1}
-    isrow::Bool
-end
 
 Base.firstindex(i::BandedMatrixIndex) = 1
 Base.lastindex(i::BandedMatrixIndex) = i.count

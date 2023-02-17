@@ -43,7 +43,7 @@ offsets(x) = eachop(_offsets, ntuple(static, StaticInt(ndims(x))), x)
 function _offsets(x::X, dim::StaticInt{D}) where {X,D}
     start = known_first(axes_types(X, dim))
     if start === nothing
-        return first(axes(x, dim))
+        return first(static_axes(x, dim))
     else
         return static(start)
     end
@@ -417,7 +417,7 @@ end
         end
     end
     # If n != N, then an axis was indexed by something other than an integer or `AbstractUnitRange`, so we return `nothing`.
-    if length(dense_tup.args) === N
+    if static_length(dense_tup.args) === N
         return dense_tup
     else
         return nothing
@@ -477,15 +477,15 @@ function known_strides(::Type{T}) where {T}
 end
 
 """
-    strides(A) -> Tuple{Vararg{Union{Int,StaticInt}}}
-    strides(A, dim) -> Union{Int,StaticInt}
+    static_strides(A) -> Tuple{Vararg{Union{Int,StaticInt}}}
+    static_strides(A, dim) -> Union{Int,StaticInt}
 
 Returns the strides of array `A`. If any strides are known at compile time,
 these should be returned as `Static` numbers. For example:
 ```julia
 julia> A = rand(3,4);
 
-julia> ArrayInterface.strides(A)
+julia> ArrayInterface.static_strides(A)
 (static(1), 3)
 ```
 
@@ -494,7 +494,7 @@ Additionally, the behavior differs from `Base.strides` for adjoint vectors:
 ```julia
 julia> x = rand(5);
 
-julia> ArrayInterface.strides(x')
+julia> ArrayInterface.static_strides(x')
 (static(1), static(1))
 ```
 
@@ -502,14 +502,14 @@ This is to support the pattern of using just the first stride for linear indexin
 while still producing correct behavior when using valid cartesian indices, such as `x[1,i]`.
 ```
 """
-strides(A::StrideIndex) = getfield(A, :strides)
-@inline strides(A::Vector{<:Any}) = (StaticInt(1),)
-@inline strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
-@inline function strides(x::X) where {X}
+static_strides(A::StrideIndex) = getfield(A, :strides)
+@inline static_strides(A::Vector{<:Any}) = (StaticInt(1),)
+@inline static_strides(A::Array{<:Any,N}) where {N} = (StaticInt(1), Base.tail(Base.strides(A))...)
+@inline function static_strides(x::X) where {X}
     if is_forwarding_wrapper(X)
-        return strides(parent(x))
+        return static_strides(parent(x))
     elseif defines_strides(X)
-        return size_to_strides(size(x), One())
+        return size_to_strides(static_size(x), One())
     else
         return Base.strides(x)
     end
@@ -519,20 +519,20 @@ _is_column_dense(::A) where {A<:AbstractArray} =
     defines_strides(A) &&
     (ndims(A) == 0 || Bool(is_dense(A)) && Bool(is_column_major(A)))
 
-# Fixes the example of https://github.com/JuliaArrays/ArrayInterfaceCore.jl/issues/160
-function strides(A::ReshapedArray)
+# Fixes the example of https://github.com/JuliaArrays/ArrayInterface.jl/issues/160
+function static_strides(A::ReshapedArray)
     if _is_column_dense(parent(A))
-        return size_to_strides(size(A), One())
+        return size_to_strides(static_size(A), One())
     else
-        pst = strides(parent(A))
-        psz = size(parent(A))
+        pst = static_strides(parent(A))
+        psz = static_size(parent(A))
         # Try dimension merging in order (starting from dim1).
         # `sz1` and `st1` are the `size`/`stride` of dim1 after dimension merging.
         # `n` indicates the last merged dimension.
         # note: `st1` should be static if possible
         sz1, st1, n = merge_adjacent_dim(psz, pst)
-        n == ndims(A.parent) && return size_to_strides(size(A), st1)
-        return _reshaped_strides(size(A), One(), sz1, st1, n, Dims(psz), Dims(pst))
+        n == ndims(A.parent) && return size_to_strides(static_size(A), st1)
+        return _reshaped_strides(static_size(A), One(), sz1, st1, n, Dims(psz), Dims(pst))
     end
 end
 
@@ -543,7 +543,7 @@ end
 function _reshaped_strides(asz::Dims, reshaped, msz::Int, mst, n::Int, apsz::Dims, apst::Dims)
     st = reshaped * mst
     reshaped = reshaped * asz[1]
-    if length(asz) > 1 && reshaped == msz && asz[2] != 1
+    if static_length(asz) > 1 && reshaped == msz && asz[2] != 1
         msz, mst′, n = merge_adjacent_dim(apsz, apst, n + 1)
         reshaped = 1
     else
@@ -598,10 +598,10 @@ function merge_adjacent_dim(psz::Dims{N}, pst::Dims{N}, n::Int) where {N}
     return sz, st, n
 end
 
-# `strides` for `Base.ReinterpretArray`
-function strides(A::Base.ReinterpretArray{T,<:Any,S,<:AbstractArray{S},IsReshaped}) where {T,S,IsReshaped}
-    _is_column_dense(parent(A)) && return size_to_strides(size(A), One())
-    stp = strides(parent(A))
+# `static_strides` for `Base.ReinterpretArray`
+function static_strides(A::Base.ReinterpretArray{T,<:Any,S,<:AbstractArray{S},IsReshaped}) where {T,S,IsReshaped}
+    _is_column_dense(parent(A)) && return size_to_strides(static_size(A), One())
+    stp = static_strides(parent(A))
     ET, ES = static(sizeof(T)), static(sizeof(S))
     ET === ES && return stp
     IsReshaped && ET < ES && return (One(), _reinterp_strides(stp, ET, ES)...)
@@ -640,18 +640,18 @@ end
     end
 end
 
-strides(@nospecialize x::AbstractRange) = (One(),)
-function strides(x::VecAdjTrans)
-    st = first(strides(parent(x)))
+static_strides(@nospecialize x::AbstractRange) = (One(),)
+function static_strides(x::VecAdjTrans)
+    st = first(static_strides(parent(x)))
     return (st, st)
 end
-@inline function strides(x::Union{MatAdjTrans,PermutedDimsArray})
-    map(GetIndex{false}(strides(parent(x))), to_parent_dims(x))
+@inline function static_strides(x::Union{MatAdjTrans,PermutedDimsArray})
+    map(GetIndex{false}(static_strides(parent(x))), to_parent_dims(x))
 end
 
 getmul(x::Tuple, y::Tuple, ::StaticInt{i}) where {i} = getfield(x, i) * getfield(y, i)
-function strides(A::SubArray)
-    eachop(getmul, to_parent_dims(typeof(A)), map(maybe_static_step, A.indices), strides(parent(A)))
+function static_strides(A::SubArray)
+    eachop(getmul, to_parent_dims(typeof(A)), map(maybe_static_step, A.indices), static_strides(parent(A)))
 end
 
 maybe_static_step(x::AbstractRange) = static_step(x)
@@ -677,15 +677,15 @@ maybe_static_step(_) = nothing
     return out
 end
 
-strides(a, dim) = strides(a, to_dims(a, dim))
-function strides(a::A, dim::IntType) where {A}
+static_strides(a, dim) = static_strides(a, to_dims(a, dim))
+function static_strides(a::A, dim::IntType) where {A}
     if is_forwarding_wrapper(A)
-        return strides(parent(a), dim)
+        return static_strides(parent(a), dim)
     else
         return Base.stride(a, Int(dim))
     end
 end
 
-@inline stride(A::AbstractArray, ::StaticInt{N}) where {N} = strides(A)[N]
-@inline stride(A::AbstractArray, ::Val{N}) where {N} = strides(A)[N]
-stride(A, i) = Base.stride(A, i) # for type stability
+@inline static_stride(A::AbstractArray, ::StaticInt{N}) where {N} = static_strides(A)[N]
+@inline static_stride(A::AbstractArray, ::Val{N}) where {N} = static_strides(A)[N]
+static_stride(A, i) = Base.stride(A, i) # for type stability

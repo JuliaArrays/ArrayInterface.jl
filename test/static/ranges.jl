@@ -7,11 +7,11 @@ CI = CartesianIndices((static(1):static(2), static(1):static(2)))
 @test @inferred(ArrayInterface.known_last(typeof(CI))) == CartesianIndex(2, 2)
 
 @testset "length" begin
-    @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(static(1), 2, 10)))) === nothing
-    @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.SOneTo{-10}()))) === 0
-    @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(static(1), static(1), static(10))))) === 10
-    @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(static(2), static(1), static(10))))) === 9
-    @test @inferred(ArrayInterface.known_length(typeof(ArrayInterface.OptionallyStaticStepRange(static(2), static(2), static(10))))) === 5
+    @test @inferred(ArrayInterface.known_length(typeof(Static.OptionallyStaticStepRange(static(1), 2, 10)))) === nothing
+    @test @inferred(ArrayInterface.known_length(typeof(Static.SOneTo{-10}()))) === 0
+    @test @inferred(ArrayInterface.known_length(typeof(Static.OptionallyStaticStepRange(static(1), static(1), static(10))))) === 10
+    @test @inferred(ArrayInterface.known_length(typeof(Static.OptionallyStaticStepRange(static(2), static(1), static(10))))) === 9
+    @test @inferred(ArrayInterface.known_length(typeof(Static.OptionallyStaticStepRange(static(2), static(2), static(10))))) === 5
     @test @inferred(ArrayInterface.known_length(Int)) === 1
 end
 

@@ -8,10 +8,10 @@ end
 MArray(A::Array) = MArray(A, LinearIndices(map(s -> static(1):static(s), size(A))))
 Base.parent(x::MArray) = x.parent
 Base.IndexStyle(::Type{<:MArray}) = IndexLinear()
-ArrayInterface.axes(x::MArray) = ArrayInterface.axes(x.indices)
-Base.axes(x::MArray) = ArrayInterface.axes(x)
+ArrayInterface.static_axes(x::MArray) = ArrayInterface.static_axes(x.indices)
+Base.axes(x::MArray) = ArrayInterface.static_axes(x)
 ArrayInterface.axes_types(T::Type{<:MArray}) = T.parameters[3]
-#ArrayInterface.size(x::MArray) = ArrayInterface.size(x.indices)
+ArrayInterface.static_axes(x::MArray) = ArrayInterface.static_axes(x.indices)
 ArrayInterface.defines_strides(::Type{<:MArray}) = true
 Base.strides(x::MArray) = strides(parent(x))
 function Base.getindex(x::MArray, inds...)
@@ -19,8 +19,7 @@ function Base.getindex(x::MArray, inds...)
     @inbounds parent(x)[inds...]
 end
 
-Base.size(x::MArray) = map(Int, ArrayInterface.size(x))
-
+Base.size(x::MArray) = map(Int, ArrayInterface.static_size(x))
 struct NamedDimsWrapper{D,T,N,P<:AbstractArray{T,N}} <: ArrayInterface.AbstractArray2{T,N}
     dimnames::D
     parent::P
@@ -31,7 +30,7 @@ Base.parent(x::NamedDimsWrapper) = getfield(x, :parent)
 ArrayInterface.parent_type(::Type{T}) where {P,T<:NamedDimsWrapper{<:Any,<:Any,<:Any,P}} = P
 ArrayInterface.dimnames(x::NamedDimsWrapper) = getfield(x, :dimnames)
 function ArrayInterface.known_dimnames(::Type{T}) where {L,T<:NamedDimsWrapper{L}}
-    ArrayInterface.Static.known(L)
+    Static.known(L)
 end
 
 Base.parent(x::NamedDimsWrapper) = x.parent

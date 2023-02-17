@@ -1,18 +1,18 @@
 
-ArrayInterfaceCore.known_first(::Type{<:OptionallyStaticUnitRange{StaticInt{F}}}) where {F} = F::Int
-ArrayInterfaceCore.known_first(::Type{<:OptionallyStaticStepRange{StaticInt{F}}}) where {F} = F::Int
+ArrayInterface.known_first(::Type{<:OptionallyStaticUnitRange{StaticInt{F}}}) where {F} = F::Int
+ArrayInterface.known_first(::Type{<:OptionallyStaticStepRange{StaticInt{F}}}) where {F} = F::Int
 
-ArrayInterfaceCore.known_step(::Type{<:OptionallyStaticStepRange{<:Any,StaticInt{S}}}) where {S} = S::Int
+ArrayInterface.known_step(::Type{<:OptionallyStaticStepRange{<:Any,StaticInt{S}}}) where {S} = S::Int
 
-ArrayInterfaceCore.known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = L::Int
-ArrayInterfaceCore.known_last(::Type{<:OptionallyStaticStepRange{<:Any,<:Any,StaticInt{L}}}) where {L} = L::Int
+ArrayInterface.known_last(::Type{<:OptionallyStaticUnitRange{<:Any,StaticInt{L}}}) where {L} = L::Int
+ArrayInterface.known_last(::Type{<:OptionallyStaticStepRange{<:Any,<:Any,StaticInt{L}}}) where {L} = L::Int
 
 """
     indices(x, dim) -> AbstractUnitRange{Int}
 
 Given an array `x`, this returns the indices along dimension `dim`.
 """
-@inline indices(x, d) = indices(axes(x, d))
+@inline indices(x, d) = indices(static_axes(x, d))
 
 """
     indices(x) -> AbstractUnitRange{Int}

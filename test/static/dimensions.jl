@@ -57,8 +57,8 @@ end
     @test @inferred(ArrayInterface.dimnames(view(x, ones(Int, 2, 2), 1))) === (static(:_), static(:_))
     @test @inferred(ArrayInterface.dimnames(view(x, [CartesianIndex(1,1), CartesianIndex(1,1)]))) === (static(:_),)
 
-    @test @inferred(ArrayInterface.dimnames(x, ArrayInterface.One())) === static(:x)
-    @test @inferred(ArrayInterface.dimnames(parent(x), ArrayInterface.One())) === static(:_)
+    @test @inferred(ArrayInterface.dimnames(x, Static.One())) === static(:x)
+    @test @inferred(ArrayInterface.dimnames(parent(x), Static.One())) === static(:_)
     @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10))) === (:_,)
     @test @inferred(ArrayInterface.known_dimnames(Iterators.flatten(1:10), static(1))) === :_
     # multidmensional indices
@@ -104,9 +104,9 @@ end
     x = NamedDimsWrapper(d, ones(2, 2))
     y = NamedDimsWrapper((static(:x),), ones(2))
     @test @inferred(size(x, first(d))) == size(parent(x), 1)
-    @test @inferred(ArrayInterface.size(y')) == (1, size(parent(x), 1))
+    @test @inferred(ArrayInterface.static_axes(y')) == (static(1):static(1), Base.OneTo(2))
     @test @inferred(axes(x, first(d))) == axes(parent(x), 1)
-    @test strides(x, :x) == ArrayInterface.strides(parent(x))[1]
+    @test strides(x, :x) == ArrayInterface.static_strides(parent(x))[1]
     @test @inferred(ArrayInterface.axes_types(x, static(:x))) <: Base.OneTo{Int}
     @test ArrayInterface.axes_types(x, :x) <: Base.OneTo{Int}
     @test @inferred(ArrayInterface.axes_types(LinearIndices{2,NTuple{2,Base.OneTo{Int}}})) <: NTuple{2,Base.OneTo{Int}}

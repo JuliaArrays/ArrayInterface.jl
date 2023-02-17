@@ -1051,6 +1051,107 @@ stride_preserving_index(@nospecialize T::Type{<:Number}) = true
 end
 stride_preserving_index(@nospecialize T::Type) = false
 
+## Stubs
+struct BandedMatrixIndex <: ArrayInterface.MatrixIndex
+    count::Int
+    rowsize::Int
+    colsize::Int
+    bandinds::Array{Int,1}
+    bandsizes::Array{Int,1}
+    isrow::Bool
+end
+
+"""
+    StrideIndex(x)
+
+Subtype of `ArrayIndex` that transforms and index using stride layout information
+derived from `x`.
+"""
+struct StrideIndex{N,R,C,S,O} <: ArrayIndex{N}
+    strides::S
+    offsets::O
+    @inline function StrideIndex{N,R,C}(s::S, o::O) where {N,R,C,S,O}
+        return new{N,R::NTuple{N,Int},C,S,O}(s, o)
+    end
+end
+
+"""
+    LazyAxis{N}(parent::AbstractArray)
+
+A lazy representation of `axes(parent, N)`.
+"""
+struct LazyAxis{N,P} <: AbstractUnitRange{Int}
+    parent::P
+
+    function LazyAxis{N}(parent::P) where {N,P}
+        N > 0 && return new{N::Int,P}(parent)
+        throw_dim_error(parent, N)
+    end
+    @inline LazyAxis{:}(parent::P) where {P} = new{ifelse(ndims(P) === 1, 1, :),P}(parent)
+end
+
+function throw_dim_error(@nospecialize(x), @nospecialize(dim))
+    throw(DimensionMismatch("$x does not have dimension corresponding to $dim"))
+end
+
+abstract type AbstractArray2{T, N} <: AbstractArray{T, N} end
+
+"""
+    BroadcastAxis
+
+An abstract trait that is used to determine how axes are combined when calling `broadcast_axis`.
+"""
+abstract type BroadcastAxis end
+
+function offsets end
+function axes_types end
+function offset1 end
+function indices end
+function known_offsets end
+function stride_rank end
+function dense_dims end
+function contiguous_axis end
+function known_length end
+function contiguous_batch_size end
+function contiguous_axis_indicator end
+function is_column_major end
+function _all_dense end
+function static_length end
+function static_size end
+function dimnames end
+function known_dimnames end
+function known_offset1 end
+function known_strides end
+function lazy_axes end
+function broadcast_axis end
+function to_axes end
+function find_all_dimnames end
+function to_dims end
+function known_size end
+function deleteat end
+function insert end
+function is_lazy_conjugate end
+function static_stride end
+function static_strides end
+function has_dimnames end
+function unsafe_reconstruct end
+function static_to_indices end
+function to_index end
+function unsafe_setindex! end
+function unsafe_getindex end
+function static_axes end
+function to_axis end
+function is_dense end
+function static_getindex end
+
+## Shadowing
+## This is really dumb, it breaks every style guide idea, who did this, this is so bad, remove ASAP
+
+function strides end
+function axes end
+
+## Precompilation
+
 using SnoopPrecompile
 @precompile_setup begin
     # Putting some things in `setup` can reduce the size of the
@@ -1061,6 +1162,23 @@ using SnoopPrecompile
         known_step(x)
         known_last(x)
     end end
+end
+
+## Extensions
+
+import Requires
+@static if !isdefined(Base, :get_extension)
+    function __init__()
+        Requires.@require BandedMatrices = "aae01518-5342-5314-be14-df237901396f" begin include("../ext/ArrayInterfaceBandedMatricesExt.jl") end
+        Requires.@require BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0" begin include("../ext/ArrayInterfaceBlockBandedMatricesExt.jl") end
+        Requires.@require GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527" begin include("../ext/ArrayInterfaceGPUArraysCoreExt.jl") end
+        Requires.@require OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881" begin include("../ext/ArrayInterfaceOffsetArraysExt.jl") end
+        Requires.@require StaticArrays = "90137ffa-7385-5640-81b9-e52037218182" begin include("../ext/ArrayInterfaceStaticArraysExt.jl") end
+        Requires.@require StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c" begin include("../ext/ArrayInterfaceStaticArraysCoreExt.jl") end
+        Requires.@require CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba" begin include("../ext/ArrayInterfaceCUDAExt.jl") end
+        Requires.@require Tracker="9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c" begin include("../ext/ArrayInterfaceTrackerExt.jl") end
+        Requires.@require Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3" begin include("../ext/ArrayInterfaceStaticExt.jl") end
+    end
 end
 
 end # module

@@ -4,8 +4,8 @@ _init_dimsmap(x) = _init_dimsmap(IndicesInfo(x))
 function _init_dimsmap(@nospecialize info::IndicesInfo)
     pdims = parentdims(info)
     cdims = childdims(info)
-    ntuple(i -> static(getfield(pdims, i)), length(pdims)),
-    ntuple(i -> static(getfield(cdims, i)), length(pdims))
+    ntuple(i -> static(getfield(pdims, i)), static_length(pdims)),
+    ntuple(i -> static(getfield(cdims, i)), static_length(pdims))
 end
 
 """
@@ -24,16 +24,12 @@ end
 to_parent_dims(info::IndicesInfo) = flatten_tuples(map(_to_pdim, map_indices_info(info)))
 _to_pdim(::Tuple{StaticInt,Any,StaticInt{0}}) = ()
 _to_pdim(x::Tuple{StaticInt,Any,StaticInt{cdim}}) where {cdim} = getfield(x, 2)
-_to_pdim(x::Tuple{StaticInt,Any,Tuple}) = (ntuple(Compat.Returns(getfield(x, 2)), length(getfield(x, 3))),)
+_to_pdim(x::Tuple{StaticInt,Any,Tuple}) = (ntuple(Compat.Returns(getfield(x, 2)), static_length(getfield(x, 3))),)
 to_parent_dims(@nospecialize T::Type{<:MatAdjTrans}) = (StaticInt(2), StaticInt(1))
 to_parent_dims(@nospecialize T::Type{<:PermutedDimsArray}) = getfield(_permdims(T), 1)
 
 function _permdims(::Type{<:PermutedDimsArray{<:Any,<:Any,I1,I2}}) where {I1,I2}
     (map(static, I1), map(static, I2))
-end
-
-function throw_dim_error(@nospecialize(x), @nospecialize(dim))
-    throw(DimensionMismatch("$x does not have dimension corresponding to $dim"))
 end
 
 # Base will sometomes demote statically known slices in `SubArray` to `OneTo{Int}` so we
@@ -53,7 +49,7 @@ end
 function map_indices_info(@nospecialize info::IndicesInfo)
     pdims = parentdims(info)
     cdims = childdims(info)
-    ntuple(i -> (static(i), static(getfield(pdims, i)), static(getfield(cdims, i))), length(pdims))
+    ntuple(i -> (static(i), static(getfield(pdims, i)), static(getfield(cdims, i))), static_length(pdims))
 end
 function sub_dimnames_map(dnames::Tuple, imap::Tuple)
     flatten_tuples(map(Base.Fix1(_to_dimname, dnames), imap))
@@ -89,10 +85,10 @@ end
 function from_parent_dims(@nospecialize(info::IndicesInfo))
     pdims = parentdims(info)
     cdims = childdims(info)
-    ntuple(length(cdims)) do i
+    ntuple(static_length(cdims)) do i
         pdim_i = getfield(pdims, i)
         cdim_i = static(getfield(cdims, i))
-        pdim_i isa Int ? cdim_i : ntuple(Compat.Returns(cdim_i), length(pdim_i))
+        pdim_i isa Int ? cdim_i : ntuple(Compat.Returns(cdim_i), static_length(pdim_i))
     end
 end
 
