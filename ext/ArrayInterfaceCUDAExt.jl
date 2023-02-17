@@ -2,8 +2,14 @@ module ArrayInterfaceCUDAExt
 
 using Adapt
 using ArrayInterface
-using CUDA
-using CUDA.CUSOLVER
+
+if isdefined(Base, :get_extension) 
+    using CUDA
+    using CUDA.CUSOLVER
+else 
+    using ..CUDA
+    using ..CUDA.CUSOLVER
+end
 
 using LinearAlgebra
 

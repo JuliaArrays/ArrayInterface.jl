@@ -2,7 +2,7 @@ module ArrayInterfaceBandedMatricesExt
 
 using ArrayInterface
 using ArrayInterface: BandedMatrixIndex
-using BandedMatrices
+isdefined(Base, :get_extension) ? (using BandedMatrices) : (using ..BandedMatrices)
 
 Base.firstindex(i::BandedMatrixIndex) = 1
 Base.lastindex(i::BandedMatrixIndex) = i.count

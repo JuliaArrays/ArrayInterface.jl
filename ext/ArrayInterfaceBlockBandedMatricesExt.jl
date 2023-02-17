@@ -5,6 +5,14 @@ using ArrayInterface: BandedMatrixIndex
 using BlockBandedMatrices
 using BlockBandedMatrices.BlockArrays
 
+if isdefined(Base, :get_extension) 
+    using BlockBandedMatrices
+    using BlockBandedMatrices.BlockArrays
+else
+    using ..BlockBandedMatrices
+    using ..BlockBandedMatrices.BlockArrays
+end
+
 struct BlockBandedMatrixIndex <: ArrayInterface.MatrixIndex
     count::Int
     refinds::Array{Int,1}

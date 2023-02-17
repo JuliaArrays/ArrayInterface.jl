@@ -3,9 +3,15 @@ module ArrayInterfaceStaticArraysExt
 using Adapt
 using ArrayInterface
 using LinearAlgebra
-using StaticArrays
-using Static
-using Static: StaticInt
+if isdefined(Base, :get_extension) 
+    using StaticArrays
+    using Static
+    using Static: StaticInt
+else 
+    using ..StaticArrays
+    using ..Static
+    using ..Static: StaticInt
+end
 
 const CanonicalInt = Union{Int,StaticInt}
 

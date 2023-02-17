@@ -2,8 +2,8 @@ module ArrayInterfaceGPUArraysExt
 
 using Adapt
 using ArrayInterface
-using GPUArraysCore
 using LinearAlgebra: lu
+isdefined(Base, :get_extension) ? (import GPUArraysCore) : (import ..GPUArraysCore)
 
 ArrayInterface.fast_scalar_indexing(::Type{<:GPUArraysCore.AbstractGPUArray}) = false
 @inline ArrayInterface.allowed_getindex(x::GPUArraysCore.AbstractGPUArray, i...) = GPUArraysCore.@allowscalar(x[i...])

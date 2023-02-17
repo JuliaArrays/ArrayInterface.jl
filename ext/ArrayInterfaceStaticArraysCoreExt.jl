@@ -1,7 +1,8 @@
 module ArrayInterfaceStaticArraysCoreExt
 
-import StaticArraysCore, ArrayInterface, Adapt
+import ArrayInterface, Adapt
 using LinearAlgebra
+isdefined(Base, :get_extension) ? (import StaticArraysCore) : (import ..StaticArraysCore)
 
 function ArrayInterface.undefmatrix(::StaticArraysCore.MArray{S, T, N, L}) where {S, T, N, L}
     return StaticArraysCore.MMatrix{L, L, T, L*L}(undef)

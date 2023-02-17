@@ -32,13 +32,21 @@ contiguous_axis_indicator, is_column_major, _all_dense, AbstractArray2, dimnames
 to_axes, find_all_dimnames, to_dims, known_size, deleteat, insert, static_size, is_lazy_conjugate, static_stride, static_strides, has_dimnames, unsafe_reconstruct, static_to_indices,
 to_index, unsafe_setindex!, unsafe_getindex, static_axes, to_axis, is_dense, static_getindex
 
-using Static
-using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
-              permute, invariant_permutation, field_type, reduce_tup, find_first_eq,
-              OptionallyStaticUnitRange, OptionallyStaticStepRange, OptionallyStaticRange,
-              IntType,
-              SOneTo, SUnitRange
-
+if isdefined(Base, :get_extension)
+    using Static
+    using Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
+                permute, invariant_permutation, field_type, reduce_tup, find_first_eq,
+                OptionallyStaticUnitRange, OptionallyStaticStepRange, OptionallyStaticRange,
+                IntType,
+                SOneTo, SUnitRange
+else
+    using ..Static
+    using ..Static: Zero, One, nstatic, eq, ne, gt, ge, lt, le, eachop, eachop_tuple,
+                permute, invariant_permutation, field_type, reduce_tup, find_first_eq,
+                OptionallyStaticUnitRange, OptionallyStaticStepRange, OptionallyStaticRange,
+                IntType,
+                SOneTo, SUnitRange
+end
 using IfElse
 
 using Base.Cartesian
