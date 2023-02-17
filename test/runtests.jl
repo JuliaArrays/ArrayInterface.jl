@@ -1,57 +1,40 @@
-using Test, Pkg
+using SafeTestsets, Pkg
 
 const GROUP = get(ENV, "GROUP", "All")
 
-function dev_subpkg(subpkg)
-    subpkg_path = joinpath(dirname(@__DIR__), "lib", subpkg)
-    Pkg.develop(PackageSpec(path=subpkg_path))
-end
-
-function activate_subpkg_env(subpkg)
-    subpkg_path = joinpath(dirname(@__DIR__), "lib", subpkg)
-    Pkg.activate(subpkg_path)
-    Pkg.develop(PackageSpec(path=subpkg_path))
+function activate_gpu_env()
+    Pkg.activate("gpu")
+    Pkg.develop(PackageSpec(path = dirname(@__DIR__)))
     Pkg.instantiate()
 end
 
-# Add necessary sub-dependencies
-if GROUP == "ArrayInterfaceBlockBandedMatrices"
-    dev_subpkg("ArrayInterfaceBandedMatrices")
-end
-
-if GROUP == "ArrayInterfaceStaticArrays"
-    dev_subpkg("ArrayInterfaceStaticArraysCore")
-end
-
-groups = if GROUP == "All"
-    ["ArrayInterfaceCore", "ArrayInterface", "ArrayInterfaceBandedMatrices", "ArrayInterfaceBlockBandedMatrices",
-     "ArrayInterfaceOffsetArrays", "ArrayInterfaceStaticArrays", "ArrayInterfaceStaticArraysCore"]
-else
-    [GROUP]
-end
-
 @time begin
+    if GROUP == "All" || GROUP == "Core"
+        @time @safetestset "BandedMatrices" begin include("bandedmatrices.jl") end
+        @time @safetestset "BlockBandedMatrices" begin include("blockbandedmatrices.jl") end
+        @time @safetestset "Core" begin include("core.jl") end
+        @time @safetestset "OffsetArrays" begin include("offsetarrays.jl") end
+        @time @safetestset "StaticArrays" begin include("staticarrays.jl") end
+        @time @safetestset "StaticArraysCore" begin include("staticarrayscore.jl") end
+        @time @safetestset "Tracker" begin include("tracker.jl") end
 
-for g in groups
-    if g == "ArrayInterface"
+        @time @safetestset "Static" begin
+            include("static/setup.jl")
+            include("static/array_index.jl")
+            include("static/axes.jl")
+            include("static/broadcast.jl")
+            include("static/dimensions.jl")
+            include("static/indexing.jl")
+            include("static/ranges.jl")
+            include("static/size.jl")
+            include("static/stridelayout.jl")
+            include("static/misc.jl")
+        end
+    end
 
-        println("ArrayInterface Tests")
-
-        include("setup.jl")
-        include("array_index.jl")
-        include("axes.jl")
-        include("broadcast.jl")
-        include("dimensions.jl")
-        include("indexing.jl")
-        include("ranges.jl")
-        include("size.jl")
-        include("stridelayout.jl")
-        include("misc.jl")
-    else
-        dev_subpkg(g)
-        subpkg_path = joinpath(dirname(@__DIR__), "lib", g)
-        Pkg.test(PackageSpec(name=g, path=subpkg_path))
+    if GROUP == "GPU"
+        activate_gpu_env()
+        @time @safetestset "CUDA" begin include("gpu/cuda.jl") end
     end
 end
 
-end
