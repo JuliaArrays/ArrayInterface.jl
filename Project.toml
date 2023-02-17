@@ -37,6 +37,7 @@ IfElse = "615f187c-cbe4-4ef1-ba3b-2fcf58d6d173"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 SuiteSparse = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
+SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
 Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
@@ -44,7 +45,7 @@ Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Pkg", "Test", "Aqua", "IfElse", "Random", "SparseArrays", "SuiteSparse", "Static", "BandedMatrices"]
+test = ["SafeTestsets", "Pkg", "Test", "Aqua", "IfElse", "Random", "SparseArrays", "SuiteSparse", "Static", "BandedMatrices", "BlockBandedMatrices", "GPUArraysCore", "OffsetArrays", "StaticArrays", "StaticArraysCore", "Tracker"]
 
 [weakdeps]
 BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
