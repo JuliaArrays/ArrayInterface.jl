@@ -1172,12 +1172,14 @@ import Requires
         Requires.@require BandedMatrices = "aae01518-5342-5314-be14-df237901396f" begin include("../ext/ArrayInterfaceBandedMatricesExt.jl") end
         Requires.@require BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0" begin include("../ext/ArrayInterfaceBlockBandedMatricesExt.jl") end
         Requires.@require GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527" begin include("../ext/ArrayInterfaceGPUArraysCoreExt.jl") end
-        Requires.@require OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881" begin include("../ext/ArrayInterfaceOffsetArraysExt.jl") end
-        Requires.@require StaticArrays = "90137ffa-7385-5640-81b9-e52037218182" begin include("../ext/ArrayInterfaceStaticArraysExt.jl") end
         Requires.@require StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c" begin include("../ext/ArrayInterfaceStaticArraysCoreExt.jl") end
         Requires.@require CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba" begin include("../ext/ArrayInterfaceCUDAExt.jl") end
         Requires.@require Tracker="9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c" begin include("../ext/ArrayInterfaceTrackerExt.jl") end
-        Requires.@require Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3" begin include("../ext/ArrayInterfaceStaticExt.jl") end
+        Requires.@require Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3" begin 
+            include("../ext/ArrayInterfaceStaticExt.jl") 
+            Requires.@require StaticArrays = "90137ffa-7385-5640-81b9-e52037218182" begin include("../ext/ArrayInterfaceStaticArraysExt.jl") end
+            Requires.@require OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881" begin include("../ext/ArrayInterfaceOffsetArraysExt.jl") end
+        end
     end
 end
 
