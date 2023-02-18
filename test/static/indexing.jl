@@ -189,7 +189,13 @@ end
     end
 
     x = LinearIndices(map(Base.Slice, (static(0):static(3), static(3):static(5), static(-2):static(0))))
-    @test @inferred(ArrayInterface.static_getindex(x, 0, 3, -2)) === 1
+    
+    if VERSION >= v"1.7"
+        @test @inferred(ArrayInterface.static_getindex(x, 0, 3, -2)) === 1
+    else
+        @test ArrayInterface.static_getindex(x, 0, 3, -2) === 1
+    end
+    
     @test @inferred(ArrayInterface.static_getindex(x, static(0), static(3), static(-2))) === 1
 
     @test @inferred(ArrayInterface.static_getindex(linear, linear)) == linear
