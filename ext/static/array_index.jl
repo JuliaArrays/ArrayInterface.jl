@@ -12,12 +12,7 @@ end
     return _strides2int(offsets(x), static_strides(x), Tuple(i)) + static(1)
 end
 
-@generated function _strides2int(o::O, s::S, i::I) where {O,S,I}
+function _strides2int(o::O, s::S, i::I) where {O,S,I}
     N = known_length(S)
-    out = :()
-    for i in 1:N
-        tmp = :(((getfield(i, $i) - getfield(o, $i)) * getfield(s, $i)))
-        out = ifelse(i === 1, tmp, :($out + $tmp))
-    end
-    return Expr(:block, Expr(:meta, :inline), out)
+    sum(ntuple(x->(getfield(i, x) - getfield(o, x)) * getfield(s, x),N))    
 end
