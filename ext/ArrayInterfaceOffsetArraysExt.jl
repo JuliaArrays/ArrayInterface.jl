@@ -1,8 +1,13 @@
 module ArrayInterfaceOffsetArraysExt
 
 using ArrayInterface
-using OffsetArrays
-using Static
+if isdefined(Base, :get_extension) 
+    using OffsetArrays
+    using Static
+else 
+    using ..OffsetArrays
+    using ..Static
+end
 
 relative_offsets(r::OffsetArrays.IdOffsetRange) = (getfield(r, :offset),)
 relative_offsets(A::OffsetArrays.OffsetArray) = getfield(A, :offsets)
