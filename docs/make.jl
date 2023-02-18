@@ -1,21 +1,11 @@
 using ArrayInterface
-using Pkg
-
-function dev_subpkg(subpkg)
-    subpkg_path = joinpath(dirname(@__DIR__), "lib", subpkg)
-    Pkg.develop(PackageSpec(path=subpkg_path))
-end
-dev_subpkg("ArrayInterfaceCore")
-
-using ArrayInterfaceCore
 using Documenter
 
 makedocs(;
-    modules=[ArrayInterface, ArrayInterfaceCore],
-    sitename="ArrayInterface",
+    modules=[ArrayInterface],
+    sitename="ArrayInterface.jl",
     pages=[
-        "Home" => "index.md",
-        "API" => "api.md"
+        "ArrayInterface.jl: An Extended Array Interface for Julia Generic Programming" => "index.md",
     ]
 )
 
