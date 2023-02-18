@@ -9,19 +9,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.group == 'Downstream' }}
     strategy:
-      fail-fast: false
       matrix:
         group:
-          - ArrayInterface
-          - ArrayInterfaceCore
-          - ArrayInterfaceBandedMatrices
-          - ArrayInterfaceBlockBandedMatrices
-          - ArrayInterfaceOffsetArrays
-          - ArrayInterfaceStaticArrays
-          - ArrayInterfaceStaticArraysCore
-          - ArrayInterfaceTracker
+          - Core
         version:
           - '1'
           - '1.6'
@@ -40,7 +31,8 @@ jobs:
             ${{ runner.os }}-test-${{ env.cache-name }}-
             ${{ runner.os }}-test-
             ${{ runner.os }}-
-      - run: julia .ci/test.jl
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-runtest@v1
         env:
           GROUP: ${{ matrix.group }}
       - uses: julia-actions/julia-processcoverage@v1
