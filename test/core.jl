@@ -1,7 +1,7 @@
 using ArrayInterface
 using ArrayInterface: zeromatrix, undefmatrix
 import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance,
-        parent_type, zeromatrix, IndicesInfo
+        parent_type, zeromatrix
 using LinearAlgebra
 using Random
 using SparseArrays
