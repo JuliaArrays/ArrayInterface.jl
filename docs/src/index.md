@@ -27,47 +27,47 @@ to the interface, and is likely to be deprecated in the near future as the compi
 ### Traits
 
 ```@docs
-ArrayInterfaceCore.can_avx
-ArrayInterfaceCore.can_change_size
-ArrayInterfaceCore.can_setindex
-ArrayInterfaceCore.device
-ArrayInterfaceCore.defines_strides
-ArrayInterfaceCore.fast_matrix_colors
-ArrayInterfaceCore.fast_scalar_indexing
-ArrayInterfaceCore.indices_do_not_alias
-ArrayInterfaceCore.instances_do_not_alias
-ArrayInterfaceCore.is_forwarding_wrapper
-ArrayInterfaceCore.ismutable
-ArrayInterfaceCore.isstructured
-ArrayInterfaceCore.has_sparsestruct
-ArrayInterfaceCore.ndims_index
-ArrayInterfaceCore.ndims_shape
+ArrayInterface.can_avx
+ArrayInterface.can_change_size
+ArrayInterface.can_setindex
+ArrayInterface.device
+ArrayInterface.defines_strides
+ArrayInterface.fast_matrix_colors
+ArrayInterface.fast_scalar_indexing
+ArrayInterface.indices_do_not_alias
+ArrayInterface.instances_do_not_alias
+ArrayInterface.is_forwarding_wrapper
+ArrayInterface.ismutable
+ArrayInterface.isstructured
+ArrayInterface.has_sparsestruct
+ArrayInterface.ndims_index
+ArrayInterface.ndims_shape
 
 ```
 
 ### Functions
 
 ```@docs
-ArrayInterfaceCore.allowed_getindex
-ArrayInterfaceCore.allowed_setindex!
-ArrayInterfaceCore.aos_to_soa
-ArrayInterfaceCore.buffer
-ArrayInterfaceCore.findstructralnz
-ArrayInterfaceCore.lu_instance
-ArrayInterfaceCore.matrix_colors
-ArrayInterfaceCore.issingular
-ArrayInterfaceCore.parent_type
-ArrayInterfaceCore.promote_eltype
-ArrayInterfaceCore.restructure
-ArrayInterfaceCore.safevec
-ArrayInterfaceCore.zeromatrix
-ArrayInterfaceCore.undefmatrix
+ArrayInterface.allowed_getindex
+ArrayInterface.allowed_setindex!
+ArrayInterface.aos_to_soa
+ArrayInterface.buffer
+ArrayInterface.findstructralnz
+ArrayInterface.lu_instance
+ArrayInterface.matrix_colors
+ArrayInterface.issingular
+ArrayInterface.parent_type
+ArrayInterface.promote_eltype
+ArrayInterface.restructure
+ArrayInterface.safevec
+ArrayInterface.zeromatrix
+ArrayInterface.undefmatrix
 ```
 
 ### Types
 
 ```@docs
-ArrayInterfaceCore.ArrayIndex
-ArrayInterfaceCore.GetIndex
-ArrayInterfaceCore.SetIndex!
+ArrayInterface.ArrayIndex
+ArrayInterface.GetIndex
+ArrayInterface.SetIndex!
 ```
