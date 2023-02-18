@@ -53,7 +53,9 @@ ArrayInterface.allowed_setindex!
 ArrayInterface.aos_to_soa
 ArrayInterface.buffer
 ArrayInterface.findstructralnz
+ArrayInterface.flatten_tuples
 ArrayInterface.lu_instance
+ArrayInterface.map_tuple_type
 ArrayInterface.matrix_colors
 ArrayInterface.issingular
 ArrayInterface.parent_type
