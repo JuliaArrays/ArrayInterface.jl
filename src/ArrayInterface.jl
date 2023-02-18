@@ -688,8 +688,6 @@ Base.@propagate_inbounds function Base.getindex(ind::TridiagonalIndex, i::Int)
     end
 end
 
-_cartesian_index(i::Tuple{Vararg{Int}}) = CartesianIndex(i)
-_cartesian_index(::Any) = nothing
 
 """
     ndims_index(::Type{I}) -> Int
@@ -748,12 +746,7 @@ ndims_shape(@nospecialize T::Type{<:AbstractArray{Bool}}) = 1
 ndims_shape(@nospecialize T::Type{<:AbstractArray}) = ndims(T)
 ndims_shape(x) = ndims_shape(typeof(x))
 
-@assume_effects :total function _find_first_true(isi::Tuple{Vararg{Bool, N}}) where {N}
-    for i in 1:N
-        getfield(isi, i) && return i
-    end
-    return nothing
-end
+
 
 """
     instances_do_not_alias(::Type{T}) -> Bool
