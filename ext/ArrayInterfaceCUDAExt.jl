@@ -1,6 +1,5 @@
 module ArrayInterfaceCUDAExt
 
-using Adapt
 using ArrayInterface
 
 if isdefined(Base, :get_extension) 
