@@ -692,77 +692,6 @@ _cartesian_index(i::Tuple{Vararg{Int}}) = CartesianIndex(i)
 _cartesian_index(::Any) = nothing
 
 """
-    known_first(::Type{T}) -> Union{Int,Nothing}
-
-If `first` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `nothing`.
-
-```julia
-julia> ArrayInterface.known_first(typeof(1:4))
-nothing
-
-julia> ArrayInterface.known_first(typeof(Base.OneTo(4)))
-1
-```
-"""
-known_first(x) = known_first(typeof(x))
-known_first(T::Type) = is_forwarding_wrapper(T) ? known_first(parent_type(T)) : nothing
-known_first(::Type{<:Base.OneTo}) = 1
-known_first(@nospecialize T::Type{<:LinearIndices}) = 1
-known_first(@nospecialize T::Type{<:Base.IdentityUnitRange}) = known_first(parent_type(T))
-function known_first(::Type{<:CartesianIndices{N, R}}) where {N, R}
-    _cartesian_index(ntuple(i -> known_first(R.parameters[i]), Val(N)))
-end
-
-"""
-    known_last(::Type{T}) -> Union{Int,Nothing}
-
-If `last` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `nothing`.
-
-```julia
-julia> ArrayInterface.known_last(typeof(1:4))
-nothing
-
-julia> ArrayInterface.known_first(typeof(static(1):static(4)))
-4
-
-```
-"""
-known_last(x) = known_last(typeof(x))
-known_last(T::Type) = is_forwarding_wrapper(T) ? known_last(parent_type(T)) : nothing
-function known_last(::Type{<:CartesianIndices{N, R}}) where {N, R}
-    _cartesian_index(ntuple(i -> known_last(R.parameters[i]), Val(N)))
-end
-
-"""
-    known_step(::Type{T}) -> Union{Int,Nothing}
-
-If `step` of an instance of type `T` is known at compile time, return it.
-Otherwise, return `nothing`.
-
-```julia
-julia> ArrayInterface.known_step(typeof(1:2:8))
-nothing
-
-julia> ArrayInterface.known_step(typeof(1:4))
-1
-
-```
-"""
-known_step(x) = known_step(typeof(x))
-known_step(T::Type) = is_forwarding_wrapper(T) ? known_step(parent_type(T)) : nothing
-known_step(@nospecialize T::Type{<:AbstractUnitRange}) = 1
-
-"""
-    is_splat_index(::Type{T}) -> Bool
-
-Returns `static(true)` if `T` is a type that splats across multiple dimensions.
-"""
-is_splat_index(T::Type) = false
-is_splat_index(@nospecialize(x)) = is_splat_index(typeof(x))
-
-"""
     ndims_index(::Type{I}) -> Int
 
 Returns the number of dimensions that an instance of `I` indexes into. If this method is
@@ -825,162 +754,6 @@ ndims_shape(x) = ndims_shape(typeof(x))
     end
     return nothing
 end
-
-"""
-    IndicesInfo{N}(inds::Tuple) -> IndicesInfo{N}(typeof(inds))
-    IndicesInfo{N}(T::Type{<:Tuple}) -> IndicesInfo{N,pdims,cdims}()
-    IndicesInfo(inds::Tuple) -> IndicesInfo(typeof(inds))
-    IndicesInfo(T::Type{<:Tuple}) -> IndicesInfo{maximum(pdims),pdims,cdims}()
-
-
-Maps a tuple of indices to `N` dimensions. The resulting `pdims` is a tuple where each
-field in `inds` (or field type in `T`) corresponds to the parent dimensions accessed.
-`cdims` similarly maps indices to the resulting child array produced after indexing with
-`inds`. If `N` is not provided then it is assumed that all indices are represented by parent
-dimensions and there are no trailing dimensions accessed. These may be accessed by through
-`parentdims(info::IndicesInfo)` and `childdims(info::IndicesInfo)`. If `N` is not provided,
-it is assumed that no indices are accessing trailing dimensions (which are represented as
-`0` in `parentdims(info)[index_position]`).
-
-The the fields and types of `IndicesInfo` should not be accessed directly.
-Instead [`parentdims`](@ref), [`childdims`](@ref), [`ndims_index`](@ref), and
-[`ndims_shape`](@ref) should be used to extract relevant information.
-
-# Examples
-
-```julia
-julia> using ArrayInterface: IndicesInfo, parentdims, childdims, ndims_index, ndims_shape
-
-julia> info = IndicesInfo{5}(typeof((:,[CartesianIndex(1,1),CartesianIndex(1,1)], 1, ones(Int, 2, 2), :, 1)));
-
-julia> parentdims(info)  # the last two indices access trailing dimensions
-(1, (2, 3), 4, 5, 0, 0)
-
-julia> childdims(info)
-(1, 2, 0, (3, 4), 5, 0)
-
-julia> childdims(info)[3]  # index 3 accesses a parent dimension but is dropped in the child array
-0
-
-julia> ndims_index(info)
-5
-
-julia> ndims_shape(info)
-5
-
-julia> info = IndicesInfo(typeof((:,[CartesianIndex(1,1),CartesianIndex(1,1)], 1, ones(Int, 2, 2), :, 1)));
-
-julia> parentdims(info)  # assumed no trailing dimensions
-(1, (2, 3), 4, 5, 6, 7)
-
-julia> ndims_index(info)  # assumed no trailing dimensions
-7
-
-```
-"""
-struct IndicesInfo{Np, pdims, cdims, Nc}
-    function IndicesInfo{N}(@nospecialize(T::Type{<:Tuple})) where {N}
-        SI = _find_first_true(map_tuple_type(is_splat_index, T))
-        NI = map_tuple_type(ndims_index, T)
-        NS = map_tuple_type(ndims_shape, T)
-        if SI === nothing
-            ndi = NI
-            nds = NS
-        else
-            nsplat = N - sum(NI)
-            if nsplat === 0
-                ndi = NI
-                nds = NS
-            else
-                splatmul = max(0, nsplat + 1)
-                ndi = _map_splats(splatmul, SI, NI)
-                nds = _map_splats(splatmul, SI, NS)
-            end
-        end
-        if ndi === (1,) && N !== 1
-            ns1 = getfield(nds, 1)
-            new{N, (:,), (ns1 > 1 ? ntuple(identity, ns1) : ns1,), ns1}()
-        else
-            nds_cumsum = cumsum(nds)
-            if sum(ndi) > N
-                init_pdims = _accum_dims(cumsum(ndi), ndi)
-                pdims = ntuple(nfields(init_pdims)) do i
-                    dim_i = getfield(init_pdims, i)
-                    if dim_i isa Tuple
-                        ntuple(length(dim_i)) do j
-                            dim_i_j = getfield(dim_i, j)
-                            dim_i_j > N ? 0 : dim_i_j
-                        end
-                    else
-                        dim_i > N ? 0 : dim_i
-                    end
-                end
-                new{N, pdims, _accum_dims(nds_cumsum, nds), last(nds_cumsum)}()
-            else
-                new{N, _accum_dims(cumsum(ndi), ndi), _accum_dims(nds_cumsum, nds),
-                    last(nds_cumsum)}()
-            end
-        end
-    end
-    IndicesInfo{N}(@nospecialize(t::Tuple)) where {N} = IndicesInfo{N}(typeof(t))
-    function IndicesInfo(@nospecialize(T::Type{<:Tuple}))
-        ndi = map_tuple_type(ndims_index, T)
-        nds = map_tuple_type(ndims_shape, T)
-        ndi_sum = cumsum(ndi)
-        nds_sum = cumsum(nds)
-        nf = nfields(ndi_sum)
-        pdims = _accum_dims(ndi_sum, ndi)
-        cdims = _accum_dims(nds_sum, nds)
-        new{getfield(ndi_sum, nf), pdims, cdims, getfield(nds_sum, nf)}()
-    end
-    IndicesInfo(@nospecialize t::Tuple) = IndicesInfo(typeof(t))
-    @inline function IndicesInfo(@nospecialize T::Type{<:SubArray})
-        IndicesInfo{ndims(parent_type(T))}(fieldtype(T, :indices))
-    end
-    IndicesInfo(x::SubArray) = IndicesInfo{ndims(parent(x))}(typeof(x.indices))
-end
-@inline function _map_splats(nsplat::Int, splat_index::Int, dims::Tuple{Vararg{Int}})
-    ntuple(length(dims)) do i
-        i === splat_index ? (nsplat * getfield(dims, i)) : getfield(dims, i)
-    end
-end
-@inline function _accum_dims(csdims::NTuple{N, Int}, nd::NTuple{N, Int}) where {N}
-    ntuple(N) do i
-        nd_i = getfield(nd, i)
-        if nd_i === 0
-            0
-        elseif nd_i === 1
-            getfield(csdims, i)
-        else
-            ntuple(Base.Fix1(+, getfield(csdims, i) - nd_i), nd_i)
-        end
-    end
-end
-
-function _lower_info(::IndicesInfo{Np, pdims, cdims, Nc}) where {Np, pdims, cdims, Nc}
-    Np, pdims, cdims, Nc
-end
-
-ndims_index(@nospecialize(info::IndicesInfo)) = getfield(_lower_info(info), 1)
-ndims_shape(@nospecialize(info::IndicesInfo)) = getfield(_lower_info(info), 4)
-
-"""
-    parentdims(::IndicesInfo) -> Tuple
-
-Returns the parent dimension mapping from `IndicesInfo`.
-
-See also: [`IndicesInfo`](@ref), [`childdims`](@ref)
-"""
-parentdims(@nospecialize info::IndicesInfo) = getfield(_lower_info(info), 2)
-
-"""
-    childdims(::IndicesInfo) -> Tuple
-
-Returns the child dimension mapping from `IndicesInfo`.
-
-See also: [`IndicesInfo`](@ref), [`parentdims`](@ref)
-"""
-childdims(@nospecialize info::IndicesInfo) = getfield(_lower_info(info), 3)
 
 """
     instances_do_not_alias(::Type{T}) -> Bool
@@ -1061,20 +834,6 @@ struct BandedMatrixIndex <: ArrayInterface.MatrixIndex
     isrow::Bool
 end
 
-## Precompilation
-
-using SnoopPrecompile
-@precompile_setup begin
-    # Putting some things in `setup` can reduce the size of the
-    # precompile file and potentially make loading faster.
-    arrays = [rand(4), Base.oneto(5)]
-    @precompile_all_calls begin for x in arrays
-        known_first(x)
-        known_step(x)
-        known_last(x)
-    end end
-end
-
 ## Extensions
 
 import Requires
@@ -1086,11 +845,6 @@ import Requires
         Requires.@require StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c" begin include("../ext/ArrayInterfaceStaticArraysCoreExt.jl") end
         Requires.@require CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba" begin include("../ext/ArrayInterfaceCUDAExt.jl") end
         Requires.@require Tracker="9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c" begin include("../ext/ArrayInterfaceTrackerExt.jl") end
-        Requires.@require Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3" begin 
-            include("../ext/ArrayInterfaceStaticExt.jl") 
-            Requires.@require StaticArrays = "90137ffa-7385-5640-81b9-e52037218182" begin include("../ext/ArrayInterfaceStaticArraysExt.jl") end
-            Requires.@require OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881" begin include("../ext/ArrayInterfaceOffsetArraysExt.jl") end
-        end
     end
 end
 
