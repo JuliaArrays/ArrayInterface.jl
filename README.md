@@ -50,7 +50,10 @@ to the interface, and is likely to be deprecated in the near future as the compi
 ## Breaking Release Notes
 
 7.0: Setup to use the new v1.9 package extensions. All static interface functions were moved to
-[StaticArrayInterface.jl](https://github.com/JuliaArrays/StaticArrayInterface.jl).
+[StaticArrayInterface.jl](https://github.com/JuliaArrays/StaticArrayInterface.jl). All packages
+using one of the subpackages (ArrayInterfaceCore, ArrayInterfaceStaticArrays, etc.) should
+update to v7 by simply depending on ArrayInterface.jl, unless static interface functions
+were used in which case a dependency on StaticArrayInterface.jl is also necessary.
 
 6.0: ArrayInterface.jl completely removed all usage of Requires.jl and conditional dependencies
 due to compile time impact. All of the Requires.jl support changed to subpackages within the
