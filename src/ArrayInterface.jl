@@ -1144,16 +1144,6 @@ function to_axis end
 function is_dense end
 function static_getindex end
 
-@generated function _strides2int(o::O, s::S, i::I) where {O,S,I}
-    N = known_length(S)
-    out = :()
-    for i in 1:N
-        tmp = :(((getfield(i, $i) - getfield(o, $i)) * getfield(s, $i)))
-        out = ifelse(i === 1, tmp, :($out + $tmp))
-    end
-    return Expr(:block, Expr(:meta, :inline), out)
-end
-
 ## Shadowing
 ## This is really dumb, it breaks every style guide idea, who did this, this is so bad, remove ASAP
 

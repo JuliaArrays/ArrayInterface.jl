@@ -30,7 +30,7 @@ import ArrayInterface: known_first, known_step, known_last
 import ArrayInterface: offsets, axes_types, offset1, indices, known_offsets, stride_rank, strides, dense_dims, contiguous_axis, known_length, contiguous_batch_size,
 contiguous_axis_indicator, is_column_major, _all_dense, AbstractArray2, dimnames, known_dimnames, known_offset1, known_strides, LazyAxis, lazy_axes, BroadcastAxis, broadcast_axis,
 to_axes, find_all_dimnames, to_dims, known_size, deleteat, insert, static_size, is_lazy_conjugate, static_stride, static_strides, has_dimnames, unsafe_reconstruct, static_to_indices,
-to_index, unsafe_setindex!, unsafe_getindex, static_axes, to_axis, is_dense, static_getindex, _strides2int
+to_index, unsafe_setindex!, unsafe_getindex, static_axes, to_axis, is_dense, static_getindex
 
 if isdefined(Base, :get_extension)
     using Static
