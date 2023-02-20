@@ -1,4 +1,4 @@
-module ArrayInterfaceGPUArraysExt
+module ArrayInterfaceGPUArraysCoreExt
 
 using Adapt
 using ArrayInterface
