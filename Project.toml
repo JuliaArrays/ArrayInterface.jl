@@ -20,7 +20,7 @@ julia = "1.6"
 ArrayInterfaceBandedMatricesExt = "BandedMatrices"
 ArrayInterfaceBlockBandedMatricesExt = "BlockBandedMatrices"
 ArrayInterfaceCUDAExt = "CUDA"
-ArrayInterfaceGPUArraysExt = "GPUArraysCore"
+ArrayInterfaceGPUArraysCoreExt = "GPUArraysCore"
 ArrayInterfaceStaticArraysCoreExt = "StaticArraysCore"
 ArrayInterfaceTrackerExt = "Tracker"
 
