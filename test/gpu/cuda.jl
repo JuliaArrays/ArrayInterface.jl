@@ -1,6 +1,5 @@
 using CUDA
 using ArrayInterface
-using ArrayInterfaceCUDA
 
 using Test
 
