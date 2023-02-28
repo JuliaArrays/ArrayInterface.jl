@@ -1,6 +1,6 @@
 module ArrayInterfaceStaticArraysCoreExt
 
-import ArrayInterface, Adapt
+import ArrayInterface
 using LinearAlgebra
 isdefined(Base, :get_extension) ? (import StaticArraysCore) : (import ..StaticArraysCore)
 
@@ -28,7 +28,5 @@ function ArrayInterface.restructure(x::StaticArraysCore.SArray{S,T,N}, y::Static
     StaticArraysCore.SArray{S,T,N}(y)
 end
 ArrayInterface.restructure(x::StaticArraysCore.SArray{S}, y) where {S} = StaticArraysCore.SArray{S}(y)
-
-Adapt.adapt_storage(::Type{<:StaticArraysCore.SArray{S}}, xs::Array) where {S} = SArray{S}(xs)
 
 end
