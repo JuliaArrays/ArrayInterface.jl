@@ -841,6 +841,8 @@ import Requires
     end
 end
 
+abstract type CheckIndexStyle end
+
 """
     ArrayInterface.CheckIndexNone
 
