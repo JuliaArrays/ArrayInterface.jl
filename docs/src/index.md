@@ -32,6 +32,8 @@ ArrayInterface.can_change_size
 ArrayInterface.can_setindex
 ArrayInterface.device
 ArrayInterface.defines_strides
+ArrayInterface.ensures_all_unique
+ArrayInterface.ensures_sorted
 ArrayInterface.fast_matrix_colors
 ArrayInterface.fast_scalar_indexing
 ArrayInterface.indices_do_not_alias

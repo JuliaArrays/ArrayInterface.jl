@@ -827,6 +827,60 @@ struct BandedMatrixIndex <: ArrayInterface.MatrixIndex
     isrow::Bool
 end
 
+"""
+    ensures_all_unique(T::Type) -> Bool
+
+Returns `true` if all instances of type `T` are composed of a unique set of elements.
+This does not require that `T` subtypes `AbstractSet` or implements the `AbstractSet`
+interface.
+
+# Examples
+
+```julia
+julia> ArrayInterface.ensures_all_unique(BitSet())
+true
+
+julia> ArrayInterface.ensures_all_unique([])
+false
+
+julia> ArrayInterface.ensures_all_unique(typeof(1:10))
+true
+
+julia> ArrayInterface.ensures_all_unique(LinRange(1, 1, 10))
+false
+```
+"""
+ensures_all_unique(@nospecialize T::Type{<:Union{AbstractSet,AbstractDict}}) = true
+ensures_all_unique(@nospecialize T::Type{<:LinRange}) = false
+ensures_all_unique(@nospecialize T::Type{<:AbstractRange}) = true
+@inline function ensures_all_unique(T::Type)
+    is_forwarding_wrapper(T) ? ensures_all_unique(parent_type(T)) : false
+end
+ensures_all_unique(@nospecialize(x)) = ensures_all_unique(typeof(x))
+
+"""
+    ensures_sorted(T::Type) -> Bool
+
+Returns `true` if all instances of `T` are sorted.
+
+# Examples
+
+```julia
+julia> ArrayInterface.ensures_sorted(BitSet())
+true
+
+julia> ArrayInterface.ensures_sorted([])
+false
+
+julia> ArrayInterface.ensures_sorted(1:10)
+true
+```
+"""
+ensures_sorted(@nospecialize(T::Type{BitSet})) = true
+ensures_sorted(@nospecialize( T::Type{<:AbstractRange})) = true
+ensures_sorted(T::Type) = is_forwarding_wrapper(T) ? ensures_sorted(parent_type(T)) : false
+ensures_sorted(@nospecialize(x)) = ensures_sorted(typeof(x))
+
 ## Extensions
 
 import Requires

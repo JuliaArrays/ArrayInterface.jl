@@ -246,3 +246,16 @@ end
   @test !ArrayInterface.indices_do_not_alias(typeof(view(fill(rand(4,4),4,4)', 2:3, 1:2)))
   @test !ArrayInterface.indices_do_not_alias(typeof(view(rand(4,4)', StepRangeLen(1,0,5), 1:2)))
 end
+
+@testset "ensures_all_unique" begin
+    @test ArrayInterface.ensures_all_unique(BitSet())
+    @test !ArrayInterface.ensures_all_unique([])
+    @test ArrayInterface.ensures_all_unique(1:10)
+    @test !ArrayInterface.ensures_all_unique(LinRange(1, 1, 10))
+end
+
+@testset "ensures_sorted" begin
+    @test ArrayInterface.ensures_sorted(BitSet())
+    @test !ArrayInterface.ensures_sorted([])
+    @test ArrayInterface.ensures_sorted(1:10)
+end
