@@ -1,7 +1,12 @@
 module ArrayInterfaceTrackerExt
 
-using ArrayInterface
-isdefined(Base, :get_extension) ? (import Tracker) : (import ..Tracker)
+if isdefined(Base, :get_extension)
+    using ArrayInterface
+    import Tracker
+else
+    using ..ArrayInterface
+    import ..Tracker
+end
 
 ArrayInterface.ismutable(::Type{<:Tracker.TrackedArray}) = false
 ArrayInterface.ismutable(T::Type{<:Tracker.TrackedReal}) = false
