@@ -7,7 +7,7 @@ if isdefined(Base, :get_extension)
     using LinearAlgebra: lu
     import GPUArraysCore
 else
-    using ..Adapt
+    using Adapt # Will cause problems for relocatability.
     using ..ArrayInterface
     using ..LinearAlgebra: lu
     import ..GPUArraysCore
