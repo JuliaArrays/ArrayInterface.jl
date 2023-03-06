@@ -1,12 +1,15 @@
 module ArrayInterfaceBlockBandedMatricesExt
 
-using ArrayInterface
-using ArrayInterface: BandedMatrixIndex
 
-if isdefined(Base, :get_extension) 
+
+if isdefined(Base, :get_extension)
+    using ArrayInterface
+    using ArrayInterface: BandedMatrixIndex
     using BlockBandedMatrices
     using BlockBandedMatrices.BlockArrays
 else
+    using ..ArrayInterface
+    using ..ArrayInterface: BandedMatrixIndex
     using ..BlockBandedMatrices
     using ..BlockBandedMatrices.BlockArrays
 end
