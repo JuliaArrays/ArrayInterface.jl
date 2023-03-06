@@ -2,7 +2,6 @@ module ArrayInterfaceGPUArraysCoreExt
 
 
 if isdefined(Base, :get_extension)
-    using Adapt
     using ArrayInterface
     using LinearAlgebra: lu
     import GPUArraysCore
