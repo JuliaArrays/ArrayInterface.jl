@@ -1,6 +1,6 @@
 module ArrayInterfaceStaticArraysCore
 
-import StaticArraysCore, ArrayInterfaceCore, Adapt
+import StaticArraysCore, ArrayInterfaceCore
 using LinearAlgebra
 
 function ArrayInterfaceCore.undefmatrix(::StaticArraysCore.MArray{S, T, N, L}) where {S, T, N, L}
@@ -27,7 +27,5 @@ function ArrayInterfaceCore.restructure(x::StaticArraysCore.SArray{S,T,N}, y::St
     StaticArraysCore.SArray{S,T,N}(y)
 end
 ArrayInterfaceCore.restructure(x::StaticArraysCore.SArray{S}, y) where {S} = StaticArraysCore.SArray{S}(y)
-
-Adapt.adapt_storage(::Type{<:StaticArraysCore.SArray{S}}, xs::Array) where {S} = SArray{S}(xs)
 
 end
