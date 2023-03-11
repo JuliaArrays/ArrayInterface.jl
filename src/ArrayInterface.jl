@@ -895,4 +895,109 @@ import Requires
     end
 end
 
+abstract type CheckIndexStyle end
+
+"""
+    ArrayInterface.CheckIndexNone
+
+A [`ArrayInterface.CheckIndexStyle`](@ref) trait-value indicating that no bounds-checking
+is needed. This is only appropriate for select types such as slice indexing
+(e.g., `:`, `Base.Slice`).
+
+# Examples
+
+```jldoctest
+julia> ArrayInterface.CheckIndexStyle(:)
+ArrayInterface.CheckIndexNone()
+julia> ArrayInterface.CheckIndexStyle(Base.Slice(1:10))
+ArrayInterface.CheckIndexNone()
+```
+"""
+struct CheckIndexNone <: CheckIndexStyle end
+
+"""
+    ArrayInterface.CheckIndexFirstLast()
+
+A [`ArrayInterface.CheckIndexStyle`](@ref) trait-value indicating that bounds-checking
+only need test the first and last elements in an index vector.
+
+# Examples
+
+```jldoctest
+julia> r = 3:7; ArrayInterface.CheckIndexStyle(r)
+ArrayInterface.CheckIndexFirstLast()
+```
+
+Ranges are declared `CheckIndexFirstLast` because `x[r]` can be tested
+for out-of-bounds indexing using just the first and last elements of `r`.
+
+See also [`ArrayInterface.CheckIndexAll`](@ref) and [`ArrayInterface.CheckIndexAxes`](@ref).
+"""
+struct CheckIndexFirstLast <: CheckIndexStyle end
+
+"""
+    ArrayInterface.CheckIndexAll()
+
+A [`ArrayInterface.CheckIndexStyle`](@ref) trait-value indicating that bounds-checking
+must test all elements in an index vector.
+
+# Examples
+
+```jldoctest
+julia> idx = [3,4,5,6,7]; ArrayInterface.CheckIndexStyle(idx)
+ArrayInterface.CheckIndexAll()
+```
+
+Since the entries in `idx` could be arbitrary, we have to check each
+entry for bounds violations.
+
+See also [`ArrayInterface..CheckIndexFirstLast`](@ref) and [`ArrayInterface.CheckIndexAxes`](@ref).
+"""
+struct CheckIndexAll <: CheckIndexStyle end
+
+"""
+    ArrayInterface.CheckIndexAxes()
+
+A [`CheckIndexStyle`](@ref) trait-value indicating that bounds-checking
+should consider the axes of the index rather than the values of the
+index. This is used in cases where the index acts as a filter to
+select elements.
+
+# Examples
+
+```jldoctest
+julia> idx = [true, false, true]; ArrayInterface.CheckIndexStyle(idx)
+ArrayInterface.CheckIndexAxes()
+```
+
+When `idx` is used in `x[idx]`, it returns the entries in `x`
+corresponding to `true` entries in `idx`. Consequently, indexing
+should insist on `idx` and `x` having identical axes.
+
+See also [`ArrayInterface.CheckIndexFirstLast`](@ref) and [`ArrayInterface.CheckIndexAll`](@ref).
+"""
+struct CheckIndexAxes <: CheckIndexStyle end
+
+"""
+    ArrayInterface.CheckIndexStyle(typeof(idx))
+    ArrayInterface.CheckIndexStyle(::Type{T})
+
+`CheckIndexStyle` specifies how bounds-checking of `x[idx]` should be performed. Certain
+types of `idx`, such as ranges, may have particularly efficient ways to perform the
+bounds-checking. When you define a new [`AbstractArray`](@ref) type, you can choose to
+define a specific value for this trait:
+ArrayInterface.CheckIndexStyle(::Type{<:MyRange}) = CheckIndexFirstLast()
+The default is [`CheckIndexAll()`](@ref), except for `AbstractVector`s with `Bool`
+`eltype` (which default to [`ArrayInterface.CheckIndexAxes()`](@ref)) and subtypes of `AbstractRange`
+(which default to [`ArrayInterface.CheckIndexFirstLast()`](@ref).)
+"""
+CheckIndexStyle(x) = CheckIndexStyle(typeof(x))
+CheckIndexStyle(::Type) = CheckIndexAll()
+CheckIndexStyle(@nospecialize T::Type{<:AbstractArray}) = eltype(T) === Bool ? CheckIndexAxes() : CheckIndexAll()
+CheckIndexStyle(@nospecialize T::Type{<:AbstractRange}) = eltype(T) === Bool ? CheckIndexAxes() : CheckIndexFirstLast()
+CheckIndexStyle(@nospecialize T::Type{<:Base.FastContiguousSubArray}) = CheckIndexStyle(parent_type(T))
+CheckIndexStyle(@nospecialize T::Type{<:Union{Base.Slice,Colon}}) = CheckIndexNone()
+CheckIndexStyle(@nospecialize T::Type{<:Base.Fix2{<:Union{typeof(<),typeof(isless),typeof(>=),typeof(>),typeof(isless)},<:Number}}) = CheckIndexNone()
+CheckIndexStyle(@nospecialize T::Type{<:Number}) = CheckIndexFirstLast()
+
 end # module

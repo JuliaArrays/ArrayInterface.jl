@@ -72,6 +72,11 @@ ArrayInterface.undefmatrix
 
 ```@docs
 ArrayInterface.ArrayIndex
+ArrayInterface.CheckIndexAll
+ArrayInterface.CheckIndexAxes
+ArrayInterface.CheckIndexFirstLast
+ArrayInterface.CheckIndexNone
+ArrayInterface.CheckIndexStyle
 ArrayInterface.GetIndex
 ArrayInterface.SetIndex!
 ```
