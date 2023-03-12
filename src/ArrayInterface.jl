@@ -638,7 +638,7 @@ Subtypes of `ArrayIndex` represent series of transformations for a provided inde
 buffer which is typically accomplished with square brackets (e.g., `buffer[index[inds...]]`).
 The only behavior that is required of a subtype of `ArrayIndex` is the ability to transform
 individual index elements (i.e. not collections). This does not guarantee bounds checking or
-the ability to iterate (although additional functionallity may be provided for specific
+the ability to iterate (although additional functionality may be provided for specific
 types).
 """
 abstract type ArrayIndex{N} end
