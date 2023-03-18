@@ -1,7 +1,6 @@
 module ArrayInterface
 
 using LinearAlgebra
-using LinearAlgebra: AbstractTriangular
 using SparseArrays
 using SuiteSparse
 
