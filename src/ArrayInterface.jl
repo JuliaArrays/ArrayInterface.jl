@@ -189,7 +189,7 @@ each index.
 
 See also [`SetIndex!`](@ref)
 
-!!! Warning
+!!! warning
     Passing `false` as `check` may result in incorrect results/crashes/corruption for
     out-of-bounds indices, similar to inappropriate use of `@inbounds`. The user is
     responsible for ensuring this is correctly used.
@@ -226,7 +226,7 @@ is `true`, requiring bounds checking for each index.
 
 See also [`GetIndex`](@ref)
 
-!!! Warning
+!!! warning
     Passing `false` as `check` may result in incorrect results/crashes/corruption for
     out-of-bounds indices, similar to inappropriate use of `@inbounds`. The user is
     responsible for ensuring this is correctly used.
