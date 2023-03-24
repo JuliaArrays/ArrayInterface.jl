@@ -494,7 +494,7 @@ end
 
 # Could be optimized but this should work for any real case.
 function qr_instance(jac_prototype::SparseMatrixCSC)
-    qr(sparse(rand(1,1)), check = false)
+    qr(sparse(rand(1,1)))
 end
 
 """
@@ -505,11 +505,11 @@ Returns the number.
 qr_instance(a::Number) = a
 
 """
-    qr_instance(a::Any) -> qr(a, check=false)
+    qr_instance(a::Any) -> qr(a)
 
 Returns the number.
 """
-qr_instance(a::Any) = qr(a, check = false)
+qr_instance(a::Any) = qr(a)# check = false)
 
 """
   svd_instance(A) -> qr_factorization_instance
@@ -529,11 +529,11 @@ Returns the number.
 svd_instance(a::Number) = a
 
 """
-    svd_instance(a::Any) -> qr(a, check=false)
+    svd_instance(a::Any) -> svd(a)
 
 Returns the number.
 """
-svd_instance(a::Any) = svd(a, check = false)
+svd_instance(a::Any) = svd(a) #check = false)
 
 """
     safevec(v)
