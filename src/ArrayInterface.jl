@@ -483,6 +483,59 @@ Returns the number.
 lu_instance(a::Any) = lu(a, check = false)
 
 """
+  qr_instance(A) -> qr_factorization_instance
+
+Returns an instance of the QR factorization object with the correct type
+cheaply.
+"""
+function qr_instance(A::Matrix{T}) where {T}
+    LinearAlgebra.QRCompactWYQ(zeros(T,0,0),zeros(T,0,0))
+end
+
+# Could be optimized but this should work for any real case.
+function qr_instance(jac_prototype::SparseMatrixCSC)
+    qr(sparse(rand(1,1)), check = false)
+end
+
+"""
+  qr_instance(a::Number) -> a
+
+Returns the number.
+"""
+qr_instance(a::Number) = a
+
+"""
+    qr_instance(a::Any) -> qr(a, check=false)
+
+Returns the number.
+"""
+qr_instance(a::Any) = qr(a, check = false)
+
+"""
+  svd_instance(A) -> qr_factorization_instance
+
+Returns an instance of the SVD factorization object with the correct type
+cheaply.
+"""
+function svd_instance(A::Matrix{T}) where {T}
+    LinearAlgebra.SVD(zeros(T,0,0),zeros(T,0),zeros(T,0,0))
+end
+
+"""
+  svd_instance(a::Number) -> a
+
+Returns the number.
+"""
+svd_instance(a::Number) = a
+
+"""
+    svd_instance(a::Any) -> qr(a, check=false)
+
+Returns the number.
+"""
+svd_instance(a::Any) = svd(a, check = false)
+
+"""
     safevec(v)
 
 It is a form of `vec` which is safe for all values in vector spaces, i.e., if it
