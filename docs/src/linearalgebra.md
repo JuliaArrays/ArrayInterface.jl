@@ -29,6 +29,9 @@ running the full factorization. This thus allows for building types to hold the 
 without having to perform expensive extra computations.
 
 ```@docs
+ArrayInterface.bunchkaufman_instance
+ArrayInterface.cholesky_instance
+ArrayInterface.ldlt_instance
 ArrayInterface.lu_instance
 ArrayInterface.qr_instance
 ArrayInterface.svd_instance

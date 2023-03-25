@@ -441,6 +441,89 @@ matrix_colors(A::Union{Tridiagonal, SymTridiagonal}) = _cycle(1:3, Base.size(A, 
 _cycle(repetend, len) = repeat(repetend, div(len, length(repetend)) + 1)[1:len]
 
 """
+bunchkaufman_instance(A, pivot = LinearAlgebra.RowMaximum()) -> bunchkaufman_factorization_instance
+
+Returns an instance of the Cholesky factorization object with the correct type
+cheaply.
+"""
+function bunchkaufman_instance(A::Matrix{T}) where T
+    return bunchkaufman(similar(A, 0, 0), check = false)
+end
+function bunchkaufman_instance(A::SparseMatrixCSC)
+    bunchkaufman(sparse(similar(A, 1, 1)), check = false)
+end
+
+"""
+bunchkaufman_instance(a::Number) -> a
+
+Returns the number.
+"""
+bunchkaufman_instance(a::Number) = a
+
+"""
+bunchkaufman_instance(a::Any) -> cholesky(a, check=false)
+
+Returns the number.
+"""
+bunchkaufman_instance(a::Any) = bunchkaufman(a, check = false)
+
+"""
+cholesky_instance(A, pivot = LinearAlgebra.RowMaximum()) -> cholesky_factorization_instance
+
+Returns an instance of the Cholesky factorization object with the correct type
+cheaply.
+"""
+function cholesky_instance(A::Matrix{T}, pivot = LinearAlgebra.RowMaximum()) where {T}  
+    return cholesky(similar(A, 0, 0), pivot, check = false)
+end
+function cholesky_instance(A::SparseMatrixCSC)
+    cholesky(sparse(similar(A, 1, 1)), check = false)
+end
+
+"""
+cholesky_instance(a::Number, pivot = LinearAlgebra.RowMaximum()) -> a
+
+Returns the number.
+"""
+cholesky_instance(a::Number, pivot = LinearAlgebra.RowMaximum()) = a
+
+"""
+cholesky_instance(a::Any, pivot = LinearAlgebra.RowMaximum()) -> cholesky(a, check=false)
+
+Slow fallback which gets the instance via factorization. Should get
+specialized for new matrix types.
+"""
+cholesky_instance(a::Any, pivot = LinearAlgebra.RowMaximum()) = cholesky(a, pivot, check = false)
+
+"""
+ldlt_instance(A) -> ldlt_factorization_instance
+
+Returns an instance of the LDLT factorization object with the correct type
+cheaply.
+"""
+function ldlt_instance(A::Matrix{T}) where {T}  
+    return ldlt(SymTridiagonal(similar(A, 0, 0)), check = false)
+end
+function ldlt_instance(A::SparseMatrixCSC)
+    ldlt(sparse(similar(A, 1, 1)), check = false)
+end
+
+"""
+ldlt_instance(a::Number) -> a
+
+Returns the number.
+"""
+ldlt_instance(a::Number) = a
+
+"""
+ldlt_instance(a::Any) -> ldlt(a, check=false)
+
+Slow fallback which gets the instance via factorization. Should get
+specialized for new matrix types.
+"""
+ldlt_instance(a::Any) = ldlt(a)
+
+"""
   lu_instance(A) -> lu_factorization_instance
 
 Returns an instance of the LU factorization object with the correct type
@@ -478,7 +561,8 @@ lu_instance(a::Number) = a
 """
     lu_instance(a::Any) -> lu(a, check=false)
 
-Returns the number.
+Slow fallback which gets the instance via factorization. Should get
+specialized for new matrix types.
 """
 lu_instance(a::Any) = lu(a, check = false)
 
@@ -507,7 +591,8 @@ qr_instance(a::Number) = a
 """
     qr_instance(a::Any) -> qr(a)
 
-Returns the number.
+Slow fallback which gets the instance via factorization. Should get
+specialized for new matrix types.
 """
 qr_instance(a::Any) = qr(a)# check = false)
 
@@ -531,7 +616,8 @@ svd_instance(a::Number) = a
 """
     svd_instance(a::Any) -> svd(a)
 
-Returns the number.
+Slow fallback which gets the instance via factorization. Should get
+specialized for new matrix types.
 """
 svd_instance(a::Any) = svd(a) #check = false)
 
