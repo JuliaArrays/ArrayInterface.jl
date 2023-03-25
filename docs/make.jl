@@ -6,6 +6,12 @@ makedocs(;
     sitename="ArrayInterface.jl",
     pages=[
         "ArrayInterface.jl: An Extended Array Interface for Julia Generic Programming" => "index.md",
+        "indexing.md",
+        "conversions.md",
+        "linearalgebra.md",
+        "sparsearrays.md",
+        "tuples.md",
+        "wrapping.md",
     ]
 )
 
