@@ -441,6 +441,33 @@ matrix_colors(A::Union{Tridiagonal, SymTridiagonal}) = _cycle(1:3, Base.size(A, 
 _cycle(repetend, len) = repeat(repetend, div(len, length(repetend)) + 1)[1:len]
 
 """
+cholesky_instance(A, pivot = LinearAlgebra.RowMaximum()) -> cholesky_factorization_instance
+
+Returns an instance of the Cholesky factorization object with the correct type
+cheaply.
+"""
+function cholesky_instance(A::Matrix{T}, pivot = LinearAlgebra.RowMaximum()) where {T}  
+    return cholesky(similar(A, 0, 0), pivot, check = false)
+end
+function cholesky_instance(A::SparseMatrixCSC)
+    cholesky(sparse(similar(A, 1, 1)), check = false)
+end
+
+"""
+cholesky_instance(a::Number, pivot = LinearAlgebra.RowMaximum()) -> a
+
+Returns the number.
+"""
+cholesky_instance(a::Number, pivot = LinearAlgebra.RowMaximum()) = a
+
+"""
+cholesky_instance(a::Any, pivot = LinearAlgebra.RowMaximum()) -> cholesky(a, check=false)
+
+Returns the number.
+"""
+cholesky_instance(a::Any, pivot = LinearAlgebra.RowMaximum()) = cholesky(a, pivot, check = false)
+
+"""
   lu_instance(A) -> lu_factorization_instance
 
 Returns an instance of the LU factorization object with the correct type
