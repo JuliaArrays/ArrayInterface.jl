@@ -443,7 +443,7 @@ _cycle(repetend, len) = repeat(repetend, div(len, length(repetend)) + 1)[1:len]
 """
 bunchkaufman_instance(A, pivot = LinearAlgebra.RowMaximum()) -> bunchkaufman_factorization_instance
 
-Returns an instance of the Cholesky factorization object with the correct type
+Returns an instance of the Bunch-Kaufman factorization object with the correct type
 cheaply.
 """
 function bunchkaufman_instance(A::Matrix{T}) where T
@@ -476,7 +476,7 @@ cheaply.
 function cholesky_instance(A::Matrix{T}, pivot = LinearAlgebra.RowMaximum()) where {T}  
     return cholesky(similar(A, 0, 0), pivot, check = false)
 end
-function cholesky_instance(A::SparseMatrixCSC)
+function cholesky_instance(A::SparseMatrixCSC, pivot = LinearAlgebra.RowMaximum())
     cholesky(sparse(similar(A, 1, 1)), check = false)
 end
 
