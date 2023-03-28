@@ -22,7 +22,7 @@ y = @SVector rand(4)
 yr = ArrayInterface.restructure(x, y)
 @test yr isa SMatrix{2, 2}
 @test Base.size(yr) == (2,2)
-@test vec(yr) == vec(Float32.(y))
+@test vec(yr) == vec(y)
 z = rand(4)
 zr = ArrayInterface.restructure(x, z)
 @test zr isa SMatrix{2, 2}

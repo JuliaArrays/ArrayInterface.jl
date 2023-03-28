@@ -30,9 +30,6 @@ function ArrayInterface.lu_instance(_A::StaticArraysCore.StaticMatrix{N,N}) wher
     lu(one(_A))
 end
 
-function ArrayInterface.restructure(x::StaticArraysCore.SArray{S,T,N}, y::StaticArraysCore.SArray) where {S,T,N}
-    StaticArraysCore.SArray{S,T,N}(y)
-end
 ArrayInterface.restructure(x::StaticArraysCore.SArray{S}, y) where {S} = StaticArraysCore.SArray{S}(y)
 
 end
