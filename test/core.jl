@@ -267,5 +267,6 @@ end
         @test ArrayInterface.ldlt_instance(A) isa typeof(ldlt(SymTridiagonal(A' * A)))
         @test ArrayInterface.lu_instance(A) isa typeof(lu(A))
         @test ArrayInterface.qr_instance(A) isa typeof(qr(A))
+        @test ArrayInterface.svd_instance(A) isa typeof(svd(A))
     end
 end
