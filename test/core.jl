@@ -266,7 +266,7 @@ end
         @test ArrayInterface.lu_instance(A) isa typeof(lu(A))
         @test ArrayInterface.qr_instance(A) isa typeof(qr(A))
 
-        if !(eltype(A) isa BigFloat)
+        if !(eltype(A) <: BigFloat)
             @test ArrayInterface.bunchkaufman_instance(A) isa typeof(bunchkaufman(A' * A))
             @test ArrayInterface.cholesky_instance(A) isa typeof(cholesky(A' * A))
             @test ArrayInterface.ldlt_instance(A) isa typeof(ldlt(SymTridiagonal(A' * A)))
