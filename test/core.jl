@@ -260,7 +260,7 @@ end
     @test ArrayInterface.ensures_sorted(1:10)
 end
 
-@testset "linearalgebra instances" being
+@testset "linearalgebra instances" begin
     for A in [rand(2,2), rand(Float32,2,2), rand(BigFloat,2,2)]
         @test ArrayInterface.bunchkaufman_instance(A) isa typeof(bunchkaufman(A' * A))
         @test ArrayInterface.cholesky_instance(A) isa typeof(cholesky(A' * A))
