@@ -576,6 +576,10 @@ function qr_instance(A::Matrix{T}) where {T}
     LinearAlgebra.QRCompactWYQ(zeros(T,0,0),zeros(T,0,0))
 end
 
+function qr_instance(A::Matrix{BigFloat})
+    LinearAlgebra.QR(zeros(BigFloat,0,0),zeros(BigFloat,0))
+end
+
 # Could be optimized but this should work for any real case.
 function qr_instance(jac_prototype::SparseMatrixCSC)
     qr(sparse(rand(1,1)))
