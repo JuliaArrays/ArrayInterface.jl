@@ -279,6 +279,8 @@ end
 
     @test isnothing(@inferred(ArrayInterface.known_first(typeof(1:4))))
     @test isone(@inferred(ArrayInterface.known_first(Base.OneTo(4))))
+    @test isone(@inferred(ArrayInterface.known_first(Base.IdentityUnitRange(Base.OneTo(4)))))
+    @test isone(@inferred(ArrayInterface.known_first(LinearIndices((1, 1, 1)))))
     @test isone(@inferred(ArrayInterface.known_first(typeof(Base.OneTo(4)))))
     @test @inferred(ArrayInterface.known_first(typeof(CI))) == CartesianIndex(1, 1)
     @test @inferred(ArrayInterface.known_first(typeof(CI))) == CartesianIndex(1, 1)
@@ -303,6 +305,9 @@ end
     A2r = reinterpret(ComplexF64, A2)
 
     @test @inferred(ArrayInterface.known_size(1)) === ()
+    @test @inferred(ArrayInterface.known_size([1, 1]')) === (1, nothing)
+    @test @inferred(ArrayInterface.known_size(view([1, 1]', :, 1))) === (1, )
+    @test @inferred(ArrayInterface.known_size(Diagonal(view([1, 1]', :, 1)))) === (1, 1)
     @test @inferred(ArrayInterface.known_size(view(rand(4), reshape(1:4, 2, 2)))) == (nothing, nothing)
     @test @inferred(ArrayInterface.known_size(A)) === (nothing, nothing, nothing)
     @test @inferred(ArrayInterface.known_size(Ap)) === (nothing, nothing)
@@ -311,5 +316,10 @@ end
     @test ArrayInterface.known_size(Ar, 4) === 1
     @test @inferred(ArrayInterface.known_size(A2)) === (nothing, nothing, nothing)
     @test @inferred(ArrayInterface.known_size(A2r)) === (nothing, nothing, nothing)
+
+    @test @inferred(ArrayInterface.known_length(1)) === 1
+    @test @inferred(ArrayInterface.known_length(Base.Slice(1:2))) === nothing
+    @test @inferred(ArrayInterface.known_length(CartesianIndex(1, 2, 3))) === 3
+    @test @inferred(ArrayInterface.known_length((x = 1, y = 2))) === 2
 end
 
