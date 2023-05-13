@@ -17,6 +17,14 @@ else
         end
     end
 end
+
+@assume_effects :total function _find_first_egal(v::T, vals::NTuple{N, T}) where {N, T}
+    for i in 1:N
+        getfield(vals, i, false) === v && return i
+    end
+    return 0
+end
+
 @assume_effects :total __parameterless_type(T)=Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
 parameterless_type(x::Type) = __parameterless_type(x)
@@ -1022,6 +1030,69 @@ ensures_sorted(@nospecialize(T::Type{BitSet})) = true
 ensures_sorted(@nospecialize( T::Type{<:AbstractRange})) = true
 ensures_sorted(T::Type) = is_forwarding_wrapper(T) ? ensures_sorted(parent_type(T)) : false
 ensures_sorted(@nospecialize(x)) = ensures_sorted(typeof(x))
+
+"""
+    has_dimnames(T::Type) -> Bool
+
+Returns `true` if instances of `T` support use of [`dimnames`](@ref).
+"""
+has_dimnames(T::Type) = is_forwarding_wrapper(T) ? has_dimnames(parent_type(T)) : false
+
+"""
+    dimnames(x) -> Tuple{Vararg{Symbol}}}
+    dimnames(x, dim::Integer) -> Symbol
+
+Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
+have a name.
+"""
+@inline function dimnames(x::X) where {X}
+    if is_forwarding_wrapper(X)
+        return dimnames(buffer(x))
+    elseif isa(Base.IteratorSize(X), Base.HasShape)
+        return ntuple(_ -> :_, Val(ndims(X)))
+    else
+        return (:_,)
+    end
+end
+@inline function dimnames(x::X, dim::Integer) where {X}
+    if dim in 1:(isa(Base.IteratorSize(X), Base.HasShape) ? ndims(X) : 1)
+        return getfield(dimnames(x), Int(dim), false)  # already know is inbounds
+    else  # trailing dim is unnamed
+        return :_
+    end
+end
+
+@noinline function _throw_dimname(s::Symbol)
+    throw(DimensionMismatch("dimension name $(s) not found"))
+end
+
+"""
+    to_dims(x, dim) -> Int
+
+This returns the dimension(s) of `x` corresponding to `dim`.
+"""
+to_dims(x, dim::Colon) = dim
+to_dims(x, dim::Integer) = Int(dim)
+function to_dims(x::X, s::Symbol) where {X}
+    dim = _find_first_egal(s, dimnames(x))
+    dim === 0 && _throw_dimname(s)
+    return dim
+end
+to_dims(x, dims::Tuple{Vararg{Int}}) = dims
+function to_dims(x::X, dims::Tuple{Vararg{Any, N}}) where {X, N}
+    dnames = dimnames(x)
+    ntuple(Val{N}()) do i
+        dim = getfield(dims, i, false)
+        if dim isa Symbol
+            dim_i = _find_first_egal(dim, dnames)
+            dim_i === 0 && _throw_dimname(dim)
+            dim_i
+        else
+            dim_i = to_dim(x, dim)
+        end
+        dim_i
+    end
+end
 
 ## Extensions
 
