@@ -14,6 +14,7 @@ ArrayInterface.can_change_size
 ArrayInterface.can_setindex
 ArrayInterface.fast_scalar_indexing
 ArrayInterface.ismutable
+ArrayInterface.is_splat_index
 ArrayInterface.ndims_index
 ArrayInterface.ndims_shape
 ArrayInterface.defines_strides
@@ -22,6 +23,11 @@ ArrayInterface.ensures_sorted
 ArrayInterface.indices_do_not_alias
 ArrayInterface.instances_do_not_alias
 ArrayInterface.device
+ArrayInterface.known_first
+ArrayInterface.known_step
+ArrayInterface.known_last
+ArrayInterface.known_size
+ArrayInterface.known_length
 ```
 
 ## Allowed Indexing Functions

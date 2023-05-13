@@ -32,4 +32,13 @@ end
 
 ArrayInterface.restructure(x::StaticArraysCore.SArray{S}, y) where {S} = StaticArraysCore.SArray{S}(y)
 
+function ArrayInterface.known_size(::Type{<:StaticArraysCore.StaticArray{S}}) where {S}
+    @isdefined(S) ? tuple(S.parameters...) : ntuple(_-> nothing, ndims(T))
+end
+
+function ArrayInterface.known_length(T::Type{<:StaticArraysCore.StaticArray})
+    sz = ArrayInterface.known_size(T)
+    isa(sz, Tuple{Vararg{Nothing}}) ? nothing : prod(sz)
+end
+
 end

@@ -17,6 +17,7 @@ else
         end
     end
 end
+
 @assume_effects :total __parameterless_type(T)=Base.typename(T).wrapper
 parameterless_type(x) = parameterless_type(typeof(x))
 parameterless_type(x::Type) = __parameterless_type(x)
@@ -473,7 +474,7 @@ cholesky_instance(A, pivot = LinearAlgebra.RowMaximum()) -> cholesky_factorizati
 Returns an instance of the Cholesky factorization object with the correct type
 cheaply.
 """
-function cholesky_instance(A::Matrix{T}, pivot = LinearAlgebra.RowMaximum()) where {T}  
+function cholesky_instance(A::Matrix{T}, pivot = LinearAlgebra.RowMaximum()) where {T}
     return cholesky(similar(A, 0, 0), pivot, check = false)
 end
 function cholesky_instance(A::SparseMatrixCSC, pivot = LinearAlgebra.RowMaximum())
@@ -501,7 +502,7 @@ ldlt_instance(A) -> ldlt_factorization_instance
 Returns an instance of the LDLT factorization object with the correct type
 cheaply.
 """
-function ldlt_instance(A::Matrix{T}) where {T}  
+function ldlt_instance(A::Matrix{T}) where {T}
     return ldlt(SymTridiagonal(similar(A, 0, 0)), check = false)
 end
 function ldlt_instance(A::SparseMatrixCSC)
@@ -830,6 +831,13 @@ Base.@propagate_inbounds function Base.getindex(ind::TridiagonalIndex, i::Int)
     end
 end
 
+"""
+    is_splat_index(::Type{T}) -> Bool
+
+Returns `true` if `T` is a type that splats across multiple dimensions.
+"""
+is_splat_index(T::Type) = false
+is_splat_index(@nospecialize(x)) = is_splat_index(typeof(x))
 
 """
     ndims_index(::Type{I}) -> Int
@@ -859,7 +867,7 @@ ndims_index(::Type{CartesianIndices{0, Tuple{}}}) = 1
 ndims_index(@nospecialize T::Type{<:AbstractArray{Bool}}) = ndims(T)
 ndims_index(@nospecialize T::Type{<:AbstractArray}) = ndims_index(eltype(T))
 ndims_index(@nospecialize T::Type{<:Base.LogicalIndex}) = ndims(fieldtype(T, :mask))
-ndims_index(T::Type) = 1
+ndims_index(@nospecialize(T::Type)) = 1
 ndims_index(@nospecialize(i)) = ndims_index(typeof(i))
 
 """
@@ -880,15 +888,13 @@ julia> ndims(CartesianIndices((2,2))[[CartesianIndex(1, 1), CartesianIndex(1, 2)
 1
 
 """
-ndims_shape(T::DataType) = ndims_index(T)
+ndims_shape(T::Type) = ndims_index(T)
 ndims_shape(::Type{Colon}) = 1
 ndims_shape(@nospecialize T::Type{<:CartesianIndices}) = ndims(T)
 ndims_shape(@nospecialize T::Type{<:Union{Number, Base.AbstractCartesianIndex}}) = 0
 ndims_shape(@nospecialize T::Type{<:AbstractArray{Bool}}) = 1
 ndims_shape(@nospecialize T::Type{<:AbstractArray}) = ndims(T)
 ndims_shape(x) = ndims_shape(typeof(x))
-
-
 
 """
     instances_do_not_alias(::Type{T}) -> Bool
@@ -1023,6 +1029,237 @@ ensures_sorted(@nospecialize( T::Type{<:AbstractRange})) = true
 ensures_sorted(T::Type) = is_forwarding_wrapper(T) ? ensures_sorted(parent_type(T)) : false
 ensures_sorted(@nospecialize(x)) = ensures_sorted(typeof(x))
 
+"""
+    known_first(I::Type) -> Union{Int, Nothing}
+
+Return the first index in an index range of type `I` when known at compile time.
+Otherwise, return `nothing`.
+
+See also: [`ArrayInterface.known_last`](@ref), [`ArrayInterface.known_step`](@ref)
+
+```julia
+julia> known_first(typeof(1:4))
+nothing
+
+julia> known_first(typeof(Base.OneTo(4)))
+1
+```
+"""
+known_first(x) = known_first(typeof(x))
+known_first(T::Type) = is_forwarding_wrapper(T) ? known_first(parent_type(T)) : nothing
+known_first(::Type{<:Base.OneTo}) = 1
+known_first(@nospecialize T::Type{<:LinearIndices}) = 1
+known_first(@nospecialize T::Type{<:Base.IdentityUnitRange}) = known_first(parent_type(T))
+@inline function known_first(::Type{<:CartesianIndices{N, R}}) where {N, R}
+    tup = ntuple(i -> known_first(fieldtype(R, i)), Val(N))
+    isa(tup, NTuple{N, Int}) ? CartesianIndex(tup) : nothing
+end
+
+"""
+    known_last(::Type{T}) -> Union{Int, Nothing}
+
+Return the last index in an index range of type `I` when known at compile time.
+Otherwise, return `nothing`.
+
+See also: [`ArrayInterface.known_first`](@ref), [`ArrayInterface.known_step`](@ref)
+
+```julia
+julia> known_last(typeof(1:4))
+nothing
+
+julia> known_first(typeof(static(1):static(4)))
+4
+
+```
+"""
+known_last(x) = known_last(typeof(x))
+known_last(T::Type) = is_forwarding_wrapper(T) ? known_last(parent_type(T)) : nothing
+@inline function known_last(::Type{<:CartesianIndices{N, R}}) where {N, R}
+    tup = ntuple(i -> known_last(fieldtype(R, i)), Val(N))
+    isa(tup, NTuple{N, Int}) ? CartesianIndex(tup) : nothing
+end
+
+"""
+    known_step(I::Type) -> Union{Int,  Nothing}
+
+Return the step size for an index range of type `I` when known at compile time.
+Otherwise, return `nothing`.
+
+See also: [`ArrayInterface.known_first`](@ref), [`ArrayInterface.known_last`](@ref)
+
+```julia
+julia> known_step(typeof(1:2:8))
+nothing
+
+julia> known_step(typeof(1:4))
+1
+
+```
+"""
+known_step(x) = known_step(typeof(x))
+known_step(T::Type) = is_forwarding_wrapper(T) ? known_step(parent_type(T)) : nothing
+known_step(@nospecialize T::Type{<:AbstractUnitRange}) = 1
+
+"""
+    known_size(::Type{T}) -> Tuple
+    known_size(::Type{T}, dim) -> Union{Int, Nothing}
+
+Returns the size of each dimension of `A` or along dimension `dim` of `A` that is known at
+compile time. If a dimension does not have a known size along a dimension then `nothing` is
+returned in its position.
+"""
+@inline known_size(x, dim::Integer) = ndims(x) < dim ? 1 : known_size(x)[dim]
+known_size(x) = known_size(typeof(x))
+@inline function known_size(T::Type)
+    if is_forwarding_wrapper(T)
+        return known_size(parent_type(T))
+    elseif isa(Base.IteratorSize(T), Base.HasShape)
+        return ntuple(_ -> nothing, ndims(T))
+    else
+        return (known_length(T),)
+    end
+end
+@inline known_size(@nospecialize T::Type{<:Number}) = ()
+@inline known_size(@nospecialize T::Type{<:VecAdjTrans}) = (1, known_length(parent_type(T)))
+@inline function known_size(@nospecialize T::Type{<:MatAdjTrans})
+    s1, s2 = known_size(parent_type(T))
+    (s2, s1)
+end
+function known_size(::Type{<:PermutedDimsArray{<:Any, N, I1, I2, P}}) where {N, I1, I2, P}
+    psize = known_size(P)
+    ntuple(i -> getfield(psize, getfield(I1, i)), Val{N}())
+end
+function known_size(@nospecialize T::Type{<:Diagonal})
+    s = known_length(parent_type(T))
+    (s, s)
+end
+known_size(@nospecialize T::Type{<:Union{Symmetric,Hermitian}}) = known_size(parent_type(T))
+@inline function known_size(::Type{<:Base.ReinterpretArray{T,N,S,A,IsReshaped}}) where {T,N,S,A,IsReshaped}
+    psize = known_size(A)
+    if IsReshaped
+        if sizeof(S) > sizeof(T)
+            return (div(sizeof(S), sizeof(T)), psize...)
+        elseif sizeof(S) < sizeof(T)
+            return Base.tail(psize)
+        else
+            return psize
+        end
+    else
+        if Base.issingletontype(T) || first(psize) === nothing
+            return psize
+        else
+            return (div(first(psize) * sizeof(S), sizeof(T)), Base.tail(psize)...)
+        end
+    end
+end
+known_size(::Type{<:Base.IdentityUnitRange{I}}) where {I} = known_size(I)
+known_size(::Type{<:Base.Generator{I}}) where {I} = known_size(I)
+known_size(::Type{<:Iterators.Reverse{I}}) where {I} = known_size(I)
+known_size(::Type{<:Iterators.Enumerate{I}}) where {I} = known_size(I)
+known_size(::Type{<:Iterators.Accumulate{<:Any,I}}) where {I} = known_size(I)
+known_size(::Type{<:Iterators.Pairs{<:Any,<:Any,I}}) where {I} = known_size(I)
+@inline function known_size(::Type{<:Iterators.ProductIterator{T}}) where {T}
+    ntuple(i -> known_length(fieldtype(T, i)), Val(known_length(T)))
+end
+@inline function known_size(@nospecialize T::Type{<:AbstractRange})
+    if is_forwarding_wrapper(T)
+        return known_size(parent_type(T))
+    else
+        start = known_first(T)
+        s = known_step(T)
+        stop = known_last(T)
+        if isa(stop, Int) && isa(s, Int) && isa(start, Int)
+            if s > 0
+                return (stop < start ? 0 : div(stop - start, s) + 1,)
+            else
+                return (stop > start ? 0 : div(start - stop, -s) + 1,)
+            end
+        else
+            return (nothing,)
+        end
+    end
+end
+
+@inline function known_size(@nospecialize T::Type{<:Union{LinearIndices,CartesianIndices}})
+    I = fieldtype(T, :indices)
+    ntuple(i -> known_length(fieldtype(I, i)), Val(ndims(T)))
+end
+
+@inline function known_size(T::Type{<:SubArray})
+    I = fieldtype(T, :indices)
+    ninds = fieldcount(I)
+    if ninds === 1
+        I_1 = fieldtype(I, 1)
+        return I_1 <: Base.Slice ? (known_length(parent_type(T)),) : known_size(I_1)
+    else
+        psize = known_size(parent_type(T))
+        ndi_summed = cumsum(map_tuple_type(ndims_index, I))
+        sz = ntuple(Val{nfields(ndi_summed)}()) do i
+            I_i = fieldtype(I, i)
+            if I_i <: Base.Slice
+                getfield(psize, getfield(ndi_summed, i))
+            else
+                known_size(I_i)
+            end
+        end
+        return flatten_tuples(sz)
+    end
+end
+
+# 1. `Zip` doesn't check that its collections are compatible (same size) at construction,
+#   but we assume as much b/c otherwise it will error while iterating. So we promote to the
+#   known size if matching a `Nothing` and `Int` size.
+# 2. `promote_shape(::Tuple{Vararg{IntType}}, ::Tuple{Vararg{IntType}})` promotes
+#   trailing dimensions (which must be of size 1), to `static(1)`. We want to stick to
+#   `Nothing` and `Int` types, so we do one last pass to ensure everything is dynamic
+@inline function known_size(::Type{<:Iterators.Zip{T}}) where {T}
+    reduce(promote_known_shape, map_tuple_type(known_size, T))
+end
+function promote_known_shape(x::Tuple{Vararg{Union{Nothing,Int}, XN}}, y::Tuple{Vararg{Union{Nothing,Int}, YN}}) where {XN, YN}
+    if XN >= YN
+        ntuple(Val{XN}()) do i
+            x_i = getfield(x, i)
+            x_i === nothing ? i > YN ? 1 : getfield(y, i) : x_i
+        end
+    else
+        return promote_known_shape(y, x)
+    end
+end
+
+"""
+    known_length(::Type{T}) -> Union{Int, Nothing}
+
+If `length` of an instance of type `T` is known at compile time, return it.
+Otherwise, return `nothing`.
+"""
+known_length(x) = known_length(typeof(x))
+function known_length(::Type{T}) where {T}
+    if isa(Base.IteratorSize(T), Base.HasShape)
+        # this is a multidimensional iterator so we assume that known_size is defined
+        sz = known_size(T)
+        len = 1
+        for sz_i in sz
+            isa(sz_i, Int) || return nothing
+            len *= sz_i
+        end
+        return len
+    else
+        # if it is an iterator with length it's compile time length is not provided
+        return nothing
+    end
+end
+
+known_length(::Type{<:NamedTuple{L}}) where {L} = nfields(L)
+known_length(@nospecialize T::Type{<:Base.Slice}) = known_length(parent_type(T))
+known_length(@nospecialize T::Type{<:Tuple}) = fieldcount(T)
+known_length(@nospecialize T::Type{<:Number}) = 1
+known_length(::Type{<:Base.AbstractCartesianIndex{N}}) where {N} = N::Int
+function known_length(::Type{<:Iterators.Flatten{I}}) where {I}
+    lenitr = known_length(I)
+    lenelt = known_length(eltype(I))
+    (lenelt isa Int && lenitr isa Int) ? (lenitr * lenelt) : nothing
+end
+
 ## Extensions
 
 import Requires
@@ -1032,6 +1269,8 @@ import Requires
         Requires.@require BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0" begin include("../ext/ArrayInterfaceBlockBandedMatricesExt.jl") end
         Requires.@require GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527" begin include("../ext/ArrayInterfaceGPUArraysCoreExt.jl") end
         Requires.@require StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c" begin include("../ext/ArrayInterfaceStaticArraysCoreExt.jl") end
+        Requires.@require StaticArrays = "1e83bf80-4336-4d27-bf5d-d5a4f845583c" begin include("../ext/ArrayInterfaceStaticArraysExt.jl") end
+        Requires.@require Static = "1e83bf80-4336-4d27-bf5d-d5a4f845583c" begin include("../ext/ArrayInterfaceStaticExt.jl") end
         Requires.@require CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba" begin include("../ext/ArrayInterfaceCUDAExt.jl") end
         Requires.@require Tracker="9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c" begin include("../ext/ArrayInterfaceTrackerExt.jl") end
     end

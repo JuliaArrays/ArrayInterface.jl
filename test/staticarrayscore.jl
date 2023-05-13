@@ -1,3 +1,4 @@
+
 using StaticArrays, ArrayInterface, Test
 using LinearAlgebra
 using ArrayInterface: undefmatrix, zeromatrix
@@ -43,3 +44,4 @@ zr = ArrayInterface.restructure(x, z)
         end
     end
 end
+
