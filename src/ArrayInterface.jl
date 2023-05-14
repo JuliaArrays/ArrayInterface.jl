@@ -1023,6 +1023,29 @@ ensures_sorted(@nospecialize( T::Type{<:AbstractRange})) = true
 ensures_sorted(T::Type) = is_forwarding_wrapper(T) ? ensures_sorted(parent_type(T)) : false
 ensures_sorted(@nospecialize(x)) = ensures_sorted(typeof(x))
 
+"""
+    has_index_labels(T::Type) -> Bool
+
+Returns `true` if instances of `T` have labeled indices. Structures overloading this
+method are also responsible for defining [`ArrayInterface.index_labels`](@ref). 
+"""
+function has_index_labels(T::Type)
+    is_forwarding_wrapper(T) ? has_index_labels(parent_type(T)) : false
+end
+
+"""
+    index_labels(x)
+    index_labels(x, dim)
+
+Returns a tuple of labels assigned to each axis or a collection of labels corresponding to
+each index along `dim` of `x`. Default is to return `UnlabelledIndices(axes(x, dim))`.
+"""
+function index_labels(x::T) where {T}
+    has_index_labels(T) || (@noinline; throw(ArgumentError("Objects of type $T do not support `index_labels`")))
+    is_forwarding_wrapper(T) || (@noinline; throw(ArgumentError("`has_index_labels($(T)) == true` but does not have `ArrayInterface.index_labels(::$T)` defined.")))
+    return index_labels(parent(x))
+end
+
 ## Extensions
 
 import Requires
