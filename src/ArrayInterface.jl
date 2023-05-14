@@ -1031,10 +1031,50 @@ ensures_sorted(@nospecialize( T::Type{<:AbstractRange})) = true
 ensures_sorted(T::Type) = is_forwarding_wrapper(T) ? ensures_sorted(parent_type(T)) : false
 ensures_sorted(@nospecialize(x)) = ensures_sorted(typeof(x))
 
+DIMNAMES_EXTENDED_HELP = """
+## Extended help
+
+Structures that explicitly provide named dimensions must define both `has_dimnames` and
+`dimnames`. Wrappers that don't change the layout of their parent data and define
+`is_forwarding_wrapper` will propagate these methods freely. All other wrappers must
+define `has_dimnames` and `dimnames`. For example:
+
+```julia
+function ArrayInterface.has_dimnames(T::Type{<:Wrapper})
+    has_dimnames(ArrayInterface.parent_type(T))
+end
+
+function ArrayInterface.dimnames(x::Wrapper)
+    if has_dimnames(x)
+        # appropriately modify wrapped dimension names to reflect changes lazy changes
+        # in the parent data layout
+        modify_wrapped_dimnames(dimnames(parent(x)))::NTuple{ndims(x), Symbol}
+    else  # need to return "blank" dimension name :_ when names aren't defined
+        ntuple(_ -> :_, ndims(x))
+    end
+end
+```
+
+In some cases `Wrapper` may modify some aspect of its parent data's layout that has no
+impact on the dimension names (e.g., mapping offset indices to a parent array). In such
+cases there may be no need to modify dimension names and simply defining
+`ArrayInterface.dimnames(x::Wrapper) = dimnames(parent(x))` may be sufficient.
+
+Since the utlity of dimension names is highly specific to the domain they are used in,
+there are very few explicit guidelines how they should be modified by wrappers. The most
+important guideline is that `dimnames(x)` returns an instance of type
+`NTuple{ndims(x), Symbol}`.
+"""
+
 """
     has_dimnames(T::Type) -> Bool
 
-Returns `true` if instances of `T` support use of [`dimnames`](@ref).
+Returns `true` if instances of `T` have named dimensions. Structures overloading this
+method are also responsible for defining [`ArrayInterface.dimnames`](@ref). 
+
+See also: [`ArrayInterface.to_dims`](@ref)
+
+$(DIMNAMES_EXTENDED_HELP)
 """
 has_dimnames(T::Type) = is_forwarding_wrapper(T) ? has_dimnames(parent_type(T)) : false
 
@@ -1043,7 +1083,12 @@ has_dimnames(T::Type) = is_forwarding_wrapper(T) ? has_dimnames(parent_type(T)) 
     dimnames(x, dim::Integer) -> Symbol
 
 Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
-have a name.
+have a name. Structures overloading this method are also responsible for defining
+[`ArrayInterface.has_dimnames`](@ref).
+
+See also: [`ArrayInterface.to_dims`](@ref)
+
+$(DIMNAMES_EXTENDED_HELP)
 """
 @inline function dimnames(x::X) where {X}
     if is_forwarding_wrapper(X)
@@ -1067,9 +1112,14 @@ end
 end
 
 """
-    to_dims(x, dim) -> Int
+    to_dims(x, d::Integer) -> Int
+    to_dims(x, d::Symbol) -> Int
+    to_dims(x, d::NTuple{N}) -> NTuple{N, Int}
 
-This returns the dimension(s) of `x` corresponding to `dim`.
+Return the dimension(s) of `x` corresponding to `d`. Symbols are converted to dimensions
+by searching through dimension names (see [`dimnames`](@ref)). Integers may be converted
+to `Int` but are otherwise returned as is.
+
 """
 to_dims(x, dim::Colon) = dim
 to_dims(x, dim::Integer) = Int(dim)
@@ -1079,7 +1129,7 @@ function to_dims(x::X, s::Symbol) where {X}
     return dim
 end
 to_dims(x, dims::Tuple{Vararg{Int}}) = dims
-function to_dims(x::X, dims::Tuple{Vararg{Any, N}}) where {X, N}
+function to_dims(x::X, dims::Tuple{Vararg{Union{Symbol, Integer}, N}}) where {X, N}
     dnames = dimnames(x)
     ntuple(Val{N}()) do i
         dim = getfield(dims, i, false)
@@ -1088,7 +1138,7 @@ function to_dims(x::X, dims::Tuple{Vararg{Any, N}}) where {X, N}
             dim_i === 0 && _throw_dimname(dim)
             dim_i
         else
-            dim_i = to_dim(x, dim)
+            dim_i = to_dims(x, dim)
         end
         dim_i
     end

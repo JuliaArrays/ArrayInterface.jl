@@ -7,6 +7,24 @@ using Random
 using SparseArrays
 using Test
 
+struct NamedDimsWrapper{D,T,N,P<:AbstractArray{T,N}} <: AbstractArray{T,N}
+    parent::P
+
+    NamedDimsWrapper{D}(p::P) where {D,P} = new{D,eltype(P),ndims(p),P}(p)
+end
+
+ArrayInterface.has_dimnames(T::Type{<:NamedDimsWrapper}) = true
+ArrayInterface.is_forwarding_wrapper(::Type{<:NamedDimsWrapper}) = true
+ArrayInterface.parent_type(::Type{T}) where {P,T<:NamedDimsWrapper{<:Any,<:Any,<:Any,P}} = P
+ArrayInterface.dimnames(::NamedDimsWrapper{D}) where {D} = D
+Base.parent(x::NamedDimsWrapper) = getfield(x, :parent)
+Base.size(x::NamedDimsWrapper) = size(parent(x))
+Base.IndexStyle(T::Type{<:NamedDimsWrapper}) = IndexStyle(parent_type(T))
+Base.@propagate_inbounds Base.getindex(x::NamedDimsWrapper, inds...) = parent(x)[inds...]
+Base.@propagate_inbounds function Base.setindex!(x::NamedDimsWrapper, v, inds...)
+    setindex!(parent(x), v, inds...)
+end
+
 # ensure we are correctly parsing these
 ArrayInterface.@assume_effects :total foo(x::Bool) = x
 ArrayInterface.@assume_effects bar(x::Bool) = x
@@ -274,3 +292,26 @@ end
         end
     end
 end
+
+@testset "dimnames interface" begin
+    a = zeros(3, 4, 5);
+    nda = NamedDimsWrapper{(:x, :y, :z)}(a)
+
+    @test !@inferred(ArrayInterface.has_dimnames(typeof(a)))
+    @test @inferred(ArrayInterface.has_dimnames(typeof(nda)))
+
+    @test @inferred(ArrayInterface.dimnames(a)) === (:_, :_, :_)
+    @test @inferred(ArrayInterface.dimnames(nda)) === (:x, :y, :z)
+    @test @inferred(ArrayInterface.dimnames(nda, 1)) === :x
+
+    @test @inferred(ArrayInterface.to_dims(nda, :)) === Colon()
+    @test @inferred(ArrayInterface.to_dims(nda, 1)) === 1
+    @test @inferred(ArrayInterface.to_dims(nda, :x)) === 1
+    @test @inferred(ArrayInterface.to_dims(nda, (1, 2))) === (1, 2)
+    @test @inferred(ArrayInterface.to_dims(nda, (:x, :y))) === (1, 2)
+    @test @inferred(ArrayInterface.to_dims(nda, (:y, :x))) === (2, 1)
+    @test @inferred(ArrayInterface.to_dims(nda, (:y, 1))) === (2, 1)
+
+    @test_throws DimensionMismatch ArrayInterface.to_dims(a, :x)
+end
+
