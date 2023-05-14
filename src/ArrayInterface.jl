@@ -573,7 +573,11 @@ Returns an instance of the QR factorization object with the correct type
 cheaply.
 """
 function qr_instance(A::Matrix{T}) where {T}
-    LinearAlgebra.QRCompactWYQ(zeros(T,0,0),zeros(T,0,0))
+    if VERSION >= v"1.9"
+        LinearAlgebra.QRCompactWY(zeros(T,0,0),zeros(T,0,0))
+    else
+        LinearAlgebra.QRCompactWYQ(zeros(T,0,0),zeros(T,0,0))
+    end
 end
 
 function qr_instance(A::Matrix{BigFloat})
