@@ -1059,12 +1059,18 @@ each index along `dim` of `x`.
 $INDEX_LABELS_EXTENDED_HELP
 """
 function index_labels(x::T) where {T}
-    has_index_labels(T) || (@noinline; throw(ArgumentError("Objects of type $T do not support `index_labels`")))
-    is_forwarding_wrapper(T) || (@noinline; throw(ArgumentError("`has_index_labels($(T)) == true` but does not have `ArrayInterface.index_labels(::$T)` defined.")))
+    has_index_labels(T) || _throw_index_labels(T)
+    is_forwarding_wrapper(T) || _violated_index_label_interface(T)
     return index_labels(parent(x))
 end
 index_labels(x, dim::Integer) = index_labels(x)[Int(dim)]
 
+@noinline function _throw_index_labels(T::DataType)
+    throw(ArgumentError("Objects of type $T do not support `index_labels`"))
+end
+@noinline function _violated_index_label_interface(T::DataType)
+    throw(ArgumentError("`has_index_labels($(T)) == true` but does not have `ArrayInterface.index_labels(::$T)` defined."))
+end
 
 ## Extensions
 
