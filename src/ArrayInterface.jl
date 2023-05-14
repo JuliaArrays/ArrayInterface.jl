@@ -1023,28 +1023,48 @@ ensures_sorted(@nospecialize( T::Type{<:AbstractRange})) = true
 ensures_sorted(T::Type) = is_forwarding_wrapper(T) ? ensures_sorted(parent_type(T)) : false
 ensures_sorted(@nospecialize(x)) = ensures_sorted(typeof(x))
 
+const INDEX_LABELS_EXTENDED_HELP = """
+## Extended help
+
+Structures that explicitly provide labels along their indices must define both
+`has_index_labels` and `index_labels`. Wrappers that don't change the layout
+of their parent data and define `is_forwarding_wrapper` will propagate these methods
+freely, but all other wrappers must define these two methods in order to propagate
+labelled indices information.
+
+Labeled indices are expected to hold the following properties:
+* `length(index_labels(x)) == ndims(x)`
+* `map(length, index_labels(x)) == size(x)`
+"""
+
 """
     has_index_labels(T::Type) -> Bool
 
 Returns `true` if instances of `T` have labeled indices. Structures overloading this
 method are also responsible for defining [`ArrayInterface.index_labels`](@ref). 
+
+$INDEX_LABELS_EXTENDED_HELP
 """
 function has_index_labels(T::Type)
     is_forwarding_wrapper(T) ? has_index_labels(parent_type(T)) : false
 end
 
 """
-    index_labels(x)
-    index_labels(x, dim)
+    index_labels(x) -> Tuple{Vararg{Any, ndims(x)}}
+    index_labels(x, dim) -> itr
 
 Returns a tuple of labels assigned to each axis or a collection of labels corresponding to
-each index along `dim` of `x`. Default is to return `UnlabelledIndices(axes(x, dim))`.
+each index along `dim` of `x`.
+
+$INDEX_LABELS_EXTENDED_HELP
 """
 function index_labels(x::T) where {T}
     has_index_labels(T) || (@noinline; throw(ArgumentError("Objects of type $T do not support `index_labels`")))
     is_forwarding_wrapper(T) || (@noinline; throw(ArgumentError("`has_index_labels($(T)) == true` but does not have `ArrayInterface.index_labels(::$T)` defined.")))
     return index_labels(parent(x))
 end
+index_labels(x, dim::Integer) = index_labels(x)[Int(dim)]
+
 
 ## Extensions
 
