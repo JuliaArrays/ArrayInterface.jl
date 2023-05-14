@@ -1079,8 +1079,9 @@ $(DIMNAMES_EXTENDED_HELP)
 has_dimnames(T::Type) = is_forwarding_wrapper(T) ? has_dimnames(parent_type(T)) : false
 
 """
-    dimnames(x) -> Tuple{Vararg{Symbol}}}
+    dimnames(x) -> NTuple{ndims(x), Symbol}
     dimnames(x, dim::Integer) -> Symbol
+    dimnames(x, dim::Tuple{Vararg{Integer, N}}) -> NTuple{N, Symbol}
 
 Return the names of the dimensions for `x`. `:_` is used to indicate a dimension does not
 have a name. Structures overloading this method are also responsible for defining
@@ -1097,6 +1098,15 @@ $(DIMNAMES_EXTENDED_HELP)
         return ntuple(_ -> :_, Val(ndims(X)))
     else
         return (:_,)
+    end
+end
+@inline function dimnames(x::X, dim::Tuple{Vararg{Integer, N}}) where {X, N}
+    has_dimnames(X) || return ntuple(_ -> :_, Val{N}())
+    dnames = dimnames(x)
+    nd = nfields(dnames)
+    ntuple(Val{N}()) do i
+        dim_i = Int(getfield(dim, i))
+        in(dim_i, 1:nd) ? getfield(dnames, dim_i, false) : :_
     end
 end
 @inline function dimnames(x::X, dim::Integer) where {X}

@@ -303,6 +303,8 @@ end
     @test @inferred(ArrayInterface.dimnames(a)) === (:_, :_, :_)
     @test @inferred(ArrayInterface.dimnames(nda)) === (:x, :y, :z)
     @test @inferred(ArrayInterface.dimnames(nda, 1)) === :x
+    @test @inferred(ArrayInterface.dimnames(nda, (1, 2))) === (:x, :y)
+    @test @inferred(ArrayInterface.dimnames((1,)) === (:_,)
 
     @test @inferred(ArrayInterface.to_dims(nda, :)) === Colon()
     @test @inferred(ArrayInterface.to_dims(nda, 1)) === 1
