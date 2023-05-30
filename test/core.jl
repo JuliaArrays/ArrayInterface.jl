@@ -277,7 +277,9 @@ end
     for A in [sparse([1.0 2.0; 3.0 4.0])]
         @test ArrayInterface.lu_instance(A) isa typeof(lu(A))
         @test ArrayInterface.qr_instance(A) isa typeof(qr(A))
-        @test ArrayInterface.cholesky_instance(A' * A) isa typeof(cholesky(A' * A))
+        if VERSION >= v"1.9-"
+            @test ArrayInterface.cholesky_instance(A' * A) isa typeof(cholesky(A' * A))
+        end
         @test ArrayInterface.ldlt_instance(SymTridiagonal(A' * A)) isa typeof(ldlt(SymTridiagonal(A' * A)))
     end
 end
