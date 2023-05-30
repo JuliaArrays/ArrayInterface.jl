@@ -476,7 +476,7 @@ cheaply.
 function cholesky_instance(A::Matrix{T}, pivot = LinearAlgebra.RowMaximum()) where {T}  
     return cholesky(similar(A, 0, 0), pivot, check = false)
 end
-function cholesky_instance(A::SparseMatrixCSC, pivot = LinearAlgebra.RowMaximum())
+function cholesky_instance(A::Union{SparseMatrixCSC,Symmetric{<:Number,<:SparseMatrixCSC}}, pivot = LinearAlgebra.RowMaximum())
     cholesky(sparse(similar(A, 1, 1)), check = false)
 end
 

@@ -267,10 +267,17 @@ end
         @test ArrayInterface.qr_instance(A) isa typeof(qr(A))
 
         if !(eltype(A) <: BigFloat)
-            @test ArrayInterface.bunchkaufman_instance(A) isa typeof(bunchkaufman(A' * A))
-            @test ArrayInterface.cholesky_instance(A) isa typeof(cholesky(A' * A))
-            @test ArrayInterface.ldlt_instance(A) isa typeof(ldlt(SymTridiagonal(A' * A)))
+            @test ArrayInterface.bunchkaufman_instance(A' * A) isa typeof(bunchkaufman(A' * A))
+            @test ArrayInterface.cholesky_instance(A' * A) isa typeof(cholesky(A' * A))
+            @test ArrayInterface.ldlt_instance(SymTridiagonal(A' * A)) isa typeof(ldlt(SymTridiagonal(A' * A)))
             @test ArrayInterface.svd_instance(A) isa typeof(svd(A))
         end
+    end
+
+    for A in [sparse([1.0 2.0; 3.0 4.0])]
+        @test ArrayInterface.lu_instance(A) isa typeof(lu(A))
+        @test ArrayInterface.qr_instance(A) isa typeof(qr(A))
+        @test ArrayInterface.cholesky_instance(A' * A) isa typeof(cholesky(A' * A))
+        @test ArrayInterface.ldlt_instance(SymTridiagonal(A' * A)) isa typeof(ldlt(SymTridiagonal(A' * A)))
     end
 end
