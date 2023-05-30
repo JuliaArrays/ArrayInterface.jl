@@ -505,7 +505,7 @@ function ldlt_instance(A::Matrix{T}) where {T}
     return ldlt(SymTridiagonal(similar(A, 0, 0)))
 end
 function ldlt_instance(A::SparseMatrixCSC)
-    ldlt(sparse(similar(A, 1, 1)))
+    ldlt(sparse(similar(A, 1, 1)), check=false)
 end
 
 """
