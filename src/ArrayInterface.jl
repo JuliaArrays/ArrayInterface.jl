@@ -473,7 +473,7 @@ cholesky_instance(A, pivot = LinearAlgebra.RowMaximum()) -> cholesky_factorizati
 Returns an instance of the Cholesky factorization object with the correct type
 cheaply.
 """
-function cholesky_instance(A::Matrix{T}, pivot = LinearAlgebra.RowMaximum()) where {T}  
+function cholesky_instance(A::Matrix{T}, pivot = LinearAlgebra.NoPivot()) where {T}  
     return cholesky(similar(A, 0, 0), pivot, check = false)
 end
 function cholesky_instance(A::Union{SparseMatrixCSC,Symmetric{<:Number,<:SparseMatrixCSC}}, pivot = LinearAlgebra.RowMaximum())
