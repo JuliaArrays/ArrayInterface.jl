@@ -467,16 +467,23 @@ Returns the number.
 """
 bunchkaufman_instance(a::Any) = bunchkaufman(a, check = false)
 
+@static if VERSION < v"1.7beta"
+    const DEFAULT_CHOLESKY_PIVOT = Val(false)
+else
+    const DEFAULT_CHOLESKY_PIVOT = LinearAlgebra.NoPivot() 
+end
+
 """
 cholesky_instance(A, pivot = LinearAlgebra.RowMaximum()) -> cholesky_factorization_instance
 
 Returns an instance of the Cholesky factorization object with the correct type
 cheaply.
 """
-function cholesky_instance(A::Matrix{T}, pivot = LinearAlgebra.RowMaximum()) where {T}  
+function cholesky_instance(A::Matrix{T}, pivot = DEFAULT_CHOLESKY_PIVOT) where {T}  
     return cholesky(similar(A, 0, 0), pivot, check = false)
 end
-function cholesky_instance(A::SparseMatrixCSC, pivot = LinearAlgebra.RowMaximum())
+
+function cholesky_instance(A::Union{SparseMatrixCSC,Symmetric{<:Number,<:SparseMatrixCSC}}, pivot = DEFAULT_CHOLESKY_PIVOT)
     cholesky(sparse(similar(A, 1, 1)), check = false)
 end
 
@@ -485,7 +492,7 @@ cholesky_instance(a::Number, pivot = LinearAlgebra.RowMaximum()) -> a
 
 Returns the number.
 """
-cholesky_instance(a::Number, pivot = LinearAlgebra.RowMaximum()) = a
+cholesky_instance(a::Number, pivot = DEFAULT_CHOLESKY_PIVOT) = a
 
 """
 cholesky_instance(a::Any, pivot = LinearAlgebra.RowMaximum()) -> cholesky(a, check=false)
@@ -493,7 +500,7 @@ cholesky_instance(a::Any, pivot = LinearAlgebra.RowMaximum()) -> cholesky(a, che
 Slow fallback which gets the instance via factorization. Should get
 specialized for new matrix types.
 """
-cholesky_instance(a::Any, pivot = LinearAlgebra.RowMaximum()) = cholesky(a, pivot, check = false)
+cholesky_instance(a::Any, pivot = DEFAULT_CHOLESKY_PIVOT) = cholesky(a, pivot, check = false)
 
 """
 ldlt_instance(A) -> ldlt_factorization_instance
@@ -502,10 +509,10 @@ Returns an instance of the LDLT factorization object with the correct type
 cheaply.
 """
 function ldlt_instance(A::Matrix{T}) where {T}  
-    return ldlt(SymTridiagonal(similar(A, 0, 0)), check = false)
+    return ldlt(SymTridiagonal(similar(A, 0, 0)))
 end
 function ldlt_instance(A::SparseMatrixCSC)
-    ldlt(sparse(similar(A, 1, 1)), check = false)
+    ldlt(sparse(similar(A, 1, 1)), check=false)
 end
 
 """
@@ -573,7 +580,7 @@ Returns an instance of the QR factorization object with the correct type
 cheaply.
 """
 function qr_instance(A::Matrix{T}) where {T}
-    LinearAlgebra.QRCompactWYQ(zeros(T,0,0),zeros(T,0,0))
+    LinearAlgebra.QRCompactWY(zeros(T,0,0),zeros(T,0,0))
 end
 
 function qr_instance(A::Matrix{BigFloat})
