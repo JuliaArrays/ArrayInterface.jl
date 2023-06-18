@@ -482,7 +482,7 @@ Returns the number.
 """
 bunchkaufman_instance(a::Any) = bunchkaufman(a, check = false)
 
-@static if VERSION < v"1.7beta"
+@static if VERSION < v"1.8beta"
     const DEFAULT_CHOLESKY_PIVOT = Val(false)
 else
     const DEFAULT_CHOLESKY_PIVOT = LinearAlgebra.NoPivot() 
@@ -498,10 +498,6 @@ end
     function cholesky_instance(A::Matrix{T}, pivot = DEFAULT_CHOLESKY_PIVOT) where {T}  
         return cholesky(similar(A, 0, 0), pivot, check = false)
     end
-
-    function cholesky_instance(A::Union{SparseMatrixCSC,Symmetric{<:Number,<:SparseMatrixCSC}}, pivot = DEFAULT_CHOLESKY_PIVOT)
-        cholesky(sparse(similar(A, 1, 1)), check = false)
-    end
 else
     """
     cholesky_instance(A, pivot = LinearAlgebra.RowMaximum()) -> cholesky_factorization_instance
@@ -512,10 +508,10 @@ else
     function cholesky_instance(A::Matrix{T}, pivot = DEFAULT_CHOLESKY_PIVOT) where {T}  
         return cholesky(similar(A, 0, 0), pivot)
     end
+end
 
-    function cholesky_instance(A::Union{SparseMatrixCSC,Symmetric{<:Number,<:SparseMatrixCSC}}, pivot = DEFAULT_CHOLESKY_PIVOT)
-        cholesky(sparse(similar(A, 1, 1)))
-    end
+function cholesky_instance(A::Union{SparseMatrixCSC,Symmetric{<:Number,<:SparseMatrixCSC}}, pivot = DEFAULT_CHOLESKY_PIVOT)
+    cholesky(sparse(similar(A, 1, 1)), check = false)
 end
 
 """
@@ -553,14 +549,8 @@ function ldlt_instance(A::Matrix{T}) where {T}
     return ldlt(SymTridiagonal(similar(A, 0, 0)))
 end
 
-@static if VERSION > v"1.9-"
-    function ldlt_instance(A::SparseMatrixCSC)
-        ldlt(sparse(similar(A, 1, 1)), check=false)
-    end
-else
-    function ldlt_instance(A::SparseMatrixCSC)
-        ldlt(sparse(similar(A, 1, 1)))
-    end
+function ldlt_instance(A::SparseMatrixCSC)
+    ldlt(sparse(similar(A, 1, 1)), check=false)
 end
 
 """
