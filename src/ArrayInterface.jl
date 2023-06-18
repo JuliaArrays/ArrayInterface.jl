@@ -440,17 +440,32 @@ matrix_colors(A::Bidiagonal) = _cycle(1:2, Base.size(A, 2))
 matrix_colors(A::Union{Tridiagonal, SymTridiagonal}) = _cycle(1:3, Base.size(A, 2))
 _cycle(repetend, len) = repeat(repetend, div(len, length(repetend)) + 1)[1:len]
 
-"""
-bunchkaufman_instance(A, pivot = LinearAlgebra.RowMaximum()) -> bunchkaufman_factorization_instance
+@static if VERSION > v"1.9-"
+    """
+    bunchkaufman_instance(A, pivot = LinearAlgebra.RowMaximum()) -> bunchkaufman_factorization_instance
 
-Returns an instance of the Bunch-Kaufman factorization object with the correct type
-cheaply.
-"""
-function bunchkaufman_instance(A::Matrix{T}) where T
-    return bunchkaufman(similar(A, 0, 0), check = false)
-end
-function bunchkaufman_instance(A::SparseMatrixCSC)
-    bunchkaufman(sparse(similar(A, 1, 1)), check = false)
+    Returns an instance of the Bunch-Kaufman factorization object with the correct type
+    cheaply.
+    """
+    function bunchkaufman_instance(A::Matrix{T}) where T
+        return bunchkaufman(similar(A, 0, 0), check = false)
+    end
+    function bunchkaufman_instance(A::SparseMatrixCSC)
+        bunchkaufman(sparse(similar(A, 1, 1)), check = false)
+    end
+else
+    """
+    bunchkaufman_instance(A, pivot = LinearAlgebra.RowMaximum()) -> bunchkaufman_factorization_instance
+
+    Returns an instance of the Bunch-Kaufman factorization object with the correct type
+    cheaply.
+    """
+    function bunchkaufman_instance(A::Matrix{T}) where T
+        return bunchkaufman(similar(A, 0, 0))
+    end
+    function bunchkaufman_instance(A::SparseMatrixCSC)
+        bunchkaufman(sparse(similar(A, 1, 1)))
+    end
 end
 
 """
@@ -473,18 +488,34 @@ else
     const DEFAULT_CHOLESKY_PIVOT = LinearAlgebra.NoPivot() 
 end
 
-"""
-cholesky_instance(A, pivot = LinearAlgebra.RowMaximum()) -> cholesky_factorization_instance
+@static if VERSION > v"1.9-"
+    """
+    cholesky_instance(A, pivot = LinearAlgebra.RowMaximum()) -> cholesky_factorization_instance
 
-Returns an instance of the Cholesky factorization object with the correct type
-cheaply.
-"""
-function cholesky_instance(A::Matrix{T}, pivot = DEFAULT_CHOLESKY_PIVOT) where {T}  
-    return cholesky(similar(A, 0, 0), pivot, check = false)
-end
+    Returns an instance of the Cholesky factorization object with the correct type
+    cheaply.
+    """
+    function cholesky_instance(A::Matrix{T}, pivot = DEFAULT_CHOLESKY_PIVOT) where {T}  
+        return cholesky(similar(A, 0, 0), pivot, check = false)
+    end
 
-function cholesky_instance(A::Union{SparseMatrixCSC,Symmetric{<:Number,<:SparseMatrixCSC}}, pivot = DEFAULT_CHOLESKY_PIVOT)
-    cholesky(sparse(similar(A, 1, 1)), check = false)
+    function cholesky_instance(A::Union{SparseMatrixCSC,Symmetric{<:Number,<:SparseMatrixCSC}}, pivot = DEFAULT_CHOLESKY_PIVOT)
+        cholesky(sparse(similar(A, 1, 1)), check = false)
+    end
+else
+    """
+    cholesky_instance(A, pivot = LinearAlgebra.RowMaximum()) -> cholesky_factorization_instance
+
+    Returns an instance of the Cholesky factorization object with the correct type
+    cheaply.
+    """
+    function cholesky_instance(A::Matrix{T}, pivot = DEFAULT_CHOLESKY_PIVOT) where {T}  
+        return cholesky(similar(A, 0, 0), pivot)
+    end
+
+    function cholesky_instance(A::Union{SparseMatrixCSC,Symmetric{<:Number,<:SparseMatrixCSC}}, pivot = DEFAULT_CHOLESKY_PIVOT)
+        cholesky(sparse(similar(A, 1, 1)))
+    end
 end
 
 """
@@ -494,13 +525,23 @@ Returns the number.
 """
 cholesky_instance(a::Number, pivot = DEFAULT_CHOLESKY_PIVOT) = a
 
-"""
-cholesky_instance(a::Any, pivot = LinearAlgebra.RowMaximum()) -> cholesky(a, check=false)
+@static if VERSION > v"1.9-"
+    """
+    cholesky_instance(a::Any, pivot = LinearAlgebra.RowMaximum()) -> cholesky(a, check=false)
 
-Slow fallback which gets the instance via factorization. Should get
-specialized for new matrix types.
-"""
-cholesky_instance(a::Any, pivot = DEFAULT_CHOLESKY_PIVOT) = cholesky(a, pivot, check = false)
+    Slow fallback which gets the instance via factorization. Should get
+    specialized for new matrix types.
+    """
+    cholesky_instance(a::Any, pivot = DEFAULT_CHOLESKY_PIVOT) = cholesky(a, pivot, check = false)
+else 
+    """
+    cholesky_instance(a::Any, pivot = LinearAlgebra.RowMaximum()) -> cholesky(a, check=false)
+    
+    Slow fallback which gets the instance via factorization. Should get
+    specialized for new matrix types.
+    """
+    cholesky_instance(a::Any, pivot = DEFAULT_CHOLESKY_PIVOT) = cholesky(a, pivot)
+end
 
 """
 ldlt_instance(A) -> ldlt_factorization_instance
@@ -511,8 +552,15 @@ cheaply.
 function ldlt_instance(A::Matrix{T}) where {T}  
     return ldlt(SymTridiagonal(similar(A, 0, 0)))
 end
-function ldlt_instance(A::SparseMatrixCSC)
-    ldlt(sparse(similar(A, 1, 1)), check=false)
+
+@static if VERSION > v"1.9-"
+    function ldlt_instance(A::SparseMatrixCSC)
+        ldlt(sparse(similar(A, 1, 1)), check=false)
+    end
+else
+    function ldlt_instance(A::SparseMatrixCSC)
+        ldlt(sparse(similar(A, 1, 1)))
+    end
 end
 
 """
@@ -565,13 +613,23 @@ Returns the number.
 """
 lu_instance(a::Number) = a
 
-"""
+@static if VERSION > v"1.9-"
+    """
+        lu_instance(a::Any) -> lu(a, check=false)
+
+    Slow fallback which gets the instance via factorization. Should get
+    specialized for new matrix types.
+    """
+    lu_instance(a::Any) = lu(a, check = false)
+else
+    """
     lu_instance(a::Any) -> lu(a, check=false)
 
-Slow fallback which gets the instance via factorization. Should get
-specialized for new matrix types.
-"""
-lu_instance(a::Any) = lu(a, check = false)
+    Slow fallback which gets the instance via factorization. Should get
+    specialized for new matrix types.
+    """
+    lu_instance(a::Any) = lu(a)
+end
 
 """
   qr_instance(A) -> qr_factorization_instance
