@@ -482,7 +482,7 @@ Returns the number.
 """
 bunchkaufman_instance(a::Any) = bunchkaufman(a, check = false)
 
-@static if VERSION < v"1.7beta"
+@static if VERSION < v"1.8beta"
     const DEFAULT_CHOLESKY_PIVOT = Val(false)
 else
     const DEFAULT_CHOLESKY_PIVOT = LinearAlgebra.NoPivot() 
