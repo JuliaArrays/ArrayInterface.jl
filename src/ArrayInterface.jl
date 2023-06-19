@@ -622,11 +622,28 @@ else
 end
 
 """
-  qr_instance(A) -> qr_factorization_instance
+  qr_instance(A, pivot = NoPivot()) -> qr_factorization_instance
 
 Returns an instance of the QR factorization object with the correct type
 cheaply.
 """
+function qr_instance(A::Matrix{T},pivot = DEFAULT_CHOLESKY_PIVOT) where {T}
+    if pivot === DEFAULT_CHOLESKY_PIVOT
+        LinearAlgebra.QRCompactWY(zeros(T,0,0),zeros(T,0,0))
+    else
+        LinearAlgebra.QRPivoted(zeros(T,0,0),zeros(T,0),zeros(Int,0))
+    end
+end
+
+function qr_instance(A::Matrix{BigFloat},pivot = DEFAULT_CHOLESKY_PIVOT)
+    LinearAlgebra.QR(zeros(BigFloat,0,0),zeros(BigFloat,0))
+end
+
+# Could be optimized but this should work for any real case.
+function qr_instance(jac_prototype::SparseMatrixCSC, pivot = DEFAULT_CHOLESKY_PIVOT)
+    qr(sparse(rand(1,1)))
+end
+
 function qr_instance(A::Matrix{T}) where {T}
     LinearAlgebra.QRCompactWY(zeros(T,0,0),zeros(T,0,0))
 end
