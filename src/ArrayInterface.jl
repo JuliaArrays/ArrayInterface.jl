@@ -644,25 +644,12 @@ function qr_instance(jac_prototype::SparseMatrixCSC, pivot = DEFAULT_CHOLESKY_PI
     qr(sparse(rand(1,1)))
 end
 
-function qr_instance(A::Matrix{T}) where {T}
-    LinearAlgebra.QRCompactWY(zeros(T,0,0),zeros(T,0,0))
-end
-
-function qr_instance(A::Matrix{BigFloat})
-    LinearAlgebra.QR(zeros(BigFloat,0,0),zeros(BigFloat,0))
-end
-
-# Could be optimized but this should work for any real case.
-function qr_instance(jac_prototype::SparseMatrixCSC)
-    qr(sparse(rand(1,1)))
-end
-
 """
   qr_instance(a::Number) -> a
 
 Returns the number.
 """
-qr_instance(a::Number) = a
+qr_instance(a::Number, pivot = DEFAULT_CHOLESKY_PIVOT) = a
 
 """
     qr_instance(a::Any) -> qr(a)
@@ -670,7 +657,7 @@ qr_instance(a::Number) = a
 Slow fallback which gets the instance via factorization. Should get
 specialized for new matrix types.
 """
-qr_instance(a::Any) = qr(a)# check = false)
+qr_instance(a::Any, pivot = DEFAULT_CHOLESKY_PIVOT) = qr(a)# check = false)
 
 """
   svd_instance(A) -> qr_factorization_instance
