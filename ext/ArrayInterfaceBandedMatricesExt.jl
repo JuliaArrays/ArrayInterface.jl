@@ -1,16 +1,26 @@
 module ArrayInterfaceBandedMatricesExt
 
-
 if isdefined(Base, :get_extension)
     using ArrayInterface
     using ArrayInterface: BandedMatrixIndex
     using BandedMatrices
+    using LinearAlgebra
 else
     using ..ArrayInterface
     using ..ArrayInterface: BandedMatrixIndex
     using ..BandedMatrices
+    using ..LinearAlgebra
 end
 
+const TransOrAdjBandedMatrix = Union{
+    Adjoint{T, <:BandedMatrix{T}},
+    Transpose{T, <:BandedMatrix{T}},
+} where {T}
+
+const AllBandedMatrix = Union{
+    BandedMatrix{T},
+    TransOrAdjBandedMatrix{T},
+} where {T}
 
 Base.firstindex(i::BandedMatrixIndex) = 1
 Base.lastindex(i::BandedMatrixIndex) = i.count
@@ -45,12 +55,12 @@ end
 
 function BandedMatrixIndex(rowsize, colsize, lowerbandwidth, upperbandwidth, isrow)
     upperbandwidth > -lowerbandwidth || throw(ErrorException("Invalid Bandwidths"))
-    bandinds = upperbandwidth:-1:-lowerbandwidth
+    bandinds = upperbandwidth:-1:(-lowerbandwidth)
     bandsizes = [_bandsize(band, rowsize, colsize) for band in bandinds]
     BandedMatrixIndex(sum(bandsizes), rowsize, colsize, bandinds, bandsizes, isrow)
 end
 
-function ArrayInterface.findstructralnz(x::BandedMatrices.BandedMatrix)
+function ArrayInterface.findstructralnz(x::AllBandedMatrix)
     l, u = BandedMatrices.bandwidths(x)
     rowsize, colsize = Base.size(x)
     rowind = BandedMatrixIndex(rowsize, colsize, l, u, true)
@@ -58,11 +68,11 @@ function ArrayInterface.findstructralnz(x::BandedMatrices.BandedMatrix)
     return (rowind, colind)
 end
 
-ArrayInterface.has_sparsestruct(::Type{<:BandedMatrices.BandedMatrix}) = true
-ArrayInterface.isstructured(::Type{<:BandedMatrices.BandedMatrix}) = true
-ArrayInterface.fast_matrix_colors(::Type{<:BandedMatrices.BandedMatrix}) = true
+ArrayInterface.has_sparsestruct(::Type{<:AllBandedMatrix}) = true
+ArrayInterface.isstructured(::Type{<:AllBandedMatrix}) = true
+ArrayInterface.fast_matrix_colors(::Type{<:AllBandedMatrix}) = true
 
-function ArrayInterface.matrix_colors(A::BandedMatrices.BandedMatrix)
+function ArrayInterface.matrix_colors(A::AllBandedMatrix)
     l, u = BandedMatrices.bandwidths(A)
     width = u + l + 1
     return ArrayInterface._cycle(1:width, Base.size(A, 2))
