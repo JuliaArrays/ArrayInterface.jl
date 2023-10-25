@@ -14,6 +14,8 @@ end
         @time @safetestset "BlockBandedMatrices" begin include("blockbandedmatrices.jl") end
         @time @safetestset "Core" begin include("core.jl") end
         @time @safetestset "StaticArraysCore" begin include("staticarrayscore.jl") end
+        @time @safetestset "StaticArrays" begin include("staticarrays.jl") end
+        @time @safetestset "Static" begin include("static.jl") end
     end
 
     if GROUP == "GPU"
