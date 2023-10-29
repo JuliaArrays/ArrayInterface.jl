@@ -261,16 +261,18 @@ end
 end
 
 @testset "linearalgebra instances" begin
-    for A in [rand(2,2), rand(Float32,2,2), rand(BigFloat,2,2)]
+    for A in [rand(2,2), rand(Float32,2,2), rand(BigFloat,2,2), rand(ComplexF32,2,2), rand(ComplexF64,2,2)]
         
         @test ArrayInterface.lu_instance(A) isa typeof(lu(A))
         @test ArrayInterface.qr_instance(A) isa typeof(qr(A))
 
         if !(eltype(A) <: BigFloat)
-            @test ArrayInterface.bunchkaufman_instance(A' * A) isa typeof(bunchkaufman(A' * A))
             @test ArrayInterface.cholesky_instance(A' * A) isa typeof(cholesky(A' * A))
-            @test ArrayInterface.ldlt_instance(SymTridiagonal(A' * A)) isa typeof(ldlt(SymTridiagonal(A' * A)))
             @test ArrayInterface.svd_instance(A) isa typeof(svd(A))
+            if !(eltype(A) <: Union{ComplexF16,ComplexF32,ComplexF64})
+                @test ArrayInterface.bunchkaufman_instance(A' * A) isa typeof(bunchkaufman(A' * A))
+                @test ArrayInterface.ldlt_instance(SymTridiagonal(A' * A)) isa typeof(ldlt(SymTridiagonal(A' * A)))
+            end
         end
     end
 

@@ -666,7 +666,7 @@ Returns an instance of the SVD factorization object with the correct type
 cheaply.
 """
 function svd_instance(A::Matrix{T}) where {T}
-    LinearAlgebra.SVD(zeros(T,0,0),zeros(T,0),zeros(T,0,0))
+    LinearAlgebra.SVD(zeros(T,0,0),zeros(real(T),0),zeros(T,0,0))
 end
 
 """
