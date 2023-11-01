@@ -546,11 +546,15 @@ Returns an instance of the LDLT factorization object with the correct type
 cheaply.
 """
 function ldlt_instance(A::Matrix{T}) where {T}  
-    return ldlt(SymTridiagonal(similar(A, 0, 0)))
+    return ldlt_instance(SymTridiagonal(similar(A, 0, 0)))
 end
 
 function ldlt_instance(A::SparseMatrixCSC)
     ldlt(sparse(similar(A, 1, 1)), check=false)
+end
+
+function ldlt_instance(A::SymTridiagonal{T,V}) where {T,V}
+    return LinearAlgebra.LDLt{T,SymTridiagonal{T,V}}(A)
 end
 
 """
