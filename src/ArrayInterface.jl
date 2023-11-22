@@ -600,6 +600,28 @@ function lu_instance(jac_prototype::SparseMatrixCSC)
     end
 end
 
+function lu_instance(A::Symmetric{T}) where {T}
+    noUnitT = typeof(zero(T))
+    luT = LinearAlgebra.lutype(noUnitT)
+    ipiv = Vector{LinearAlgebra.BlasInt}(undef, 0)
+    info = zero(LinearAlgebra.BlasInt)
+    return LU{luT}(similar(A, 0, 0), ipiv, info)
+end
+
+noalloc_diag(A::Diagonal) = A.diag
+noalloc_diag(A::Tridiagonal) = A.d
+noalloc_diag(A::SymTridiagonal) = A.dv
+
+function lu_instance(A::Union{Tridiagonal{T},Diagonal{T},SymTridiagonal{T}}) where {T}
+    noUnitT = typeof(zero(T))
+    luT = LinearAlgebra.lutype(noUnitT)
+    ipiv = Vector{LinearAlgebra.BlasInt}(undef, 0)
+    info = zero(LinearAlgebra.BlasInt)
+    vectype = similar(noalloc_diag(A), 0)
+    newA = Tridiagonal(vectype, vectype, vectype)
+    return LU{luT}(newA, ipiv, info)
+end
+
 """
   lu_instance(a::Number) -> a
 
