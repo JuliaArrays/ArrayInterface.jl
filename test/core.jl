@@ -71,6 +71,11 @@ end
     A = sprand(50, 50, 0.5)
     @test lu_instance(A) isa typeof(lu(A))
     @test lu_instance(1) === 1
+
+    @test lu_instance(Symmetric(rand(3,3))) isa typeof(lu(Symmetric(rand(4,4))))
+    @test lu_instance(Tridiagonal(rand(3),rand(4),rand(3))) isa typeof(lu(Tridiagonal(rand(3),rand(4),rand(3))))
+    @test lu_instance(SymTridiagonal(rand(4),rand(3))) isa typeof(lu(SymTridiagonal(rand(4),rand(3))))
+    @test lu_instance(Diagonal(rand(4))) isa typeof(lu(Diagonal(rand(4))))
 end
 
 @testset "ismutable" begin
