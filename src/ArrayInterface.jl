@@ -421,7 +421,7 @@ Returns the number.
 """
 bunchkaufman_instance(a::Any) = bunchkaufman(a, check = false)
 
-const DEFAULT_CHOLESKY_PIVOT = Val(false)
+const DEFAULT_CHOLESKY_PIVOT = LinearAlgebra.NoPivot()
 
 """
 cholesky_instance(A, pivot = LinearAlgebra.RowMaximum()) -> cholesky_factorization_instance
