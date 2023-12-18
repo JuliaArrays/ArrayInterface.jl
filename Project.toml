@@ -9,13 +9,13 @@ Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 SuiteSparse = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
-[compat]
-Adapt = "3"
-LinearAlgebra = "1.9"
-Requires = "1"
-SparseArrays = "1.9"
-SuiteSparse = "1.9"
-julia = "1.9"
+[weakdeps]
+BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
+BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
+StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
+Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
 
 [extensions]
 ArrayInterfaceBandedMatricesExt = "BandedMatrices"
@@ -25,29 +25,29 @@ ArrayInterfaceGPUArraysCoreExt = "GPUArraysCore"
 ArrayInterfaceStaticArraysCoreExt = "StaticArraysCore"
 ArrayInterfaceTrackerExt = "Tracker"
 
+[compat]
+Adapt = "3, 4"
+LinearAlgebra = "1.9"
+Requires = "1"
+SparseArrays = "1.9"
+SuiteSparse = "1.9"
+julia = "1.9"
+
 [extras]
-Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
 BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
-Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
-SuiteSparse = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
-Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
+SuiteSparse = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
 
 [targets]
 test = ["SafeTestsets", "Pkg", "Test", "Aqua", "Random", "SparseArrays", "SuiteSparse", "BandedMatrices", "BlockBandedMatrices", "GPUArraysCore", "StaticArrays", "StaticArraysCore", "Tracker"]
-
-[weakdeps]
-BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
-BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
-GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
-StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
-CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
-Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
