@@ -7,6 +7,21 @@ using Random
 using SparseArrays
 using Test
 
+struct LabeledIndicesArray{T,N,P<:AbstractArray{T,N},L} <: AbstractArray{T,N}
+    parent::P
+    labels::L
+
+    LabeledIndicesArray(p::P, labels::L) where {P,L} = new{eltype(P),ndims(p),P,L}(p, labels)
+end
+ArrayInterface.is_forwarding_wrapper(::Type{<:LabeledIndicesArray}) = true
+Base.parent(x::LabeledIndicesArray) = getfield(x, :parent)
+ArrayInterface.parent_type(::Type{T}) where {P,T<:LabeledIndicesArray{<:Any,<:Any,P}} = P
+ArrayInterface.index_labels(x::LabeledIndicesArray) = getfield(x, :labels)
+ArrayInterface.has_index_labels(T::Type{<:LabeledIndicesArray}) = true
+ArrayInterface.is_forwarding_wrapper(::Type{<:LabeledIndicesArray}) = true
+Base.size(x::LabeledIndicesArray) = size(parent(x))
+Base.@propagate_inbounds Base.getindex(x::LabeledIndicesArray, inds...) = parent(x)[inds...]
+
 # ensure we are correctly parsing these
 ArrayInterface.@assume_effects :total foo(x::Bool) = x
 ArrayInterface.@assume_effects bar(x::Bool) = x
@@ -290,3 +305,21 @@ end
         @test ArrayInterface.ldlt_instance(SymTridiagonal(A' * A)) isa typeof(ldlt(SymTridiagonal(A' * A)))
     end
 end
+
+@testset "index_labels" begin
+    a = ones(2, 3)
+    lia = LabeledIndicesArray(a, ([:a, :b], ["x", "y", "z"]))
+
+    @test @inferred(ArrayInterface.has_index_labels(typeof(lia)))
+    @test !@inferred(ArrayInterface.has_index_labels(typeof(a)))
+
+    @test @inferred(ArrayInterface.index_labels(lia)) == lia.labels
+    @test ArrayInterface.index_labels(lia, 1) == lia.labels[1]
+    @test_throws ArgumentError ArrayInterface.index_labels(a)
+
+    # throw errors when interface isn't implemented correctly
+    struct IllegalLabelledIndices end
+    ArrayInterface.has_index_labels(::Type{IllegalLabelledIndices}) = true
+    @test_throws ArgumentError ArrayInterface.index_labels(IllegalLabelledIndices())
+end
+

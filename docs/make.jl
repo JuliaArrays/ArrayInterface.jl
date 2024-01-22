@@ -12,6 +12,7 @@ makedocs(;
         "sparsearrays.md",
         "tuples.md",
         "wrapping.md",
+        "index_labels.md",
     ]
 )
 
