@@ -24,6 +24,7 @@ ArrayInterface.ismutable(::Type{<:StaticArraysCore.MArray}) = true
 ArrayInterface.ismutable(::Type{<:StaticArraysCore.SizedArray}) = true
 
 ArrayInterface.can_setindex(::Type{<:StaticArraysCore.StaticArray}) = false
+ArrayInterface.can_setindex(::Type{<:StaticArraysCore.MArray}) = true
 ArrayInterface.buffer(A::Union{StaticArraysCore.SArray,StaticArraysCore.MArray}) = getfield(A, :data)
 
 function ArrayInterface.lu_instance(_A::StaticArraysCore.StaticMatrix{N,N}) where {N}
