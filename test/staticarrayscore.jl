@@ -11,6 +11,7 @@ x = @SVector [1,2,3]
 x = @MVector [1,2,3]
 @test ArrayInterface.ismutable(x) == true
 @test ArrayInterface.ismutable(view(x, 1:2)) == true
+@test ArrayInterface.can_setindex(typeof(x)) == true
 
 A = @SMatrix(randn(5, 5))
 @test ArrayInterface.lu_instance(A) isa typeof(lu(A))
