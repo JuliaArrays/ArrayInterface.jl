@@ -13,6 +13,7 @@ end
         @time @safetestset "BandedMatrices" begin include("bandedmatrices.jl") end
         @time @safetestset "BlockBandedMatrices" begin include("blockbandedmatrices.jl") end
         @time @safetestset "Core" begin include("core.jl") end
+        @time @safetestset "AD Integration" begin include("ad.jl") end
         @time @safetestset "StaticArraysCore" begin include("staticarrayscore.jl") end
     end
 
