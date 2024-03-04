@@ -16,6 +16,7 @@ function ArrayInterface.aos_to_soa(x::AbstractArray{<:ReverseDiff.TrackedReal,N}
     if length(x) > 1
         reduce(vcat,x)
     else
+        @show "here?"
         reduce(vcat,[x[1],x[1]])[1:1]
     end
 end
