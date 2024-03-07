@@ -1,16 +1,9 @@
 module ArrayInterfaceBandedMatricesExt
 
-if isdefined(Base, :get_extension)
-    using ArrayInterface
-    using ArrayInterface: BandedMatrixIndex
-    using BandedMatrices
-    using LinearAlgebra
-else
-    using ..ArrayInterface
-    using ..ArrayInterface: BandedMatrixIndex
-    using ..BandedMatrices
-    using ..LinearAlgebra
-end
+using ArrayInterface
+using ArrayInterface: BandedMatrixIndex
+using BandedMatrices
+using LinearAlgebra
 
 const TransOrAdjBandedMatrix = Union{
     Adjoint{T, <:BandedMatrix{T}},
