@@ -1,17 +1,9 @@
 module ArrayInterfaceGPUArraysCoreExt
 
-
-if isdefined(Base, :get_extension)
-    using Adapt
-    using ArrayInterface
-    using LinearAlgebra: lu
-    import GPUArraysCore
-else
-    using Adapt # Will cause problems for relocatability.
-    using ..ArrayInterface
-    using ..LinearAlgebra: lu
-    import ..GPUArraysCore
-end
+using Adapt
+using ArrayInterface
+using LinearAlgebra: lu
+import GPUArraysCore
 
 ArrayInterface.fast_scalar_indexing(::Type{<:GPUArraysCore.AbstractGPUArray}) = false
 @inline ArrayInterface.allowed_getindex(x::GPUArraysCore.AbstractGPUArray, i...) = GPUArraysCore.@allowscalar(x[i...])

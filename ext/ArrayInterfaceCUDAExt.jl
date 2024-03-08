@@ -1,16 +1,9 @@
 module ArrayInterfaceCUDAExt
 
 using ArrayInterface
-
-if isdefined(Base, :get_extension)
-    using CUDA
-    using CUDA.CUSOLVER
-    using LinearAlgebra
-else
-    using ..CUDA
-    using ..CUDA.CUSOLVER
-    using ..LinearAlgebra
-end
+using CUDA
+using CUDA.CUSOLVER
+using LinearAlgebra
 
 function ArrayInterface.lu_instance(A::CuMatrix{T}) where {T}
     if VERSION >= v"1.8-"
