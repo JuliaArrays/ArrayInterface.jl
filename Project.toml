@@ -1,6 +1,6 @@
 name = "ArrayInterface"
 uuid = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
-version = "7.8.1"
+version = "7.9.0"
 
 [deps]
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
@@ -12,6 +12,7 @@ SuiteSparse = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
 BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+ChainRules = "082447d4-558c-5d27-93f4-14fc19e9eca2"
 GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
 ReverseDiff = "37e2e3b7-166d-5795-8a7a-e32c996b4267"
 StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
@@ -21,6 +22,7 @@ Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
 ArrayInterfaceBandedMatricesExt = "BandedMatrices"
 ArrayInterfaceBlockBandedMatricesExt = "BlockBandedMatrices"
 ArrayInterfaceCUDAExt = "CUDA"
+ArrayInterfaceChainRulesExt = "ChainRules"
 ArrayInterfaceGPUArraysCoreExt = "GPUArraysCore"
 ArrayInterfaceReverseDiffExt = "ReverseDiff"
 ArrayInterfaceStaticArraysCoreExt = "StaticArraysCore"
@@ -38,6 +40,7 @@ Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
 BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+ChainRules = "082447d4-558c-5d27-93f4-14fc19e9eca2"
 GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -51,4 +54,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
 
 [targets]
-test = ["SafeTestsets", "Pkg", "Test", "Aqua", "Random", "SparseArrays", "SuiteSparse", "BandedMatrices", "BlockBandedMatrices", "GPUArraysCore", "StaticArrays", "StaticArraysCore", "Tracker", "ReverseDiff"]
+test = ["SafeTestsets", "Pkg", "Test", "Aqua", "Random", "SparseArrays", "SuiteSparse", "BandedMatrices", "BlockBandedMatrices", "GPUArraysCore", "StaticArrays", "StaticArraysCore", "Tracker", "ReverseDiff", "ChainRules"]
