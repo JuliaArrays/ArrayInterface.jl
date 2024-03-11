@@ -15,6 +15,7 @@ end
         @time @safetestset "Core" begin include("core.jl") end
         @time @safetestset "AD Integration" begin include("ad.jl") end
         @time @safetestset "StaticArraysCore" begin include("staticarrayscore.jl") end
+        @time @safetestset "ChainRules" begin include("chainrules.jl") end
     end
 
     if GROUP == "GPU"
