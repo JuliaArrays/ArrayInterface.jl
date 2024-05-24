@@ -34,6 +34,7 @@ ArrayInterfaceTrackerExt = "Tracker"
 Adapt = "4"
 LinearAlgebra = "1.10"
 SparseArrays = "1.10"
+StaticArraysCore = "1"
 SuiteSparse = "1.10"
 julia = "1.10"
 
