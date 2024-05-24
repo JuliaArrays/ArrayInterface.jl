@@ -32,6 +32,7 @@ ArrayInterfaceTrackerExt = "Tracker"
 
 [compat]
 Adapt = "4"
+BandedMatrices = "1"
 LinearAlgebra = "1.10"
 SparseArrays = "1.10"
 SuiteSparse = "1.10"
