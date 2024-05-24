@@ -35,6 +35,7 @@ Adapt = "4"
 LinearAlgebra = "1.10"
 SparseArrays = "1.10"
 SuiteSparse = "1.10"
+Tracker = "0.2"
 julia = "1.10"
 
 [extras]
