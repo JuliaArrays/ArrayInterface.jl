@@ -32,10 +32,17 @@ ArrayInterfaceTrackerExt = "Tracker"
 
 [compat]
 Adapt = "4"
+BandedMatrices = "1"
+BlockBandedMatrices = "0.13"
+CUDA = "5"
+CUDSS = "0.2"
+ChainRules = "1"
 GPUArraysCore = "0.1"
 LinearAlgebra = "1.10"
+ReverseDiff = "1"
 SparseArrays = "1.10"
 SuiteSparse = "1.10"
+Tracker = "0.2"
 julia = "1.10"
 
 [extras]
