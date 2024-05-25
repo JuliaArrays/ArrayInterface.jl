@@ -33,6 +33,7 @@ ArrayInterfaceTrackerExt = "Tracker"
 [compat]
 Adapt = "4"
 BandedMatrices = "1"
+BlockBandedMatrices = "0.13"
 CUDA = "5"
 CUDSS = "0.2"
 ChainRules = "1"
