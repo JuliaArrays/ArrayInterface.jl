@@ -1000,7 +1000,7 @@ ensures_sorted(@nospecialize( T::Type{<:AbstractRange})) = true
 ensures_sorted(T::Type) = is_forwarding_wrapper(T) ? ensures_sorted(parent_type(T)) : false
 ensures_sorted(@nospecialize(x)) = ensures_sorted(typeof(x))
 
-function has_trivial_array_contstructor(::Type{T}, args...) as T
+function has_trivial_array_contstructor(::Type{T}, args...) where T
     applicable(T, args...)
 end
 
