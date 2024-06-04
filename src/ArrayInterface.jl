@@ -1001,7 +1001,7 @@ ensures_sorted(T::Type) = is_forwarding_wrapper(T) ? ensures_sorted(parent_type(
 ensures_sorted(@nospecialize(x)) = ensures_sorted(typeof(x))
 
 function has_trivial_array_contstructor(::Type{T}, args...) where T
-    applicable(T, args...)
+    applicable(convert, T, args...)
 end
 
 end # module
