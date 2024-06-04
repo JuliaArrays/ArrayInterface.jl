@@ -2,6 +2,7 @@ using ArrayInterface
 using ArrayInterface: zeromatrix, undefmatrix
 import ArrayInterface: has_sparsestruct, findstructralnz, fast_scalar_indexing, lu_instance,
         parent_type, zeromatrix
+using ComponentArrays
 using LinearAlgebra
 using Random
 using SparseArrays
@@ -289,4 +290,9 @@ end
         end
         @test ArrayInterface.ldlt_instance(SymTridiagonal(A' * A)) isa typeof(ldlt(SymTridiagonal(A' * A)))
     end
+end
+
+@testset "Array conversion" begin
+    cv = ComponentVector((x = rand(3), y = rand(3)))
+    @test ArrayInterface.has_trivial_array_constructor(typeof(cv), rand(6))
 end
