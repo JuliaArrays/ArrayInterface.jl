@@ -1000,4 +1000,28 @@ ensures_sorted(@nospecialize( T::Type{<:AbstractRange})) = true
 ensures_sorted(T::Type) = is_forwarding_wrapper(T) ? ensures_sorted(parent_type(T)) : false
 ensures_sorted(@nospecialize(x)) = ensures_sorted(typeof(x))
 
+"""
+    has_trivial_array_constructor(T::Type, args...) -> Bool
+
+Returns `true` if an object of type `T` can be constructed using the collection of `args`
+
+Note: This checks if a compatible `convert` methood exists between `T` and `args`
+
+# Examples:
+
+```julia
+julia> ca = ComponentVector((x = rand(3), y = rand(4),))
+ComponentVector{Float64}(x = [0.6549137106381634, 0.37555505280294565, 0.8521039568665254], y = [0.40314196291239024, 0.35484725607638834, 0.6580528978034597, 0.10055508457632167])
+
+julia> ArrayInterface.has_trivial_array_constructor(typeof(ca), ones(6))
+true
+
+julia> ArrayInterface.has_trivial_array_constructor(typeof(cv), (x = rand(6),))
+false
+```
+"""
+function has_trivial_array_constructor(::Type{T}, args...) where T
+    applicable(convert, T, args...)
+end
+
 end # module
