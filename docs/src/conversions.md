@@ -12,4 +12,5 @@ ArrayInterface.aos_to_soa
 ArrayInterface.promote_eltype
 ArrayInterface.restructure
 ArrayInterface.safevec
+ArrayInterface.has_trivial_array_constructor
 ```
