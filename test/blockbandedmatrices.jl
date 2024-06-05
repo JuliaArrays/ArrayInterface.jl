@@ -1,6 +1,7 @@
 
 using ArrayInterface
 using BlockBandedMatrices
+using FillArrays
 using Test
 
 BB=BlockBandedMatrix(Ones(10,10),[1,2,3,4],[4,3,2,1],(1,0))
