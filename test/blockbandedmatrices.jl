@@ -1,11 +1,12 @@
 
 using ArrayInterface
 using BlockBandedMatrices
+using FillArrays
 using Test
 
 BB=BlockBandedMatrix(Ones(10,10),[1,2,3,4],[4,3,2,1],(1,0))
-BB[Block(1,1)].=[1 2 3 4]
-BB[Block(2,1)].=[5 6 7 8;9 10 11 12]
+BB[BlockBandedMatrices.Block(1,1)].=[1 2 3 4]
+BB[BlockBandedMatrices.Block(2,1)].=[5 6 7 8;9 10 11 12]
 rowind,colind=ArrayInterface.findstructralnz(BB)
 @test [BB[rowind[i],colind[i]] for i in 1:length(rowind)]==
     [1,5,9,2,6,10,3,7,11,4,8,12,
