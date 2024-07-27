@@ -1,8 +1,6 @@
 module ArrayInterface
 
 using LinearAlgebra
-using SparseArrays
-using SuiteSparse
 
 @static if isdefined(Base, Symbol("@assume_effects"))
     using Base: @assume_effects
@@ -121,8 +119,6 @@ Return the buffer data that `x` points to. Unlike `parent(x::AbstractArray)`, `b
 may not return another array type.
 """
 buffer(x) = parent(x)
-buffer(x::SparseMatrixCSC) = getfield(x, :nzval)
-buffer(x::SparseVector) = getfield(x, :nzval)
 buffer(@nospecialize x::Union{Base.Slice, Base.IdentityUnitRange}) = getfield(x, :indices)
 
 """
@@ -308,7 +304,6 @@ Determine whether `findstructralnz` accepts the parameter `x`.
 has_sparsestruct(x) = has_sparsestruct(typeof(x))
 has_sparsestruct(::Type) = false
 has_sparsestruct(::Type{<:AbstractArray}) = false
-has_sparsestruct(::Type{<:SparseMatrixCSC}) = true
 has_sparsestruct(::Type{<:Diagonal}) = true
 has_sparsestruct(::Type{<:Bidiagonal}) = true
 has_sparsestruct(::Type{<:Tridiagonal}) = true
@@ -320,7 +315,6 @@ has_sparsestruct(::Type{<:SymTridiagonal}) = true
 Determine whether a given abstract matrix is singular.
 """
 issingular(A::AbstractMatrix) = issingular(Matrix(A))
-issingular(A::AbstractSparseMatrix) = !issuccess(lu(A, check = false))
 issingular(A::Matrix) = !issuccess(lu(A, check = false))
 issingular(A::UniformScaling) = A.λ == 0
 issingular(A::Diagonal) = any(iszero, A.diag)
@@ -356,11 +350,6 @@ function findstructralnz(x::Union{Tridiagonal, SymTridiagonal})
     n = Base.size(x, 1)
     rowind = TridiagonalIndex(n + n - 1 + n - 1, n, true)
     colind = TridiagonalIndex(n + n - 1 + n - 1, n, false)
-    (rowind, colind)
-end
-
-function findstructralnz(x::SparseMatrixCSC)
-    rowind, colind, _ = findnz(x)
     (rowind, colind)
 end
 
@@ -403,9 +392,6 @@ cheaply.
 function bunchkaufman_instance(A::Matrix{T}) where T
     return bunchkaufman(similar(A, 0, 0), check = false)
 end
-function bunchkaufman_instance(A::SparseMatrixCSC)
-    bunchkaufman(sparse(similar(A, 1, 1)), check = false)
-end
 
 """
 bunchkaufman_instance(a::Number) -> a
@@ -429,12 +415,8 @@ cholesky_instance(A, pivot = LinearAlgebra.RowMaximum()) -> cholesky_factorizati
 Returns an instance of the Cholesky factorization object with the correct type
 cheaply.
 """
-function cholesky_instance(A::Matrix{T}, pivot = DEFAULT_CHOLESKY_PIVOT) where {T}  
+function cholesky_instance(A::Matrix{T}, pivot = DEFAULT_CHOLESKY_PIVOT) where {T}
     return cholesky(similar(A, 0, 0), pivot, check = false)
-end
-
-function cholesky_instance(A::Union{SparseMatrixCSC,Symmetric{<:Number,<:SparseMatrixCSC}}, pivot = DEFAULT_CHOLESKY_PIVOT)
-    cholesky(sparse(similar(A, 1, 1)), check = false)
 end
 
 """
@@ -458,12 +440,8 @@ ldlt_instance(A) -> ldlt_factorization_instance
 Returns an instance of the LDLT factorization object with the correct type
 cheaply.
 """
-function ldlt_instance(A::Matrix{T}) where {T}  
+function ldlt_instance(A::Matrix{T}) where {T}
     return ldlt_instance(SymTridiagonal(similar(A, 0, 0)))
-end
-
-function ldlt_instance(A::SparseMatrixCSC)
-    ldlt(sparse(similar(A, 1, 1)), check=false)
 end
 
 function ldlt_instance(A::SymTridiagonal{T,V}) where {T,V}
@@ -497,9 +475,6 @@ function lu_instance(A::Matrix{T}) where {T}
     ipiv = Vector{LinearAlgebra.BlasInt}(undef, 0)
     info = zero(LinearAlgebra.BlasInt)
     return LU{luT}(similar(A, 0, 0), ipiv, info)
-end
-function lu_instance(jac_prototype::SparseMatrixCSC)
-    SuiteSparse.UMFPACK.UmfpackLU(similar(jac_prototype, 1, 1))
 end
 
 function lu_instance(A::Symmetric{T}) where {T}
@@ -555,11 +530,6 @@ end
 
 function qr_instance(A::Matrix{BigFloat},pivot = DEFAULT_CHOLESKY_PIVOT)
     LinearAlgebra.QR(zeros(BigFloat,0,0),zeros(BigFloat,0))
-end
-
-# Could be optimized but this should work for any real case.
-function qr_instance(jac_prototype::SparseMatrixCSC, pivot = DEFAULT_CHOLESKY_PIVOT)
-    qr(sparse(rand(1,1)))
 end
 
 """
