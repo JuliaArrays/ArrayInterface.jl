@@ -21,10 +21,6 @@ ArrayInterface.can_setindex(::Type{<:StaticArray}) = false
 ArrayInterface.can_setindex(::Type{<:MArray}) = true
 ArrayInterface.buffer(A::Union{SArray, MArray}) = getfield(A, :data)
 
-function ArrayInterface.lu_instance(A::SMatrix{N,N}) where {N}
-    LU(LowerTriangular(A), UpperTriangular(A), SVector{N}(1:N))
-end
-
 function ArrayInterface.lu_instance(A::StaticMatrix{N,N}) where {N}
     lu(one(A))
 end
