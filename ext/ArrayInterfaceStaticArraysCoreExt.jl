@@ -1,8 +1,8 @@
-module ArrayInterfaceStaticArraysExt
+module ArrayInterfaceStaticArraysCoreExt
 
 import ArrayInterface
 using LinearAlgebra
-import StaticArrays: SArray, SMatrix, SVector, StaticMatrix, StaticArray, SizedArray, MArray, MMatrix, LU
+import StaticArraysCore: SArray, SMatrix, SVector, StaticMatrix, StaticArray, SizedArray, MArray, MMatrix
 
 function ArrayInterface.undefmatrix(::MArray{S, T, N, L}) where {S, T, N, L}
     return MMatrix{L, L, T, L*L}(undef)

@@ -15,7 +15,7 @@ ChainRules = "082447d4-558c-5d27-93f4-14fc19e9eca2"
 GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
 ReverseDiff = "37e2e3b7-166d-5795-8a7a-e32c996b4267"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
-StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
 Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
 
 [extensions]
@@ -27,7 +27,7 @@ ArrayInterfaceChainRulesExt = "ChainRules"
 ArrayInterfaceGPUArraysCoreExt = "GPUArraysCore"
 ArrayInterfaceReverseDiffExt = "ReverseDiff"
 ArrayInterfaceSparseArraysExt = "SparseArrays"
-ArrayInterfaceStaticArraysExt = "StaticArrays"
+ArrayInterfaceStaticArraysCoreExt = "StaticArraysCore"
 ArrayInterfaceTrackerExt = "Tracker"
 
 [compat]
