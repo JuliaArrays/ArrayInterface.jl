@@ -3,8 +3,6 @@
 The following ArrayInterface functions extend Julia's Array interface for how arrays
 can be converted to different forms.
 
-##
-
 ## Conversion Functions
 
 ```@docs
