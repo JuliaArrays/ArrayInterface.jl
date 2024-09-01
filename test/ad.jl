@@ -18,3 +18,21 @@ x = Tracker.TrackedArray([4.0,4.0])
 x = reduce(vcat, Tracker.TrackedArray([4.0,4.0]))
 x = [x[1],x[2]]
 @test ArrayInterface.aos_to_soa(x) isa Tracker.TrackedArray
+
+x = rand(4)
+y = Tracker.TrackedReal.(rand(2,2))
+@test ArrayInterface.restructure(x, y) isa Array
+@test eltype(ArrayInterface.restructure(x, y)) <: Tracker.TrackedReal
+@test size(ArrayInterface.restructure(x, y)) == (4,)
+y = Tracker.TrackedArray(rand(2,2))
+@test ArrayInterface.restructure(x, y) isa Tracker.TrackedArray
+@test size(ArrayInterface.restructure(x, y)) == (4,)
+
+x = rand(4)
+y = ReverseDiff.track(rand(2,2))
+@test ArrayInterface.restructure(x, y) isa ReverseDiff.TrackedArray
+@test size(ArrayInterface.restructure(x, y)) == (4,)
+y = ReverseDiff.track.(rand(2,2))
+@test ArrayInterface.restructure(x, y) isa Array
+@test eltype(ArrayInterface.restructure(x, y)) <: ReverseDiff.TrackedReal
+@test size(ArrayInterface.restructure(x, y)) == (4,)

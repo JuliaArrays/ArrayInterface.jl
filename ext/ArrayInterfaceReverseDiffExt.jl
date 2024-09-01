@@ -15,4 +15,8 @@ function ArrayInterface.aos_to_soa(x::AbstractArray{<:ReverseDiff.TrackedReal, N
     end
 end
 
+function ArrayInterface.restructure(x::Array, y::ReverseDiff.TrackedArray)
+    reshape(y, Base.size(x)...)
+end
+
 end # module
