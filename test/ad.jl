@@ -27,3 +27,12 @@ y = Tracker.TrackedReal.(rand(2,2))
 y = Tracker.TrackedArray(rand(2,2))
 @test ArrayInterface.restructure(x, y) isa Tracker.TrackedArray
 @test size(ArrayInterface.restructure(x, y)) == (4,)
+
+x = rand(4)
+y = ReverseDiff.track(rand(2,2))
+@test ArrayInterface.restructure(x, y) isa ReverseDiff.TrackedArray
+@test size(ArrayInterface.restructure(x, y)) == (4,)
+y = ReverseDiff.track.(rand(2,2))
+@test ArrayInterface.restructure(x, y) isa Array
+@test eltype(ArrayInterface.restructure(x, y)) <: ReverseDiff.TrackedReal
+@test size(ArrayInterface.restructure(x, y)) == (4,)
