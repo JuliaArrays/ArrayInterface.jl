@@ -1,6 +1,9 @@
 using ArrayInterface, ReverseDiff, Tracker, Test
 x = ReverseDiff.track([4.0])
 @test ArrayInterface.aos_to_soa(x) isa ReverseDiff.TrackedArray
+x = reshape([ReverseDiff.track(rand(1, 1, 1))[1]], 1, 1, 1)
+@test ArrayInterface.aos_to_soa(x) isa ReverseDiff.TrackedArray
+@test ndims(ArrayInterface.aos_to_soa(x)) == 3
 x = reduce(vcat, ReverseDiff.track([4.0,4.0]))
 @test ArrayInterface.aos_to_soa(x) isa ReverseDiff.TrackedArray
 x = [ReverseDiff.track([4.0])[1]]
