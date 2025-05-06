@@ -46,7 +46,7 @@ function _bandsize(bandind, rowsize, colsize)
     end
 end
 
-function BandedMatrixIndex(rowsize, colsize, lowerbandwidth, upperbandwidth, isrow)
+function ArrayInterface.BandedMatrixIndex(rowsize, colsize, lowerbandwidth, upperbandwidth, isrow)
     upperbandwidth > -lowerbandwidth || throw(ErrorException("Invalid Bandwidths"))
     bandinds = upperbandwidth:-1:(-lowerbandwidth)
     bandsizes = [_bandsize(band, rowsize, colsize) for band in bandinds]
