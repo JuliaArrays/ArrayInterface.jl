@@ -12,6 +12,7 @@ on arrays in order to write optimal code for generic array types.
 ArrayInterface.can_avx
 ArrayInterface.can_change_size
 ArrayInterface.can_setindex
+ArrayInterface.can_index_atomically
 ArrayInterface.fast_scalar_indexing
 ArrayInterface.ismutable
 ArrayInterface.ndims_index

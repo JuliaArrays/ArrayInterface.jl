@@ -994,4 +994,29 @@ function has_trivial_array_constructor(::Type{T}, args...) where T
     applicable(convert, T, args...)
 end
 
+"""
+    can_index_atomically(T::Type) -> Bool
+
+Return `true` if instances of type `T` support indexing it's elements atomically.
+Implmentations returning `true` should implement the following in Julia versions
+where they are provided:
+
+* `Base.getindex_atomic`
+
+* `Base.setindex_atomic!`
+
+* `Base.setindexonce_atomic!`
+
+* `Base.modifyindex_atomic!`
+
+* `Base.swapindex_atomic!`
+
+* `Base.replaceindex_atomic!`
+
+"""
+can_index_atomically(T::Type) = T
+@static if isdefined(Base, :AtomicMemory)
+    can_index_atomically(::Type{<:AtomicMemory}) = true
+end
+
 end # module
