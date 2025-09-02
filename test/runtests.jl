@@ -21,5 +21,8 @@ end
     if GROUP == "GPU"
         activate_gpu_env()
         @time @safetestset "CUDA" begin include("gpu/cuda.jl") end
+        if Sys.isapple()
+            @time @safetestset "Metal" begin include("gpu/metal.jl") end
+        end
     end
 end
