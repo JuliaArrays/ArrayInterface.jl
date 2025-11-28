@@ -410,7 +410,7 @@ bunchkaufman_instance(a::Any) = bunchkaufman(a, check = false)
 const DEFAULT_CHOLESKY_PIVOT = LinearAlgebra.NoPivot()
 
 """
-cholesky_instance(A, pivot = LinearAlgebra.RowMaximum()) -> cholesky_factorization_instance
+cholesky_instance(A, pivot = LinearAlgebra.NoPivot()) -> cholesky_factorization_instance
 
 Returns an instance of the Cholesky factorization object with the correct type
 cheaply.
@@ -420,14 +420,14 @@ function cholesky_instance(A::Matrix{T}, pivot = DEFAULT_CHOLESKY_PIVOT) where {
 end
 
 """
-cholesky_instance(a::Number, pivot = LinearAlgebra.RowMaximum()) -> a
+cholesky_instance(a::Number, pivot = LinearAlgebra.NoPivot()) -> a
 
 Returns the number.
 """
 cholesky_instance(a::Number, pivot = DEFAULT_CHOLESKY_PIVOT) = a
 
 """
-cholesky_instance(a::Any, pivot = LinearAlgebra.RowMaximum()) -> cholesky(a, check=false)
+cholesky_instance(a::Any, pivot = LinearAlgebra.NoPivot()) -> cholesky(a, check=false)
 
 Slow fallback which gets the instance via factorization. Should get
 specialized for new matrix types.
