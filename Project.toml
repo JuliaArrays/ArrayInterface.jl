@@ -7,6 +7,7 @@ Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [weakdeps]
+AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
 BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
 BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
@@ -21,6 +22,7 @@ StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
 Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
 
 [extensions]
+ArrayInterfaceAMDGPUExt = "AMDGPU"
 ArrayInterfaceBandedMatricesExt = "BandedMatrices"
 ArrayInterfaceBlockBandedMatricesExt = "BlockBandedMatrices"
 ArrayInterfaceCUDAExt = "CUDA"
@@ -35,6 +37,7 @@ ArrayInterfaceStaticArraysCoreExt = "StaticArraysCore"
 ArrayInterfaceTrackerExt = "Tracker"
 
 [compat]
+AMDGPU = "2"
 Adapt = "4"
 BandedMatrices = "1"
 BlockBandedMatrices = "0.13"
