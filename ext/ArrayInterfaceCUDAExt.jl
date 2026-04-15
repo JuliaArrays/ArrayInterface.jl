@@ -13,4 +13,10 @@ end
 
 ArrayInterface.device(::Type{<:CUDA.CuArray}) = ArrayInterface.GPU()
 
+function ArrayInterface.promote_eltype(
+        ::Type{<:CUDA.CuArray{T, N, M}}, ::Type{T2}
+    ) where {T, N, M, T2}
+    return CUDA.CuArray{promote_type(T, T2), N, M}
+end
+
 end # module
