@@ -12,4 +12,10 @@ end
 
 ArrayInterface.device(::Type{<:Metal.MtlArray}) = ArrayInterface.GPU()
 
+function ArrayInterface.promote_eltype(
+        ::Type{<:Metal.MtlArray{T, N, S}}, ::Type{T2}
+    ) where {T, N, S, T2}
+    return Metal.MtlArray{promote_type(T, T2), N, S}
+end
+
 end # module
