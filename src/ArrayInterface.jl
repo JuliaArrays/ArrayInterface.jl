@@ -982,4 +982,35 @@ function has_trivial_array_constructor(::Type{T}, args...) where T
     applicable(convert, T, args...)
 end
 
+# Declare the documented, user-facing API as `public` so downstream packages can
+# reference these names without ExplicitImports non-public allow-lists. The
+# `public` keyword only parses on Julia 1.11+, so the declaration is gated and
+# `eval`'d to keep the source loadable on the package's older compat floor.
+@static if VERSION >= v"1.11.0-DEV.469"
+    eval(Expr(:public,
+        # conversions
+        :aos_to_soa, :promote_eltype, :restructure, :safevec,
+        :has_trivial_array_constructor,
+        # indexing traits
+        :can_avx, :can_change_size, :can_setindex, :fast_scalar_indexing,
+        :ismutable, :ndims_index, :ndims_shape, :defines_strides,
+        :ensures_all_unique, :ensures_sorted, :indices_do_not_alias,
+        :instances_do_not_alias, :device,
+        # allowed indexing
+        :allowed_getindex, :allowed_setindex!,
+        # indexing type buffers
+        :ArrayIndex, :GetIndex, :SetIndex!,
+        # linear algebra
+        :zeromatrix, :undefmatrix, :issingular, :bunchkaufman_instance,
+        :cholesky_instance, :ldlt_instance, :lu_instance, :qr_instance,
+        :svd_instance,
+        # sparse arrays
+        :isstructured, :findstructralnz, :has_sparsestruct, :fast_matrix_colors,
+        :matrix_colors,
+        # wrapping
+        :is_forwarding_wrapper, :buffer, :parent_type,
+        # tuples
+        :flatten_tuples, :map_tuple_type))
+end
+
 end # module
