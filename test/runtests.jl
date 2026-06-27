@@ -16,6 +16,7 @@ end
         @time @safetestset "AD Integration" begin include("ad.jl") end
         @time @safetestset "StaticArrays" begin include("staticarrays.jl") end
         @time @safetestset "ChainRules" begin include("chainrules.jl") end
+        @time @safetestset "FillArrays" begin include("fillarrays.jl") end
     end
 
     if GROUP == "GPU"
