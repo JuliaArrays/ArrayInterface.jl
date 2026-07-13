@@ -18,3 +18,11 @@ lu_sparse = lu!(lu_inst_sparse, A_sparse)
 #test that the resulting lu works
 b = CuVector([1f0, 1f0])
 @test CUDA.@allowscalar lu_sparse \ b == [1, 1]
+
+# CUSPARSE arrays have no `setindex!`, so `can_setindex` must not claim they do
+@test ArrayInterface.can_setindex(A_dense)
+@test !ArrayInterface.can_setindex(A_sparse)
+@test !ArrayInterface.can_setindex(CuSparseMatrixCSC(sparse(A_cpu)))
+@test !ArrayInterface.can_setindex(CuSparseMatrixCOO(sparse(A_cpu)))
+@test !ArrayInterface.can_setindex(CuSparseVector(sparsevec([1], [1.0f0], 2)))
+@test_throws CanonicalIndexError A_sparse[1, 2] = 1.0f0
