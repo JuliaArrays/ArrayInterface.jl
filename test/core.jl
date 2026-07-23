@@ -228,10 +228,15 @@ end
     @test !sss(Tridiagonal([1,2],[1,2,3],[4,5]), Tridiagonal([1],[1,2],[4]))
     @test sss(SymTridiagonal([1,2,3],[4,5]), SymTridiagonal([6,7,8],[9,1]))
 
-    # no generic fallback: unsupported / mixed-type pairs error rather than silently
-    # returning a possibly-wrong default
-    @test_throws MethodError sss(Diagonal([1,2,3]), Bidiagonal([1,2,3],[7,8],:U))
-    @test_throws MethodError sss(rand(3,3), rand(3,3))
+    # dense arrays: every position is structural, so same shape ⇒ same structure
+    @test sss(rand(3,3), rand(3,3))
+    @test !sss(rand(3,3), rand(3,2))
+    @test sss(rand(4), rand(4))
+
+    # different structural categories ⇒ false (not compared position-by-position)
+    @test !sss(Diagonal([1,2,3]), Bidiagonal([1,2,3],[7,8],:U))
+    @test !sss(Diagonal([1,2,3]), rand(3,3))
+    @test !sss(Tridiagonal([1,2],[1,2,3],[4,5]), SymTridiagonal([1,2,3],[4,5]))
 
     # sparse CSC: compares the stored index arrays
     A = sparse([1,2,3],[1,2,3],[1.0,2.0,3.0])

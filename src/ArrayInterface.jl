@@ -349,23 +349,30 @@ positions, i.e. they share an identical sparsity pattern (and shape). This is th
 under which values may be written into `B` reusing `A`'s stored layout (or a cached symbolic
 factorization of `A` reused for `B`) without rebuilding the structure.
 
-Defined for the sparse and structured matrix types whose pattern is decided by shape (plus
-`uplo`/format) or by comparing the stored index arrays (e.g. `colptr`/`rowval` for CSC).
-There is deliberately no generic fallback: an unsupported argument pair throws a
-`MethodError` rather than silently returning a (possibly wrong) default, so callers get a
-positive `true`/`false` answer or a clear signal that the type needs a method. `has_sparsestruct`
-can be used to check applicability first.
+Semantics by category:
+
+  - Dense arrays store every position, so two of them share a structure exactly when they
+    have the same shape.
+  - Structured (`Diagonal`, `Bidiagonal`, `Tridiagonal`, `SymTridiagonal`) and sparse
+    (`SparseMatrixCSC`, GPU CSC/CSR) matrices compare by their pattern — shape (plus
+    `uplo`/format) or the stored index arrays (e.g. `colptr`/`rowval` for CSC).
+  - A pair from different structural categories (e.g. a structured matrix and a dense one,
+    or two different structured types) returns `false`: for the intended reuse use case a
+    layout is not reused across categories, so this is treated as "not the same structure"
+    rather than compared position-by-position.
 
 Unlike `findstructralnz`, this performs no allocation on its fast paths, so it is suitable
 for use in hot loops (for example, deciding per Jacobian evaluation whether a sparse
 `jac_prototype`'s structure needs rebuilding).
 """
-function same_sparsity_structure end
+same_sparsity_structure(A::AbstractArray, B::AbstractArray) = false
+same_sparsity_structure(A::DenseArray, B::DenseArray) = Base.size(A) == Base.size(B)
 same_sparsity_structure(A::Diagonal, B::Diagonal) = Base.size(A) == Base.size(B)
 function same_sparsity_structure(A::Bidiagonal, B::Bidiagonal)
     Base.size(A) == Base.size(B) && A.uplo == B.uplo
 end
-# Same concrete banded type (both Tridiagonal or both SymTridiagonal).
+# Same concrete banded type (both Tridiagonal or both SymTridiagonal); a mixed pair falls
+# through to the category fallback (`false`).
 function same_sparsity_structure(A::T, B::T) where {T <: Union{Tridiagonal, SymTridiagonal}}
     Base.size(A) == Base.size(B)
 end
