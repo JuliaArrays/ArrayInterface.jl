@@ -153,6 +153,32 @@ end
         @test size(yr) == ()
         @test yr == y
     end
+
+    @testset "same-shape Array fast path" begin
+        # When `y` already has `x`'s shape, `restructure` returns `y` itself. `reshape` has no
+        # same-shape short-circuit (unlike `vec`), so it would otherwise mint a fresh Array
+        # header (sharing the data) on every call.
+        for dims in ((3,), (2,3), (2,2,2))
+            x = rand(dims...)
+            y = rand(dims...)
+            @test ArrayInterface.restructure(x, y) === y
+        end
+        # ... and does so without allocating
+        function _restructure_alloc()
+            x = rand(4); y = rand(4)
+            ArrayInterface.restructure(x, y)
+            @allocated ArrayInterface.restructure(x, y)
+        end
+        @test _restructure_alloc() == 0
+
+        # a genuine shape change still reshapes to `x`'s shape (unchanged behavior)
+        x = rand(2,2)
+        y = rand(4)
+        yr = ArrayInterface.restructure(x, y)
+        @test yr isa Matrix{Float64}
+        @test size(yr) == (2,2)
+        @test vec(yr) == y
+    end
 end
 
 @testset "isstructured" begin
