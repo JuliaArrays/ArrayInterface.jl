@@ -1,8 +1,9 @@
 module ArrayInterfaceSparseArraysExt
 
-import ArrayInterface: buffer, has_sparsestruct, issingular, findstructralnz, bunchkaufman_instance, DEFAULT_CHOLESKY_PIVOT, cholesky_instance, ldlt_instance, lu_instance, qr_instance
+import ArrayInterface: buffer, has_sparsestruct, issingular, findstructralnz, same_sparsity_structure, bunchkaufman_instance, DEFAULT_CHOLESKY_PIVOT, cholesky_instance, ldlt_instance, lu_instance, qr_instance
 using ArrayInterface.LinearAlgebra
 using SparseArrays
+using SparseArrays: AbstractSparseMatrixCSC, getcolptr, rowvals
 
 buffer(x::SparseMatrixCSC) = getfield(x, :nzval)
 buffer(x::SparseVector) = getfield(x, :nzval)
@@ -12,6 +13,13 @@ issingular(A::AbstractSparseMatrix) = !issuccess(lu(A, check = false))
 function findstructralnz(x::SparseMatrixCSC)
     rowind, colind, _ = findnz(x)
     (rowind, colind)
+end
+
+# Compares the stored index arrays directly (no `findnz` allocation), so it is cheap
+# enough for per-iteration reuse checks. Covers any CPU CSC type implementing the
+# `getcolptr`/`rowvals` interface.
+function same_sparsity_structure(A::AbstractSparseMatrixCSC, B::AbstractSparseMatrixCSC)
+    Base.size(A) == Base.size(B) && getcolptr(A) == getcolptr(B) && rowvals(A) == rowvals(B)
 end
 
 function bunchkaufman_instance(A::SparseMatrixCSC{Tv, Ti}) where {Tv, Ti}

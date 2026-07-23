@@ -11,6 +11,7 @@ These routines allow for improving sparse iteration and indexing.
 ArrayInterface.isstructured
 ArrayInterface.findstructralnz
 ArrayInterface.has_sparsestruct
+ArrayInterface.same_sparsity_structure
 ```
 
 ## Matrix Coloring

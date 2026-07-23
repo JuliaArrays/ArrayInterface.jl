@@ -25,6 +25,19 @@ const CuSparseArray = Union{
 }
 ArrayInterface.can_setindex(::Type{<:CuSparseArray}) = false
 
+# GPU CSC/CSR do not subtype `SparseArrays.AbstractSparseMatrixCSC`, so they need their own
+# structure comparison. The stored index arrays are `CuVector`s; `==` reduces on-device.
+function ArrayInterface.same_sparsity_structure(
+        A::CUSPARSE.CuSparseMatrixCSC, B::CUSPARSE.CuSparseMatrixCSC
+    )
+    size(A) == size(B) && A.colPtr == B.colPtr && A.rowVal == B.rowVal
+end
+function ArrayInterface.same_sparsity_structure(
+        A::CUSPARSE.CuSparseMatrixCSR, B::CUSPARSE.CuSparseMatrixCSR
+    )
+    size(A) == size(B) && A.rowPtr == B.rowPtr && A.colVal == B.colVal
+end
+
 function ArrayInterface.promote_eltype(
         ::Type{<:CUDA.CuArray{T, N, M}}, ::Type{T2}
     ) where {T, N, M, T2}

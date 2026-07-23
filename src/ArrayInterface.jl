@@ -341,6 +341,37 @@ function findstructralnz(x::Union{Tridiagonal, SymTridiagonal})
     (rowind, colind)
 end
 
+"""
+    same_sparsity_structure(A, B) -> Bool
+
+Return `true` when `A` and `B` are known to store their nonzeros in exactly the same
+structural positions, i.e. they share an identical sparsity pattern (and shape). This is
+the condition under which values may be written into `B` reusing `A`'s stored layout (or a
+cached symbolic factorization of `A` reused for `B`) without rebuilding the structure.
+
+The check is *conservative*: it returns `true` only when identical structure can be
+established cheaply for the given types, and `false` otherwise. A `false` result therefore
+does not prove the structures differ -- it means equality could not be confirmed cheaply, so
+a caller should fall back to reconstructing the structure. The generic fallback returns
+`false`; specialized methods are provided for the sparse and structured matrix types for
+which the pattern is decided by shape (plus `uplo`/format) or by comparing the stored
+index arrays (e.g. `colptr`/`rowval` for CSC).
+
+Unlike `findstructralnz`, this performs no allocation on its fast paths, so it is suitable
+for use in hot loops (for example, deciding per Jacobian evaluation whether a sparse
+`jac_prototype`'s structure needs rebuilding).
+"""
+same_sparsity_structure(A, B) = false
+same_sparsity_structure(A::Diagonal, B::Diagonal) = Base.size(A) == Base.size(B)
+function same_sparsity_structure(A::Bidiagonal, B::Bidiagonal)
+    Base.size(A) == Base.size(B) && A.uplo == B.uplo
+end
+# Same concrete banded type (both Tridiagonal or both SymTridiagonal); a mixed pair falls
+# through to the conservative generic `false`.
+function same_sparsity_structure(A::T, B::T) where {T <: Union{Tridiagonal, SymTridiagonal}}
+    Base.size(A) == Base.size(B)
+end
+
 abstract type ColoringAlgorithm end
 
 """
@@ -1005,8 +1036,8 @@ end
         :cholesky_instance, :ldlt_instance, :lu_instance, :qr_instance,
         :svd_instance,
         # sparse arrays
-        :isstructured, :findstructralnz, :has_sparsestruct, :fast_matrix_colors,
-        :matrix_colors,
+        :isstructured, :findstructralnz, :has_sparsestruct, :same_sparsity_structure,
+        :fast_matrix_colors, :matrix_colors,
         # wrapping
         :is_forwarding_wrapper, :buffer, :parent_type,
         # tuples
