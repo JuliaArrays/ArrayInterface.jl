@@ -216,6 +216,44 @@ end
     @test [STri[rowind[i],colind[i]] for i in 1:length(rowind)]==[1,2,3,4,5,6,7,5,6,7]
 end
 
+@testset "same_sparsity_structure" begin
+    sss = ArrayInterface.same_sparsity_structure
+
+    # structured matrices: pattern is fixed by shape (plus uplo)
+    @test sss(Diagonal([1,2,3]), Diagonal([4,5,6]))
+    @test !sss(Diagonal([1,2,3]), Diagonal([4,5]))
+    @test sss(Bidiagonal([1,2,3],[7,8],:U), Bidiagonal([4,5,6],[9,1],:U))
+    @test !sss(Bidiagonal([1,2,3],[7,8],:U), Bidiagonal([4,5,6],[9,1],:L))
+    @test sss(Tridiagonal([1,2],[1,2,3],[4,5]), Tridiagonal([6,7],[8,9,1],[2,3]))
+    @test !sss(Tridiagonal([1,2],[1,2,3],[4,5]), Tridiagonal([1],[1,2],[4]))
+    @test sss(SymTridiagonal([1,2,3],[4,5]), SymTridiagonal([6,7,8],[9,1]))
+
+    # same base type, differing type parameters ⇒ still the same structure
+    @test sss(Tridiagonal([1,2],[1,2,3],[4,5]), Tridiagonal([1.0,2],[1.0,2,3],[4.0,5]))
+
+    # dense arrays: every position is structural, so same shape ⇒ same structure
+    @test sss(rand(3,3), rand(3,3))
+    @test !sss(rand(3,3), rand(3,2))
+    @test sss(rand(4), rand(4))
+
+    # different base types ⇒ false (not compared position-by-position)
+    @test !sss(Diagonal([1,2,3]), Bidiagonal([1,2,3],[7,8],:U))
+    @test !sss(Diagonal([1,2,3]), rand(3,3))
+    @test !sss(Tridiagonal([1,2],[1,2,3],[4,5]), SymTridiagonal([1,2,3],[4,5]))
+
+    # same base type but no specialized method ⇒ unknown, error rather than fabricate false
+    @test_throws MethodError sss(UpperTriangular(rand(3,3)), UpperTriangular(rand(3,3)))
+
+    # sparse CSC: compares the stored index arrays
+    A = sparse([1,2,3],[1,2,3],[1.0,2.0,3.0])
+    B = sparse([1,2,3],[1,2,3],[4.0,5.0,6.0])   # same pattern, different values
+    C = sparse([1,2,3],[1,2,1],[4.0,5.0,6.0])   # different pattern
+    @test sss(A, B)
+    @test !sss(A, C)
+    @test sss(A, similar(A))                    # `similar` preserves the pattern
+    @test !sss(A, sparse([1,2],[1,2],[1.0,2.0]))  # different size
+end
+
 @testset "ndims_index" begin
     @test @inferred(ArrayInterface.ndims_index(CartesianIndices(()))) == 1
     @test @inferred(ArrayInterface.ndims_index(trues(2, 2))) == 2
