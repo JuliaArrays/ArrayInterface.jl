@@ -356,26 +356,34 @@ Semantics by category:
   - Structured (`Diagonal`, `Bidiagonal`, `Tridiagonal`, `SymTridiagonal`) and sparse
     (`SparseMatrixCSC`, GPU CSC/CSR) matrices compare by their pattern — shape (plus
     `uplo`/format) or the stored index arrays (e.g. `colptr`/`rowval` for CSC).
-  - A pair from different structural categories (e.g. a structured matrix and a dense one,
-    or two different structured types) returns `false`: for the intended reuse use case a
-    layout is not reused across categories, so this is treated as "not the same structure"
-    rather than compared position-by-position.
+  - Two arrays whose base types differ (e.g. a structured matrix and a dense one, or two
+    different structured types) return `false`: a layout is not reused across categories,
+    so they are treated as "not the same structure".
+  - Two arrays of the *same* base type with no specialized method are **unknown**, not
+    `false`: rather than fabricate an answer, a `MethodError` is thrown so the type can
+    define its own method. (`has_sparsestruct` can be used to check applicability first.)
 
 Unlike `findstructralnz`, this performs no allocation on its fast paths, so it is suitable
 for use in hot loops (for example, deciding per Jacobian evaluation whether a sparse
 `jac_prototype`'s structure needs rebuilding).
 """
-same_sparsity_structure(A::AbstractArray, B::AbstractArray) = false
+function same_sparsity_structure(A::AbstractArray, B::AbstractArray)
+    # Same base type but no specialized method: we genuinely do not know -- error rather
+    # than return a possibly-wrong `false`. Different base types cannot share a structural
+    # category, so those are `false`.
+    parameterless_type(A) === parameterless_type(B) &&
+        throw(MethodError(same_sparsity_structure, (A, B)))
+    return false
+end
 same_sparsity_structure(A::DenseArray, B::DenseArray) = Base.size(A) == Base.size(B)
 same_sparsity_structure(A::Diagonal, B::Diagonal) = Base.size(A) == Base.size(B)
 function same_sparsity_structure(A::Bidiagonal, B::Bidiagonal)
     Base.size(A) == Base.size(B) && A.uplo == B.uplo
 end
-# Same concrete banded type (both Tridiagonal or both SymTridiagonal); a mixed pair falls
-# through to the category fallback (`false`).
-function same_sparsity_structure(A::T, B::T) where {T <: Union{Tridiagonal, SymTridiagonal}}
-    Base.size(A) == Base.size(B)
-end
+# Base-type methods (not `A::T, B::T`) so differing type parameters, e.g.
+# `Tridiagonal{Float64}` vs `Tridiagonal{Int}`, still compare as the same structure.
+same_sparsity_structure(A::Tridiagonal, B::Tridiagonal) = Base.size(A) == Base.size(B)
+same_sparsity_structure(A::SymTridiagonal, B::SymTridiagonal) = Base.size(A) == Base.size(B)
 
 abstract type ColoringAlgorithm end
 
