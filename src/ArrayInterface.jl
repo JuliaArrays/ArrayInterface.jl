@@ -674,6 +674,14 @@ function restructure(x::Array, y)
     reshape(convert(Array, y), Base.size(x)...)
 end
 
+function restructure(x::Array, y::Array)
+    # When `y` already has `x`'s shape it is its own restructuring. `reshape` is not a no-op
+    # here: unlike `vec`, it has no same-shape short-circuit and always mints a fresh `Array`
+    # header (sharing the data), so returning `y` avoids that per-call allocation.
+    Base.size(x) == Base.size(y) && return y
+    reshape(convert(Array, y), Base.size(x)...)
+end
+
 abstract type AbstractDevice end
 abstract type AbstractCPU <: AbstractDevice end
 struct CPUPointer <: AbstractCPU end
