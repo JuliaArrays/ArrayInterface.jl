@@ -15,5 +15,13 @@ end
 function ArrayInterface.restructure(x::Array, y::ReverseDiff.TrackedArray)
     reshape(y, Base.size(x)...)
 end
+function ArrayInterface.restructure(x::ReverseDiff.TrackedArray, y::ReverseDiff.TrackedArray)
+    reshape(y, Base.size(x)...)
+end
+function ArrayInterface.restructure(
+        x::ReverseDiff.TrackedArray, y::AbstractArray{<:ReverseDiff.TrackedReal}
+)
+    reshape(ArrayInterface.aos_to_soa(y), Base.size(x)...)
+end
 
 end # module
