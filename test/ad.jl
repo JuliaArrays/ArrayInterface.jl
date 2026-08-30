@@ -55,6 +55,7 @@ x = rand(4)
 @testset "restructure GPUArraysCore + Tracker" begin
     target = JLArray(reshape(Float32.(1:6), 2, 3))
     src = JLArray(copy(vec(Array(target))))
+    src_cpu = Array(src)
 
     yr = ArrayInterface.restructure(target, src)
     @test yr isa JLArray
@@ -62,9 +63,22 @@ x = rand(4)
     @test Array(yr) == reshape(Array(src), 2, 3)
 
     y, back = Tracker.forward(src) do t
-        sum(ArrayInterface.restructure(target, t))
+        r = ArrayInterface.restructure(target, t)
+        @test Tracker.data(r) isa JLArray
+        @test size(r) == (2, 3)
+        sum(r)
     end
     dx = only(back(1.0f0))
     @test Tracker.data(y) == 21.0f0
     @test Array(Tracker.data(dx)) == ones(Float32, 6)
+
+    y_cpu, back_cpu = Tracker.forward(src_cpu) do t
+        r = ArrayInterface.restructure(target, t)
+        @test Tracker.data(r) isa JLArray
+        @test size(r) == (2, 3)
+        sum(r)
+    end
+    dx_cpu = only(back_cpu(1.0f0))
+    @test Tracker.data(y_cpu) == 21.0f0
+    @test dx_cpu == ones(Float32, 6)
 end
