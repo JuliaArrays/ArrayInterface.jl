@@ -1,4 +1,4 @@
-using ArrayInterface, ReverseDiff, Tracker, Test
+using ArrayInterface, ReverseDiff, Tracker, Test, JLArrays
 x = ReverseDiff.track([4.0])
 @test ArrayInterface.aos_to_soa(x) isa ReverseDiff.TrackedArray
 x = reshape([ReverseDiff.track(rand(1, 1, 1))[1]], 1, 1, 1)
@@ -51,3 +51,34 @@ x = rand(4)
 @test ArrayInterface.restructure(x, y) isa Array
 @test eltype(ArrayInterface.restructure(x, y)) <: ReverseDiff.TrackedReal
 @test size(ArrayInterface.restructure(x, y)) == (4,)
+
+@testset "restructure GPUArraysCore + Tracker" begin
+    target = JLArray(reshape(Float32.(1:6), 2, 3))
+    src = JLArray(copy(vec(Array(target))))
+    src_cpu = Array(src)
+
+    yr = ArrayInterface.restructure(target, src)
+    @test yr isa JLArray
+    @test size(yr) == (2, 3)
+    @test Array(yr) == reshape(Array(src), 2, 3)
+
+    y, back = Tracker.forward(src) do t
+        r = ArrayInterface.restructure(target, t)
+        @test Tracker.data(r) isa JLArray
+        @test size(r) == (2, 3)
+        sum(r)
+    end
+    dx = only(back(1.0f0))
+    @test Tracker.data(y) == 21.0f0
+    @test Array(Tracker.data(dx)) == ones(Float32, 6)
+
+    y_cpu, back_cpu = Tracker.forward(src_cpu) do t
+        r = ArrayInterface.restructure(target, t)
+        @test Tracker.data(r) isa JLArray
+        @test size(r) == (2, 3)
+        sum(r)
+    end
+    dx_cpu = only(back_cpu(1.0f0))
+    @test Tracker.data(y_cpu) == 21.0f0
+    @test dx_cpu == ones(Float32, 6)
+end
