@@ -5,13 +5,13 @@ import ChainRulesCore
 import ChainRulesCore: unthunk, NoTangent, ZeroTangent, ProjectTo, @thunk
 
 function ChainRulesCore.rrule(::typeof(ArrayInterface.restructure), target, src)
-    projectT = ProjectTo(target)
+    projectS = ProjectTo(src)
     function restructure_pullback(dt)
         dt = unthunk(dt)
 
         f̄ = NoTangent()
         t̄ = ZeroTangent()
-        s̄ = @thunk(projectT(ArrayInterface.restructure(src, dt)))
+        s̄ = @thunk(projectS(ArrayInterface.restructure(src, dt)))
 
         f̄, t̄, s̄
     end
