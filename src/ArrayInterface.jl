@@ -19,7 +19,7 @@ Returns tuple where each field corresponds to the field type of `T` modified by 
 
 # Examples
 
-```julia
+```julia-repl
 julia> ArrayInterface.map_tuple_type(sqrt, Tuple{1,4,16})
 (1.0, 2.0, 4.0)
 
@@ -37,7 +37,7 @@ Flattens any field of `t` that is a tuple. Only direct fields of `t` may be flat
 
 # Examples
 
-```julia
+```julia-repl
 julia> ArrayInterface.flatten_tuples((1, ()))
 (1,)
 
@@ -138,15 +138,13 @@ See also [`SetIndex!`](@ref)
 
 # Examples
 
-```julia
+```julia-repl
 julia> ArrayInterface.GetIndex(1:10)(3)
 3
 
 julia> ArrayInterface.GetIndex{false}(1:10)(11)  # shouldn't be in-bounds
 11
-
 ```
-
 """
 struct GetIndex{CB, B} <: Function
     buffer::B
@@ -175,15 +173,13 @@ See also [`GetIndex`](@ref)
 
 # Examples
 
-```julia
-
+```julia-repl
 julia> x = [1, 2, 3, 4];
 
 julia> ArrayInterface.SetIndex!(x)(10, 2);
 
 julia> x[2]
 10
-
 ```
 """
 struct SetIndex!{CB, B} <: Function
@@ -224,7 +220,7 @@ function ismutable end
     ismutable(::Type{T}) -> Bool
 
 Query whether instances of type `T` are mutable or not, see
-https://github.com/JuliaDiffEq/RecursiveArrayTools.jl/issues/19.
+<https://github.com/JuliaDiffEq/RecursiveArrayTools.jl/issues/19>.
 """
 ismutable(x) = ismutable(typeof(x))
 function ismutable(::Type{T}) where {T <: AbstractArray}
@@ -319,7 +315,7 @@ diaganyzero(A) = any(iszero, view(A, diagind(A)))
     findstructralnz(x::AbstractArray)
 
 Return: (I,J) #indexable objects
-Find sparsity pattern of special matrices, the same as the first two elements of findnz(::SparseMatrixCSC).
+Find sparsity pattern of special matrices, the same as the first two elements of `findnz(::SparseMatrixCSC)`.
 """
 function findstructralnz(x::Diagonal)
     n = Base.size(x, 1)
@@ -416,7 +412,7 @@ matrix_colors(A::Union{Tridiagonal, SymTridiagonal}) = _cycle(1:3, Base.size(A, 
 _cycle(repetend, len) = repeat(repetend, div(len, length(repetend)) + 1)[1:len]
 
 """
-bunchkaufman_instance(A, pivot = LinearAlgebra.RowMaximum()) -> bunchkaufman_factorization_instance
+    bunchkaufman_instance(A, pivot = LinearAlgebra.RowMaximum()) -> bunchkaufman_factorization_instance
 
 Returns an instance of the Bunch-Kaufman factorization object with the correct type
 cheaply.
@@ -426,14 +422,14 @@ function bunchkaufman_instance(A::Matrix{T}) where T
 end
 
 """
-bunchkaufman_instance(a::Number) -> a
+    bunchkaufman_instance(a::Number) -> a
 
 Returns the number.
 """
 bunchkaufman_instance(a::Number) = a
 
 """
-bunchkaufman_instance(a::Any) -> cholesky(a, check=false)
+    bunchkaufman_instance(a::Any) -> cholesky(a, check=false)
 
 Returns the number.
 """
@@ -442,7 +438,7 @@ bunchkaufman_instance(a::Any) = bunchkaufman(a, check = false)
 const DEFAULT_CHOLESKY_PIVOT = LinearAlgebra.NoPivot()
 
 """
-cholesky_instance(A, pivot = LinearAlgebra.NoPivot()) -> cholesky_factorization_instance
+    cholesky_instance(A, pivot = LinearAlgebra.NoPivot()) -> cholesky_factorization_instance
 
 Returns an instance of the Cholesky factorization object with the correct type
 cheaply.
@@ -452,14 +448,14 @@ function cholesky_instance(A::Matrix{T}, pivot = DEFAULT_CHOLESKY_PIVOT) where {
 end
 
 """
-cholesky_instance(a::Number, pivot = LinearAlgebra.NoPivot()) -> a
+    cholesky_instance(a::Number, pivot = LinearAlgebra.NoPivot()) -> a
 
 Returns the number.
 """
 cholesky_instance(a::Number, pivot = DEFAULT_CHOLESKY_PIVOT) = a
 
 """
-cholesky_instance(a::Any, pivot = LinearAlgebra.NoPivot()) -> cholesky(a, check=false)
+    cholesky_instance(a::Any, pivot = LinearAlgebra.NoPivot()) -> cholesky(a, check=false)
 
 Slow fallback which gets the instance via factorization. Should get
 specialized for new matrix types.
@@ -467,7 +463,7 @@ specialized for new matrix types.
 cholesky_instance(a::Any, pivot = DEFAULT_CHOLESKY_PIVOT) = cholesky(a, pivot, check = false)
 
 """
-ldlt_instance(A) -> ldlt_factorization_instance
+    ldlt_instance(A) -> ldlt_factorization_instance
 
 Returns an instance of the LDLT factorization object with the correct type
 cheaply.
@@ -481,14 +477,14 @@ function ldlt_instance(A::SymTridiagonal{T,V}) where {T,V}
 end
 
 """
-ldlt_instance(a::Number) -> a
+    ldlt_instance(a::Number) -> a
 
 Returns the number.
 """
 ldlt_instance(a::Number) = a
 
 """
-ldlt_instance(a::Any) -> ldlt(a, check=false)
+    ldlt_instance(a::Any) -> ldlt(a, check=false)
 
 Slow fallback which gets the instance via factorization. Should get
 specialized for new matrix types.
@@ -496,7 +492,7 @@ specialized for new matrix types.
 ldlt_instance(a::Any) = ldlt(a)
 
 """
-  lu_instance(A) -> lu_factorization_instance
+    lu_instance(A) -> lu_factorization_instance
 
 Returns an instance of the LU factorization object with the correct type
 cheaply.
@@ -532,14 +528,14 @@ function lu_instance(A::Union{Tridiagonal{T},Diagonal{T},SymTridiagonal{T}}) whe
 end
 
 """
-  lu_instance(a::Number) -> a
+    lu_instance(a::Number) -> a
 
 Returns the number.
 """
 lu_instance(a::Number) = a
 
 """
-    lu_instance(a::Any) -> lu(a, check=false)
+    lu_instance(a::Any) -> lu(a, check = false)
 
 Slow fallback which gets the instance via factorization. Should get
 specialized for new matrix types.
@@ -547,7 +543,7 @@ specialized for new matrix types.
 lu_instance(a::Any) = lu(a, check = false)
 
 """
-  qr_instance(A, pivot = NoPivot()) -> qr_factorization_instance
+    qr_instance(A, pivot = NoPivot()) -> qr_factorization_instance
 
 Returns an instance of the QR factorization object with the correct type
 cheaply.
@@ -565,7 +561,7 @@ function qr_instance(A::Matrix{BigFloat},pivot = DEFAULT_CHOLESKY_PIVOT)
 end
 
 """
-  qr_instance(a::Number) -> a
+    qr_instance(a::Number) -> a
 
 Returns the number.
 """
@@ -580,7 +576,7 @@ specialized for new matrix types.
 qr_instance(a::Any, pivot = DEFAULT_CHOLESKY_PIVOT) = qr(a)# check = false)
 
 """
-  svd_instance(A) -> qr_factorization_instance
+    svd_instance(A) -> qr_factorization_instance
 
 Returns an instance of the SVD factorization object with the correct type
 cheaply.
@@ -590,7 +586,7 @@ function svd_instance(A::Matrix{T}) where {T}
 end
 
 """
-  svd_instance(a::Number) -> a
+    svd_instance(a::Number) -> a
 
 Returns the number.
 """
@@ -747,14 +743,14 @@ fast_scalar_indexing(::Type{<:LinearAlgebra.AbstractQ}) = false
 fast_scalar_indexing(::Type{<:LinearAlgebra.LQPackedQ}) = false
 
 """
-    allowed_getindex(x,i...)
+    allowed_getindex(x, i...)
 
 A scalar `getindex` which is always allowed.
 """
 allowed_getindex(x, i...) = x[i...]
 
 """
-    allowed_setindex!(x,v,i...)
+    allowed_setindex!(x, v, i...)
 
 A scalar `setindex!` which is always allowed.
 """
@@ -828,7 +824,7 @@ See also [`ndims_shape`](@ref)
 
 # Examples
 
-```julia
+```julia-repl
 julia> ArrayInterface.ndims_index(Int)
 1
 
@@ -859,13 +855,13 @@ See also [`ndims_index`](@ref)
 
 # Examples
 
-```julia
+```julia-repl
 julia> ArrayInterface.ndims_shape([CartesianIndex(1, 1), CartesianIndex(1, 2)])
 1
 
 julia> ndims(CartesianIndices((2,2))[[CartesianIndex(1, 1), CartesianIndex(1, 2)]])
 1
-
+```
 """
 ndims_shape(T::DataType) = ndims_index(T)
 ndims_shape(::Type{Colon}) = 1
@@ -874,7 +870,6 @@ ndims_shape(@nospecialize T::Type{<:Union{Number, Base.AbstractCartesianIndex}})
 ndims_shape(@nospecialize T::Type{<:AbstractArray{Bool}}) = 1
 ndims_shape(@nospecialize T::Type{<:AbstractArray}) = ndims(T)
 ndims_shape(x) = ndims_shape(typeof(x))
-
 
 
 """
@@ -920,7 +915,7 @@ end
 """
     defines_strides(::Type{T}) -> Bool
 
-Is strides(::T) defined? It is assumed that types returning `true` also return a valid
+Is `strides(::T)` defined? It is assumed that types returning `true` also return a valid
 pointer on `pointer(::T)`.
 """
 defines_strides(x) = defines_strides(typeof(x))
@@ -965,7 +960,7 @@ interface.
 
 # Examples
 
-```julia
+```julia-repl
 julia> ArrayInterface.ensures_all_unique(BitSet())
 true
 
@@ -994,7 +989,7 @@ Returns `true` if all instances of `T` are sorted.
 
 # Examples
 
-```julia
+```julia-repl
 julia> ArrayInterface.ensures_sorted(BitSet())
 true
 
@@ -1019,8 +1014,8 @@ Note: This checks if a compatible `convert` methood exists between `T` and `args
 
 # Examples:
 
-```julia
-julia> ca = ComponentVector((x = rand(3), y = rand(4),))
+```julia-repl
+julia> ca = ComponentVector((x = rand(3), y = rand(4)))
 ComponentVector{Float64}(x = [0.6549137106381634, 0.37555505280294565, 0.8521039568665254], y = [0.40314196291239024, 0.35484725607638834, 0.6580528978034597, 0.10055508457632167])
 
 julia> ArrayInterface.has_trivial_array_constructor(typeof(ca), ones(6))
