@@ -11,3 +11,4 @@ b = zeros(length(arr))
 
 ChainRulesTestUtils.test_rrule(ArrayInterface.restructure, arr, b)
 ChainRulesTestUtils.test_rrule(ArrayInterface.restructure, b, arr)
+ChainRulesTestUtils.test_rrule(ArrayInterface.restructure, zeros(2, 2), zeros(4))
